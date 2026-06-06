@@ -1,11 +1,11 @@
 workflows:
-  # Smoke-test build: builds the iOS app without code signing. Useful for PRs
-  # and any commit on main — verifies the Capacitor wrap + Pods + Xcode project
-  # still compile. No artifacts uploaded anywhere.
+  # Smoke-test build: builds the iOS app without code signing on every push to
+  # main and on PRs. Verifies the Capacitor wrap + Pods + Xcode project still
+  # compile. No artifacts uploaded anywhere external.
   ios-debug:
     name: iOS Debug Build (no signing)
-    instance_type: mac_mini_m2
     max_build_duration: 30
+    instance_type: mac_mini_m2
     environment:
       xcode: latest
       cocoapods: default
@@ -17,12 +17,13 @@ workflows:
       branch_patterns:
         - pattern: main
           include: true
+          source: true
     scripts:
       - name: Install web dependencies
         script: |
           cd app
           npm ci
-      - name: Build React PWA
+      - name: Build React web bundle
         script: |
           cd app
           npm run build
@@ -34,7 +35,7 @@ workflows:
         script: |
           cd app/ios/App
           pod install --repo-update
-      - name: Build iOS (no signing)
+      - name: Build iOS (unsigned)
         script: |
           cd app/ios/App
           xcodebuild \
@@ -49,59 +50,3 @@ workflows:
             build
     artifacts:
       - app/ios/App/build/**/*.app
-
-  # TestFlight build: produces a signed .ipa and uploads to App Store Connect.
-  # Requires Apple Developer Program credentials configured in Codemagic UI:
-  #   - APP_STORE_CONNECT_PRIVATE_KEY, APP_STORE_CONNECT_KEY_IDENTIFIER,
-  #     APP_STORE_CONNECT_ISSUER_ID, CERTIFICATE_PRIVATE_KEY
-  # Trigger manually from the Codemagic UI (or via API) for now.
-  ios-testflight:
-    name: iOS TestFlight
-    instance_type: mac_mini_m2
-    max_build_duration: 60
-    environment:
-      xcode: latest
-      cocoapods: default
-      node: 22
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.gil4him.trackbyphoto
-      groups:
-        - app_store_credentials
-    scripts:
-      - name: Install web dependencies
-        script: |
-          cd app
-          npm ci
-      - name: Build React PWA
-        script: |
-          cd app
-          npm run build
-      - name: Capacitor sync
-        script: |
-          cd app
-          npx cap sync ios
-      - name: Install CocoaPods
-        script: |
-          cd app/ios/App
-          pod install --repo-update
-      - name: Bump build number
-        script: |
-          cd app/ios/App
-          BUILD_NUMBER=$(($(app-store-connect get-latest-app-store-build-number "$APP_STORE_APP_ID" 2>/dev/null || echo 0) + 1))
-          agvtool new-version -all "$BUILD_NUMBER"
-      - name: Build & archive
-        script: |
-          cd app/ios/App
-          xcode-project use-profiles
-          xcode-project build-ipa \
-            --workspace App.xcworkspace \
-            --scheme App
-    artifacts:
-      - app/ios/App/build/ios/ipa/*.ipa
-    publishing:
-      app_store_connect:
-        auth: integration
-        submit_to_testflight: true
-        beta_groups:
-          - Internal Testers
