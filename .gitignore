@@ -1,6 +1,24 @@
 .DS_Store
+._*
 .claude/
 node_modules/
+
+# env / secrets
 .env
 .env.local
+.env.*.local
+
+# build output
+dist/
+app/dist/
+functions/lib/
+
+# logs
 *.log
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+pglite-debug.log
+
+# firebase cache
+.firebase/
