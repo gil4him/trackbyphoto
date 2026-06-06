@@ -82,6 +82,19 @@ export const onPhotoUploaded = onObjectFinalized(
       return
     }
 
+    // On-device Apple Vision tags (Layer 1). Native iOS clients attach this;
+    // web clients leave it empty. Parsing is best-effort — bad JSON shouldn't
+    // block memo creation.
+    let tags: { labels: { name: string; confidence: number }[]; text: string[]; faceCount: number } | null = null
+    const tagsRaw = (meta.tags as string | undefined) || ''
+    if (tagsRaw) {
+      try {
+        tags = JSON.parse(tagsRaw)
+      } catch (err) {
+        logger.warn('could not parse vision tags', { err, tagsRaw })
+      }
+    }
+
     const db = getFirestore()
     const bucket = getStorage().bucket(obj.bucket)
     const file = bucket.file(path)
@@ -100,6 +113,7 @@ export const onPhotoUploaded = onObjectFinalized(
       category: '일상',
       status: 'pending',
       createdAt: FieldValue.serverTimestamp(),
+      ...(tags ? { tags } : {}),
     })
 
     try {

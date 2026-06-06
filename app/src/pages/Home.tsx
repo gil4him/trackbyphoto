@@ -1,7 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { useToast } from '../components/Toast'
 import { Processing } from '../components/Processing'
-import { getGeo, uploadPhoto, deleteMemo, captureNativePhoto, isNativeApp } from '../lib/capture'
+import {
+  getGeo,
+  uploadPhoto,
+  deleteMemo,
+  captureNativePhoto,
+  analyzePhotoTags,
+  isNativeApp,
+} from '../lib/capture'
+import type { VisionTags } from '../lib/capture'
 import { fmtTime, greeting } from '../util'
 import type { Memo } from '../types'
 
@@ -29,14 +37,21 @@ export function Home({ uid, patientName, memos }: { uid: string; patientName: st
     }
   }, [memos, toast])
 
-  const onPick = async (file: File) => {
+  const onPick = async (file: File, nativePath?: string) => {
     setBusy(true)
     setBusyMsg('사진을 저장하고 있어요…')
     try {
       const takenAt = new Date()
-      const geo = await getGeo()
+      // Run Vision and geolocation in parallel — both are independent and we
+      // want to gate the upload on whichever finishes last. Vision is null on
+      // web (no native path), so the Promise just resolves to null.
+      const [geo, tags] = await Promise.all([
+        getGeo(),
+        nativePath ? analyzePhotoTags(nativePath) : Promise.resolve<VisionTags | null>(null),
+      ])
+      if (tags) console.log('[capture] vision tags', tags)
       setBusyMsg('업로드 중이에요…')
-      await uploadPhoto({ uid, file, geo, takenAt })
+      await uploadPhoto({ uid, file, geo, takenAt, tags })
       setBusyMsg('AI가 활동을 적고 있어요…')
       // Function trigger does the rest; useEffect above will toast on memo arrival.
       // Show processing for a moment so it feels responsive even if function is fast.
@@ -64,8 +79,8 @@ export function Home({ uid, patientName, memos }: { uid: string; patientName: st
           onClick={async () => {
             if (isNativeApp) {
               try {
-                const file = await captureNativePhoto()
-                onPick(file)
+                const { file, path } = await captureNativePhoto()
+                onPick(file, path)
               } catch (err) {
                 // User cancelled the camera or denied permission.
                 console.warn('[capture] native camera cancelled or failed', err)
