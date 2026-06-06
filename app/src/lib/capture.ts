@@ -1,5 +1,6 @@
-import { ref, uploadBytes } from 'firebase/storage'
-import { storage } from '../firebase'
+import { ref, uploadBytes, deleteObject } from 'firebase/storage'
+import { deleteDoc, doc } from 'firebase/firestore'
+import { db, storage } from '../firebase'
 
 export interface Geo { lat: number; lng: number }
 
@@ -43,4 +44,19 @@ export async function uploadPhoto(opts: {
   })
 
   return { path, photoId }
+}
+
+/**
+ * Deletes a memo: removes the Firestore doc first (so it disappears from the
+ * UI immediately) then the underlying Storage object. A missing Storage
+ * object is treated as success since the doc is what the user sees.
+ */
+export async function deleteMemo(opts: { memoId: string; photoPath: string }) {
+  await deleteDoc(doc(db, 'memos', opts.memoId))
+  try {
+    await deleteObject(ref(storage, opts.photoPath))
+  } catch (err) {
+    // Already gone or never uploaded — don't surface this to the user.
+    console.warn('[deleteMemo] storage object delete failed', err)
+  }
 }

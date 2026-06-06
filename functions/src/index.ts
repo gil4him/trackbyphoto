@@ -85,16 +85,14 @@ export const onPhotoUploaded = onObjectFinalized(
     const db = getFirestore()
     const bucket = getStorage().bucket(obj.bucket)
     const file = bucket.file(path)
-    // Make the photo readable by the client via the standard download URL.
-    // (Storage rules already restrict reads to the owning uid.)
-    const downloadUrl = `https://firebasestorage.googleapis.com/v0/b/${obj.bucket}/o/${encodeURIComponent(path)}?alt=media`
 
     // Write a pending placeholder so the client can show "메모 작성 중…" immediately.
+    // photoUrl is filled in once we resolve the download token below.
     const memoRef = db.collection('memos').doc(photoId)
     await memoRef.set({
       uid,
       photoPath: path,
-      photoUrl: downloadUrl,
+      photoUrl: '',
       takenAt: takenAtIso ? Timestamp.fromDate(new Date(takenAtIso)) : Timestamp.now(),
       lat, lng,
       place: '',
@@ -105,10 +103,19 @@ export const onPhotoUploaded = onObjectFinalized(
     })
 
     try {
-      // In Phase 2, you'll download the bytes to send to Gemini.
-      // We keep the I/O here as a no-op to validate permissions early:
-      const [exists] = await file.exists()
-      if (!exists) throw new Error('uploaded file not found')
+      // The browser fetches the photo via a plain <img src> with no auth header,
+      // so Storage rules would 403 it. The Firebase-style download URL bypasses
+      // rules when a `token` query param matches a token in the object's
+      // metadata. The Web SDK's uploadBytes auto-generates one; reuse it (or
+      // mint a new one if missing).
+      const [storageMeta] = await file.getMetadata()
+      const existingTokens = (storageMeta.metadata as Record<string, string> | undefined)?.firebaseStorageDownloadTokens
+      let token = existingTokens?.split(',')[0]
+      if (!token) {
+        token = crypto.randomUUID()
+        await file.setMetadata({ metadata: { firebaseStorageDownloadTokens: token } })
+      }
+      const photoUrl = `https://firebasestorage.googleapis.com/v0/b/${obj.bucket}/o/${encodeURIComponent(path)}?alt=media&token=${token}`
 
       const [{ activity, category }, place] = await Promise.all([
         generateActivity({ bucket: obj.bucket, objectPath: path, contentType: obj.contentType }),
@@ -116,6 +123,7 @@ export const onPhotoUploaded = onObjectFinalized(
       ])
 
       await memoRef.update({
+        photoUrl,
         place,
         activity,
         category,

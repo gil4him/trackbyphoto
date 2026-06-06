@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useToast } from '../components/Toast'
 import { Processing } from '../components/Processing'
-import { getGeo, uploadPhoto } from '../lib/capture'
+import { getGeo, uploadPhoto, deleteMemo } from '../lib/capture'
 import { fmtTime, greeting } from '../util'
 import type { Memo } from '../types'
 
@@ -95,6 +95,19 @@ export function Home({ uid, patientName, memos }: { uid: string; patientName: st
               ) : (
                 <div className="thumb" style={{ background: '#eee' }} />
               )}
+              <button
+                className="del-btn"
+                aria-label="사진 삭제"
+                onClick={() => {
+                  if (!confirm('이 사진을 삭제할까요?')) return
+                  deleteMemo({ memoId: m.id, photoPath: m.photoPath }).catch((err) => {
+                    console.error(err)
+                    toast.show('삭제에 실패했어요', '잠시 후 다시 시도해주세요')
+                  })
+                }}
+              >
+                ✕
+              </button>
               <div className="meta">
                 <b>{fmtTime(m.takenAt.toDate())}</b>
                 {m.activity || (m.status === 'pending' ? '메모 작성 중…' : '')}

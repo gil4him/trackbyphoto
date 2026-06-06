@@ -1,7 +1,10 @@
 import { fmtDate, fmtTime, isSameDay } from '../util'
+import { deleteMemo } from '../lib/capture'
+import { useToast } from '../components/Toast'
 import type { Memo } from '../types'
 
 export function Today({ memos }: { memos: Memo[] }) {
+  const toast = useToast()
   const today = new Date()
   const items = memos.filter((m) => isSameDay(m.takenAt.toDate(), today))
 
@@ -26,6 +29,19 @@ export function Today({ memos }: { memos: Memo[] }) {
                 {m.photoUrl
                   ? <img src={m.photoUrl} alt="" />
                   : <div style={{ width: '100%', height: '100%', background: '#eee' }} />}
+                <button
+                  className="del-btn"
+                  aria-label="사진 삭제"
+                  onClick={() => {
+                    if (!confirm('이 사진을 삭제할까요?')) return
+                    deleteMemo({ memoId: m.id, photoPath: m.photoPath }).catch((err) => {
+                      console.error(err)
+                      toast.show('삭제에 실패했어요', '잠시 후 다시 시도해주세요')
+                    })
+                  }}
+                >
+                  ✕
+                </button>
               </div>
               <div className="body">
                 <div className="time">
