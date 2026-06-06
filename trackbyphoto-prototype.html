@@ -1,0 +1,817 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="오늘하루" />
+<meta name="theme-color" content="#FFB84D" />
+<title>오늘하루 · TrackByPhoto</title>
+<style>
+  :root {
+    --bg: #FFF8EE;
+    --card: #FFFFFF;
+    --ink: #1A1A1A;
+    --ink-2: #5C5C5C;
+    --ink-3: #9A9A9A;
+    --line: #EFE7D8;
+    --accent: #FF9A2E;       /* warm orange */
+    --accent-2: #FFB84D;
+    --accent-ink: #4A2A00;
+    --good: #2EAE6A;
+    --danger: #E04A4A;
+    --shadow: 0 10px 30px rgba(255, 154, 46, 0.25);
+    --radius: 22px;
+    --safe-top: env(safe-area-inset-top);
+    --safe-bot: env(safe-area-inset-bottom);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro", "Apple SD Gothic Neo",
+                 "Noto Sans KR", "Segoe UI", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    overscroll-behavior: none;
+    user-select: none;
+  }
+  body {
+    min-height: 100svh;
+    display: flex; flex-direction: column;
+  }
+  /* App shell */
+  .app {
+    flex: 1; display: flex; flex-direction: column;
+    max-width: 480px; width: 100%; margin: 0 auto;
+    padding-top: var(--safe-top);
+  }
+  header.bar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 20px 8px;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 10px;
+    font-weight: 700; font-size: 18px; letter-spacing: -0.01em;
+  }
+  .brand .dot {
+    width: 26px; height: 26px; border-radius: 8px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    box-shadow: var(--shadow);
+  }
+  .who {
+    font-size: 14px; color: var(--ink-2);
+    background: #fff; border: 1px solid var(--line);
+    padding: 6px 12px; border-radius: 999px;
+  }
+  main {
+    flex: 1; padding: 8px 20px 120px;
+    overflow-y: auto; -webkit-overflow-scrolling: touch;
+  }
+  /* Pages */
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* ---------- HOME ---------- */
+  .hero-greet {
+    margin: 8px 0 18px;
+    font-size: 26px; font-weight: 700; letter-spacing: -0.02em;
+  }
+  .hero-greet small {
+    display: block;
+    font-size: 16px; font-weight: 500; color: var(--ink-2);
+    margin-top: 6px;
+  }
+  .capture-wrap {
+    margin: 18px 0 26px;
+    display: flex; justify-content: center;
+  }
+  .capture {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    border-radius: 36px;
+    background: radial-gradient(120% 120% at 30% 20%, #FFD693 0%, var(--accent) 60%, #E37A00 100%);
+    color: #fff;
+    border: none;
+    box-shadow: var(--shadow), inset 0 -8px 0 rgba(0,0,0,0.08);
+    font-size: 44px; font-weight: 800; letter-spacing: -0.02em;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 12px;
+    cursor: pointer;
+    transition: transform 0.08s ease;
+  }
+  .capture:active { transform: scale(0.985); }
+  .capture .ico {
+    width: 84px; height: 84px;
+    background: rgba(255,255,255,0.18);
+    border-radius: 26px;
+    display: grid; place-items: center;
+    font-size: 48px;
+  }
+  .capture .sub {
+    font-size: 18px; font-weight: 500; opacity: 0.92;
+  }
+  .hidden-input { display: none; }
+
+  .hint {
+    text-align: center; color: var(--ink-2); font-size: 15px; margin-top: 10px;
+  }
+
+  .recent-title {
+    margin: 26px 0 10px;
+    font-size: 18px; font-weight: 700; color: var(--ink-2);
+  }
+  .recent-row {
+    display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px;
+    scroll-snap-type: x mandatory;
+  }
+  .recent-row::-webkit-scrollbar { display: none; }
+  .recent {
+    flex: 0 0 140px; scroll-snap-align: start;
+    background: var(--card); border-radius: 18px; overflow: hidden;
+    border: 1px solid var(--line);
+  }
+  .recent .thumb {
+    width: 100%; aspect-ratio: 1/1; background: #eee; display: block;
+    object-fit: cover;
+  }
+  .recent .meta {
+    padding: 8px 10px; font-size: 13px; color: var(--ink-2);
+  }
+  .recent .meta b { color: var(--ink); display: block; font-size: 14px; }
+  .empty-recent {
+    color: var(--ink-3); font-size: 14px; padding: 10px 2px;
+  }
+
+  /* ---------- TODAY ---------- */
+  .day-head {
+    margin: 6px 0 14px;
+    display: flex; align-items: baseline; justify-content: space-between;
+  }
+  .day-head h2 { margin: 0; font-size: 24px; letter-spacing: -0.02em; }
+  .day-head .count { color: var(--ink-2); font-size: 14px; }
+
+  .timeline { display: flex; flex-direction: column; gap: 14px; }
+  .memo {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: var(--radius);
+    overflow: hidden;
+    display: grid; grid-template-columns: 96px 1fr;
+  }
+  .memo .ph { background: #eee; aspect-ratio: 1/1; }
+  .memo .ph img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .memo .body { padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .memo .time {
+    font-size: 13px; color: var(--ink-2); display: flex; gap: 8px; align-items: center;
+  }
+  .memo .time .cat {
+    background: #FFF1DA; color: var(--accent-ink);
+    border-radius: 999px; padding: 2px 10px; font-size: 12px; font-weight: 600;
+  }
+  .memo .activity { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
+  .memo .place {
+    font-size: 14px; color: var(--ink-2);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .empty {
+    text-align: center; color: var(--ink-3);
+    padding: 40px 20px;
+  }
+  .empty .big { font-size: 48px; margin-bottom: 12px; }
+
+  /* ---------- SETTINGS ---------- */
+  .group {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: var(--radius); margin-bottom: 16px; overflow: hidden;
+  }
+  .group h3 {
+    margin: 0; padding: 14px 16px 6px;
+    font-size: 13px; font-weight: 700; color: var(--ink-3);
+    text-transform: uppercase; letter-spacing: 0.06em;
+  }
+  .row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 16px;
+    border-top: 1px solid var(--line);
+    min-height: 56px;
+  }
+  .row:first-of-type { border-top: none; }
+  .row .label { font-size: 16px; }
+  .row .label small { display: block; color: var(--ink-2); font-size: 13px; margin-top: 2px; }
+  .row .val { color: var(--ink-2); font-size: 15px; }
+
+  .seg {
+    display: flex; background: #F3EEDF; border-radius: 12px; padding: 4px; gap: 4px;
+  }
+  .seg button {
+    border: none; background: transparent;
+    padding: 8px 12px; border-radius: 8px;
+    font-size: 14px; color: var(--ink-2); font-weight: 600;
+    cursor: pointer;
+  }
+  .seg button.on { background: #fff; color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
+
+  .switch {
+    position: relative; width: 52px; height: 32px;
+    background: #DDD3BC; border-radius: 999px; cursor: pointer;
+    transition: background 0.15s;
+  }
+  .switch::after {
+    content: ""; position: absolute; top: 3px; left: 3px;
+    width: 26px; height: 26px; border-radius: 50%; background: #fff;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+    transition: left 0.15s;
+  }
+  .switch.on { background: var(--good); }
+  .switch.on::after { left: 23px; }
+
+  .recipients { display: flex; flex-direction: column; }
+  .recipient {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 16px; border-top: 1px solid var(--line);
+  }
+  .recipient:first-child { border-top: none; }
+  .recipient .name { font-weight: 600; }
+  .recipient .ph { font-size: 13px; color: var(--ink-2); }
+  .recipient .del {
+    border: none; background: transparent; color: var(--danger);
+    font-size: 14px; cursor: pointer;
+  }
+  .add-recipient {
+    display: flex; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--line);
+  }
+  .add-recipient input {
+    flex: 1; min-width: 0;
+    border: 1px solid var(--line); border-radius: 10px;
+    padding: 10px 12px; font-size: 15px; background: #FAF6EC;
+  }
+  .add-recipient button {
+    border: none; background: var(--accent); color: #fff;
+    border-radius: 10px; padding: 10px 14px; font-weight: 700;
+    font-size: 14px; cursor: pointer;
+  }
+
+  .danger-row { color: var(--danger); }
+  .danger-row button {
+    border: none; background: transparent; color: var(--danger);
+    font-size: 15px; font-weight: 600; cursor: pointer; padding: 0;
+  }
+
+  /* ---------- BOTTOM NAV ---------- */
+  nav.tabs {
+    position: fixed; left: 0; right: 0; bottom: 0;
+    background: rgba(255,255,255,0.92);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    border-top: 1px solid var(--line);
+    padding: 8px 0 calc(8px + var(--safe-bot));
+    display: flex; justify-content: space-around;
+    z-index: 50;
+  }
+  nav.tabs button {
+    flex: 1; max-width: 160px;
+    border: none; background: transparent;
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    padding: 6px 4px;
+    color: var(--ink-3); font-size: 12px; font-weight: 600;
+    cursor: pointer;
+  }
+  nav.tabs button .ic { font-size: 22px; line-height: 1; }
+  nav.tabs button.on { color: var(--accent); }
+
+  /* ---------- TOAST ---------- */
+  .toast-wrap {
+    position: fixed; left: 0; right: 0; top: 60%;
+    display: flex; justify-content: center; pointer-events: none;
+    z-index: 200;
+  }
+  .toast {
+    background: rgba(20,20,20,0.92); color: #fff;
+    padding: 16px 22px; border-radius: 18px;
+    font-size: 17px; font-weight: 600; letter-spacing: -0.01em;
+    max-width: 85%; text-align: center;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+    opacity: 0; transform: translateY(10px) scale(0.98);
+    transition: opacity 0.2s, transform 0.2s;
+  }
+  .toast.show { opacity: 1; transform: translateY(0) scale(1); }
+  .toast small {
+    display: block; margin-top: 6px; font-weight: 500;
+    font-size: 14px; opacity: 0.8;
+  }
+
+  /* ---------- PROCESSING OVERLAY ---------- */
+  .processing {
+    position: fixed; inset: 0; background: rgba(255,248,238,0.85);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    display: none; align-items: center; justify-content: center; flex-direction: column;
+    gap: 18px; z-index: 150;
+  }
+  .processing.show { display: flex; }
+  .processing .spinner {
+    width: 56px; height: 56px;
+    border: 5px solid #FFE3BD; border-top-color: var(--accent);
+    border-radius: 50%; animation: spin 0.9s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .processing .msg { font-size: 17px; color: var(--ink-2); font-weight: 600; }
+
+  /* PROTOTYPE NOTE */
+  .proto-note {
+    margin-top: 30px; padding: 12px 14px;
+    border: 1px dashed #E0CFAE; border-radius: 12px;
+    color: var(--ink-2); font-size: 12px; line-height: 1.5;
+    background: #FFFBF1;
+  }
+  .proto-note b { color: var(--ink); }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <header class="bar">
+    <div class="brand">
+      <div class="dot"></div>
+      <span>오늘하루</span>
+    </div>
+    <div class="who" id="who">엄마 · <span id="todayDate"></span></div>
+  </header>
+
+  <main>
+
+    <!-- HOME -->
+    <section class="page active" id="page-home">
+      <div class="hero-greet">
+        <span id="greet">안녕하세요</span>
+        <small>지금 이 순간을 한 번에 담아보세요.</small>
+      </div>
+
+      <div class="capture-wrap">
+        <button class="capture" id="captureBtn" aria-label="사진 찍기">
+          <div class="ico">📷</div>
+          <div>사진 찍기</div>
+          <div class="sub">크게 한 번 눌러주세요</div>
+        </button>
+        <input class="hidden-input" type="file" accept="image/*" capture="environment" id="fileInput" />
+      </div>
+
+      <div class="hint">사진을 찍으면 시간 · 장소 · 활동이 자동으로 저장돼요.</div>
+
+      <div class="recent-title">최근 사진</div>
+      <div class="recent-row" id="recentRow">
+        <div class="empty-recent">아직 사진이 없어요.</div>
+      </div>
+
+      <div class="proto-note">
+        <b>프로토타입 안내.</b> 이 화면은 실제 작동을 흉내낸 클릭 가능한 목업입니다.
+        실제 카메라/위치 권한을 허용하면 동작하며, AI 활동 설명과 장소명은 데모용으로 자동 생성됩니다.
+        카카오톡 발송은 시뮬레이션됩니다.
+      </div>
+    </section>
+
+    <!-- TODAY -->
+    <section class="page" id="page-today">
+      <div class="day-head">
+        <h2 id="todayHeader">오늘</h2>
+        <div class="count" id="todayCount">0건</div>
+      </div>
+      <div class="timeline" id="timeline"></div>
+      <div class="empty" id="todayEmpty">
+        <div class="big">🌤️</div>
+        <div>아직 오늘 기록이 없어요.</div>
+        <div style="margin-top:6px; font-size:14px;">홈에서 사진을 한 장 찍어보세요.</div>
+      </div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section class="page" id="page-settings">
+      <h2 style="margin:6px 0 14px; font-size:24px; letter-spacing:-0.02em;">설정</h2>
+
+      <div class="group">
+        <h3>받을 사람</h3>
+        <div class="recipients" id="recipientsList"></div>
+        <div class="add-recipient">
+          <input id="newName" placeholder="이름" />
+          <input id="newPhone" placeholder="010-0000-0000" inputmode="tel" />
+          <button id="addRecipientBtn">추가</button>
+        </div>
+      </div>
+
+      <div class="group">
+        <h3>알림 빈도</h3>
+        <div class="row">
+          <div class="label">
+            카카오톡 보내기
+            <small id="cadenceHint">매일 저녁 한 번 요약을 보내요</small>
+          </div>
+          <div class="seg" id="cadenceSeg">
+            <button data-val="realtime">실시간</button>
+            <button data-val="daily" class="on">매일</button>
+            <button data-val="weekly">매주</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="group">
+        <h3>자동화</h3>
+        <div class="row">
+          <div class="label">
+            완전 자동
+            <small>찍자마자 저장 · 알림 전송 (기본 권장)</small>
+          </div>
+          <div class="switch on" id="autoSwitch" role="switch" aria-checked="true"></div>
+        </div>
+        <div class="row">
+          <div class="label">
+            큰 글씨 모드
+            <small>어르신이 쓰시기 편하도록</small>
+          </div>
+          <div class="switch on" id="bigTextSwitch" role="switch" aria-checked="true"></div>
+        </div>
+      </div>
+
+      <div class="group">
+        <h3>보관</h3>
+        <div class="row">
+          <div class="label">
+            사진 보관 기간
+            <small>기간 지난 사진은 자동 삭제됩니다</small>
+          </div>
+          <div class="seg" id="retentionSeg">
+            <button data-val="30">30일</button>
+            <button data-val="90" class="on">90일</button>
+            <button data-val="forever">계속</button>
+          </div>
+        </div>
+        <div class="row danger-row">
+          <div class="label">오늘 기록 모두 지우기<small>되돌릴 수 없습니다</small></div>
+          <button id="wipeBtn">모두 삭제</button>
+        </div>
+      </div>
+
+      <div class="group">
+        <h3>테스트</h3>
+        <div class="row">
+          <div class="label">
+            지금 카카오톡 보내기 (시뮬레이션)
+            <small>받는 사람에게 오늘 요약을 발송합니다</small>
+          </div>
+          <button id="sendNowBtn" style="border:none;background:var(--accent);color:#fff;border-radius:10px;padding:10px 14px;font-weight:700;font-size:14px;cursor:pointer;">보내기</button>
+        </div>
+      </div>
+
+      <div class="proto-note">
+        <b>저장 위치.</b> 이 프로토타입은 모든 데이터를 브라우저의 localStorage에 저장합니다.
+        실제 앱은 Firebase Firestore + Cloud Storage에 저장되며, 카카오톡 알림톡으로 보안 링크가 전송됩니다.
+      </div>
+    </section>
+
+  </main>
+
+  <nav class="tabs">
+    <button data-page="home" class="on"><div class="ic">🏠</div>홈</button>
+    <button data-page="today"><div class="ic">📅</div>오늘</button>
+    <button data-page="settings"><div class="ic">⚙️</div>설정</button>
+  </nav>
+</div>
+
+<div class="processing" id="processing">
+  <div class="spinner"></div>
+  <div class="msg" id="processingMsg">메모를 만들고 있어요…</div>
+</div>
+
+<div class="toast-wrap"><div class="toast" id="toast"></div></div>
+
+<script>
+/* =========================================================
+   TrackByPhoto — single-file clickable prototype
+   - Real camera capture (input capture=environment)
+   - Real geolocation when permitted
+   - Mocked AI activity + mocked reverse geocoding
+   - localStorage persistence
+   - Mocked KakaoTalk send
+   ========================================================= */
+
+const LS_KEY = "trackbyphoto.v1";
+const state = loadState();
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch(_) {}
+  return {
+    patientName: "엄마",
+    recipients: [
+      { name: "딸 수진", phone: "010-1234-5678" },
+      { name: "아들 민호", phone: "010-2222-3333" }
+    ],
+    cadence: "daily",
+    autoMode: true,
+    bigText: true,
+    retention: "90",
+    memos: []   // {id, ts, dataUrl, lat, lng, place, activity, category}
+  };
+}
+function saveState() { localStorage.setItem(LS_KEY, JSON.stringify(state)); }
+
+/* ------------ Tab navigation ------------ */
+const pages = {
+  home: document.getElementById("page-home"),
+  today: document.getElementById("page-today"),
+  settings: document.getElementById("page-settings"),
+};
+document.querySelectorAll("nav.tabs button").forEach(b => {
+  b.addEventListener("click", () => {
+    document.querySelectorAll("nav.tabs button").forEach(x => x.classList.remove("on"));
+    b.classList.add("on");
+    Object.values(pages).forEach(p => p.classList.remove("active"));
+    pages[b.dataset.page].classList.add("active");
+    if (b.dataset.page === "today") renderTimeline();
+    if (b.dataset.page === "home") renderRecent();
+  });
+});
+
+/* ------------ Header & greeting ------------ */
+function fmtDate(d) {
+  const m = d.getMonth() + 1, day = d.getDate();
+  const wk = ["일","월","화","수","목","금","토"][d.getDay()];
+  return `${m}월 ${day}일 (${wk})`;
+}
+function fmtTime(d) {
+  let h = d.getHours();
+  const m = d.getMinutes().toString().padStart(2,"0");
+  const ampm = h < 12 ? "오전" : "오후";
+  h = h % 12; if (h === 0) h = 12;
+  return `${ampm} ${h}:${m}`;
+}
+function renderHeader() {
+  document.getElementById("todayDate").textContent = fmtDate(new Date());
+  document.getElementById("who").firstChild.nodeValue = state.patientName + " · ";
+  const hr = new Date().getHours();
+  const g = hr < 11 ? "좋은 아침이에요" : hr < 18 ? "좋은 오후예요" : "편안한 저녁이에요";
+  document.getElementById("greet").textContent = g + ", " + state.patientName + "님";
+  document.getElementById("todayHeader").textContent = fmtDate(new Date());
+}
+
+/* ------------ Mock AI activity + place ------------ */
+const ACTIVITIES = [
+  { cat: "식사", lines: ["점심 식사 중이에요", "맛있는 한 끼를 드시고 계세요", "따뜻한 식사 시간이에요"] },
+  { cat: "산책", lines: ["햇살 좋은 산책 중이에요", "동네를 천천히 걷고 계세요", "산책길에서 한 컷"] },
+  { cat: "휴식", lines: ["편안한 휴식 시간이에요", "잠깐 쉬어가는 중이에요", "차 한 잔과 함께 여유로운 시간"] },
+  { cat: "가족", lines: ["가족과 함께한 시간이에요", "사랑하는 사람과 함께", "오랜만에 만난 가족"] },
+  { cat: "일상", lines: ["오늘의 한 장면", "소중한 일상의 순간", "잔잔하고 평온한 시간"] },
+];
+const PLACES = ["자택 거실", "동네 공원", "한강공원", "행복요양센터", "근처 카페", "병원 근처", "마트 입구"];
+
+function pickAI() {
+  const a = ACTIVITIES[Math.floor(Math.random() * ACTIVITIES.length)];
+  const line = a.lines[Math.floor(Math.random() * a.lines.length)];
+  return { activity: line, category: a.cat };
+}
+function pickPlace(lat, lng) {
+  // In real app: Kakao Local reverse geocoding.
+  if (lat == null) return PLACES[Math.floor(Math.random() * PLACES.length)];
+  // Deterministic-ish: hash coords -> index
+  const i = Math.abs(Math.round((lat + lng) * 1000)) % PLACES.length;
+  return PLACES[i];
+}
+
+/* ------------ Capture flow ------------ */
+const fileInput = document.getElementById("fileInput");
+const captureBtn = document.getElementById("captureBtn");
+captureBtn.addEventListener("click", () => fileInput.click());
+
+fileInput.addEventListener("change", async () => {
+  const f = fileInput.files && fileInput.files[0];
+  if (!f) return;
+  showProcessing("사진을 저장하고 있어요…");
+
+  const [dataUrl, geo] = await Promise.all([readFile(f), getGeo()]);
+
+  // Simulate AI delay
+  setProcessing("AI가 활동을 적고 있어요…");
+  await wait(900);
+
+  const ai = pickAI();
+  const place = pickPlace(geo?.lat, geo?.lng);
+  const now = new Date();
+
+  const memo = {
+    id: "m_" + now.getTime(),
+    ts: now.toISOString(),
+    dataUrl,
+    lat: geo?.lat ?? null,
+    lng: geo?.lng ?? null,
+    place,
+    activity: ai.activity,
+    category: ai.category,
+  };
+  state.memos.unshift(memo);
+  // Cap stored photos to avoid filling localStorage
+  if (state.memos.length > 30) state.memos.length = 30;
+  saveState();
+
+  hideProcessing();
+  fileInput.value = "";
+
+  showToast(
+    `${fmtTime(now)} · ${ai.activity}`,
+    `${place} — 저장되었어요`
+  );
+
+  // If cadence is realtime + autoMode, simulate immediate KakaoTalk send
+  if (state.autoMode && state.cadence === "realtime") {
+    setTimeout(() => {
+      showToast("카카오톡으로 보냈어요", `${state.recipients.length}명에게 전송 완료`);
+    }, 2200);
+  }
+  renderRecent();
+});
+
+function readFile(file) {
+  return new Promise((res) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result);
+    r.readAsDataURL(file);
+  });
+}
+function getGeo() {
+  return new Promise((res) => {
+    if (!navigator.geolocation) return res(null);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => res({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => res(null),
+      { enableHighAccuracy: false, timeout: 4000, maximumAge: 60000 }
+    );
+  });
+}
+function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+/* ------------ Processing / Toast UI ------------ */
+const procEl = document.getElementById("processing");
+const procMsg = document.getElementById("processingMsg");
+function showProcessing(m) { procMsg.textContent = m; procEl.classList.add("show"); }
+function setProcessing(m) { procMsg.textContent = m; }
+function hideProcessing() { procEl.classList.remove("show"); }
+
+const toastEl = document.getElementById("toast");
+let toastTimer;
+function showToast(title, subtitle) {
+  toastEl.innerHTML = title + (subtitle ? `<small>${subtitle}</small>` : "");
+  toastEl.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove("show"), 3000);
+}
+
+/* ------------ Render: Recent (home) ------------ */
+function renderRecent() {
+  const row = document.getElementById("recentRow");
+  if (!state.memos.length) {
+    row.innerHTML = `<div class="empty-recent">아직 사진이 없어요.</div>`;
+    return;
+  }
+  row.innerHTML = state.memos.slice(0, 8).map(m => `
+    <div class="recent">
+      <img class="thumb" src="${m.dataUrl}" alt="" />
+      <div class="meta"><b>${fmtTime(new Date(m.ts))}</b>${escapeHtml(m.activity)}</div>
+    </div>
+  `).join("");
+}
+
+/* ------------ Render: Today timeline ------------ */
+function isSameDay(a, b) {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+function renderTimeline() {
+  const today = new Date();
+  const items = state.memos.filter(m => isSameDay(new Date(m.ts), today));
+  document.getElementById("todayCount").textContent = items.length + "건";
+  const tl = document.getElementById("timeline");
+  const empty = document.getElementById("todayEmpty");
+  if (!items.length) { tl.innerHTML = ""; empty.style.display = "block"; return; }
+  empty.style.display = "none";
+  tl.innerHTML = items.map(m => `
+    <div class="memo">
+      <div class="ph"><img src="${m.dataUrl}" alt="" /></div>
+      <div class="body">
+        <div class="time">${fmtTime(new Date(m.ts))} <span class="cat">${m.category}</span></div>
+        <div class="activity">${escapeHtml(m.activity)}</div>
+        <div class="place">📍 ${escapeHtml(m.place)}</div>
+      </div>
+    </div>
+  `).join("");
+}
+
+/* ------------ Settings ------------ */
+function renderRecipients() {
+  const el = document.getElementById("recipientsList");
+  if (!state.recipients.length) {
+    el.innerHTML = `<div class="recipient"><div class="ph">아직 받을 사람이 없어요.</div></div>`;
+    return;
+  }
+  el.innerHTML = state.recipients.map((r, i) => `
+    <div class="recipient">
+      <div>
+        <div class="name">${escapeHtml(r.name)}</div>
+        <div class="ph">${escapeHtml(r.phone)}</div>
+      </div>
+      <button class="del" data-i="${i}">삭제</button>
+    </div>
+  `).join("");
+  el.querySelectorAll(".del").forEach(b => {
+    b.addEventListener("click", () => {
+      state.recipients.splice(parseInt(b.dataset.i, 10), 1);
+      saveState(); renderRecipients();
+    });
+  });
+}
+document.getElementById("addRecipientBtn").addEventListener("click", () => {
+  const n = document.getElementById("newName").value.trim();
+  const p = document.getElementById("newPhone").value.trim();
+  if (!n || !p) { showToast("이름과 전화번호를 모두 입력하세요"); return; }
+  state.recipients.push({ name: n, phone: p });
+  document.getElementById("newName").value = "";
+  document.getElementById("newPhone").value = "";
+  saveState(); renderRecipients();
+  showToast("받을 사람이 추가되었어요");
+});
+
+/* segmented controls */
+function bindSeg(id, key, onChange) {
+  const seg = document.getElementById(id);
+  seg.querySelectorAll("button").forEach(b => {
+    if (b.dataset.val === String(state[key])) { seg.querySelectorAll("button").forEach(x => x.classList.remove("on")); b.classList.add("on"); }
+    b.addEventListener("click", () => {
+      seg.querySelectorAll("button").forEach(x => x.classList.remove("on"));
+      b.classList.add("on");
+      state[key] = b.dataset.val;
+      saveState();
+      onChange && onChange(b.dataset.val);
+    });
+  });
+}
+bindSeg("cadenceSeg", "cadence", (v) => {
+  const hint = document.getElementById("cadenceHint");
+  hint.textContent = v === "realtime" ? "사진을 찍을 때마다 바로 보내요" :
+                     v === "weekly" ? "매주 한 번 요약을 보내요" :
+                                      "매일 저녁 한 번 요약을 보내요";
+});
+bindSeg("retentionSeg", "retention");
+
+/* switches */
+function bindSwitch(id, key) {
+  const el = document.getElementById(id);
+  if (state[key]) el.classList.add("on"); else el.classList.remove("on");
+  el.addEventListener("click", () => {
+    state[key] = !state[key];
+    el.classList.toggle("on", state[key]);
+    el.setAttribute("aria-checked", state[key] ? "true" : "false");
+    saveState();
+    if (key === "bigText") applyBigText();
+  });
+}
+bindSwitch("autoSwitch", "autoMode");
+bindSwitch("bigTextSwitch", "bigText");
+
+function applyBigText() {
+  document.documentElement.style.fontSize = state.bigText ? "18px" : "16px";
+}
+
+/* danger + test */
+document.getElementById("wipeBtn").addEventListener("click", () => {
+  if (!confirm("오늘의 기록을 모두 삭제할까요? 되돌릴 수 없습니다.")) return;
+  const today = new Date();
+  state.memos = state.memos.filter(m => !isSameDay(new Date(m.ts), today));
+  saveState(); renderTimeline(); renderRecent();
+  showToast("오늘 기록을 모두 삭제했어요");
+});
+document.getElementById("sendNowBtn").addEventListener("click", () => {
+  const today = new Date();
+  const count = state.memos.filter(m => isSameDay(new Date(m.ts), today)).length;
+  if (!state.recipients.length) { showToast("받을 사람을 먼저 추가하세요"); return; }
+  showProcessing("카카오톡으로 보내고 있어요…");
+  setTimeout(() => {
+    hideProcessing();
+    showToast(
+      `[${state.patientName}의 하루] 발송 완료`,
+      `${state.recipients.length}명에게 · 오늘 ${count}건 요약`
+    );
+  }, 1200);
+});
+
+/* ------------ Init ------------ */
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+}
+renderHeader();
+renderRecent();
+renderRecipients();
+applyBigText();
+</script>
+
+</body>
+</html>
