@@ -2,7 +2,7 @@
 
 One line: An ultra-simple iPhone web app where an Alzheimer's patient taps one button to take a photo, and the app automatically turns it into a memo (time, activity, place) and sends a friendly summary to family and friends on KakaoTalk.
 
-Prepared June 6, 2026 · Planning package v1 (Product + Technical + Cost)
+Prepared June 6, 2026 · Planning package v2 — on-device AI revision
 
 ---
 
@@ -22,13 +22,13 @@ Everything is designed so the patient never has to think. The default experience
 
 ### Primary flow (patient)
 
-1. Patient opens the app (already "installed" on the home screen — looks like a normal app).
+1. Patient opens the app (installed from the App Store — a normal iPhone app icon, full-screen, no Safari).
 2. One full-screen friendly button: 사진 찍기 (Take a photo).
 3. Camera opens, patient takes the picture.
 4. The app automatically fills in:
    - **Date & time** — from the phone clock.
    - **Location** — phone GPS, converted to a readable place name (e.g., "자택", "행복요양센터", "한강공원").
-   - **Activity** — an AI vision model looks at the photo and writes a short, warm description ("점심 식사 중", "산책 중", "가족과 함께").
+   - **Activity** — Apple's on-device AI looks at the photo right on the iPhone and writes a short, warm description ("점심 식사 중", "산책 중", "가족과 함께"). The image never leaves the phone for AI interpretation.
 5. A simple card appears for ~3 seconds: "오후 12:30 · 점심 식사 · 자택 — 저장되었어요" then returns home. Done.
 
 ### Family flow (recipients)
@@ -75,40 +75,69 @@ No social feed, no comments, no accounts for the patient to manage, no in-app te
 ### High-level flow
 
 ```
-[ iPhone Safari PWA ]                 [ Firebase backend ]              [ Delivery ]
-  Big "Take photo" button   ─photo─▶   Cloud Storage (photo)
-  GPS at moment of capture  ─coords▶   Cloud Function:
-                                          1. Vision AI  → activity text
-                                          2. Reverse geocode → place name
-                                          3. Save memo (Firestore)
-                                          4. On schedule → build digest ──▶ KakaoTalk
-  "오늘" timeline           ◀─reads──   Firestore                          (Alimtalk)
-  Settings                  ─writes─▶   Firestore                     Family taps link
-                                        Hosting: secure day page  ◀──────────┘
+[ iPhone Capacitor app ]                    [ Firebase backend ]              [ Delivery ]
+  Big "Take photo" button
+  On-device Apple Vision → tags
+  Apple Foundation Models →
+     activity text (Korean)
+  GPS at moment of capture
+                              ─photo─────▶   Cloud Storage (photo)
+                              ─memo+tags─▶   Cloud Function:
+                                                1. Reverse geocode → place name
+                                                2. Save memo (Firestore)
+                                                3. On schedule → build digest ──▶ KakaoTalk
+  "오늘" timeline             ◀─reads─────   Firestore                          (Alimtalk)
+  Settings                    ─writes────▶   Firestore                     Family taps link
+                                              Hosting: secure day page  ◀──────────┘
 ```
 
-### Frontend — iPhone web app (PWA)
+### Frontend — iPhone Capacitor hybrid app
 
-A Progressive Web App built in React (works great with your Cursor / Firebase setup). Why a PWA and not a native App Store app: it's far cheaper (no $99/yr Apple fee, no review delays), updates instantly, and the patient just taps "홈 화면에 추가" (Add to Home Screen) once — after that it looks and launches like a real app, full screen.
+The same React UI you've already seen, wrapped in a thin native iOS container using **Capacitor**. The patient still sees a single icon on the home screen — but now that icon installs from the App Store, not from a Safari "Add to Home Screen" tap. The reason for the change: only a native iOS shell can reach Apple's on-device AI (Vision + Foundation Models), which lets us do photo interpretation entirely on the iPhone — free, private, and offline.
 
-- **Camera:** the simplest reliable method on iPhone Safari is a capture input (`<input type="file" accept="image/*" capture="environment">`) which opens the camera directly. One tap, no library needed.
-- **Location:** the browser Geolocation API captures GPS coordinates at the moment of the photo (needs HTTPS + a one-time permission). Note: photos taken through the web camera often have their embedded GPS stripped by iOS, so we read location live at capture time rather than from the photo file.
-- **Design:** bright, Apple-style, very large touch targets and type. See the included clickable mockup (`trackbyphoto-prototype.html`).
+The honest tradeoff:
+
+- **What we gain:** the AI runs on the phone for free, the photo never leaves the device for interpretation (a meaningful PIPA privacy win), and the AI works even with no signal.
+- **What it costs:** the Apple Developer Program at ~$99/yr (≈ ₩135,000/yr), plus a few business days of App Store / TestFlight review whenever we ship an update. No more instant push-to-web.
+
+What stays the same: the React code, the bright Apple-style UI in the included mockup (`trackbyphoto-prototype.html`), and the one-tap capture flow — the patient experience is identical.
+
+- **Camera:** Capacitor's native Camera plugin opens the iPhone camera directly. One tap, like the web version, but with full native iOS image quality and metadata.
+- **Location:** Capacitor's native Geolocation plugin reads GPS at the moment of capture (one-time iOS permission).
+- **Design:** unchanged — bright, Apple-style, very large touch targets and type.
 
 ### Backend — Firebase (your existing stack)
 
 - **Auth** — Kakao Login (or simple phone login) for the guardian/admin. The patient's device stays signed in permanently so they never log in.
 - **Cloud Storage** — stores the photos.
 - **Firestore** — stores memos and settings (small, cheap text data).
-- **Cloud Functions** — the "brain": when a new photo lands, it calls the vision AI, reverse-geocodes the location, writes the memo, and (on schedule) assembles and sends the KakaoTalk digest.
+- **Cloud Functions** — when the iPhone uploads a photo together with the already-generated memo text (and optional tag JSON), the function reverse-geocodes the location, saves the memo to Firestore, and (on schedule) assembles and sends the KakaoTalk digest. **No vision AI here anymore** — the heavy lifting moved to the iPhone.
 - **Cloud Scheduler** — triggers the daily/weekly digest send.
-- **Hosting** — serves the PWA and the secure per-day photo page (free SSL included).
+- **Hosting** — serves the secure per-day photo page (free SSL included).
 
-### The AI part (your "detection & creation" interest)
+### The AI part (your "detection & creation" interest) — now fully on-device
 
-When a photo arrives, a Cloud Function sends it to a small, low-cost vision model (e.g., Gemini Flash, GPT-4o-mini class, or Claude Haiku) with a prompt like *"이 어르신이 무엇을 하고 있는지 한 문장으로 따뜻하게 묘사해줘."* The model returns a short activity description. We combine that with the time and the reverse-geocoded place into the final memo. Optionally we also map it to a simple category (식사 / 산책 / 휴식 / 가족) for nicer summaries. This is cheap and fast — see Part 3.
+Photo interpretation runs on the iPhone itself, inside a small custom **Capacitor Swift plugin** that exposes Apple's two AI layers to the React app:
 
-**Location naming:** raw GPS coordinates are turned into a Korean place name using the Kakao Local (reverse geocoding) API — it's accurate for Korean addresses/landmarks and effectively free at this scale, and keeps you in the Kakao ecosystem.
+**Layer 1 — Apple Vision framework (all iPhones, iOS 11+).** Reads the photo the instant it's captured and extracts structured tags:
+
+- **Image classification** — what's in the picture (food, person, indoor, outdoor, animal, etc.).
+- **Korean text recognition (OCR)** — any signs, menus, or labels visible in the image.
+- **Face detection** — just the *count* of faces present. Not identity, not who. (Identity recognition would be a separate, opt-in feature and is out of scope.)
+
+The output is a small JSON of tags like `{ scene: "식사", objects: ["식탁", "음식"], faceCount: 2, ocr: "한정식" }`.
+
+**Layer 2 — Apple Foundation Models (Apple Intelligence's on-device LLM).** Takes those tags and writes the one-sentence Korean memo, with a prompt like *"이 어르신이 무엇을 하고 있는지 한 문장으로 따뜻하게 묘사해줘."* Example output: *"식탁에서 가족과 함께 한정식을 드시는 중이에요."* Runs on iPhone 15 Pro and newer, iOS 26+.
+
+**Tiered fallback for older iPhones (this matters — many elderly users won't have the newest device):**
+
+1. *Preferred:* Vision tags → Foundation Models → warm Korean memo. iPhone 15 Pro and newer.
+2. *If Foundation Models is unavailable:* Vision tags → a Korean **sentence template** filled from the tags (e.g. "자택에서 식사 중이에요"). Works on any iPhone with iOS 11+. No AI cost, no network needed.
+3. *Optional last-resort if Vision alone is too thin:* a tiny **text-only** cloud call that sends just the tags as text — never the image — to a small text model. A fraction of a vision call's cost, and the photo still never leaves the phone.
+
+**The privacy win:** the photo never leaves the device for AI interpretation. Only the finished memo text (and optionally the tag JSON) is sent to the backend for assembly and delivery. The photo itself is then uploaded separately to your private Firebase Storage for the family to view via the secure day-page link — that part is by design, not AI input. This is a meaningful PIPA-friendly posture for sensitive health-adjacent imagery.
+
+**Location naming:** raw GPS coordinates are turned into a Korean place name using the Kakao Local (reverse geocoding) API on the backend — accurate for Korean addresses/landmarks, effectively free at this scale, and keeps you in the Kakao ecosystem.
 
 ### KakaoTalk delivery — the important constraint
 
@@ -151,7 +180,7 @@ All figures approximate, June 2026. ~₩1,350 ≈ $1 (exchange rate fluctuates).
 
 | Item | Cost | Notes |
 |---|---|---|
-| AI vision (per photo) | ~₩0.3–2.7 ($0.0002–0.002) | Small vision model; negligible per photo |
+| AI vision (per photo) | ₩0 | Runs on-device (Apple Vision + Foundation Models). The optional text-only cloud fallback is a fraction of a vision call's cost. |
 | Reverse geocoding (per photo) | ~₩0 (free tier) | Kakao Local API, generous free quota |
 | KakaoTalk Alimtalk (per message) | ~₩8 ($0.006), market range ₩4.8–15 | Text notification with link |
 | KakaoTalk FriendTalk w/ image | ₩15–20 | Only if you embed photos in the message (not recommended) |
@@ -165,7 +194,7 @@ All figures approximate, June 2026. ~₩1,350 ≈ $1 (exchange rate fluctuates).
 | Daily summary (1 digest/day × 3 people) | ~90 | ~₩3,000–7,000 (~$2–6) |
 | Real-time (every photo × 3 people) | ~1,800 | ~₩18,000–25,000 (~$14–19) |
 
-**The big takeaway:** cadence is the cost driver. AI and storage are pennies; KakaoTalk messages are where money goes. Your "configurable timing" setting is therefore also a cost control — daily summary is ~3× cheaper than real-time. A good default is daily summary, with real-time available for those who want it.
+**The big takeaway:** AI is now free (it runs on the iPhone), and storage is pennies. The only real running cost is KakaoTalk message cadence — which makes your "configurable timing" setting a direct cost lever. Daily summary is ~3× cheaper than real-time. A good default is daily summary, with real-time available for those who want it.
 
 ### One-time / setup
 
@@ -173,7 +202,7 @@ All figures approximate, June 2026. ~₩1,350 ≈ $1 (exchange rate fluctuates).
 |---|---|---|
 | KakaoTalk business channel + Alimtalk template approval | Free–low (via reseller) | Needs business registration number; ~few days review. Resellers may ask a small prepaid deposit |
 | Domain name | ~₩15,000/yr | Optional; Firebase gives a free subdomain + SSL |
-| Apple App Store | ₩0 | It's a web app (PWA) — no store fee, no review |
+| Apple Developer Program | ~$99/yr (~₩135,000/yr) | Required to ship the Capacitor hybrid app on iPhone. Add a few business days of App Store / TestFlight review per submission — no instant push-to-web anymore. |
 | Development | Your main cost | Built on tools you already use (Cursor, Firebase) |
 
 ### Scaling note
@@ -185,18 +214,21 @@ At ~10 patients on daily summaries you're still looking at roughly $20–60/mont
 ## Recommended build path
 
 1. **Phase 0 — Prototype (this week):** approve the UI direction in the included mockup; lock the capture → auto-memo flow.
-2. **Phase 1 — Core app:** PWA capture + GPS + Firebase storage + AI memo + the "오늘" timeline. No Kakao yet — verify the auto-memo quality first.
-3. **Phase 2 — Delivery:** add the secure day-page + Kakao Alimtalk digest + Settings (recipients, cadence, automation).
-4. **Phase 3 — Polish & pilot:** test with one real family, tune AI wording in Korean, set retention/consent, then expand.
+2. **Phase 1 — Core React app:** capture + GPS + Firebase storage + the "오늘" timeline, with a stubbed memo string. Verify the end-to-end pipeline in the web view first.
+3. **Phase 2 — Wrap with Capacitor + on-device AI plugin:** turn the React app into a native iOS shell with Capacitor; build the **Swift plugin** that bridges Apple Vision (Layer 1) and Apple Foundation Models (Layer 2) to JavaScript; implement the **tiered fallback** for older iPhones. Test on **both a recent iPhone (15 Pro or newer, has Foundation Models) and an older iPhone (Vision-tags-plus-template fallback only)** via TestFlight before any pilot — this is the make-or-break compatibility check for elderly users on hand-me-down devices.
+4. **Phase 3 — Delivery:** add the secure day-page + Kakao Alimtalk digest + Settings (recipients, cadence, automation).
+5. **Phase 4 — Polish & pilot:** test with one real family, tune the Korean memo wording, set retention/consent, then expand.
 
 ---
 
 ## Decisions I need from you to finalize the build
 
 1. **Kakao path for launch:** start with Alimtalk (reaches anyone by phone, ~₩8/msg) or the free friends API (everyone installs the app)?
-2. **Photo retention:** keep forever, or auto-delete after e.g. 90 days?
-3. **Default cadence:** confirm daily evening summary as the default?
-4. **Consent owner:** who is the patient's guardian for the consent/notice?
+2. **Minimum iOS version / oldest iPhone to support:** the on-device AI is tiered — Foundation Models needs iPhone 15 Pro+ on iOS 26+, while the Vision-tags-plus-template fallback works on iOS 11+. Where do we draw the line for the supported list? This affects how much we invest in the fallback, and which devices we have to keep around for TestFlight testing.
+3. **Photo sharing alongside the on-device memo:** confirm the photo itself is still uploaded to Firebase Storage so family can view it via the secure day-page — separate from the memo text. The on-device AI change only moves AI *interpretation* off the cloud; we're assuming photo sharing with family is unchanged. Tell me if you'd prefer the photo also stays on-device only (memo-text-only delivery to family).
+4. **Photo retention:** keep forever, or auto-delete after e.g. 90 days?
+5. **Default cadence:** confirm daily evening summary as the default?
+6. **Consent owner:** who is the patient's guardian for the consent/notice?
 
 ---
 
@@ -209,4 +241,6 @@ At ~10 patients on daily summaries you're still looking at roughly $20–60/mont
 - 알림톡 가격 비교 2026 (AtoZ Soft)
 - 카카오 알림톡 발송 가능 기준 변경 안내 (26.1.1 시행)
 - AI API Pricing Comparison 2026 (IntuitionLabs)
-- Gemini API pricing (Google) — plan to implement this.
+- Apple Vision framework — image classification, text recognition, face detection (Apple Developer docs)
+- Apple Foundation Models / Apple Intelligence on-device LLM (Apple Developer docs)
+- Capacitor — native iOS/Android hybrid framework (Ionic)
