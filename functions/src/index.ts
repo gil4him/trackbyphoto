@@ -22,7 +22,9 @@ import { logger } from 'firebase-functions/v2'
 
 initializeApp()
 
-const REGION = 'asia-northeast3' // Seoul
+// Must match the default Storage bucket's region (created via Firebase console).
+// Storage bucket is in us-west1, so function must trigger there too.
+const REGION = 'us-west1'
 
 // ────────────────────────────────────────────────────────────────────────────
 // STUB: AI activity generator. Replace with Gemini Vision call.
