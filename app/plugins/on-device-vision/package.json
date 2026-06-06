@@ -1,0 +1,32 @@
+{
+  "name": "on-device-vision",
+  "version": "0.0.1",
+  "description": "On-device Apple Vision + Foundation Models bridge for TrackByPhoto",
+  "main": "dist/plugin.cjs.js",
+  "module": "dist/esm/index.js",
+  "types": "dist/esm/index.d.ts",
+  "unpkg": "dist/plugin.js",
+  "files": [
+    "dist/",
+    "ios/Sources/",
+    "OnDeviceVision.podspec"
+  ],
+  "author": "TrackByPhoto",
+  "license": "UNLICENSED",
+  "scripts": {
+    "build": "tsc",
+    "prepare": "tsc"
+  },
+  "devDependencies": {
+    "@capacitor/core": "^8.0.0",
+    "typescript": "~5.4.0"
+  },
+  "peerDependencies": {
+    "@capacitor/core": "^8.0.0"
+  },
+  "capacitor": {
+    "ios": {
+      "src": "ios"
+    }
+  }
+}

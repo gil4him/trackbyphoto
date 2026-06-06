@@ -12,6 +12,9 @@ node_modules/
 dist/
 app/dist/
 functions/lib/
+# Local Capacitor plugin ships its built TS so the React app can import it
+# directly without forcing CI to run an extra build step.
+!app/plugins/on-device-vision/dist/
 
 # logs
 *.log

@@ -10,6 +10,9 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+# Local Capacitor plugin's built TS is shipped with the repo so the React app
+# can import it without an extra CI build step.
+!plugins/on-device-vision/dist/
 *.local
 
 # Editor directories and files

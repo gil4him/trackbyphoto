@@ -10,12 +10,15 @@ PODS:
     - IONGeolocationLib (= 2.1.0)
   - IONCameraLib (1.0.4)
   - IONGeolocationLib (2.1.0)
+  - OnDeviceVision (0.0.1):
+    - Capacitor
 
 DEPENDENCIES:
   - "Capacitor (from `../../node_modules/@capacitor/ios`)"
   - "CapacitorCamera (from `../../node_modules/@capacitor/camera`)"
   - "CapacitorCordova (from `../../node_modules/@capacitor/ios`)"
   - "CapacitorGeolocation (from `../../node_modules/@capacitor/geolocation`)"
+  - OnDeviceVision (from `../../plugins/on-device-vision`)
 
 SPEC REPOS:
   trunk:
@@ -31,6 +34,8 @@ EXTERNAL SOURCES:
     :path: "../../node_modules/@capacitor/ios"
   CapacitorGeolocation:
     :path: "../../node_modules/@capacitor/geolocation"
+  OnDeviceVision:
+    :path: "../../plugins/on-device-vision"
 
 SPEC CHECKSUMS:
   Capacitor: 75bd117ba037a51bb0f19ded32c67f4b3bc16600
@@ -39,7 +44,8 @@ SPEC CHECKSUMS:
   CapacitorGeolocation: b36f6287bfc9f2eefa04dc900496f2c8ae666136
   IONCameraLib: f2349804460bd9e3f892e42109b8d996ab3fa19d
   IONGeolocationLib: 6a7b6f76063fb1b01cfb14fae7d0f526e3c9b271
+  OnDeviceVision: 142574e26606742d1dc7f38c5d2a17443990bba7
 
-PODFILE CHECKSUM: 587138d554448d840b40a94e256d7d7b6db2d2e4
+PODFILE CHECKSUM: d234c331c5e63b285db710f743919359d6889832
 
 COCOAPODS: 1.16.2

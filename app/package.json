@@ -14,6 +14,7 @@
     "@capacitor/core": "^8.4.0",
     "@capacitor/geolocation": "^8.2.0",
     "firebase": "^12.14.0",
+    "on-device-vision": "file:plugins/on-device-vision",
     "react": "^19.2.6",
     "react-dom": "^19.2.6"
   },
