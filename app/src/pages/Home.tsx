@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useToast } from '../components/Toast'
 import { Processing } from '../components/Processing'
-import { getGeo, uploadPhoto, deleteMemo } from '../lib/capture'
+import { getGeo, uploadPhoto, deleteMemo, captureNativePhoto, isNativeApp } from '../lib/capture'
 import { fmtTime, greeting } from '../util'
 import type { Memo } from '../types'
 
@@ -61,7 +61,19 @@ export function Home({ uid, patientName, memos }: { uid: string; patientName: st
         <button
           className="capture"
           aria-label="사진 찍기"
-          onClick={() => inputRef.current?.click()}
+          onClick={async () => {
+            if (isNativeApp) {
+              try {
+                const file = await captureNativePhoto()
+                onPick(file)
+              } catch (err) {
+                // User cancelled the camera or denied permission.
+                console.warn('[capture] native camera cancelled or failed', err)
+              }
+            } else {
+              inputRef.current?.click()
+            }
+          }}
         >
           <div className="ico">📷</div>
           <div>사진 찍기</div>

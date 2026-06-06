@@ -22,3 +22,14 @@ pglite-debug.log
 
 # firebase cache
 .firebase/
+
+# Capacitor iOS — keep the Xcode project + Podfile in the repo, but ignore
+# CocoaPods install output and Xcode build artifacts.
+app/ios/App/Pods/
+app/ios/App/build/
+app/ios/App/DerivedData/
+app/ios/App/App/public/
+app/ios/App/App/capacitor.config.json
+app/ios/.gradle/
+xcuserdata/
+*.xcworkspace/xcuserdata/
