@@ -169,6 +169,7 @@ nav.tabs { position: fixed; left: 0; right: 0; bottom: 0; background: rgba(255,2
 nav.tabs button { flex: 1; max-width: 160px; border: none; background: transparent; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 4px; color: var(--ink-3); font-size: 12px; font-weight: 600; cursor: pointer; }
 nav.tabs button .ic { font-size: 22px; line-height: 1; }
 nav.tabs button.on { color: var(--accent); }
+nav.tabs button:disabled { opacity: 0.35; cursor: default; }
 
 /* ---------- TOAST ---------- */
 .toast-wrap { position: fixed; left: 0; right: 0; top: 60%; display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; z-index: 200; }
