@@ -1,13 +1,16 @@
 import { useState } from 'react'
+import type { User } from 'firebase/auth'
 import type { UserSettings } from '../types'
 import { useToast } from '../components/Toast'
 
 interface Props {
   settings: UserSettings
   onChange: (next: UserSettings) => void
+  user: User
+  onSignOut: () => Promise<void>
 }
 
-export function Settings({ settings, onChange }: Props) {
+export function Settings({ settings, onChange, user, onSignOut }: Props) {
   const [newName, setNewName] = useState('')
   const [newPhone, setNewPhone] = useState('')
   const toast = useToast()
@@ -36,6 +39,24 @@ export function Settings({ settings, onChange }: Props) {
   return (
     <section className="page active">
       <h2 style={{ margin: '6px 0 14px', fontSize: 24, letterSpacing: '-0.02em' }}>설정</h2>
+
+      <div className="group">
+        <h3>계정</h3>
+        <div className="account-row">
+          {user.photoURL && <img className="avatar" src={user.photoURL} alt="" referrerPolicy="no-referrer" />}
+          <div className="account-info">
+            <div className="name">{user.displayName || '이름 없음'}</div>
+            <div className="email">{user.email}</div>
+          </div>
+          <button
+            className="signout-btn"
+            onClick={async () => {
+              if (!confirm('로그아웃할까요?')) return
+              try { await onSignOut() } catch (e) { console.error(e); toast.show('로그아웃에 실패했어요') }
+            }}
+          >로그아웃</button>
+        </div>
+      </div>
 
       <div className="group">
         <h3>환자 이름</h3>

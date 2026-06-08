@@ -9,6 +9,7 @@ import { Home } from './pages/Home'
 import { Today } from './pages/Today'
 import { Settings } from './pages/Settings'
 import { MemoDetail } from './pages/MemoDetail'
+import { SignIn } from './pages/SignIn'
 import { fmtDate } from './util'
 import type { UserSettings } from './types'
 
@@ -22,7 +23,7 @@ const DEFAULT_SETTINGS: UserSettings = {
 }
 
 function App() {
-  const { user, ready } = useAuth()
+  const { user, ready, signInWithGoogle, signOut } = useAuth()
   const [tab, setTab] = useState<TabKey>('home')
   // When non-null, the detail page takes over from the tab. Cleared by the
   // back button or when the underlying memo gets deleted.
@@ -66,13 +67,25 @@ function App() {
     document.documentElement.style.fontSize = settings.bigText ? '18px' : '16px'
   }, [settings.bigText])
 
-  if (!ready || !user) {
+  if (!ready) {
     return (
       <div className="app">
         <main style={{ display: 'grid', placeItems: 'center', minHeight: '60vh' }}>
           <div style={{ color: 'var(--ink-2)' }}>준비 중이에요…</div>
         </main>
       </div>
+    )
+  }
+
+  if (!user) {
+    return (
+      <ToastProvider>
+        <div className="app">
+          <main>
+            <SignIn onGoogle={signInWithGoogle} />
+          </main>
+        </div>
+      </ToastProvider>
     )
   }
 
@@ -94,7 +107,7 @@ function App() {
             <>
               {tab === 'home'     && <Home uid={user.uid} patientName={settings.patientName} memos={memos} onOpen={setSelectedMemoId} />}
               {tab === 'today'    && <Today memos={memos} onOpen={setSelectedMemoId} />}
-              {tab === 'settings' && <Settings settings={settings} onChange={onSettingsChange} />}
+              {tab === 'settings' && <Settings settings={settings} onChange={onSettingsChange} user={user} onSignOut={signOut} />}
             </>
           )}
         </main>
