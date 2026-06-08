@@ -8,6 +8,7 @@ import { ToastProvider } from './components/Toast'
 import { Home } from './pages/Home'
 import { Today } from './pages/Today'
 import { Settings } from './pages/Settings'
+import { MemoDetail } from './pages/MemoDetail'
 import { fmtDate } from './util'
 import type { UserSettings } from './types'
 
@@ -23,8 +24,18 @@ const DEFAULT_SETTINGS: UserSettings = {
 function App() {
   const { user, ready } = useAuth()
   const [tab, setTab] = useState<TabKey>('home')
+  // When non-null, the detail page takes over from the tab. Cleared by the
+  // back button or when the underlying memo gets deleted.
+  const [selectedMemoId, setSelectedMemoId] = useState<string | null>(null)
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS)
   const { memos } = useMemos(user?.uid)
+  const selectedMemo = selectedMemoId ? memos.find((m) => m.id === selectedMemoId) ?? null : null
+
+  // If the selected memo disappears from the live snapshot (e.g. delete from
+  // the detail page), drop back to the previous tab automatically.
+  useEffect(() => {
+    if (selectedMemoId && !selectedMemo) setSelectedMemoId(null)
+  }, [selectedMemoId, selectedMemo])
 
   // Subscribe to settings doc + write defaults on first sign-in
   useEffect(() => {
@@ -77,12 +88,18 @@ function App() {
         </header>
 
         <main>
-          {tab === 'home'     && <Home uid={user.uid} patientName={settings.patientName} memos={memos} />}
-          {tab === 'today'    && <Today memos={memos} />}
-          {tab === 'settings' && <Settings settings={settings} onChange={onSettingsChange} />}
+          {selectedMemo ? (
+            <MemoDetail memo={selectedMemo} onBack={() => setSelectedMemoId(null)} />
+          ) : (
+            <>
+              {tab === 'home'     && <Home uid={user.uid} patientName={settings.patientName} memos={memos} onOpen={setSelectedMemoId} />}
+              {tab === 'today'    && <Today memos={memos} onOpen={setSelectedMemoId} />}
+              {tab === 'settings' && <Settings settings={settings} onChange={onSettingsChange} />}
+            </>
+          )}
         </main>
 
-        <Tabs active={tab} onChange={setTab} />
+        {!selectedMemo && <Tabs active={tab} onChange={setTab} />}
       </div>
     </ToastProvider>
   )

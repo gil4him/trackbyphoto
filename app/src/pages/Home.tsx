@@ -13,7 +13,7 @@ import {
 import { fmtTime, greeting } from '../util'
 import type { Memo } from '../types'
 
-export function Home({ uid, patientName, memos }: { uid: string; patientName: string; memos: Memo[] }) {
+export function Home({ uid, patientName, memos, onOpen }: { uid: string; patientName: string; memos: Memo[]; onOpen: (id: string) => void }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
   const [busyMsg, setBusyMsg] = useState('사진을 저장하고 있어요…')
@@ -54,11 +54,14 @@ export function Home({ uid, patientName, memos }: { uid: string; patientName: st
         const timeHint = `${takenAt.getHours().toString().padStart(2, '0')}:${takenAt.getMinutes().toString().padStart(2, '0')}`
         const { memo, source } = await generateActivityMemo(tags, { timeHint })
         if (memo) console.log('[capture] on-device memo', memo, `(${source})`)
-        return { tags, activity: memo }
+        return { tags, activity: memo, source }
       })()
-      const [geo, { tags, activity }] = await Promise.all([getGeo(), visionThenMemo])
+      const [geo, { tags, activity, source }] = await Promise.all([getGeo(), visionThenMemo])
+      // 'none' means the device couldn't produce a memo (no tags); the function
+      // will fill it in and persist its own source ('cloud-stub') downstream.
+      const memoSource = source === 'none' ? null : source
       setBusyMsg('업로드 중이에요…')
-      await uploadPhoto({ uid, file, geo, takenAt, tags, activity })
+      await uploadPhoto({ uid, file, geo, takenAt, tags, activity, memoSource })
       setBusyMsg('AI가 활동을 적고 있어요…')
       // Function trigger does the rest; useEffect above will toast on memo arrival.
       // Show processing for a moment so it feels responsive even if function is fast.
@@ -123,16 +126,24 @@ export function Home({ uid, patientName, memos }: { uid: string; patientName: st
       ) : (
         <div className="recent-row">
           {recent.map((m) => (
-            <div className="recent" key={m.id}>
+            <button
+              type="button"
+              className="recent recent-btn"
+              key={m.id}
+              onClick={() => onOpen(m.id)}
+              aria-label="자세히 보기"
+            >
               {m.photoUrl ? (
                 <img className="thumb" src={m.photoUrl} alt="" />
               ) : (
                 <div className="thumb" style={{ background: '#eee' }} />
               )}
-              <button
+              <span
                 className="del-btn"
+                role="button"
                 aria-label="사진 삭제"
-                onClick={() => {
+                onClick={(e) => {
+                  e.stopPropagation()
                   if (!confirm('이 사진을 삭제할까요?')) return
                   deleteMemo({ memoId: m.id, photoPath: m.photoPath }).catch((err) => {
                     console.error(err)
@@ -141,12 +152,12 @@ export function Home({ uid, patientName, memos }: { uid: string; patientName: st
                 }}
               >
                 ✕
-              </button>
+              </span>
               <div className="meta">
                 <b>{fmtTime(m.takenAt.toDate())}</b>
                 {m.activity || (m.status === 'pending' ? '메모 작성 중…' : '')}
               </div>
-            </div>
+            </button>
           ))}
         </div>
       )}

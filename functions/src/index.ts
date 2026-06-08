@@ -144,6 +144,9 @@ export const onPhotoUploaded = onObjectFinalized(
     // means the device couldn't produce one (web client, older iPhone, or
     // Apple Intelligence off) and we should fall back to the stub generator.
     const deviceActivity = ((meta.activity as string) || '').trim()
+    // The tier that produced deviceActivity on the device. Persisted onto the
+    // memo doc so the detail page can render the right source badge.
+    const deviceMemoSource = ((meta.memoSource as string) || '').trim()
 
     if (!uid || !photoId) {
       logger.error('missing metadata', { path, meta })
@@ -169,20 +172,27 @@ export const onPhotoUploaded = onObjectFinalized(
 
     // Write a pending placeholder so the client can show "메모 작성 중…" immediately.
     // photoUrl is filled in once we resolve the download token below.
+    //
+    // On retrigger (rare — same Storage path finalizing twice), respect any
+    // guardian edit already in place: don't clobber humanEdited memos.
     const memoRef = db.collection('memos').doc(photoId)
-    await memoRef.set({
-      uid,
-      photoPath: path,
-      photoUrl: '',
-      takenAt: takenAtIso ? Timestamp.fromDate(new Date(takenAtIso)) : Timestamp.now(),
-      lat, lng,
-      place: '',
-      activity: '',
-      category: '일상',
-      status: 'pending',
-      createdAt: FieldValue.serverTimestamp(),
-      ...(tags ? { tags } : {}),
-    })
+    const existing = await memoRef.get()
+    const existingHumanEdited = existing.exists && existing.data()?.humanEdited === true
+    if (!existingHumanEdited) {
+      await memoRef.set({
+        uid,
+        photoPath: path,
+        photoUrl: '',
+        takenAt: takenAtIso ? Timestamp.fromDate(new Date(takenAtIso)) : Timestamp.now(),
+        lat, lng,
+        place: '',
+        activity: '',
+        category: '일상',
+        status: 'pending',
+        createdAt: FieldValue.serverTimestamp(),
+        ...(tags ? { tags } : {}),
+      })
+    }
 
     try {
       // The browser fetches the photo via a plain <img src> with no auth header,
@@ -210,16 +220,26 @@ export const onPhotoUploaded = onObjectFinalized(
         reverseGeocode(lat, lng),
       ])
       const { activity, category } = generated
-      const source: 'on-device' | 'cloud-stub' = deviceActivity ? 'on-device' : 'cloud-stub'
+      // Which tier produced the final activity text. When the device sent one
+      // we trust the device-reported source; otherwise it's our cloud stub.
+      const memoSource = deviceActivity
+        ? (deviceMemoSource || 'foundation-models')
+        : 'cloud-stub'
 
-      await memoRef.update({
-        photoUrl,
-        place,
-        activity,
-        category,
-        status: 'ready',
+      // Skip activity/category/memoSource when a guardian has already corrected
+      // the memo. photoUrl + place are still safe to refresh (they're factual,
+      // not interpretation).
+      const update: Record<string, unknown> = { photoUrl, place, status: 'ready' }
+      if (!existingHumanEdited) {
+        update.activity = activity
+        update.category = category
+        update.memoSource = memoSource
+      }
+      await memoRef.update(update)
+      logger.info('memo ready', {
+        uid, photoId, category, memoSource,
+        preservedHumanEdit: existingHumanEdited,
       })
-      logger.info('memo ready', { uid, photoId, category, source })
     } catch (err) {
       logger.error('memo generation failed', { err })
       await memoRef.update({ status: 'error' })

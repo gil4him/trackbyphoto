@@ -189,8 +189,10 @@ export async function uploadPhoto(opts: {
    * generator. Pass empty/undefined to let the function pick a memo.
    */
   activity?: string | null
+  /** Which tier produced the activity above. Persisted onto the memo doc. */
+  memoSource?: 'foundation-models' | 'template' | 'cloud-stub' | null
 }): Promise<{ path: string; photoId: string }> {
-  const { uid, file, geo, takenAt, tags, activity } = opts
+  const { uid, file, geo, takenAt, tags, activity, memoSource } = opts
   const photoId = `${takenAt.getTime()}_${Math.random().toString(36).slice(2, 8)}`
   const ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
   const path = `photos/${uid}/${photoId}.${ext}`
@@ -211,6 +213,9 @@ export async function uploadPhoto(opts: {
       // please generate one." The function never overwrites a non-empty
       // value here.
       activity: activity || '',
+      // Which tier wrote the activity. The function persists this on the
+      // memo doc so the detail page can render the right AI source badge.
+      memoSource: memoSource || '',
     },
   })
 

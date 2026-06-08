@@ -3,7 +3,7 @@ import { deleteMemo } from '../lib/capture'
 import { useToast } from '../components/Toast'
 import type { Memo } from '../types'
 
-export function Today({ memos }: { memos: Memo[] }) {
+export function Today({ memos, onOpen }: { memos: Memo[]; onOpen: (id: string) => void }) {
   const toast = useToast()
   const today = new Date()
   const items = memos.filter((m) => isSameDay(m.takenAt.toDate(), today))
@@ -24,15 +24,23 @@ export function Today({ memos }: { memos: Memo[] }) {
       ) : (
         <div className="timeline">
           {items.map((m) => (
-            <div className="memo" key={m.id}>
+            <button
+              type="button"
+              className="memo memo-btn"
+              key={m.id}
+              onClick={() => onOpen(m.id)}
+              aria-label="자세히 보기"
+            >
               <div className="ph">
                 {m.photoUrl
                   ? <img src={m.photoUrl} alt="" />
                   : <div style={{ width: '100%', height: '100%', background: '#eee' }} />}
-                <button
+                <span
                   className="del-btn"
+                  role="button"
                   aria-label="사진 삭제"
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation()
                     if (!confirm('이 사진을 삭제할까요?')) return
                     deleteMemo({ memoId: m.id, photoPath: m.photoPath }).catch((err) => {
                       console.error(err)
@@ -41,7 +49,7 @@ export function Today({ memos }: { memos: Memo[] }) {
                   }}
                 >
                   ✕
-                </button>
+                </span>
               </div>
               <div className="body">
                 <div className="time">
@@ -53,7 +61,7 @@ export function Today({ memos }: { memos: Memo[] }) {
                 </div>
                 <div className="place">📍 {m.place || '위치 정보 없음'}</div>
               </div>
-            </div>
+            </button>
           ))}
         </div>
       )}

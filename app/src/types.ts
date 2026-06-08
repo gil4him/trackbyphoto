@@ -9,6 +9,9 @@ export interface MemoVisionTags {
   faceCount: number
 }
 
+/** Which tier produced the activity text. Drives the AI badge on the detail page. */
+export type MemoSource = 'foundation-models' | 'template' | 'cloud-stub' | 'human'
+
 export interface Memo {
   id: string
   uid: string
@@ -24,6 +27,11 @@ export interface Memo {
   createdAt: Timestamp
   /** Present when the photo was captured on a native iOS device. */
   tags?: MemoVisionTags
+  /** Which tier produced the activity — useful for the AI source badge. */
+  memoSource?: MemoSource
+  /** True once a guardian has hand-edited the activity. Blocks the function
+   *  from ever overwriting the text on retrigger/regenerate. */
+  humanEdited?: boolean
 }
 
 export interface UserSettings {
