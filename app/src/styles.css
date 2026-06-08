@@ -174,8 +174,8 @@ nav.tabs button:disabled { opacity: 0.4; cursor: default; }
 /* Back tab: greyed pill when no history, accent pill when active so it's
    obvious you can use it from the detail page. */
 nav.tabs .back-tab .back-ic { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: #F1ECE0; color: var(--ink-3); font-size: 18px; font-weight: 700; transition: background 0.15s, color 0.15s, transform 0.1s; }
-nav.tabs .back-tab.back-tab-active .back-ic { background: var(--accent); color: #fff; box-shadow: 0 4px 12px rgba(255,184,77,0.45); }
-nav.tabs .back-tab.back-tab-active { color: var(--accent); }
+nav.tabs .back-tab.back-tab-active .back-ic { background: var(--ink-1); color: #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.18); }
+nav.tabs .back-tab.back-tab-active { color: var(--ink-3); }
 nav.tabs .back-tab.back-tab-active:active .back-ic { transform: scale(0.92); }
 
 /* Me tab: avatar replaces the gear icon. Ring highlight when active. */
