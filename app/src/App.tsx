@@ -99,7 +99,14 @@ function App() {
           )}
         </main>
 
-        {!selectedMemo && <Tabs active={tab} onChange={setTab} />}
+        <Tabs
+          active={tab}
+          onChange={(k) => {
+            // Tapping a tab from the detail view returns to that tab.
+            setSelectedMemoId(null)
+            setTab(k)
+          }}
+        />
       </div>
     </ToastProvider>
   )

@@ -61,9 +61,19 @@ main { flex: 1; padding: 8px 20px 120px; overflow-y: auto; -webkit-overflow-scro
 .recent-row { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px; scroll-snap-type: x mandatory; }
 .recent-row::-webkit-scrollbar { display: none; }
 .recent { flex: 0 0 140px; scroll-snap-align: start; background: var(--card); border-radius: 18px; overflow: hidden; border: 1px solid var(--line); position: relative; }
-.recent-btn { padding: 0; text-align: left; font: inherit; color: inherit; cursor: pointer; display: block; }
+.recent-btn, .memo-btn {
+  /* Full button reset — defaults (border, bg, font, padding, appearance)
+     otherwise leak through and on iOS Safari a button inside a horizontally
+     scrollable container can interpret tap-then-release as a scroll
+     gesture, swallowing the click. */
+  appearance: none; -webkit-appearance: none;
+  padding: 0; margin: 0; font: inherit; color: inherit;
+  outline: none; cursor: pointer;
+  touch-action: manipulation;
+}
+.recent-btn { display: block; text-align: left; }
 .recent-btn:active { transform: scale(0.985); }
-.memo-btn { padding: 0; text-align: left; font: inherit; color: inherit; cursor: pointer; width: 100%; }
+.memo-btn { text-align: left; width: 100%; }
 .memo-btn:active { background: #FFFCEF; }
 .del-btn {
   position: absolute; top: 6px; right: 6px; width: 26px; height: 26px;
