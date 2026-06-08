@@ -16,6 +16,6 @@ export class OnDeviceVisionWeb extends WebPlugin {
         return { memo: '', source: 'template' };
     }
     async capabilities() {
-        return { foundationModels: false, iosMajorVersion: 0 };
+        return { foundationModels: false, iosMajorVersion: 0, foundationModelsReason: 'web' };
     }
 }

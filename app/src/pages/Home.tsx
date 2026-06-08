@@ -7,9 +7,9 @@ import {
   deleteMemo,
   captureNativePhoto,
   analyzePhotoTags,
+  generateActivityMemo,
   isNativeApp,
 } from '../lib/capture'
-import type { VisionTags } from '../lib/capture'
 import { fmtTime, greeting } from '../util'
 import type { Memo } from '../types'
 
@@ -42,16 +42,20 @@ export function Home({ uid, patientName, memos }: { uid: string; patientName: st
     setBusyMsg('사진을 저장하고 있어요…')
     try {
       const takenAt = new Date()
-      // Run Vision and geolocation in parallel — both are independent and we
-      // want to gate the upload on whichever finishes last. Vision is null on
-      // web (no native path), so the Promise just resolves to null.
-      const [geo, tags] = await Promise.all([
-        getGeo(),
-        nativePath ? analyzePhotoTags(nativePath) : Promise.resolve<VisionTags | null>(null),
-      ])
-      if (tags) console.log('[capture] vision tags', tags)
+      // Geolocation runs in parallel with the Vision → Foundation Models
+      // chain. Vision returns null on web (no native path) which short-
+      // circuits the LLM call too.
+      const visionThenMemo = (async () => {
+        const tags = nativePath ? await analyzePhotoTags(nativePath) : null
+        if (tags) console.log('[capture] vision tags', tags)
+        const timeHint = `${takenAt.getHours().toString().padStart(2, '0')}:${takenAt.getMinutes().toString().padStart(2, '0')}`
+        const { memo, source } = await generateActivityMemo(tags, { timeHint })
+        if (memo) console.log('[capture] on-device memo', memo, `(${source})`)
+        return { tags, activity: memo }
+      })()
+      const [geo, { tags, activity }] = await Promise.all([getGeo(), visionThenMemo])
       setBusyMsg('업로드 중이에요…')
-      await uploadPhoto({ uid, file, geo, takenAt, tags })
+      await uploadPhoto({ uid, file, geo, takenAt, tags, activity })
       setBusyMsg('AI가 활동을 적고 있어요…')
       // Function trigger does the rest; useEffect above will toast on memo arrival.
       // Show processing for a moment so it feels responsive even if function is fast.

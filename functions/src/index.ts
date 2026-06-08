@@ -48,6 +48,24 @@ function generateActivity(_args: { bucket: string; objectPath: string; contentTy
   return Promise.resolve({ activity: line, category: a.cat })
 }
 
+/**
+ * Pick a coarse category from Vision tags when the device wrote the memo.
+ * The model's free-form Korean sentence isn't easy to bucket post-hoc, but
+ * the underlying VNClassifyImageRequest labels (English ImageNet-ish names)
+ * map cleanly enough. Defaults to 일상.
+ */
+function categoryFromTags(
+  tags: { labels: { name: string; confidence: number }[]; text: string[]; faceCount: number } | null,
+): string {
+  if (!tags) return '일상'
+  const names = tags.labels.map((l) => l.name.toLowerCase()).join(' ')
+  if (/food|meal|dish|plate|bowl|drink|beverage|cup|fruit|vegetable/.test(names)) return '식사'
+  if (/park|tree|outdoor|street|walk|path|garden|trail|sky|grass/.test(names)) return '산책'
+  if (/sofa|bed|chair|tv|television|book|cup|tea|home interior|indoor/.test(names)) return '휴식'
+  if (tags.faceCount >= 2) return '가족'
+  return '일상'
+}
+
 // STUB: reverse geocode. Replace with Kakao Local API call.
 const PLACES = ['자택 거실', '동네 공원', '한강공원', '행복요양센터', '근처 카페', '병원 근처', '마트 입구']
 function reverseGeocode(lat: number | null, lng: number | null): Promise<string> {
@@ -76,6 +94,10 @@ export const onPhotoUploaded = onObjectFinalized(
     const takenAtIso = (meta.takenAt as string) || ''
     const lat = meta.lat ? Number(meta.lat) : null
     const lng = meta.lng ? Number(meta.lng) : null
+    // On-device memo from Apple Foundation Models (Layer 2). Empty string
+    // means the device couldn't produce one (web client, older iPhone, or
+    // Apple Intelligence off) and we should fall back to the stub generator.
+    const deviceActivity = ((meta.activity as string) || '').trim()
 
     if (!uid || !photoId) {
       logger.error('missing metadata', { path, meta })
@@ -131,10 +153,18 @@ export const onPhotoUploaded = onObjectFinalized(
       }
       const photoUrl = `https://firebasestorage.googleapis.com/v0/b/${obj.bucket}/o/${encodeURIComponent(path)}?alt=media&token=${token}`
 
-      const [{ activity, category }, place] = await Promise.all([
-        generateActivity({ bucket: obj.bucket, objectPath: path, contentType: obj.contentType }),
+      // If the device already wrote a memo via Foundation Models, trust it
+      // verbatim — the whole point of Layer 2 is to keep interpretation
+      // on-device. We still pick a category from the (also on-device)
+      // Vision tags so the UI can color/group consistently.
+      const [generated, place] = await Promise.all([
+        deviceActivity
+          ? Promise.resolve({ activity: deviceActivity, category: categoryFromTags(tags) })
+          : generateActivity({ bucket: obj.bucket, objectPath: path, contentType: obj.contentType }),
         reverseGeocode(lat, lng),
       ])
+      const { activity, category } = generated
+      const source: 'on-device' | 'cloud-stub' = deviceActivity ? 'on-device' : 'cloud-stub'
 
       await memoRef.update({
         photoUrl,
@@ -143,7 +173,7 @@ export const onPhotoUploaded = onObjectFinalized(
         category,
         status: 'ready',
       })
-      logger.info('memo ready', { uid, photoId, category })
+      logger.info('memo ready', { uid, photoId, category, source })
     } catch (err) {
       logger.error('memo generation failed', { err })
       await memoRef.update({ status: 'error' })

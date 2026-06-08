@@ -74,6 +74,67 @@ export async function analyzePhotoTags(path: string): Promise<VisionTags | null>
   }
 }
 
+/**
+ * Pick a coarse category from Vision tags. Mirrors the same heuristic the
+ * Cloud Function uses for web uploads so both paths produce consistent
+ * UI grouping. Defaults to 일상.
+ */
+function categoryFromTags(tags: VisionTags): string {
+  const names = tags.labels.map((l) => l.name.toLowerCase()).join(' ')
+  if (/food|meal|dish|plate|bowl|drink|beverage|cup|fruit|vegetable/.test(names)) return '식사'
+  if (/park|tree|outdoor|street|walk|path|garden|trail|sky|grass/.test(names)) return '산책'
+  if (/sofa|bed|chair|tv|television|book|tea|home interior|indoor/.test(names)) return '휴식'
+  if (tags.faceCount >= 2) return '가족'
+  return '일상'
+}
+
+/**
+ * Tier-2 fallback: turn Vision tags into a Korean sentence via templates.
+ * Runs on any iPhone (iOS 17+) when Foundation Models isn't available, so
+ * older devices still write a real on-device memo instead of leaving the
+ * Cloud Function to guess from scratch. Deterministic per photo — same tags
+ * pick the same sentence on retry.
+ */
+const TEMPLATE_PHRASES: Record<string, string[]> = {
+  식사: ['식사 중이에요', '식사 시간이에요'],
+  산책: ['산책 중이에요', '바깥 공기를 쐬고 계세요'],
+  휴식: ['편안히 쉬고 계세요', '여유로운 시간이에요'],
+  가족: ['가족과 함께 계세요', '소중한 사람들과 함께'],
+  일상: ['오늘의 한 장면', '잔잔한 일상의 순간'],
+}
+function templateMemo(tags: VisionTags): string {
+  const cat = categoryFromTags(tags)
+  const list = TEMPLATE_PHRASES[cat] || TEMPLATE_PHRASES['일상']
+  // Seed from the tag identity so the same photo always picks the same line.
+  const seed = tags.labels.map((l) => l.name).join('|').length + tags.faceCount
+  return list[seed % list.length]
+}
+
+/**
+ * Generate the activity memo, walking down the tier ladder:
+ *   1. Apple Foundation Models (iPhone 15 Pro+ on iOS 26+) → warm LLM memo
+ *   2. Korean sentence template from Vision tags → works on any iPhone
+ *   3. (web / no tags) → empty string, Cloud Function handles it
+ * Returns the memo + which tier produced it (caller can log this).
+ */
+export async function generateActivityMemo(
+  tags: VisionTags | null,
+  hints?: { timeHint?: string; placeHint?: string },
+): Promise<{ memo: string; source: 'foundation-models' | 'template' | 'none' }> {
+  if (!isNative || !tags) return { memo: '', source: 'none' }
+  try {
+    const result = await OnDeviceVision.generateMemo({
+      tags,
+      timeHint: hints?.timeHint,
+      placeHint: hints?.placeHint,
+    })
+    if (result.memo) return { memo: result.memo, source: 'foundation-models' }
+  } catch (err) {
+    console.warn('[generateActivityMemo] Foundation Models failed', err)
+  }
+  return { memo: templateMemo(tags), source: 'template' }
+}
+
 /** True when the app is running inside the Capacitor iOS shell. */
 export const isNativeApp = isNative
 
@@ -88,8 +149,14 @@ export async function uploadPhoto(opts: {
   geo: Geo | null
   takenAt: Date
   tags?: VisionTags | null
+  /**
+   * Optional on-device memo from Foundation Models (Layer 2). When present
+   * the Cloud Function uses this string verbatim and skips its own template
+   * generator. Pass empty/undefined to let the function pick a memo.
+   */
+  activity?: string | null
 }): Promise<{ path: string; photoId: string }> {
-  const { uid, file, geo, takenAt, tags } = opts
+  const { uid, file, geo, takenAt, tags, activity } = opts
   const photoId = `${takenAt.getTime()}_${Math.random().toString(36).slice(2, 8)}`
   const ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
   const path = `photos/${uid}/${photoId}.${ext}`
@@ -106,6 +173,10 @@ export async function uploadPhoto(opts: {
       // Function parses this and stores it on the memo doc; the 8 KB
       // per-key metadata limit is plenty for our trimmed tag set.
       tags: tags ? JSON.stringify(tags) : '',
+      // On-device memo (Foundation Models). Empty string means "function,
+      // please generate one." The function never overwrites a non-empty
+      // value here.
+      activity: activity || '',
     },
   })
 

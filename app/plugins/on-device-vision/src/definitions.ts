@@ -46,6 +46,13 @@ export interface CapabilitiesResult {
   foundationModels: boolean
   /** iOS major version (e.g., 17, 18, 26). */
   iosMajorVersion: number
+  /**
+   * When `foundationModels` is false, a short tag for *why* — e.g.
+   * "ios<26", "deviceNotEligible", "appleIntelligenceNotEnabled",
+   * "modelNotReady", "frameworkNotLinked". Useful for surfacing in
+   * Settings/debug; not shown to the patient.
+   */
+  foundationModelsReason?: string
 }
 
 export interface OnDeviceVisionPlugin {

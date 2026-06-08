@@ -3,14 +3,22 @@ import Capacitor
 import UIKit
 import Vision
 
-// Layer 1 of the on-device pipeline: Apple Vision.
+#if canImport(FoundationModels)
+import FoundationModels
+#endif
+
+// On-device pipeline for TrackByPhoto.
 //
-//   analyze(path)        → image classification + Korean OCR + face count
-//   generateMemo(tags)   → stub (Layer 2, Foundation Models, lands next)
-//   capabilities()       → reports iOS version + (later) Foundation Models
-//
-// All three Vision requests are issued against a single VNImageRequestHandler
-// so the image is decoded once.
+//   analyze(path)        → Layer 1: Apple Vision (image classification, Korean
+//                          OCR, face count). Runs on every iPhone (iOS 17+).
+//   generateMemo(tags)   → Layer 2: Apple Foundation Models (on-device LLM)
+//                          turns Vision tags into a warm Korean memo. Only
+//                          available on iPhone 15 Pro+ with iOS 26+ and
+//                          Apple Intelligence enabled. Falls through to an
+//                          empty string + source:"template" otherwise; the JS
+//                          side then uses its tier-2 template fallback.
+//   capabilities()       → reports iOS version + Foundation Models availability
+//                          so the JS side can pick a tier without trial calls.
 
 @objc(OnDeviceVisionPlugin)
 public class OnDeviceVisionPlugin: CAPPlugin, CAPBridgedPlugin {
@@ -89,27 +97,136 @@ public class OnDeviceVisionPlugin: CAPPlugin, CAPBridgedPlugin {
         }
     }
 
-    // MARK: - generateMemo (stub — Layer 2 lands next)
+    // MARK: - generateMemo (Layer 2 — Foundation Models)
 
     @objc func generateMemo(_ call: CAPPluginCall) {
-        // Foundation Models wiring comes in the next commit. For now return
-        // empty so the JS side falls through to the template / cloud fallback.
-        call.resolve([
-            "memo": "",
-            "source": "template",
-        ])
+        let tags = call.getObject("tags") ?? [:]
+        let timeHint = call.getString("timeHint") ?? ""
+        let placeHint = call.getString("placeHint") ?? ""
+
+        #if canImport(FoundationModels)
+        if #available(iOS 26.0, *) {
+            Task {
+                let result = await Self.runFoundationModels(
+                    tags: tags,
+                    timeHint: timeHint,
+                    placeHint: placeHint
+                )
+                call.resolve(result)
+            }
+            return
+        }
+        #endif
+
+        // No Foundation Models on this device — JS side handles the template
+        // fallback. Returning empty rather than rejecting keeps the call site
+        // simple (one branch, not two).
+        call.resolve(["memo": "", "source": "template"])
+    }
+
+    #if canImport(FoundationModels)
+    @available(iOS 26.0, *)
+    private static func runFoundationModels(
+        tags: JSObject,
+        timeHint: String,
+        placeHint: String
+    ) async -> [String: Any] {
+        // Availability gate. The model may be installed yet unavailable
+        // (Apple Intelligence off, device ineligible, model downloading) —
+        // we just hand back an empty memo and let the JS template tier win.
+        let model = SystemLanguageModel.default
+        guard case .available = model.availability else {
+            return ["memo": "", "source": "template"]
+        }
+
+        let prompt = buildPrompt(tags: tags, timeHint: timeHint, placeHint: placeHint)
+
+        let instructions = """
+        당신은 어르신의 가족에게 보낼 따뜻한 일상 메모를 한 문장으로 작성하는 조수입니다.
+        - 한국어 존댓말, 따뜻하고 차분한 어조
+        - 25자 이내, 한 문장, 마침표 없이
+        - 사진 태그에 없는 사실은 만들어내지 마세요
+        - 사람 이름, 진단명, 추측은 쓰지 마세요
+        """
+
+        do {
+            let session = LanguageModelSession(instructions: instructions)
+            let options = GenerationOptions(temperature: 0.6)
+            let response = try await session.respond(to: prompt, options: options)
+            let memo = response.content
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .trimmingCharacters(in: CharacterSet(charactersIn: "\"'`"))
+            if memo.isEmpty {
+                return ["memo": "", "source": "template"]
+            }
+            return ["memo": memo, "source": "foundation-models"]
+        } catch {
+            // Generation can fail for content-policy or transient reasons.
+            // Surface the message in logs but don't reject — the template
+            // fallback is the user-facing recovery path.
+            return [
+                "memo": "",
+                "source": "template",
+                "error": error.localizedDescription,
+            ]
+        }
+    }
+    #endif
+
+    /// Turns the Vision tags into a compact prompt for the LLM. Kept as plain
+    /// Korean text rather than JSON so the model treats it as natural input.
+    private static func buildPrompt(tags: JSObject, timeHint: String, placeHint: String) -> String {
+        var parts: [String] = []
+
+        if let labels = tags["labels"] as? [[String: Any]] {
+            let names = labels
+                .compactMap { $0["name"] as? String }
+                .prefix(5)
+                .joined(separator: ", ")
+            if !names.isEmpty { parts.append("이미지 분류: \(names)") }
+        }
+        if let text = tags["text"] as? [String], !text.isEmpty {
+            let joined = text.prefix(3).joined(separator: " / ")
+            parts.append("사진 속 글자: \(joined)")
+        }
+        if let faceCount = tags["faceCount"] as? Int, faceCount > 0 {
+            parts.append("사람 \(faceCount)명")
+        }
+        if !placeHint.isEmpty { parts.append("장소: \(placeHint)") }
+        if !timeHint.isEmpty { parts.append("시간: \(timeHint)") }
+
+        let body = parts.isEmpty ? "특별한 단서가 없는 일상 사진" : parts.joined(separator: "\n")
+        return "다음 사진 정보를 바탕으로 한 문장의 따뜻한 한국어 메모를 만들어주세요.\n\n\(body)"
     }
 
     // MARK: - capabilities
 
     @objc func capabilities(_ call: CAPPluginCall) {
         let major = ProcessInfo.processInfo.operatingSystemVersion.majorVersion
-        // Conservative: report Foundation Models unavailable until the next
-        // commit wires up SystemLanguageModel.default.availability.
-        call.resolve([
-            "foundationModels": false,
+        var fmAvailable = false
+        var fmReason: String? = nil
+
+        #if canImport(FoundationModels)
+        if #available(iOS 26.0, *) {
+            switch SystemLanguageModel.default.availability {
+            case .available:
+                fmAvailable = true
+            case .unavailable(let reason):
+                fmReason = String(describing: reason)
+            }
+        } else {
+            fmReason = "ios<26"
+        }
+        #else
+        fmReason = "frameworkNotLinked"
+        #endif
+
+        var result: [String: Any] = [
+            "foundationModels": fmAvailable,
             "iosMajorVersion": major,
-        ])
+        ]
+        if let r = fmReason { result["foundationModelsReason"] = r }
+        call.resolve(result)
     }
 
     // MARK: - helpers

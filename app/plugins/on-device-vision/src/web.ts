@@ -28,6 +28,6 @@ export class OnDeviceVisionWeb extends WebPlugin implements OnDeviceVisionPlugin
   }
 
   async capabilities(): Promise<CapabilitiesResult> {
-    return { foundationModels: false, iosMajorVersion: 0 }
+    return { foundationModels: false, iosMajorVersion: 0, foundationModelsReason: 'web' }
   }
 }
