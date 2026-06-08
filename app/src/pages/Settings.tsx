@@ -38,7 +38,7 @@ export function Settings({ settings, onChange, user, onSignOut }: Props) {
 
   return (
     <section className="page active">
-      <h2 style={{ margin: '6px 0 14px', fontSize: 24, letterSpacing: '-0.02em' }}>설정</h2>
+      <h2 style={{ margin: '6px 0 14px', fontSize: 24, letterSpacing: '-0.02em' }}>내 정보</h2>
 
       <div className="group">
         <h3>계정</h3>

@@ -169,7 +169,20 @@ nav.tabs { position: fixed; left: 0; right: 0; bottom: 0; background: rgba(255,2
 nav.tabs button { flex: 1; max-width: 160px; border: none; background: transparent; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 4px; color: var(--ink-3); font-size: 12px; font-weight: 600; cursor: pointer; }
 nav.tabs button .ic { font-size: 22px; line-height: 1; }
 nav.tabs button.on { color: var(--accent); }
-nav.tabs button:disabled { opacity: 0.35; cursor: default; }
+nav.tabs button:disabled { opacity: 0.4; cursor: default; }
+
+/* Back tab: greyed pill when no history, accent pill when active so it's
+   obvious you can use it from the detail page. */
+nav.tabs .back-tab .back-ic { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: #F1ECE0; color: var(--ink-3); font-size: 18px; font-weight: 700; transition: background 0.15s, color 0.15s, transform 0.1s; }
+nav.tabs .back-tab.back-tab-active .back-ic { background: var(--accent); color: #fff; box-shadow: 0 4px 12px rgba(255,184,77,0.45); }
+nav.tabs .back-tab.back-tab-active { color: var(--accent); }
+nav.tabs .back-tab.back-tab-active:active .back-ic { transform: scale(0.92); }
+
+/* Me tab: avatar replaces the gear icon. Ring highlight when active. */
+nav.tabs .me-tab .avatar-ic { width: 28px; height: 28px; border-radius: 50%; overflow: hidden; background: #F1ECE0; display: grid; place-items: center; }
+nav.tabs .me-tab .avatar-ic img { width: 100%; height: 100%; object-fit: cover; display: block; }
+nav.tabs .me-tab .avatar-ic .avatar-initial { font-size: 14px; font-weight: 700; color: var(--ink-2); }
+nav.tabs .me-tab .avatar-ic.on { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* ---------- SIGN IN ---------- */
 .signin { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 80vh; padding: 32px 24px; text-align: center; gap: 24px; }

@@ -120,6 +120,7 @@ function App() {
             setTab(k)
           }}
           onBack={selectedMemo ? () => setSelectedMemoId(null) : undefined}
+          user={user}
         />
       </div>
     </ToastProvider>
