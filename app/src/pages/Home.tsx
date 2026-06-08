@@ -46,7 +46,10 @@ export function Home({ uid, patientName, memos }: { uid: string; patientName: st
       // chain. Vision returns null on web (no native path) which short-
       // circuits the LLM call too.
       const visionThenMemo = (async () => {
-        const tags = nativePath ? await analyzePhotoTags(nativePath) : null
+        // analyzePhotoTags handles the platform switch internally: real
+        // Vision on native, synthetic tags in dev-server web, null in
+        // production web. Keep this call site uniform.
+        const tags = await analyzePhotoTags(nativePath)
         if (tags) console.log('[capture] vision tags', tags)
         const timeHint = `${takenAt.getHours().toString().padStart(2, '0')}:${takenAt.getMinutes().toString().padStart(2, '0')}`
         const { memo, source } = await generateActivityMemo(tags, { timeHint })

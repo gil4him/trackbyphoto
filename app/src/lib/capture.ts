@@ -59,19 +59,48 @@ export async function captureNativePhoto(): Promise<{ file: File; path: string }
 }
 
 /**
- * Run Apple Vision on a captured photo (native iOS only). Returns null on
- * non-native platforms or if the pipeline fails — callers should treat
- * tag-less memos as the normal case for web.
+ * Plausible synthetic Vision tags for browser testing. The native iOS app
+ * is now the patient-facing path; the deployed web URL is a dev/preview
+ * surface, so we let the browser exercise the template + "trust device
+ * memo" code paths without an iPhone. Runs in both `npm run dev` and on
+ * the deployed site — guarded only by `!isNative`.
  */
-export async function analyzePhotoTags(path: string): Promise<VisionTags | null> {
-  if (!isNative) return null
-  try {
-    const result = await OnDeviceVision.analyze({ path })
-    return result.tags
-  } catch (err) {
-    console.warn('[analyzePhotoTags] Vision failed', err)
-    return null
+const DEV_FAKE_TAG_SCENARIOS: VisionTags[] = [
+  // 식사
+  { labels: [{ name: 'food', confidence: 0.92 }, { name: 'plate', confidence: 0.7 }], text: [], faceCount: 0 },
+  // 산책
+  { labels: [{ name: 'park', confidence: 0.85 }, { name: 'tree', confidence: 0.6 }, { name: 'outdoor', confidence: 0.55 }], text: [], faceCount: 0 },
+  // 휴식
+  { labels: [{ name: 'sofa', confidence: 0.8 }, { name: 'indoor', confidence: 0.7 }, { name: 'book', confidence: 0.4 }], text: [], faceCount: 0 },
+  // 가족 (face count >=2)
+  { labels: [{ name: 'outdoor', confidence: 0.65 }], text: [], faceCount: 3 },
+  // OCR-bearing case (with food)
+  { labels: [{ name: 'food', confidence: 0.8 }], text: ['한정식', '메뉴'], faceCount: 1 },
+]
+
+/**
+ * Run Apple Vision on a captured photo. On native iOS calls the real
+ * plugin; in a browser returns a randomly-picked synthetic VisionTags so
+ * the template + on-device-memo flow can be visually exercised without an
+ * iPhone. (The deployed web URL is a dev/preview surface, not the patient
+ * path.) Returns null only when native Vision actually errors.
+ */
+export async function analyzePhotoTags(path: string | undefined): Promise<VisionTags | null> {
+  if (isNative && path) {
+    try {
+      const result = await OnDeviceVision.analyze({ path })
+      return result.tags
+    } catch (err) {
+      console.warn('[analyzePhotoTags] Vision failed', err)
+      return null
+    }
   }
+  if (!isNative) {
+    const fake = DEV_FAKE_TAG_SCENARIOS[Math.floor(Math.random() * DEV_FAKE_TAG_SCENARIOS.length)]
+    console.log('[web] simulated Vision tags', fake)
+    return fake
+  }
+  return null
 }
 
 /**
@@ -121,17 +150,22 @@ export async function generateActivityMemo(
   tags: VisionTags | null,
   hints?: { timeHint?: string; placeHint?: string },
 ): Promise<{ memo: string; source: 'foundation-models' | 'template' | 'none' }> {
-  if (!isNative || !tags) return { memo: '', source: 'none' }
-  try {
-    const result = await OnDeviceVision.generateMemo({
-      tags,
-      timeHint: hints?.timeHint,
-      placeHint: hints?.placeHint,
-    })
-    if (result.memo) return { memo: result.memo, source: 'foundation-models' }
-  } catch (err) {
-    console.warn('[generateActivityMemo] Foundation Models failed', err)
+  if (!tags) return { memo: '', source: 'none' }
+  if (isNative) {
+    try {
+      const result = await OnDeviceVision.generateMemo({
+        tags,
+        timeHint: hints?.timeHint,
+        placeHint: hints?.placeHint,
+      })
+      if (result.memo) return { memo: result.memo, source: 'foundation-models' }
+    } catch (err) {
+      console.warn('[generateActivityMemo] Foundation Models failed', err)
+    }
   }
+  // Foundation Models is iOS-only; on web (and on native when the LLM is
+  // unavailable) we fall through to the Korean sentence template so the
+  // memo still comes from the device side.
   return { memo: templateMemo(tags), source: 'template' }
 }
 
