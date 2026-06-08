@@ -25,6 +25,7 @@ function koLabel(name: string): string {
 const SOURCE_BADGES: Record<MemoSource, { label: string; tone: 'good' | 'neutral' | 'warn' }> = {
   'foundation-models': { label: 'Apple Intelligence', tone: 'good' },
   'template':          { label: 'iPhone 분석',         tone: 'neutral' },
+  'cloud-vision':      { label: '클라우드 AI',         tone: 'good' },
   'cloud-stub':        { label: '클라우드 추정',        tone: 'warn' },
   'human':             { label: '직접 작성',           tone: 'good' },
 }

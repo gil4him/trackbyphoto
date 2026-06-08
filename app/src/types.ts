@@ -10,7 +10,12 @@ export interface MemoVisionTags {
 }
 
 /** Which tier produced the activity text. Drives the AI badge on the detail page. */
-export type MemoSource = 'foundation-models' | 'template' | 'cloud-stub' | 'human'
+export type MemoSource =
+  | 'foundation-models' // iOS 26+ Apple Intelligence on-device LLM
+  | 'template'          // pre-iOS-26: Korean sentence template over Vision tags
+  | 'cloud-vision'      // Gemini 2.0 Flash Vision (web upload / older iPhone)
+  | 'cloud-stub'        // final fallback when Gemini is unreachable
+  | 'human'             // guardian hand-edited the activity
 
 export interface Memo {
   id: string

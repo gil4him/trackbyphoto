@@ -59,31 +59,11 @@ export async function captureNativePhoto(): Promise<{ file: File; path: string }
 }
 
 /**
- * Plausible synthetic Vision tags for browser testing. The native iOS app
- * is now the patient-facing path; the deployed web URL is a dev/preview
- * surface, so we let the browser exercise the template + "trust device
- * memo" code paths without an iPhone. Runs in both `npm run dev` and on
- * the deployed site — guarded only by `!isNative`.
- */
-const DEV_FAKE_TAG_SCENARIOS: VisionTags[] = [
-  // 식사
-  { labels: [{ name: 'food', confidence: 0.92 }, { name: 'plate', confidence: 0.7 }], text: [], faceCount: 0 },
-  // 산책
-  { labels: [{ name: 'park', confidence: 0.85 }, { name: 'tree', confidence: 0.6 }, { name: 'outdoor', confidence: 0.55 }], text: [], faceCount: 0 },
-  // 휴식
-  { labels: [{ name: 'sofa', confidence: 0.8 }, { name: 'indoor', confidence: 0.7 }, { name: 'book', confidence: 0.4 }], text: [], faceCount: 0 },
-  // 가족 (face count >=2)
-  { labels: [{ name: 'outdoor', confidence: 0.65 }], text: [], faceCount: 3 },
-  // OCR-bearing case (with food)
-  { labels: [{ name: 'food', confidence: 0.8 }], text: ['한정식', '메뉴'], faceCount: 1 },
-]
-
-/**
  * Run Apple Vision on a captured photo. On native iOS calls the real
- * plugin; in a browser returns a randomly-picked synthetic VisionTags so
- * the template + on-device-memo flow can be visually exercised without an
- * iPhone. (The deployed web URL is a dev/preview surface, not the patient
- * path.) Returns null only when native Vision actually errors.
+ * plugin. On web we return null so the upload skips the on-device tier
+ * and lets the Cloud Function's Gemini Vision call generate the memo
+ * from the actual photo bytes — real AI on the deployed URL, not synthetic
+ * tags.
  */
 export async function analyzePhotoTags(path: string | undefined): Promise<VisionTags | null> {
   if (isNative && path) {
@@ -94,11 +74,6 @@ export async function analyzePhotoTags(path: string | undefined): Promise<Vision
       console.warn('[analyzePhotoTags] Vision failed', err)
       return null
     }
-  }
-  if (!isNative) {
-    const fake = DEV_FAKE_TAG_SCENARIOS[Math.floor(Math.random() * DEV_FAKE_TAG_SCENARIOS.length)]
-    console.log('[web] simulated Vision tags', fake)
-    return fake
   }
   return null
 }
@@ -140,10 +115,11 @@ function templateMemo(tags: VisionTags): string {
 }
 
 /**
- * Generate the activity memo, walking down the tier ladder:
+ * Generate the activity memo on the device. Walks down the on-device ladder:
  *   1. Apple Foundation Models (iPhone 15 Pro+ on iOS 26+) → warm LLM memo
  *   2. Korean sentence template from Vision tags → works on any iPhone
- *   3. (web / no tags) → empty string, Cloud Function handles it
+ *   3. (web / no tags / both failed) → empty string; the Cloud Function will
+ *      run Gemini 2.0 Flash on the photo bytes itself.
  * Returns the memo + which tier produced it (caller can log this).
  */
 export async function generateActivityMemo(
@@ -162,11 +138,13 @@ export async function generateActivityMemo(
     } catch (err) {
       console.warn('[generateActivityMemo] Foundation Models failed', err)
     }
+    // Foundation Models unavailable but we have real Vision tags — write a
+    // templated sentence so the device still ships a memo, even when offline.
+    return { memo: templateMemo(tags), source: 'template' }
   }
-  // Foundation Models is iOS-only; on web (and on native when the LLM is
-  // unavailable) we fall through to the Korean sentence template so the
-  // memo still comes from the device side.
-  return { memo: templateMemo(tags), source: 'template' }
+  // Web path: no on-device memo; let the Cloud Function's Gemini Vision tier
+  // produce the real AI memo from the photo bytes.
+  return { memo: '', source: 'none' }
 }
 
 /** True when the app is running inside the Capacitor iOS shell. */
