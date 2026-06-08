@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>오늘하루 · TrackByPhoto</title>
+    <!-- Server-side 301 in firebase.json catches this first; the meta refresh
+         + JS below are a fallback for any edge case (preview, cached SW from a
+         prior install of this app on the old origin, etc.). -->
+    <meta http-equiv="refresh" content="0; url=https://trackbyphoto.web.app/" />
+    <script>
+      // Be aggressive: replace() so the old URL doesn't sit in history.
+      location.replace('https://trackbyphoto.web.app/');
+    </script>
+    <style>
+      body { font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif; background: #FFF8EE; color: #6b5a3a; display: grid; place-items: center; min-height: 100vh; margin: 0; }
+      a { color: #c97a1a; }
+    </style>
+  </head>
+  <body>
+    <p>이동 중… <a href="https://trackbyphoto.web.app/">트랙바이포토</a></p>
+  </body>
+</html>

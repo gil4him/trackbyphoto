@@ -1,20 +1,30 @@
 {
-  "hosting": {
-    "site": "trackbyphoto",
-    "public": "app/dist",
-    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
-    "rewrites": [{ "source": "**", "destination": "/index.html" }],
-    "headers": [
-      {
-        "source": "**/*.@(js|css|woff2|svg|png|jpg|webp|ico)",
-        "headers": [{ "key": "Cache-Control", "value": "public,max-age=31536000,immutable" }]
-      },
-      {
-        "source": "**/sw.js",
-        "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
-      }
-    ]
-  },
+  "hosting": [
+    {
+      "site": "trackbyphoto",
+      "public": "app/dist",
+      "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+      "rewrites": [{ "source": "**", "destination": "/index.html" }],
+      "headers": [
+        {
+          "source": "**/*.@(js|css|woff2|svg|png|jpg|webp|ico)",
+          "headers": [{ "key": "Cache-Control", "value": "public,max-age=31536000,immutable" }]
+        },
+        {
+          "source": "**/sw.js",
+          "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+        }
+      ]
+    },
+    {
+      "site": "trackbyphoto-app",
+      "public": "app/redirect-shim",
+      "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+      "redirects": [
+        { "source": "/**", "destination": "https://trackbyphoto.web.app/", "type": 301 }
+      ]
+    }
+  ],
   "firestore": {
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
