@@ -7,6 +7,9 @@ node_modules/
 .env
 .env.local
 .env.*.local
+# Firebase v2 functions env files: .env.{projectId}
+functions/.env
+functions/.env.*
 
 # build output
 dist/

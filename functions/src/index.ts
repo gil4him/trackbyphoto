@@ -66,14 +66,60 @@ function categoryFromTags(
   return '일상'
 }
 
-// STUB: reverse geocode. Replace with Kakao Local API call.
-const PLACES = ['자택 거실', '동네 공원', '한강공원', '행복요양센터', '근처 카페', '병원 근처', '마트 입구']
-function reverseGeocode(lat: number | null, lng: number | null): Promise<string> {
+// Reverse geocoding via Kakao Local API.
+//
+// Set the key at deploy time by creating `functions/.env.trackbyphoto-app`:
+//   KAKAO_REST_KEY=<your kakao rest api key>
+// (`.env.{projectId}` is the Firebase v2 convention; the file is gitignored.)
+//
+// When the key is missing or the API call fails, we fall back to a small
+// deterministic stub so the function keeps working without external setup.
+const STUB_PLACES = ['자택 거실', '동네 공원', '한강공원', '행복요양센터', '근처 카페', '병원 근처', '마트 입구']
+function stubPlace(lat: number | null, lng: number | null): string {
   if (lat == null || lng == null) {
-    return Promise.resolve(PLACES[Math.floor(Math.random() * PLACES.length)])
+    return STUB_PLACES[Math.floor(Math.random() * STUB_PLACES.length)]
   }
-  const i = Math.abs(Math.round((lat + lng) * 1000)) % PLACES.length
-  return Promise.resolve(PLACES[i])
+  const i = Math.abs(Math.round((lat + lng) * 1000)) % STUB_PLACES.length
+  return STUB_PLACES[i]
+}
+
+interface KakaoCoord2AddressDoc {
+  address?: { region_3depth_name?: string; address_name?: string }
+  road_address?: { address_name?: string; building_name?: string }
+}
+interface KakaoCoord2AddressResponse {
+  documents?: KakaoCoord2AddressDoc[]
+}
+
+async function reverseGeocode(lat: number | null, lng: number | null): Promise<string> {
+  if (lat == null || lng == null) return stubPlace(null, null)
+
+  const apiKey = process.env.KAKAO_REST_KEY || ''
+  if (!apiKey) return stubPlace(lat, lng)
+
+  try {
+    const url = `https://dapi.kakao.com/v2/local/geo/coord2address.json?x=${lng}&y=${lat}`
+    const res = await fetch(url, { headers: { Authorization: `KakaoAK ${apiKey}` } })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const data = (await res.json()) as KakaoCoord2AddressResponse
+    const doc = data.documents?.[0]
+    if (!doc) throw new Error('no documents')
+
+    // Prefer the building name when present (e.g., "성모병원") — most
+    // recognizable to family. Otherwise fall through to the dong/eup/myeon
+    // name ("역삼동") which is short and matches Korean conversational style.
+    // Last resort is the road address.
+    const building = doc.road_address?.building_name?.trim()
+    if (building) return building
+    const dong = doc.address?.region_3depth_name?.trim()
+    if (dong) return dong
+    const road = doc.road_address?.address_name?.trim()
+    if (road) return road
+    throw new Error('no usable address fields')
+  } catch (err) {
+    logger.warn('reverseGeocode: Kakao API failed, using stub', { err: String(err), lat, lng })
+    return stubPlace(lat, lng)
+  }
 }
 
 // ────────────────────────────────────────────────────────────────────────────
