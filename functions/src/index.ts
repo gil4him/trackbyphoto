@@ -18,9 +18,10 @@ import { initializeApp } from 'firebase-admin/app'
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { getStorage } from 'firebase-admin/storage'
 import { onObjectFinalized } from 'firebase-functions/v2/storage'
-import { defineSecret } from 'firebase-functions/params'
+import { defineSecret, defineString } from 'firebase-functions/params'
 import { logger } from 'firebase-functions/v2'
 import { GoogleGenerativeAI } from '@google/generative-ai'
+import OpenAI from 'openai'
 
 initializeApp()
 
@@ -28,26 +29,55 @@ initializeApp()
 // Storage bucket is in us-west1, so function must trigger there too.
 const REGION = 'us-west1'
 
-// Gemini API key, configured via:
+// API keys, configured via:
 //   firebase functions:secrets:set GEMINI_API_KEY
-// (Get a key at https://aistudio.google.com/apikey.) When unset, the function
-// gracefully falls back to the stub generator so the pipeline keeps working
-// without external setup.
+//   firebase functions:secrets:set OPENAI_API_KEY
+// Only the key for the currently selected MODEL needs to be set. When the
+// required key is missing the function falls back to the deterministic stub
+// so the pipeline keeps working without external setup.
 const GEMINI_API_KEY = defineSecret('GEMINI_API_KEY')
+const OPENAI_API_KEY = defineSecret('OPENAI_API_KEY')
+
+// Currently selected vision model. Switch without redeploying code via:
+//   firebase functions:config:set ai.model="gpt-4o-mini"
+// or set MODEL in functions/.env.<project-id>. Defaults to gemini-2.5-flash,
+// the best $/quality ratio for this task per the comparison in the dashboard.
+const MODEL = defineString('MODEL', { default: 'gemini-2.5-flash' })
 
 // ────────────────────────────────────────────────────────────────────────────
-// Cloud Vision LLM tier — Gemini 2.0 Flash.
+// Cloud Vision LLM tier.
 //
 // Runs when the device couldn't produce a memo (web upload, older iPhone, or
 // Apple Intelligence off). Downloads the photo bytes from Storage and sends
-// them to Gemini Flash with a Korean prompt + time/place context. Parses a
-// single short Korean sentence + a category. Falls back to the deterministic
+// them to the configured model with a Korean prompt + time/place context.
+// Parses a short Korean sentence + a category. Falls back to the deterministic
 // stub below when the API call fails (network, parse error, missing key).
+//
+// Supports both Gemini and OpenAI via the MODEL env var — the prompt is the
+// same, only the SDK call shape differs.
 // ────────────────────────────────────────────────────────────────────────────
 
 const VALID_CATEGORIES = ['식사', '산책', '휴식', '가족', '일상'] as const
 
-interface GeminiResult {
+// Per-model pricing in USD per 1M tokens, used for the cost log + dashboard
+// roll-up. Image tokens are folded into prompt count by both providers so we
+// don't need a separate image-tile calculation.
+//
+// Sources: ai.google.dev/pricing and openai.com/api/pricing (as of 2025-mid).
+// Update when you change models so the dashboard stays honest.
+const PRICING: Record<string, { provider: 'gemini' | 'openai'; inPerM: number; outPerM: number }> = {
+  // Gemini
+  'gemini-2.0-flash': { provider: 'gemini', inPerM: 0.10, outPerM: 0.40 },
+  'gemini-2.5-flash': { provider: 'gemini', inPerM: 0.30, outPerM: 2.50 },
+  'gemini-2.5-pro':   { provider: 'gemini', inPerM: 1.25, outPerM: 10.00 },
+  // OpenAI
+  'gpt-4o-mini': { provider: 'openai', inPerM: 0.15, outPerM: 0.60 },
+  'gpt-4o':      { provider: 'openai', inPerM: 2.50, outPerM: 10.00 },
+  'gpt-4.1-mini': { provider: 'openai', inPerM: 0.40, outPerM: 1.60 },
+  'gpt-4.1':      { provider: 'openai', inPerM: 2.00, outPerM: 8.00 },
+}
+
+interface LlmResult {
   activity: string
   details: string
   category: string
@@ -56,34 +86,140 @@ interface GeminiResult {
   cost: { promptTokens: number; outputTokens: number; totalUSD: number }
 }
 
-async function generateActivityWithGemini(args: {
+// Korean memo prompt shared across providers. Lives at module scope so both
+// branches see the exact same instructions — makes A/B comparisons fair.
+function buildPrompt(timeHint?: string, placeHint?: string): string {
+  return [
+    '당신은 가족이 어르신의 사진을 보고 무엇을 하셨는지 빠르게 알 수 있도록 한국어 메모를 작성하는 보조 AI입니다.',
+    '',
+    '원칙:',
+    '- 사진에 실제로 보이는 것만 적으세요. 보이지 않는 감정·관계·이유는 추측 금지.',
+    '- 일반론·상투어 금지. 다음 표현은 절대 사용하지 마세요: "소중한 순간", "잔잔한", "오늘의 한 장면", "행복하게", "사랑하는".',
+    '- 어르신 본인이 사진에 없을 수도 있어요. 그러면 무엇을 보고 계셨는지 또는 무엇을 촬영하셨는지를 적으세요.',
+    '- 존댓말. 사실 위주, 따뜻하되 단정함보다 정확함이 우선.',
+    '',
+    'activity (한 줄, 12~22자): 무엇을 하시는지 또는 무엇을 찍으셨는지를 구체적으로.',
+    '  좋은 예: "공원 벤치에 앉아 계세요" / "테이블 위 김치찌개 한 그릇" / "창밖 단풍을 보고 계세요"',
+    '  나쁜 예: "오늘의 한 장면" / "소중한 시간" / "휴식 중이세요"(맥락 없음)',
+    '',
+    'details (2~3문장, 80~140자): 사진에서 보이는 것을 구체적으로.',
+    '  포함: 주요 사물, 사람 수, 실내/실외, 빛(낮·저녁·실내등), 색감, 자세.',
+    '  제외: 감정 추측, 관계 추측("따님과", "친구와" 등 확인되지 않으면 금지).',
+    '',
+    'category: 식사 / 산책 / 휴식 / 가족 / 일상 중 정확히 하나.',
+    '  식사 — 음식이 사진의 주제',
+    '  산책 — 야외에서 이동·걷기',
+    '  휴식 — 실내에서 앉아 있거나 쉬는 모습',
+    '  가족 — 사람이 둘 이상 함께 있는 모습',
+    '  일상 — 위 어디에도 속하지 않는 사물·풍경·정물',
+    '',
+    '상황 정보 (참고용, 사진과 어긋나면 무시):',
+    `- 시간: ${timeHint || '알 수 없음'}`,
+    `- 장소: ${placeHint || '알 수 없음'}`,
+    '',
+    'JSON만 출력하세요. 다른 텍스트 금지:',
+    '{"activity":"...","details":"...","category":"..."}',
+  ].join('\n')
+}
+
+function parseModelResponse(raw: string): { activity: string; details: string; category: string } | null {
+  // Both providers occasionally wrap JSON in a code fence even with the
+  // response-format hint.
+  const cleaned = raw.replace(/^```(?:json)?\s*|\s*```$/g, '').trim()
+  try {
+    const parsed = JSON.parse(cleaned) as { activity?: unknown; details?: unknown; category?: unknown }
+    const activity = typeof parsed.activity === 'string' ? parsed.activity.trim() : ''
+    const details = typeof parsed.details === 'string' ? parsed.details.trim() : ''
+    const categoryRaw = typeof parsed.category === 'string' ? parsed.category.trim() : ''
+    if (!activity) return null
+    const category = (VALID_CATEGORIES as readonly string[]).includes(categoryRaw)
+      ? categoryRaw
+      : '일상'
+    return { activity, details, category }
+  } catch {
+    return null
+  }
+}
+
+function logCost(model: string, inTok: number, outTok: number): { totalUSD: number } {
+  const p = PRICING[model]
+  if (!p) {
+    logger.warn('[gemini-cost] no pricing entry for model — cost not recorded', { model })
+    return { totalUSD: 0 }
+  }
+  const inUSD = (inTok / 1_000_000) * p.inPerM
+  const outUSD = (outTok / 1_000_000) * p.outPerM
+  const totalUSD = inUSD + outUSD
+  // Keep the [gemini-cost] tag for backward compat with existing log filters
+  // even when the model is OpenAI — it's "the cost log" regardless of vendor.
+  logger.info('[gemini-cost] usage', {
+    tag: 'gemini-cost',
+    model,
+    promptTokens: inTok,
+    outputTokens: outTok,
+    totalTokens: inTok + outTok,
+    inputUSD: Number(inUSD.toFixed(6)),
+    outputUSD: Number(outUSD.toFixed(6)),
+    totalUSD: Number(totalUSD.toFixed(6)),
+  })
+  return { totalUSD }
+}
+
+// Dispatcher — reads MODEL, downloads the photo once, then hands off to the
+// right provider. Returns null on any failure so the trigger falls back to
+// the stub.
+async function generateActivityWithLLM(args: {
   bucket: string
   objectPath: string
   contentType?: string
   timeHint?: string
   placeHint?: string
-}): Promise<GeminiResult | null> {
+}): Promise<LlmResult | null> {
+  const modelName = MODEL.value()
+  const pricing = PRICING[modelName]
+  if (!pricing) {
+    logger.error('[llm] unknown MODEL — add to PRICING table', { model: modelName })
+    return null
+  }
+
+  // Pull photo bytes once (shared between providers).
+  let base64: string
+  let mimeType: string
+  try {
+    const bucket = getStorage().bucket(args.bucket)
+    const file = bucket.file(args.objectPath)
+    const [buffer] = await file.download()
+    mimeType = args.contentType || 'image/jpeg'
+    base64 = buffer.toString('base64')
+  } catch (err) {
+    logger.warn('[llm] photo download failed', { err: String(err) })
+    return null
+  }
+
+  const prompt = buildPrompt(args.timeHint, args.placeHint)
+
+  if (pricing.provider === 'gemini') {
+    return generateWithGemini(modelName, base64, mimeType, prompt)
+  } else {
+    return generateWithOpenAI(modelName, base64, mimeType, prompt)
+  }
+}
+
+async function generateWithGemini(
+  modelName: string,
+  base64: string,
+  mimeType: string,
+  prompt: string,
+): Promise<LlmResult | null> {
   const apiKey = GEMINI_API_KEY.value()
   if (!apiKey) {
     logger.warn('[gemini] GEMINI_API_KEY unset; skipping cloud Vision tier')
     return null
   }
-
   try {
-    // Pull the photo bytes via the Admin SDK (bypasses Storage rules).
-    const bucket = getStorage().bucket(args.bucket)
-    const file = bucket.file(args.objectPath)
-    const [buffer] = await file.download()
-    const mimeType = args.contentType || 'image/jpeg'
-    const base64 = buffer.toString('base64')
-
     const ai = new GoogleGenerativeAI(apiKey)
     const model = ai.getGenerativeModel({
-      // 2.5 Flash has materially better visual reasoning than 2.0 Flash —
-      // catches more objects, gets settings right more often, and is less
-      // likely to produce filler text. Pricing is higher but still cheap for
-      // single-image calls (~$0.001/photo at typical sizes).
-      model: 'gemini-2.5-flash',
+      model: modelName,
       generationConfig: {
         // Low temp = more grounded, less floral. Each lift toward 1 made the
         // output measurably more generic in spot checks.
@@ -92,99 +228,71 @@ async function generateActivityWithGemini(args: {
         responseMimeType: 'application/json',
       },
     })
-
-    // Prompt is grounded-observation-first. Earlier version asked for
-    // "따뜻한" (warm) tone and got back a lot of "소중한 일상의 순간" filler
-    // even when the photo had clear concrete content. We now:
-    //   - forbid named filler phrases explicitly
-    //   - require specific objects/setting in `details`
-    //   - tell the model the subject might not be in the frame
-    //   - give a few-shot anchor so it knows what "good" looks like
-    const prompt = [
-      '당신은 가족이 어르신의 사진을 보고 무엇을 하셨는지 빠르게 알 수 있도록 한국어 메모를 작성하는 보조 AI입니다.',
-      '',
-      '원칙:',
-      '- 사진에 실제로 보이는 것만 적으세요. 보이지 않는 감정·관계·이유는 추측 금지.',
-      '- 일반론·상투어 금지. 다음 표현은 절대 사용하지 마세요: "소중한 순간", "잔잔한", "오늘의 한 장면", "행복하게", "사랑하는".',
-      '- 어르신 본인이 사진에 없을 수도 있어요. 그러면 무엇을 보고 계셨는지 또는 무엇을 촬영하셨는지를 적으세요.',
-      '- 존댓말. 사실 위주, 따뜻하되 단정함보다 정확함이 우선.',
-      '',
-      'activity (한 줄, 12~22자): 무엇을 하시는지 또는 무엇을 찍으셨는지를 구체적으로.',
-      '  좋은 예: "공원 벤치에 앉아 계세요" / "테이블 위 김치찌개 한 그릇" / "창밖 단풍을 보고 계세요"',
-      '  나쁜 예: "오늘의 한 장면" / "소중한 시간" / "휴식 중이세요"(맥락 없음)',
-      '',
-      'details (2~3문장, 80~140자): 사진에서 보이는 것을 구체적으로.',
-      '  포함: 주요 사물, 사람 수, 실내/실외, 빛(낮·저녁·실내등), 색감, 자세.',
-      '  제외: 감정 추측, 관계 추측("따님과", "친구와" 등 확인되지 않으면 금지).',
-      '',
-      'category: 식사 / 산책 / 휴식 / 가족 / 일상 중 정확히 하나.',
-      '  식사 — 음식이 사진의 주제',
-      '  산책 — 야외에서 이동·걷기',
-      '  휴식 — 실내에서 앉아 있거나 쉬는 모습',
-      '  가족 — 사람이 둘 이상 함께 있는 모습',
-      '  일상 — 위 어디에도 속하지 않는 사물·풍경·정물',
-      '',
-      '상황 정보 (참고용, 사진과 어긋나면 무시):',
-      `- 시간: ${args.timeHint || '알 수 없음'}`,
-      `- 장소: ${args.placeHint || '알 수 없음'}`,
-      '',
-      'JSON만 출력하세요. 다른 텍스트 금지:',
-      '{"activity":"...","details":"...","category":"..."}',
-    ].join('\n')
-
     const result = await model.generateContent([
       { inlineData: { data: base64, mimeType } },
       { text: prompt },
     ])
     const raw = (result.response.text() || '').trim()
-    // Model occasionally wraps JSON in a code fence even with the mime hint.
-    const cleaned = raw.replace(/^```(?:json)?\s*|\s*```$/g, '').trim()
-    const parsed = JSON.parse(cleaned) as { activity?: unknown; details?: unknown; category?: unknown }
-
-    // Gemini 2.5 Flash pricing (as of 2025-mid):
-    //   input  $0.30 / 1M tokens (text + image, ≤128k context)
-    //   output $2.50 / 1M tokens
-    // Photo tokens are folded into promptTokenCount by the model. We log a
-    // per-call line tagged "gemini-cost" AND return the numbers so the
-    // trigger can roll them up into admin_daily / admin_totals for the
-    // /superadmin dashboard.
+    const parsed = parseModelResponse(raw)
+    if (!parsed) {
+      logger.warn('[gemini] empty/invalid response', { raw })
+      return null
+    }
     const usage = result.response.usageMetadata
     const inTok = usage?.promptTokenCount ?? 0
     const outTok = usage?.candidatesTokenCount ?? 0
-    const inUSD = (inTok / 1_000_000) * 0.30
-    const outUSD = (outTok / 1_000_000) * 2.50
-    const totalUSD = inUSD + outUSD
-    if (usage) {
-      logger.info('[gemini-cost] usage', {
-        tag: 'gemini-cost',
-        model: 'gemini-2.5-flash',
-        promptTokens: inTok,
-        outputTokens: outTok,
-        totalTokens: usage.totalTokenCount ?? inTok + outTok,
-        inputUSD: Number(inUSD.toFixed(6)),
-        outputUSD: Number(outUSD.toFixed(6)),
-        totalUSD: Number(totalUSD.toFixed(6)),
-      })
-    } else {
-      logger.warn('[gemini-cost] usageMetadata missing — cannot estimate cost')
-    }
-
-    const activity = typeof parsed.activity === 'string' ? parsed.activity.trim() : ''
-    const details = typeof parsed.details === 'string' ? parsed.details.trim() : ''
-    const categoryRaw = typeof parsed.category === 'string' ? parsed.category.trim() : ''
-    if (!activity) {
-      logger.warn('[gemini] empty activity in response', { raw })
-      return null
-    }
-    const category = (VALID_CATEGORIES as readonly string[]).includes(categoryRaw)
-      ? categoryRaw
-      : '일상'
-    return {
-      activity, details, category,
-      cost: { promptTokens: inTok, outputTokens: outTok, totalUSD },
-    }
+    const { totalUSD } = logCost(modelName, inTok, outTok)
+    return { ...parsed, cost: { promptTokens: inTok, outputTokens: outTok, totalUSD } }
   } catch (err) {
     logger.warn('[gemini] generation failed', { err: String(err) })
+    return null
+  }
+}
+
+async function generateWithOpenAI(
+  modelName: string,
+  base64: string,
+  mimeType: string,
+  prompt: string,
+): Promise<LlmResult | null> {
+  const apiKey = OPENAI_API_KEY.value()
+  if (!apiKey) {
+    logger.warn('[openai] OPENAI_API_KEY unset; skipping cloud Vision tier')
+    return null
+  }
+  try {
+    const client = new OpenAI({ apiKey })
+    // Chat Completions w/ image_url + base64 data URL is the simplest path
+    // that works across gpt-4o, gpt-4o-mini, gpt-4.1, gpt-4.1-mini.
+    const dataUrl = `data:${mimeType};base64,${base64}`
+    const result = await client.chat.completions.create({
+      model: modelName,
+      temperature: 0.2,
+      max_tokens: 400,
+      response_format: { type: 'json_object' },
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'image_url', image_url: { url: dataUrl } },
+            { type: 'text', text: prompt },
+          ],
+        },
+      ],
+    })
+    const raw = result.choices[0]?.message?.content?.trim() || ''
+    const parsed = parseModelResponse(raw)
+    if (!parsed) {
+      logger.warn('[openai] empty/invalid response', { raw })
+      return null
+    }
+    const usage = result.usage
+    const inTok = usage?.prompt_tokens ?? 0
+    const outTok = usage?.completion_tokens ?? 0
+    const { totalUSD } = logCost(modelName, inTok, outTok)
+    return { ...parsed, cost: { promptTokens: inTok, outputTokens: outTok, totalUSD } }
+  } catch (err) {
+    logger.warn('[openai] generation failed', { err: String(err) })
     return null
   }
 }
@@ -448,7 +556,10 @@ export const onPhotoUploaded = onObjectFinalized(
     // covers typical iPhone JPEGs comfortably.
     memory: '512MiB',
     timeoutSeconds: 90,
-    secrets: [GEMINI_API_KEY],
+    // Both keys are listed so MODEL can be flipped between Gemini and OpenAI
+    // via env var without redeploying. Only the one matching the active
+    // MODEL is actually read.
+    secrets: [GEMINI_API_KEY, OPENAI_API_KEY],
   },
   async (event) => {
     const obj = event.data
@@ -541,22 +652,23 @@ export const onPhotoUploaded = onObjectFinalized(
       //   1. Device memo (Apple Foundation Models / template) — trust verbatim.
       //      No `details` from this tier yet — device LLM only produces the
       //      short headline. Leave details empty.
-      //   2. Gemini 2.0 Flash Vision — produces both activity + details.
-      //   3. Deterministic stub (Gemini unreachable / unconfigured).
+      //   2. Cloud vision LLM (Gemini or OpenAI via MODEL env) — produces both
+      //      activity + details.
+      //   3. Deterministic stub (LLM unreachable / unconfigured).
       let activity: string
       let details: string = ''
       let category: string
       let memoSource: string
-      // Token + USD for this run, or null when no Gemini call happened
+      // Token + USD for this run, or null when no LLM call happened
       // (device tier or stub). Used for the admin counter roll-up.
-      let geminiCost: GeminiResult['cost'] | null = null
+      let geminiCost: LlmResult['cost'] | null = null
       if (deviceActivity) {
         activity = deviceActivity
         category = categoryFromTags(tags)
         memoSource = deviceMemoSource || 'foundation-models'
       } else {
         const timeHint = takenAtIso ? new Date(takenAtIso).toTimeString().slice(0, 5) : undefined
-        const cloud = await generateActivityWithGemini({
+        const cloud = await generateActivityWithLLM({
           bucket: obj.bucket,
           objectPath: path,
           contentType: obj.contentType,
