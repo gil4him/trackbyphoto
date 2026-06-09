@@ -48,7 +48,12 @@ header.bar {
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; letter-spacing: -0.01em; }
 .brand .dot { width: 26px; height: 26px; border-radius: 8px; background: linear-gradient(135deg, var(--accent), var(--accent-2)); box-shadow: var(--shadow); }
 .who { font-size: 14px; color: var(--ink-2); background: #fff; border: 1px solid var(--line); padding: 6px 12px; border-radius: 999px; }
-main { flex: 1; padding: 8px 20px 120px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+/* Scroll the document itself, not main. A nested overflow scroller on iOS
+   Safari desyncs the URL-bar collapse from the fixed bottom nav: on long
+   pages (홈/오늘) the nav appeared to float above the visible bottom,
+   while on the short 나 page (no overflow) it sat flush. Letting the body
+   scroll keeps the nav at the viewport bottom on every page. */
+main { padding: 8px 20px 120px; }
 
 .page { display: block; }
 
