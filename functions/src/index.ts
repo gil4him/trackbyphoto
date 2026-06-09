@@ -102,6 +102,34 @@ async function generateActivityWithGemini(args: {
     const cleaned = raw.replace(/^```(?:json)?\s*|\s*```$/g, '').trim()
     const parsed = JSON.parse(cleaned) as { activity?: unknown; details?: unknown; category?: unknown }
 
+    // Log a Gemini 2.0 Flash cost estimate per call so the bill never sneaks
+    // up. Prices as of 2025-02 for ≤128k context:
+    //   input  $0.10 / 1M tokens
+    //   output $0.40 / 1M tokens
+    // The SDK exposes counts on result.response.usageMetadata. Photo tokens
+    // are folded into promptTokenCount by the model. Search Cloud Logging for
+    // jsonPayload.tag = "gemini-cost" to roll up daily / monthly spend.
+    const usage = result.response.usageMetadata
+    if (usage) {
+      const inTok = usage.promptTokenCount ?? 0
+      const outTok = usage.candidatesTokenCount ?? 0
+      const inUSD = (inTok / 1_000_000) * 0.10
+      const outUSD = (outTok / 1_000_000) * 0.40
+      const totalUSD = inUSD + outUSD
+      logger.info('[gemini-cost] usage', {
+        tag: 'gemini-cost',
+        model: 'gemini-2.0-flash',
+        promptTokens: inTok,
+        outputTokens: outTok,
+        totalTokens: usage.totalTokenCount ?? inTok + outTok,
+        inputUSD: Number(inUSD.toFixed(6)),
+        outputUSD: Number(outUSD.toFixed(6)),
+        totalUSD: Number(totalUSD.toFixed(6)),
+      })
+    } else {
+      logger.warn('[gemini-cost] usageMetadata missing — cannot estimate cost')
+    }
+
     const activity = typeof parsed.activity === 'string' ? parsed.activity.trim() : ''
     const details = typeof parsed.details === 'string' ? parsed.details.trim() : ''
     const categoryRaw = typeof parsed.category === 'string' ? parsed.category.trim() : ''
