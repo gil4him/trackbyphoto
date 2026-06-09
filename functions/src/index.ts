@@ -18,6 +18,7 @@ import { initializeApp } from 'firebase-admin/app'
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { getStorage } from 'firebase-admin/storage'
 import { onObjectFinalized } from 'firebase-functions/v2/storage'
+import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import { defineSecret, defineString } from 'firebase-functions/params'
 import { logger } from 'firebase-functions/v2'
 import { GoogleGenerativeAI } from '@google/generative-ai'
@@ -760,6 +761,90 @@ export const onPhotoUploaded = onObjectFinalized(
     } catch (err) {
       logger.error('memo generation failed', { err })
       await memoRef.update({ status: 'error' })
+    }
+  },
+)
+
+// ────────────────────────────────────────────────────────────────────────────
+// regenerateMemo — admin-only HTTPS callable.
+//
+// Re-runs a single memo through the currently active model and returns the
+// new output WITHOUT persisting. The dashboard uses this for A/B testing:
+// shows old (stored) vs new (just generated) side-by-side so you can decide
+// whether the new model/prompt is actually an improvement before keeping it.
+//
+// Returns the cost so the admin can see what a single regen would have cost.
+// ────────────────────────────────────────────────────────────────────────────
+
+const ADMIN_EMAIL = 'zymer4him@gmail.com'
+
+export const regenerateMemo = onCall(
+  {
+    region: REGION,
+    memory: '512MiB',
+    timeoutSeconds: 60,
+    secrets: [GEMINI_API_KEY, OPENAI_API_KEY],
+  },
+  async (request) => {
+    const callerEmail = request.auth?.token?.email
+    if (callerEmail !== ADMIN_EMAIL) {
+      throw new HttpsError('permission-denied', 'admin only')
+    }
+    const memoId = (request.data?.memoId as string | undefined)?.trim()
+    if (!memoId) {
+      throw new HttpsError('invalid-argument', 'memoId required')
+    }
+
+    const db = getFirestore()
+    const snap = await db.collection('memos').doc(memoId).get()
+    if (!snap.exists) {
+      throw new HttpsError('not-found', `memo ${memoId} not found`)
+    }
+    const memo = snap.data()!
+    const photoPath = memo.photoPath as string | undefined
+    if (!photoPath) {
+      throw new HttpsError('failed-precondition', 'memo has no photoPath')
+    }
+
+    // Resolve the storage bucket from the path. The Cloud Function trigger
+    // uses event.data.bucket; here we use the default app bucket since regen
+    // is always for already-stored memos in the project's bucket.
+    const bucket = getStorage().bucket()
+    const file = bucket.file(photoPath)
+    const [storageMeta] = await file.getMetadata()
+    const contentType = storageMeta.contentType || 'image/jpeg'
+
+    const takenAtIso = memo.takenAt?.toDate?.().toISOString()
+    const timeHint = takenAtIso ? new Date(takenAtIso).toTimeString().slice(0, 5) : undefined
+    const placeHint = (memo.place as string | undefined) || undefined
+
+    const result = await generateActivityWithLLM({
+      bucket: bucket.name,
+      objectPath: photoPath,
+      contentType,
+      timeHint,
+      placeHint,
+    })
+    if (!result) {
+      throw new HttpsError('internal', 'LLM call failed; check function logs')
+    }
+
+    return {
+      memoId,
+      old: {
+        activity: (memo.activity as string) || '',
+        details: (memo.details as string) || '',
+        category: (memo.category as string) || '',
+        memoSource: (memo.memoSource as string) || '',
+        model: (memo.model as string) || '',
+      },
+      new: {
+        activity: result.activity,
+        details: result.details,
+        category: result.category,
+        model: result.model,
+      },
+      cost: result.cost,
     }
   },
 )

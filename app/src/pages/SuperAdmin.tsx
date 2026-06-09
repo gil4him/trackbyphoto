@@ -2,9 +2,17 @@ import { useEffect, useState } from 'react'
 import {
   collection, doc, getDocs, limit, onSnapshot, orderBy, query, setDoc,
 } from 'firebase/firestore'
+import { getFunctions, httpsCallable } from 'firebase/functions'
 import { db } from '../firebase'
 import { fmtDate, fmtTime } from '../util'
 import type { Memo, MemoSource } from '../types'
+
+interface RegenResult {
+  memoId: string
+  old: { activity: string; details: string; category: string; memoSource: string; model: string }
+  new: { activity: string; details: string; category: string; model: string }
+  cost: { promptTokens: number; outputTokens: number; totalUSD: number }
+}
 
 /** Single source of truth for the admin email. Mirrored in firestore.rules. */
 export const ADMIN_EMAIL = 'zymer4him@gmail.com'
@@ -79,6 +87,10 @@ export function SuperAdmin({ onSignOut }: { onSignOut: () => Promise<void> }) {
   // minute, no deploy required.
   const [config, setConfig] = useState<AdminConfig | null>(null)
   const [saving, setSaving] = useState(false)
+  // Regen modal: when set, we show a comparison overlay with the result of
+  // running the photo through the currently active model.
+  const [regenBusy, setRegenBusy] = useState<string | null>(null)
+  const [regen, setRegen] = useState<RegenResult | null>(null)
 
   // Live subscription to the totals doc — it bumps on every new memo so the
   // dashboard updates without a refresh while a phone is uploading.
@@ -125,6 +137,25 @@ export function SuperAdmin({ onSignOut }: { onSignOut: () => Promise<void> }) {
     )
     return () => unsub()
   }, [])
+
+  const onRegen = async (memoId: string) => {
+    setRegenBusy(memoId)
+    setError(null)
+    try {
+      // Function lives in us-west1 to match the storage trigger.
+      const fn = httpsCallable<{ memoId: string }, RegenResult>(
+        getFunctions(undefined, 'us-west1'),
+        'regenerateMemo',
+      )
+      const res = await fn({ memoId })
+      setRegen(res.data)
+    } catch (err) {
+      console.error('[superadmin] regen', err)
+      setError(`재분석 실패: ${(err as Error).message}`)
+    } finally {
+      setRegenBusy(null)
+    }
+  }
 
   const onChangeModel = async (newModel: string) => {
     if (newModel === (config?.model || 'gemini-2.5-flash')) return
@@ -394,12 +425,60 @@ export function SuperAdmin({ onSignOut }: { onSignOut: () => Promise<void> }) {
                   <span>👤 {m.uid.slice(0, 8)}…</span>
                   <span>📍 {m.place || '위치 없음'}</span>
                 </div>
+                <button
+                  type="button"
+                  className="adm-regen"
+                  onClick={() => onRegen(m.id)}
+                  disabled={regenBusy === m.id || !m.photoPath}
+                  title="현재 활성 모델로 다시 분석 (저장하지 않음)"
+                >
+                  {regenBusy === m.id ? '분석 중…' : '🔄 재분석'}
+                </button>
               </div>
             </div>
           ))}
           {recent.length === 0 && <div className="muted">아직 메모가 없어요.</div>}
         </div>
       </section>
+
+      {regen && (
+        <div className="regen-modal" role="dialog" aria-modal="true" onClick={() => setRegen(null)}>
+          <div className="regen-card" onClick={(e) => e.stopPropagation()}>
+            <div className="regen-head">
+              <h2>재분석 결과</h2>
+              <button className="regen-close" onClick={() => setRegen(null)} aria-label="닫기">✕</button>
+            </div>
+            <div className="regen-cost">
+              비용: {fmtUSD(regen.cost.totalUSD)} · in {fmtInt(regen.cost.promptTokens)} / out {fmtInt(regen.cost.outputTokens)} 토큰
+            </div>
+            <div className="regen-cols">
+              <div className="regen-col">
+                <div className="regen-col-head">
+                  <span className="regen-label">이전</span>
+                  {regen.old.model
+                    ? <span className="regen-model">{regen.old.model}</span>
+                    : <span className="regen-model muted">{regen.old.memoSource || '—'}</span>}
+                </div>
+                <div className="regen-cat">{regen.old.category || '—'}</div>
+                <div className="regen-act">{regen.old.activity || '(없음)'}</div>
+                <div className="regen-det">{regen.old.details || '(상세 없음)'}</div>
+              </div>
+              <div className="regen-col new">
+                <div className="regen-col-head">
+                  <span className="regen-label">새로운 결과</span>
+                  <span className="regen-model">{regen.new.model}</span>
+                </div>
+                <div className="regen-cat">{regen.new.category}</div>
+                <div className="regen-act">{regen.new.activity}</div>
+                <div className="regen-det">{regen.new.details}</div>
+              </div>
+            </div>
+            <div className="regen-note muted">
+              ※ 새 결과는 표시만 되며 저장되지 않아요.
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
