@@ -81,6 +81,10 @@ interface LlmResult {
   activity: string
   details: string
   category: string
+  /** Model that produced this result. Recorded onto the counter rollup so
+   *  the dashboard can break costs out by model when we switch between
+   *  vendors mid-month. */
+  model: string
   /** Token counts + USD estimate, included so the trigger can roll up
    *  spending into admin_daily / admin_totals for the dashboard. */
   cost: { promptTokens: number; outputTokens: number; totalUSD: number }
@@ -165,6 +169,27 @@ function logCost(model: string, inTok: number, outTok: number): { totalUSD: numb
   return { totalUSD }
 }
 
+// Resolve the active model. Priority:
+//   1. admin_config/global.model (set live from the /superadmin picker)
+//   2. MODEL env var (deploy-time default)
+// Cached for 60s so we don't hit Firestore on every photo, but still pick up
+// dashboard changes within a minute. Cold-start always re-reads.
+let _modelCache: { value: string; expiresAt: number } | null = null
+async function resolveModel(): Promise<string> {
+  const now = Date.now()
+  if (_modelCache && _modelCache.expiresAt > now) return _modelCache.value
+  let chosen = MODEL.value()
+  try {
+    const snap = await getFirestore().collection('admin_config').doc('global').get()
+    const override = (snap.exists ? (snap.data()?.model as string | undefined) : undefined)?.trim()
+    if (override && PRICING[override]) chosen = override
+  } catch (err) {
+    logger.warn('[llm] admin_config read failed; using env MODEL', { err: String(err) })
+  }
+  _modelCache = { value: chosen, expiresAt: now + 60_000 }
+  return chosen
+}
+
 // Dispatcher — reads MODEL, downloads the photo once, then hands off to the
 // right provider. Returns null on any failure so the trigger falls back to
 // the stub.
@@ -175,7 +200,7 @@ async function generateActivityWithLLM(args: {
   timeHint?: string
   placeHint?: string
 }): Promise<LlmResult | null> {
-  const modelName = MODEL.value()
+  const modelName = await resolveModel()
   const pricing = PRICING[modelName]
   if (!pricing) {
     logger.error('[llm] unknown MODEL — add to PRICING table', { model: modelName })
@@ -242,7 +267,7 @@ async function generateWithGemini(
     const inTok = usage?.promptTokenCount ?? 0
     const outTok = usage?.candidatesTokenCount ?? 0
     const { totalUSD } = logCost(modelName, inTok, outTok)
-    return { ...parsed, cost: { promptTokens: inTok, outputTokens: outTok, totalUSD } }
+    return { ...parsed, model: modelName, cost: { promptTokens: inTok, outputTokens: outTok, totalUSD } }
   } catch (err) {
     logger.warn('[gemini] generation failed', { err: String(err) })
     return null
@@ -290,7 +315,7 @@ async function generateWithOpenAI(
     const inTok = usage?.prompt_tokens ?? 0
     const outTok = usage?.completion_tokens ?? 0
     const { totalUSD } = logCost(modelName, inTok, outTok)
-    return { ...parsed, cost: { promptTokens: inTok, outputTokens: outTok, totalUSD } }
+    return { ...parsed, model: modelName, cost: { promptTokens: inTok, outputTokens: outTok, totalUSD } }
   } catch (err) {
     logger.warn('[openai] generation failed', { err: String(err) })
     return null
@@ -506,6 +531,7 @@ function utcDateKey(d: Date): string {
 async function bumpAdminCounters(args: {
   category: string
   memoSource: string
+  model: string | null
   geminiCost: { promptTokens: number; outputTokens: number; totalUSD: number } | null
 }) {
   const db = getFirestore()
@@ -537,6 +563,16 @@ async function bumpAdminCounters(args: {
     dailyUpdate.geminiPromptTokens = inc(cost.promptTokens)
     dailyUpdate.geminiOutputTokens = inc(cost.outputTokens)
     dailyUpdate.geminiUSD = inc(cost.totalUSD)
+    // Per-model breakdown so the dashboard can show contribution per model
+    // when MODEL has been flipped mid-month (e.g., gemini-2.5-flash → gpt-4o
+    // for A/B). Stored under nested map keys (model dot is escaped in safeKey).
+    if (args.model) {
+      const mdl = safeKey(args.model)
+      totalsUpdate[`byModel.${mdl}.calls`] = inc(1)
+      totalsUpdate[`byModel.${mdl}.usd`] = inc(cost.totalUSD)
+      dailyUpdate[`byModel.${mdl}.calls`] = inc(1)
+      dailyUpdate[`byModel.${mdl}.usd`] = inc(cost.totalUSD)
+    }
   }
 
   // set({merge:true}) so the docs are created on first run without a
@@ -662,6 +698,7 @@ export const onPhotoUploaded = onObjectFinalized(
       // Token + USD for this run, or null when no LLM call happened
       // (device tier or stub). Used for the admin counter roll-up.
       let geminiCost: LlmResult['cost'] | null = null
+      let cloudModel: string | null = null
       if (deviceActivity) {
         activity = deviceActivity
         category = categoryFromTags(tags)
@@ -683,6 +720,7 @@ export const onPhotoUploaded = onObjectFinalized(
           category = cloud.category
           memoSource = 'cloud-vision'
           geminiCost = cloud.cost
+          cloudModel = cloud.model
         } else {
           const stub = stubActivity()
           activity = stub.activity
@@ -701,13 +739,16 @@ export const onPhotoUploaded = onObjectFinalized(
         update.details = details
         update.category = category
         update.memoSource = memoSource
+        // Persisted onto the memo so the dashboard's recent-memos list can
+        // show which model produced each entry (useful while A/B testing).
+        if (cloudModel) update.model = cloudModel
       }
       await memoRef.update(update)
 
       // Roll up dashboard counters. Don't let a counter failure mark the
       // memo as 'error' — the user-visible result is fine.
       try {
-        await bumpAdminCounters({ category, memoSource, geminiCost })
+        await bumpAdminCounters({ category, memoSource, model: cloudModel, geminiCost })
       } catch (err) {
         logger.warn('[admin-counters] failed to bump', { err: String(err) })
       }

@@ -38,6 +38,9 @@ export interface Memo {
   tags?: MemoVisionTags
   /** Which tier produced the activity — useful for the AI source badge. */
   memoSource?: MemoSource
+  /** Specific cloud model used (e.g. 'gemini-2.5-flash', 'gpt-4o-mini').
+   *  Only present on cloud-vision memos; absent on device / stub. */
+  model?: string
   /** True once a guardian has hand-edited the activity. Blocks the function
    *  from ever overwriting the text on retrigger/regenerate. */
   humanEdited?: boolean

@@ -308,8 +308,34 @@ nav.tabs .me-tab .avatar-ic.on { outline: 2px solid var(--accent); outline-offse
 .adm-time { color: var(--ink-2); font-weight: 600; }
 .adm-cat { background: #FFF1DA; color: var(--accent-ink); border-radius: 999px; padding: 2px 8px; font-size: 11px; font-weight: 600; }
 .adm-src { background: #F1ECE0; color: var(--ink-2); border-radius: 999px; padding: 2px 8px; font-size: 11px; }
+.adm-model { background: #E8F0FE; color: #1A3A8A; border-radius: 999px; padding: 2px 8px; font-size: 11px; font-family: ui-monospace, SFMono-Regular, monospace; }
 .adm-act { font-size: 15px; font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .adm-meta { display: flex; gap: 12px; font-size: 12px; color: var(--ink-3); }
+
+/* ---------- MODEL PICKER ---------- */
+.model-picker-section .picker-help { margin: -4px 0 12px; font-size: 13px; line-height: 1.5; }
+.model-grid {
+  display: grid; gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+}
+.model-card {
+  text-align: left; font: inherit; cursor: pointer;
+  background: var(--card); border: 1.5px solid var(--line); border-radius: 12px;
+  padding: 12px 14px; display: flex; flex-direction: column; gap: 4px;
+  transition: border-color .15s, background .15s, transform .05s;
+}
+.model-card:hover:not(:disabled) { border-color: var(--accent); }
+.model-card:active:not(:disabled) { transform: scale(0.99); }
+.model-card:disabled { opacity: 0.6; cursor: wait; }
+.model-card.active { border-color: var(--accent); background: linear-gradient(135deg, #FFF6E5, #FFFBF1); }
+.model-top { display: flex; justify-content: space-between; align-items: center; font-size: 11px; }
+.model-prov { padding: 2px 8px; border-radius: 999px; font-weight: 700; letter-spacing: 0.02em; }
+.model-prov.gemini { background: #E8F0FE; color: #1A3A8A; }
+.model-prov.openai { background: #E5F4EA; color: #0F5C2E; }
+.model-dot { color: var(--accent-ink); font-weight: 700; }
+.model-id { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 13px; color: var(--ink); }
+.model-label { font-size: 13px; color: var(--ink-2); }
+.model-cost { margin-top: 4px; font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
 
 /* ---------- ASK / SEARCH MODAL ---------- */
 .ask-modal {
