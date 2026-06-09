@@ -32,7 +32,19 @@ body { min-height: 100svh; display: flex; flex-direction: column; }
 #root { display: contents; }
 
 .app { flex: 1; display: flex; flex-direction: column; max-width: 480px; width: 100%; margin: 0 auto; padding-top: var(--safe-top); }
-header.bar { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px 8px; }
+/* Pin the header to the top of the viewport so the brand + 누구 chip stay
+   visible while the memo list scrolls underneath. Sticky (not fixed) keeps
+   it inside the centered .app column so it doesn't bleed across the full
+   width on wider viewports. Matches the bottom nav's frosted backdrop. */
+header.bar {
+  position: sticky; top: var(--safe-top); z-index: 40;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 20px 8px;
+  background: rgba(255,255,255,0.92);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: 1px solid var(--line);
+}
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; letter-spacing: -0.01em; }
 .brand .dot { width: 26px; height: 26px; border-radius: 8px; background: linear-gradient(135deg, var(--accent), var(--accent-2)); box-shadow: var(--shadow); }
 .who { font-size: 14px; color: var(--ink-2); background: #fff; border: 1px solid var(--line); padding: 6px 12px; border-radius: 999px; }
