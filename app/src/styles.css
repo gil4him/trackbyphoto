@@ -62,30 +62,30 @@ main { padding: 8px 20px 120px; }
 .hero-greet small { display: block; font-size: 16px; font-weight: 500; color: var(--ink-2); margin-top: 6px; }
 .capture-wrap { margin: 18px 0 26px; display: flex; justify-content: center; gap: 12px; align-items: stretch; }
 .capture {
-  position: relative; width: 50%; aspect-ratio: 1 / 1; border-radius: 22px;
+  position: relative; width: 45%; aspect-ratio: 1 / 1; border-radius: 22px;
   background: radial-gradient(120% 120% at 30% 20%, #FFD693 0%, var(--accent) 60%, #E37A00 100%);
   color: #fff; border: none; box-shadow: var(--shadow), inset 0 -5px 0 rgba(0,0,0,0.08);
-  font-size: 24px; font-weight: 800; letter-spacing: -0.02em;
+  font-size: 22px; font-weight: 800; letter-spacing: -0.02em;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 8px; cursor: pointer; transition: transform 0.08s ease;
 }
 .capture:active { transform: scale(0.985); }
 .capture .ico { width: 56px; height: 56px; background: rgba(255,255,255,0.18); border-radius: 18px; display: grid; place-items: center; font-size: 32px; }
 .capture .sub { font-size: 13px; font-weight: 500; opacity: 0.92; }
-/* Ask trigger: secondary, neutral palette, narrower than capture so the
-   photo button stays visually dominant. Same height via aspect-ratio
-   inheritance from the flex row. */
+/* Ask trigger: same footprint and prominence as the capture button (user
+   wanted both buttons the same size). Neutral palette keeps it visually
+   distinct from the orange capture so it still reads as a secondary mode. */
 .ask-trigger {
-  position: relative; width: 35%; aspect-ratio: 1 / 1; border-radius: 22px;
+  position: relative; width: 45%; aspect-ratio: 1 / 1; border-radius: 22px;
   background: #FFFBF1; color: var(--ink-1); border: 1px solid var(--line);
   box-shadow: var(--shadow);
-  font-size: 16px; font-weight: 700; letter-spacing: -0.01em;
+  font-size: 22px; font-weight: 800; letter-spacing: -0.02em;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 6px; cursor: pointer; transition: transform 0.08s ease;
+  gap: 8px; cursor: pointer; transition: transform 0.08s ease;
 }
 .ask-trigger:active { transform: scale(0.985); }
-.ask-trigger .ico { width: 44px; height: 44px; background: #F1ECE0; border-radius: 14px; display: grid; place-items: center; font-size: 22px; }
-.ask-trigger .sub { font-size: 11px; font-weight: 500; color: var(--ink-3); }
+.ask-trigger .ico { width: 56px; height: 56px; background: #F1ECE0; border-radius: 18px; display: grid; place-items: center; font-size: 32px; }
+.ask-trigger .sub { font-size: 13px; font-weight: 500; color: var(--ink-3); }
 .hidden-input { display: none; }
 .hint { text-align: center; color: var(--ink-2); font-size: 15px; margin-top: 10px; }
 .recent-title { margin: 26px 0 10px; font-size: 18px; font-weight: 700; color: var(--ink-2); }
@@ -296,17 +296,20 @@ nav.tabs .me-tab .avatar-ic.on { outline: 2px solid var(--accent); outline-offse
 .admin-table tr:last-child td { border-bottom: none; }
 
 .admin-recent { display: flex; flex-direction: column; gap: 10px; }
-.recent-row { display: grid; grid-template-columns: 72px 1fr; gap: 12px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px; }
-.recent-thumb { width: 72px; height: 72px; border-radius: 10px; overflow: hidden; background: #eee; }
-.recent-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.recent-thumb-empty { width: 100%; height: 100%; background: #eee; }
-.recent-info { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.recent-top { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 12px; color: var(--ink-3); }
-.recent-time { color: var(--ink-2); font-weight: 600; }
-.recent-cat { background: #FFF1DA; color: var(--accent-ink); border-radius: 999px; padding: 2px 8px; font-size: 11px; font-weight: 600; }
-.recent-src { background: #F1ECE0; color: var(--ink-2); border-radius: 999px; padding: 2px 8px; font-size: 11px; }
-.recent-act { font-size: 15px; font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.recent-meta { display: flex; gap: 12px; font-size: 12px; color: var(--ink-3); }
+/* `adm-` prefix here is intentional — the Home page already owns .recent-*
+   for its horizontally-scrollable thumbnail row. Reusing those names broke
+   the home row's flex+overflow-x with the admin's grid layout. */
+.adm-row { display: grid; grid-template-columns: 72px 1fr; gap: 12px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px; }
+.adm-thumb { width: 72px; height: 72px; border-radius: 10px; overflow: hidden; background: #eee; }
+.adm-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.adm-thumb-empty { width: 100%; height: 100%; background: #eee; }
+.adm-info { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.adm-top { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 12px; color: var(--ink-3); }
+.adm-time { color: var(--ink-2); font-weight: 600; }
+.adm-cat { background: #FFF1DA; color: var(--accent-ink); border-radius: 999px; padding: 2px 8px; font-size: 11px; font-weight: 600; }
+.adm-src { background: #F1ECE0; color: var(--ink-2); border-radius: 999px; padding: 2px 8px; font-size: 11px; }
+.adm-act { font-size: 15px; font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.adm-meta { display: flex; gap: 12px; font-size: 12px; color: var(--ink-3); }
 
 /* ---------- ASK / SEARCH MODAL ---------- */
 .ask-modal {

@@ -260,24 +260,24 @@ export function SuperAdmin({ onSignOut }: { onSignOut: () => Promise<void> }) {
         <h2>최근 메모</h2>
         <div className="admin-recent">
           {recent.map((m) => (
-            <div className="recent-row" key={m.id}>
-              <div className="recent-thumb">
+            <div className="adm-row" key={m.id}>
+              <div className="adm-thumb">
                 {m.photoUrl
                   ? <img src={m.photoUrl} alt="" />
-                  : <div className="recent-thumb-empty" />}
+                  : <div className="adm-thumb-empty" />}
               </div>
-              <div className="recent-info">
-                <div className="recent-top">
-                  <span className="recent-time">
+              <div className="adm-info">
+                <div className="adm-top">
+                  <span className="adm-time">
                     {fmtDate(m.takenAt.toDate())} {fmtTime(m.takenAt.toDate())}
                   </span>
-                  {m.category && <span className="recent-cat">{m.category}</span>}
+                  {m.category && <span className="adm-cat">{m.category}</span>}
                   {m.memoSource && (
-                    <span className="recent-src">{SOURCE_KO[m.memoSource] || m.memoSource}</span>
+                    <span className="adm-src">{SOURCE_KO[m.memoSource] || m.memoSource}</span>
                   )}
                 </div>
-                <div className="recent-act">{m.activity || '(작성 중)'}</div>
-                <div className="recent-meta">
+                <div className="adm-act">{m.activity || '(작성 중)'}</div>
+                <div className="adm-meta">
                   <span>👤 {m.uid.slice(0, 8)}…</span>
                   <span>📍 {m.place || '위치 없음'}</span>
                 </div>
