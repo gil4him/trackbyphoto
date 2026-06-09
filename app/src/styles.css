@@ -166,8 +166,12 @@ main { flex: 1; padding: 8px 20px 120px; overflow-y: auto; -webkit-overflow-scro
 
 /* ---------- BOTTOM NAV ---------- */
 nav.tabs { position: fixed; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.92); backdrop-filter: saturate(180%) blur(20px); -webkit-backdrop-filter: saturate(180%) blur(20px); border-top: 1px solid var(--line); padding: 8px 0 calc(8px + var(--safe-bot)); display: flex; justify-content: space-around; z-index: 50; }
-nav.tabs button { flex: 1; max-width: 160px; border: none; background: transparent; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 4px; color: var(--ink-3); font-size: 12px; font-weight: 600; cursor: pointer; }
-nav.tabs button .ic { font-size: 22px; line-height: 1; }
+nav.tabs button { flex: 1; max-width: 160px; border: none; background: transparent; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px; padding: 6px 4px; color: var(--ink-3); font-size: 12px; font-weight: 600; cursor: pointer; }
+/* Reserve a uniform icon row height across all tabs (plain emoji, back pill,
+   avatar circle) so the labels below them share a single baseline at the
+   bottom of the nav. Without this, the larger pill + avatar push 뒤로 / 나
+   labels down while 홈 / 오늘 sit higher. */
+nav.tabs button .ic { height: 32px; display: grid; place-items: center; font-size: 22px; line-height: 1; }
 nav.tabs button.on { color: var(--accent); }
 nav.tabs button:disabled { opacity: 0.4; cursor: default; }
 
