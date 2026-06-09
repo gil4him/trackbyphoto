@@ -59,6 +59,9 @@ export function Today({ memos, onOpen }: { memos: Memo[]; onOpen: (id: string) =
                 <div className="activity">
                   {m.status === 'pending' ? '메모 작성 중…' : m.activity}
                 </div>
+                {m.status === 'ready' && m.details && (
+                  <div className="details">{m.details}</div>
+                )}
                 <div className="place">📍 {m.place || '위치 정보 없음'}</div>
               </div>
             </button>

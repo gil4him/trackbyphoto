@@ -53,7 +53,7 @@ async function generateActivityWithGemini(args: {
   contentType?: string
   timeHint?: string
   placeHint?: string
-}): Promise<{ activity: string; category: string } | null> {
+}): Promise<{ activity: string; details: string; category: string } | null> {
   const apiKey = GEMINI_API_KEY.value()
   if (!apiKey) {
     logger.warn('[gemini] GEMINI_API_KEY unset; skipping cloud Vision tier')
@@ -71,26 +71,26 @@ async function generateActivityWithGemini(args: {
     const ai = new GoogleGenerativeAI(apiKey)
     const model = ai.getGenerativeModel({
       model: 'gemini-2.0-flash',
-      // Tighten determinism a bit — we want consistent short outputs, not
-      // creative variation.
-      generationConfig: { temperature: 0.4, maxOutputTokens: 200, responseMimeType: 'application/json' },
+      // Slightly more headroom now that we also produce the longer `details`
+      // field. Still kept low so the output is consistent across retries.
+      generationConfig: { temperature: 0.4, maxOutputTokens: 400, responseMimeType: 'application/json' },
     })
 
     const prompt = [
-      '당신은 인지 저하가 있는 어르신의 사진을 보고 가족에게 보낼 짧고 따뜻한 한국어 메모를 작성합니다.',
+      '당신은 인지 저하가 있는 어르신의 사진을 보고 가족에게 보낼 따뜻한 한국어 메모를 작성합니다.',
       '',
-      '규칙:',
-      '- 한국어 한 문장만, 15자 내외 (최대 25자).',
-      '- 존댓말 사용 (예: "드시고 계세요", "산책하셨어요").',
-      '- 사진에서 확실히 보이는 것만 표현하세요. 추측은 피하세요.',
-      '- 카테고리는 다음 중 정확히 하나: 식사 / 산책 / 휴식 / 가족 / 일상.',
+      '두 가지를 작성하세요:',
+      '1) activity — 한 문장 헤드라인. 15자 내외 (최대 25자). 존댓말. 예: "식사 중이세요", "공원에서 산책하셨어요".',
+      '2) details — 2~3문장의 부드러운 설명, 총 80자 내외 (최대 140자). 사진에서 보이는 사람·물건·주변·분위기·시간대를 구체적으로. 추측 금지, 보이는 것만. 존댓말.',
+      '',
+      '카테고리는 정확히 하나: 식사 / 산책 / 휴식 / 가족 / 일상.',
       '',
       '상황 정보 (참고용, 사진과 어긋나면 무시):',
       `- 시간: ${args.timeHint || '알 수 없음'}`,
       `- 장소: ${args.placeHint || '알 수 없음'}`,
       '',
       'JSON으로만 답하세요:',
-      '{"activity": "...", "category": "..."}',
+      '{"activity": "...", "details": "...", "category": "..."}',
     ].join('\n')
 
     const result = await model.generateContent([
@@ -100,9 +100,10 @@ async function generateActivityWithGemini(args: {
     const raw = (result.response.text() || '').trim()
     // Model occasionally wraps JSON in a code fence even with the mime hint.
     const cleaned = raw.replace(/^```(?:json)?\s*|\s*```$/g, '').trim()
-    const parsed = JSON.parse(cleaned) as { activity?: unknown; category?: unknown }
+    const parsed = JSON.parse(cleaned) as { activity?: unknown; details?: unknown; category?: unknown }
 
     const activity = typeof parsed.activity === 'string' ? parsed.activity.trim() : ''
+    const details = typeof parsed.details === 'string' ? parsed.details.trim() : ''
     const categoryRaw = typeof parsed.category === 'string' ? parsed.category.trim() : ''
     if (!activity) {
       logger.warn('[gemini] empty activity in response', { raw })
@@ -111,7 +112,7 @@ async function generateActivityWithGemini(args: {
     const category = (VALID_CATEGORIES as readonly string[]).includes(categoryRaw)
       ? categoryRaw
       : '일상'
-    return { activity, category }
+    return { activity, details, category }
   } catch (err) {
     logger.warn('[gemini] generation failed', { err: String(err) })
     return null
@@ -119,16 +120,40 @@ async function generateActivityWithGemini(args: {
 }
 
 // Final-fallback stub used when Gemini is unreachable or unconfigured.
-const STUB_ACTIVITIES: { cat: string; lines: string[] }[] = [
-  { cat: '식사', lines: ['점심 식사 중이에요', '맛있는 한 끼를 드시고 계세요', '따뜻한 식사 시간이에요'] },
-  { cat: '산책', lines: ['햇살 좋은 산책 중이에요', '동네를 천천히 걷고 계세요', '산책길에서 한 컷'] },
-  { cat: '휴식', lines: ['편안한 휴식 시간이에요', '잠깐 쉬어가는 중이에요', '차 한 잔과 함께 여유로운 시간'] },
-  { cat: '가족', lines: ['가족과 함께한 시간이에요', '사랑하는 사람과 함께', '오랜만에 만난 가족'] },
-  { cat: '일상', lines: ['오늘의 한 장면', '소중한 일상의 순간', '잔잔하고 평온한 시간'] },
+const STUB_ACTIVITIES: { cat: string; lines: string[]; details: string[] }[] = [
+  {
+    cat: '식사',
+    lines: ['점심 식사 중이세요', '맛있는 한 끼를 드시고 계세요', '따뜻한 식사 시간이에요'],
+    details: ['음식이 놓인 식탁 앞에 앉아 식사를 즐기고 계세요. 잘 드시고 계신 모습이에요.'],
+  },
+  {
+    cat: '산책',
+    lines: ['햇살 좋은 산책 중이세요', '동네를 천천히 걷고 계세요', '산책길에서 한 컷'],
+    details: ['바깥 공기를 쐬며 걸으시는 중이에요. 주변이 평화로워 보여요.'],
+  },
+  {
+    cat: '휴식',
+    lines: ['편안한 휴식 시간이에요', '잠깐 쉬어가는 중이세요', '차 한 잔과 함께 여유로운 시간'],
+    details: ['편안하게 자리에 앉아 쉬고 계세요. 여유로운 분위기예요.'],
+  },
+  {
+    cat: '가족',
+    lines: ['가족과 함께한 시간이에요', '사랑하는 사람과 함께', '오랜만에 만난 가족'],
+    details: ['소중한 사람들과 함께 시간을 보내고 계세요. 표정이 밝아 보여요.'],
+  },
+  {
+    cat: '일상',
+    lines: ['오늘의 한 장면', '소중한 일상의 순간', '잔잔하고 평온한 시간'],
+    details: ['평범하지만 소중한 일상의 한 장면이에요.'],
+  },
 ]
-function stubActivity(): { activity: string; category: string } {
+function stubActivity(): { activity: string; details: string; category: string } {
   const a = STUB_ACTIVITIES[Math.floor(Math.random() * STUB_ACTIVITIES.length)]
-  return { activity: a.lines[Math.floor(Math.random() * a.lines.length)], category: a.cat }
+  return {
+    activity: a.lines[Math.floor(Math.random() * a.lines.length)],
+    details: a.details[Math.floor(Math.random() * a.details.length)],
+    category: a.cat,
+  }
 }
 
 /**
@@ -149,21 +174,21 @@ function categoryFromTags(
   return '일상'
 }
 
-// Reverse geocoding via Kakao Local API.
+// Reverse geocoding.
 //
-// Set the key at deploy time by creating `functions/.env.trackbyphoto-app`:
-//   KAKAO_REST_KEY=<your kakao rest api key>
-// (`.env.{projectId}` is the Firebase v2 convention; the file is gitignored.)
-//
-// When the key is missing or the API call fails, we fall back to a small
-// deterministic stub so the function keeps working without external setup.
-const STUB_PLACES = ['자택 거실', '동네 공원', '한강공원', '행복요양센터', '근처 카페', '병원 근처', '마트 입구']
-function stubPlace(lat: number | null, lng: number | null): string {
-  if (lat == null || lng == null) {
-    return STUB_PLACES[Math.floor(Math.random() * STUB_PLACES.length)]
-  }
-  const i = Math.abs(Math.round((lat + lng) * 1000)) % STUB_PLACES.length
-  return STUB_PLACES[i]
+// Strategy:
+//  1. If coords look Korean (lat 33–39, lng 124–132) AND a Kakao REST key is
+//     set, hit Kakao Local — best Korean building/dong names. Set the key via
+//     `functions/.env.trackbyphoto-app` (KAKAO_REST_KEY=...).
+//  2. Otherwise hit OpenStreetMap Nominatim — free, no API key, global
+//     coverage. Pulls a short, human-readable name from the address parts.
+//  3. If everything fails, return '' so the UI shows "위치 정보 없음" rather
+//     than a fake Korean place name. (Previously a stub list of Korean
+//     locations was returned even for US coords, which is what produced the
+//     "한강공원 in USA" bug.)
+
+function isLikelyKorea(lat: number, lng: number): boolean {
+  return lat >= 33 && lat <= 39 && lng >= 124 && lng <= 132
 }
 
 interface KakaoCoord2AddressDoc {
@@ -174,34 +199,97 @@ interface KakaoCoord2AddressResponse {
   documents?: KakaoCoord2AddressDoc[]
 }
 
-async function reverseGeocode(lat: number | null, lng: number | null): Promise<string> {
-  if (lat == null || lng == null) return stubPlace(null, null)
+async function reverseGeocodeKakao(lat: number, lng: number, apiKey: string): Promise<string> {
+  const url = `https://dapi.kakao.com/v2/local/geo/coord2address.json?x=${lng}&y=${lat}`
+  const res = await fetch(url, { headers: { Authorization: `KakaoAK ${apiKey}` } })
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  const data = (await res.json()) as KakaoCoord2AddressResponse
+  const doc = data.documents?.[0]
+  if (!doc) throw new Error('no documents')
 
-  const apiKey = process.env.KAKAO_REST_KEY || ''
-  if (!apiKey) return stubPlace(lat, lng)
+  // Prefer the building name when present (e.g., "성모병원") — most
+  // recognizable to family. Otherwise fall through to the dong/eup/myeon
+  // name ("역삼동") which is short and matches Korean conversational style.
+  // Last resort is the road address.
+  const building = doc.road_address?.building_name?.trim()
+  if (building) return building
+  const dong = doc.address?.region_3depth_name?.trim()
+  if (dong) return dong
+  const road = doc.road_address?.address_name?.trim()
+  if (road) return road
+  throw new Error('no usable address fields')
+}
+
+interface NominatimResponse {
+  display_name?: string
+  address?: {
+    amenity?: string
+    shop?: string
+    leisure?: string
+    tourism?: string
+    building?: string
+    park?: string
+    road?: string
+    neighbourhood?: string
+    suburb?: string
+    quarter?: string
+    village?: string
+    town?: string
+    city?: string
+    state?: string
+    country?: string
+  }
+}
+
+async function reverseGeocodeNominatim(lat: number, lng: number): Promise<string> {
+  // Nominatim usage policy requires a real User-Agent identifying the app.
+  // Korean-language results when available (Accept-Language: ko, en).
+  const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`
+  const res = await fetch(url, {
+    headers: {
+      'User-Agent': 'TrackByPhoto/1.0 (https://trackbyphoto.web.app)',
+      'Accept-Language': 'ko,en',
+    },
+  })
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  const data = (await res.json()) as NominatimResponse
+  const a = data.address || {}
+
+  // Prefer a specific named feature (a cafe, park, building) over the broader
+  // city/state. Family members want "Starbucks" or "Central Park", not "New
+  // York, NY". Fall back to neighborhood → city when no feature is named.
+  const specific = a.amenity || a.shop || a.leisure || a.tourism || a.building || a.park
+  if (specific) return specific
+  const local = a.neighbourhood || a.suburb || a.quarter || a.village || a.town
+  if (local && a.city) return `${local}, ${a.city}`
+  if (local) return local
+  if (a.city) return a.city
+  if (a.road) return a.road
+  if (data.display_name) {
+    // Nominatim's display_name is a long comma-separated chain; first two
+    // parts are usually the most specific and recognizable.
+    return data.display_name.split(',').slice(0, 2).map((s) => s.trim()).join(', ')
+  }
+  throw new Error('no usable address fields')
+}
+
+async function reverseGeocode(lat: number | null, lng: number | null): Promise<string> {
+  if (lat == null || lng == null) return ''
+
+  const kakaoKey = process.env.KAKAO_REST_KEY || ''
+  if (kakaoKey && isLikelyKorea(lat, lng)) {
+    try {
+      return await reverseGeocodeKakao(lat, lng, kakaoKey)
+    } catch (err) {
+      logger.warn('[reverseGeocode] Kakao failed; falling back to Nominatim', { err: String(err), lat, lng })
+    }
+  }
 
   try {
-    const url = `https://dapi.kakao.com/v2/local/geo/coord2address.json?x=${lng}&y=${lat}`
-    const res = await fetch(url, { headers: { Authorization: `KakaoAK ${apiKey}` } })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    const data = (await res.json()) as KakaoCoord2AddressResponse
-    const doc = data.documents?.[0]
-    if (!doc) throw new Error('no documents')
-
-    // Prefer the building name when present (e.g., "성모병원") — most
-    // recognizable to family. Otherwise fall through to the dong/eup/myeon
-    // name ("역삼동") which is short and matches Korean conversational style.
-    // Last resort is the road address.
-    const building = doc.road_address?.building_name?.trim()
-    if (building) return building
-    const dong = doc.address?.region_3depth_name?.trim()
-    if (dong) return dong
-    const road = doc.road_address?.address_name?.trim()
-    if (road) return road
-    throw new Error('no usable address fields')
+    return await reverseGeocodeNominatim(lat, lng)
   } catch (err) {
-    logger.warn('reverseGeocode: Kakao API failed, using stub', { err: String(err), lat, lng })
-    return stubPlace(lat, lng)
+    logger.warn('[reverseGeocode] Nominatim failed; returning empty', { err: String(err), lat, lng })
+    return ''
   }
 }
 
@@ -277,6 +365,7 @@ export const onPhotoUploaded = onObjectFinalized(
         lat, lng,
         place: '',
         activity: '',
+        details: '',
         category: '일상',
         status: 'pending',
         createdAt: FieldValue.serverTimestamp(),
@@ -301,13 +390,15 @@ export const onPhotoUploaded = onObjectFinalized(
 
       // Resolve the place first so we can pass it as a hint to Gemini.
       const place = await reverseGeocode(lat, lng)
-      const usingRealPlace = !!process.env.KAKAO_REST_KEY
 
       // Pick the activity tier:
       //   1. Device memo (Apple Foundation Models / template) — trust verbatim.
-      //   2. Gemini 2.0 Flash Vision on the photo itself.
+      //      No `details` from this tier yet — device LLM only produces the
+      //      short headline. Leave details empty.
+      //   2. Gemini 2.0 Flash Vision — produces both activity + details.
       //   3. Deterministic stub (Gemini unreachable / unconfigured).
       let activity: string
+      let details: string = ''
       let category: string
       let memoSource: string
       if (deviceActivity) {
@@ -321,28 +412,31 @@ export const onPhotoUploaded = onObjectFinalized(
           objectPath: path,
           contentType: obj.contentType,
           timeHint,
-          // Only pass place when it's a real geocode — feeding stub names
-          // ("자택 거실") into the prompt would just mislead the model.
-          placeHint: usingRealPlace ? place : undefined,
+          // Place is now always a real geocode (Kakao or Nominatim) or ''.
+          // Only pass when non-empty so the model isn't told 알 수 없음 twice.
+          placeHint: place || undefined,
         })
         if (cloud) {
           activity = cloud.activity
+          details = cloud.details
           category = cloud.category
           memoSource = 'cloud-vision'
         } else {
           const stub = stubActivity()
           activity = stub.activity
+          details = stub.details
           category = stub.category
           memoSource = 'cloud-stub'
         }
       }
 
-      // Skip activity/category/memoSource when a guardian has already corrected
-      // the memo. photoUrl + place are still safe to refresh (they're factual,
-      // not interpretation).
+      // Skip activity/details/category/memoSource when a guardian has already
+      // corrected the memo. photoUrl + place are still safe to refresh
+      // (they're factual, not interpretation).
       const update: Record<string, unknown> = { photoUrl, place, status: 'ready' }
       if (!existingHumanEdited) {
         update.activity = activity
+        update.details = details
         update.category = category
         update.memoSource = memoSource
       }

@@ -138,6 +138,9 @@ export function MemoDetail({ memo, onBack }: { memo: Memo; onBack: () => void })
             <span className="edit-hint">탭하여 수정</span>
           </button>
         )}
+        {!editing && memo.details && (
+          <p className="d-details">{memo.details}</p>
+        )}
       </div>
 
       <div className="detail-section">

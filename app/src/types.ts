@@ -27,6 +27,10 @@ export interface Memo {
   lng: number | null
   place: string
   activity: string
+  /** Longer 1–3 sentence Korean description of what's in the photo. Cloud
+   *  Vision tier (Gemini) and stub fill this; the on-device path leaves it
+   *  empty until we add a details prompt to Foundation Models. */
+  details?: string
   category: MemoCategory
   status: 'pending' | 'ready' | 'error'
   createdAt: Timestamp
