@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import {
+  getRedirectResult,
   GoogleAuthProvider,
   onAuthStateChanged,
   signInWithPopup,
@@ -9,18 +10,14 @@ import {
 } from 'firebase/auth'
 import { auth } from '../firebase'
 
-// Popup is fastest on desktop & most mobile browsers. iOS Safari sometimes
-// blocks popups when the gesture chain is broken (PWA standalone), so we
-// fall back to redirect there.
+// Use the redirect flow on every mobile UA (iOS Safari any mode + Android).
+// signInWithPopup on iOS Safari is unreliable: the popup opens against the
+// gesture chain, the parent loses focus, and the popup closes without
+// returning a credential — symptom is "tap login → come back to login
+// screen, no error." Redirect avoids the popup entirely.
 function shouldUseRedirect(): boolean {
   if (typeof window === 'undefined') return false
-  const standalone =
-    // iOS Safari PWA
-    (window.navigator as unknown as { standalone?: boolean }).standalone === true ||
-    // PWA display-mode
-    window.matchMedia?.('(display-mode: standalone)').matches === true
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
-  return standalone && isIOS
+  return /iPad|iPhone|iPod|Android/i.test(navigator.userAgent)
 }
 
 export function useAuth() {
@@ -28,6 +25,14 @@ export function useAuth() {
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
+    // Surface any redirect-flow failure to the console so we can debug
+    // post-Google handoff issues (storage partition, ITP, etc). v9 already
+    // routes the result into onAuthStateChanged, but calling this directly
+    // makes errors visible and is a no-op on a non-redirect load.
+    getRedirectResult(auth).catch((err) =>
+      console.error('[auth] getRedirectResult failed', err),
+    )
+
     const unsub = onAuthStateChanged(auth, (u) => {
       setUser(u)
       setReady(true)
