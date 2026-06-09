@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useToast } from '../components/Toast'
 import { Processing } from '../components/Processing'
+import { Ask } from '../components/Ask'
 import {
   getGeo,
   uploadPhoto,
@@ -17,6 +18,7 @@ export function Home({ uid, patientName, memos, onOpen }: { uid: string; patient
   const inputRef = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
   const [busyMsg, setBusyMsg] = useState('사진을 저장하고 있어요…')
+  const [asking, setAsking] = useState(false)
   const toast = useToast()
   // Watch for the newest memo to flip from "pending" → "ready" and show a toast.
   const lastReadyId = useRef<string | null>(null)
@@ -104,6 +106,18 @@ export function Home({ uid, patientName, memos, onOpen }: { uid: string; patient
           <div>사진 찍기</div>
           <div className="sub">크게 한 번 눌러주세요</div>
         </button>
+        {/* Secondary action: search past memos. Smaller + neutral tone so it
+            doesn't compete with the orange capture button — guardians use it,
+            not the patient. */}
+        <button
+          className="ask-trigger"
+          aria-label="찾아보기"
+          onClick={() => setAsking(true)}
+        >
+          <div className="ico">🔎</div>
+          <div>물어보기</div>
+          <div className="sub">날짜·활동 검색</div>
+        </button>
         <input
           ref={inputRef}
           className="hidden-input"
@@ -163,6 +177,13 @@ export function Home({ uid, patientName, memos, onOpen }: { uid: string; patient
       )}
 
       <Processing show={busy} message={busyMsg} />
+      {asking && (
+        <Ask
+          memos={memos}
+          onClose={() => setAsking(false)}
+          onOpen={onOpen}
+        />
+      )}
     </section>
   )
 }
