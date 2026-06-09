@@ -665,7 +665,12 @@ export const onPhotoUploaded = onObjectFinalized(
     const existingHumanEdited = existing.exists && existing.data()?.humanEdited === true
     if (!existingHumanEdited) {
       await memoRef.set({
-        uid,
+        // `patientUid` (not `uid`) is the schema field per the caregiver-share
+        // plan (TrackByPhoto-Plan.md Appendix A). For self-managed accounts
+        // the elder uploads their own photos, so the uploader's uid IS the
+        // patientUid. Once caregiver-uploads ship, the caller will set the
+        // patient explicitly in storage metadata.
+        patientUid: uid,
         photoPath: path,
         photoUrl: '',
         takenAt: takenAtIso ? Timestamp.fromDate(new Date(takenAtIso)) : Timestamp.now(),
@@ -859,5 +864,65 @@ export const regenerateMemo = onCall(
       },
       cost: result.cost,
     }
+  },
+)
+
+// ────────────────────────────────────────────────────────────────────────────
+// backfillPatientUid — one-shot admin migration.
+//
+// The caregiver-share schema renamed `memos.uid` → `memos.patientUid` so
+// the field name matches semantic intent (the patient the memo belongs to,
+// not the uploader's auth uid — which for self-managed accounts happen to be
+// the same value). This callable walks every memo doc lacking `patientUid`
+// and copies `uid` into it.
+//
+// Idempotent: docs already carrying `patientUid` are skipped, so re-running
+// is a no-op. Run once from /superadmin after deploy; can be safely deleted
+// from the codebase a few weeks later once we're sure no legacy docs remain.
+// ────────────────────────────────────────────────────────────────────────────
+
+export const backfillPatientUid = onCall(
+  {
+    region: REGION,
+    memory: '256MiB',
+    timeoutSeconds: 540,
+  },
+  async (request) => {
+    const callerEmail = request.auth?.token?.email
+    if (callerEmail !== ADMIN_EMAIL) {
+      throw new HttpsError('permission-denied', 'admin only')
+    }
+    const db = getFirestore()
+    const snap = await db.collection('memos').get()
+    let scanned = 0
+    let migrated = 0
+    let alreadyOk = 0
+    let skippedNoUid = 0
+
+    // Batched writes — Firestore caps a batch at 500 ops; we chunk
+    // defensively at 400 to leave headroom.
+    let batch = db.batch()
+    let batchCount = 0
+    const flush = async () => {
+      if (batchCount === 0) return
+      await batch.commit()
+      batch = db.batch()
+      batchCount = 0
+    }
+
+    for (const docSnap of snap.docs) {
+      scanned++
+      const data = docSnap.data() as { uid?: string; patientUid?: string }
+      if (data.patientUid) { alreadyOk++; continue }
+      if (!data.uid) { skippedNoUid++; continue }
+      batch.update(docSnap.ref, { patientUid: data.uid })
+      batchCount++
+      migrated++
+      if (batchCount >= 400) await flush()
+    }
+    await flush()
+
+    logger.info('[backfill] patientUid done', { scanned, migrated, alreadyOk, skippedNoUid })
+    return { scanned, migrated, alreadyOk, skippedNoUid }
   },
 )

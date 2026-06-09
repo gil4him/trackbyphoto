@@ -19,8 +19,12 @@ export type MemoSource =
 
 export interface Memo {
   id: string
-  uid: string
-  photoPath: string        // gs path: photos/{uid}/{photoId}.jpg
+  /** UID of the patient (어르신) this memo belongs to. For a self-managed
+   *  account this equals the uploader's uid; once caregiver-share lands a
+   *  caregiver might upload on behalf of a patient and this still points at
+   *  the patient, not the uploader. */
+  patientUid: string
+  photoPath: string        // gs path: photos/{patientUid}/{photoId}.jpg
   photoUrl: string         // public download URL
   takenAt: Timestamp
   lat: number | null
@@ -53,4 +57,69 @@ export interface UserSettings {
   autoMode: boolean
   bigText: boolean
   retention: '30' | '90' | 'forever'
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Caregiver-share (보호자) schema. See TrackByPhoto-Plan.md §7 / Appendix A.
+// These describe the Firestore doc shapes only — the client UI for invite /
+// accept / consent is built on top of this in a later phase.
+// ────────────────────────────────────────────────────────────────────────────
+
+export type MembershipRole = 'admin' | 'viewer' | 'guardian'
+export type MembershipStatus = 'invited' | 'active' | 'revoked'
+
+/** memberships/{patientUid}_{caregiverUid} — many-to-many link.
+ *  Source of truth for who can read/write a patient's data. Used by Firestore
+ *  rules; cached on the caregiver's custom claims for the fast read path. */
+export interface Membership {
+  patientUid: string
+  caregiverUid: string
+  role: MembershipRole
+  status: MembershipStatus
+  invitedBy: string
+  /** Required before `status` can transition to 'active'. References a doc
+   *  in `consents/`. Rules enforce existence. */
+  consentId: string | null
+  createdAt: Timestamp
+  acceptedAt: Timestamp | null
+  revokedAt: Timestamp | null
+}
+
+/** invites/{code} — short-lived 6-digit code (or share link token) that lets
+ *  a caregiver claim a membership without the elder reading a UID aloud. */
+export interface Invite {
+  patientUid: string
+  role: Exclude<MembershipRole, 'guardian'>  // guardian path is out-of-band
+  createdBy: string
+  expiresAt: Timestamp
+  used: boolean
+}
+
+/** consents/{consentId} — PIPA evidence record. Two consents must exist before
+ *  a caregiver gets active access: one for processing sensitive data, one for
+ *  third-party share. Each is its own doc so the legal trail is auditable. */
+export type ConsentType = 'sensitive_data' | 'third_party_share'
+export interface Consent {
+  patientUid: string
+  type: ConsentType
+  grantedBy: 'self' | 'guardian'
+  guardianUid: string | null
+  /** Plain-language description of what data the consent covers. */
+  scope: string
+  /** Version tag of the consent text shown — so we can prove which wording
+   *  the elder saw, even after the wording is updated. */
+  consentTextVersion: string
+  timestamp: Timestamp
+}
+
+/** auditLogs/{logId} — append-only record of every sensitive change.
+ *  Required mitigation for elder abuse (see Plan §8). Rules forbid update/delete. */
+export interface AuditLog {
+  patientUid: string
+  actorUid: string
+  /** Dot-namespaced action key. Examples: 'recipient.add',
+   *  'settings.update', 'caregiver.revoke', 'consent.grant'. */
+  action: string
+  details: Record<string, unknown>
+  timestamp: Timestamp
 }

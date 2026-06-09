@@ -14,6 +14,13 @@ interface RegenResult {
   cost: { promptTokens: number; outputTokens: number; totalUSD: number }
 }
 
+interface BackfillResult {
+  scanned: number
+  migrated: number
+  alreadyOk: number
+  skippedNoUid: number
+}
+
 /** Single source of truth for the admin email. Mirrored in firestore.rules. */
 export const ADMIN_EMAIL = 'zymer4him@gmail.com'
 
@@ -22,7 +29,6 @@ export const ADMIN_EMAIL = 'zymer4him@gmail.com'
  *  these. Prices are USD per 1M tokens; for the per-call estimate we use
  *  ~1k input + ~150 output as a typical photo-memo shape. */
 export const MODELS: { id: string; label: string; provider: 'Gemini' | 'OpenAI'; inPerM: number; outPerM: number }[] = [
-  { id: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash (가장 저렴, 약함)',     provider: 'Gemini', inPerM: 0.10, outPerM: 0.40 },
   { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash (균형, 추천)',          provider: 'Gemini', inPerM: 0.30, outPerM: 2.50 },
   { id: 'gemini-2.5-pro',   label: 'Gemini 2.5 Pro (최고 품질, 비쌈)',       provider: 'Gemini', inPerM: 1.25, outPerM: 10.00 },
   { id: 'gpt-4o-mini',      label: 'GPT-4o mini (저렴)',                     provider: 'OpenAI', inPerM: 0.15, outPerM: 0.60 },
@@ -91,6 +97,9 @@ export function SuperAdmin({ onSignOut }: { onSignOut: () => Promise<void> }) {
   // running the photo through the currently active model.
   const [regenBusy, setRegenBusy] = useState<string | null>(null)
   const [regen, setRegen] = useState<RegenResult | null>(null)
+  // One-shot migration state — see backfillPatientUid Cloud Function.
+  const [backfillBusy, setBackfillBusy] = useState(false)
+  const [backfill, setBackfill] = useState<BackfillResult | null>(null)
 
   // Live subscription to the totals doc — it bumps on every new memo so the
   // dashboard updates without a refresh while a phone is uploading.
@@ -157,6 +166,25 @@ export function SuperAdmin({ onSignOut }: { onSignOut: () => Promise<void> }) {
     }
   }
 
+  const onBackfill = async () => {
+    if (!confirm('memos 컬렉션에 patientUid 필드를 채울까요? 이미 있는 문서는 건너뜁니다.')) return
+    setBackfillBusy(true)
+    setError(null)
+    try {
+      const fn = httpsCallable<Record<string, never>, BackfillResult>(
+        getFunctions(undefined, 'us-west1'),
+        'backfillPatientUid',
+      )
+      const res = await fn({})
+      setBackfill(res.data)
+    } catch (err) {
+      console.error('[superadmin] backfill', err)
+      setError(`마이그레이션 실패: ${(err as Error).message}`)
+    } finally {
+      setBackfillBusy(false)
+    }
+  }
+
   const onChangeModel = async (newModel: string) => {
     if (newModel === (config?.model || 'gemini-2.5-flash')) return
     setSaving(true)
@@ -201,7 +229,7 @@ export function SuperAdmin({ onSignOut }: { onSignOut: () => Promise<void> }) {
         if (cancelled) return
         const uids = new Set<string>()
         snap.forEach((d) => {
-          const u = (d.data() as Memo).uid
+          const u = (d.data() as Memo).patientUid
           if (u) uids.add(u)
         })
         setAllTimeUsers(uids.size)
@@ -228,6 +256,26 @@ export function SuperAdmin({ onSignOut }: { onSignOut: () => Promise<void> }) {
       </header>
 
       {error && <div className="admin-error">{error}</div>}
+
+      <section className="admin-section">
+        <h2>마이그레이션</h2>
+        <p className="muted picker-help">
+          memos.uid → memos.patientUid 마이그레이션. 새 보안 규칙 배포 직후 한 번만 실행하세요. 멱등성 보장 — 여러 번 실행해도 안전합니다.
+        </p>
+        <button
+          type="button"
+          className="d-btn-primary"
+          onClick={onBackfill}
+          disabled={backfillBusy}
+        >
+          {backfillBusy ? '실행 중…' : 'patientUid 백필 실행'}
+        </button>
+        {backfill && (
+          <pre style={{ marginTop: 12, fontSize: 13, color: 'var(--ink-2)' }}>
+            scanned: {backfill.scanned} · migrated: {backfill.migrated} · already ok: {backfill.alreadyOk} · skipped (no uid): {backfill.skippedNoUid}
+          </pre>
+        )}
+      </section>
 
       <section className="admin-section model-picker-section">
         <h2>활성 모델</h2>
@@ -422,7 +470,7 @@ export function SuperAdmin({ onSignOut }: { onSignOut: () => Promise<void> }) {
                 </div>
                 <div className="adm-act">{m.activity || '(작성 중)'}</div>
                 <div className="adm-meta">
-                  <span>👤 {m.uid.slice(0, 8)}…</span>
+                  <span>👤 {m.patientUid.slice(0, 8)}…</span>
                   <span>📍 {m.place || '위치 없음'}</span>
                 </div>
                 <button
