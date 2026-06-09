@@ -47,13 +47,22 @@ const GEMINI_API_KEY = defineSecret('GEMINI_API_KEY')
 
 const VALID_CATEGORIES = ['식사', '산책', '휴식', '가족', '일상'] as const
 
+interface GeminiResult {
+  activity: string
+  details: string
+  category: string
+  /** Token counts + USD estimate, included so the trigger can roll up
+   *  spending into admin_daily / admin_totals for the dashboard. */
+  cost: { promptTokens: number; outputTokens: number; totalUSD: number }
+}
+
 async function generateActivityWithGemini(args: {
   bucket: string
   objectPath: string
   contentType?: string
   timeHint?: string
   placeHint?: string
-}): Promise<{ activity: string; details: string; category: string } | null> {
+}): Promise<GeminiResult | null> {
   const apiKey = GEMINI_API_KEY.value()
   if (!apiKey) {
     logger.warn('[gemini] GEMINI_API_KEY unset; skipping cloud Vision tier')
@@ -102,20 +111,20 @@ async function generateActivityWithGemini(args: {
     const cleaned = raw.replace(/^```(?:json)?\s*|\s*```$/g, '').trim()
     const parsed = JSON.parse(cleaned) as { activity?: unknown; details?: unknown; category?: unknown }
 
-    // Log a Gemini 2.0 Flash cost estimate per call so the bill never sneaks
-    // up. Prices as of 2025-02 for ≤128k context:
+    // Gemini 2.0 Flash pricing for ≤128k context (as of 2025-02):
     //   input  $0.10 / 1M tokens
     //   output $0.40 / 1M tokens
-    // The SDK exposes counts on result.response.usageMetadata. Photo tokens
-    // are folded into promptTokenCount by the model. Search Cloud Logging for
-    // jsonPayload.tag = "gemini-cost" to roll up daily / monthly spend.
+    // Photo tokens are folded into promptTokenCount by the model. We log a
+    // per-call line tagged "gemini-cost" AND return the numbers so the
+    // trigger can roll them up into admin_daily / admin_totals for the
+    // /superadmin dashboard.
     const usage = result.response.usageMetadata
+    const inTok = usage?.promptTokenCount ?? 0
+    const outTok = usage?.candidatesTokenCount ?? 0
+    const inUSD = (inTok / 1_000_000) * 0.10
+    const outUSD = (outTok / 1_000_000) * 0.40
+    const totalUSD = inUSD + outUSD
     if (usage) {
-      const inTok = usage.promptTokenCount ?? 0
-      const outTok = usage.candidatesTokenCount ?? 0
-      const inUSD = (inTok / 1_000_000) * 0.10
-      const outUSD = (outTok / 1_000_000) * 0.40
-      const totalUSD = inUSD + outUSD
       logger.info('[gemini-cost] usage', {
         tag: 'gemini-cost',
         model: 'gemini-2.0-flash',
@@ -140,7 +149,10 @@ async function generateActivityWithGemini(args: {
     const category = (VALID_CATEGORIES as readonly string[]).includes(categoryRaw)
       ? categoryRaw
       : '일상'
-    return { activity, details, category }
+    return {
+      activity, details, category,
+      cost: { promptTokens: inTok, outputTokens: outTok, totalUSD },
+    }
   } catch (err) {
     logger.warn('[gemini] generation failed', { err: String(err) })
     return null
@@ -322,6 +334,69 @@ async function reverseGeocode(lat: number | null, lng: number | null): Promise<s
 }
 
 // ────────────────────────────────────────────────────────────────────────────
+// Admin dashboard counters.
+//
+// Every successful memo bumps two atomic Firestore counters:
+//   admin_totals/global             — ever-growing roll-up across the app
+//   admin_daily/{YYYY-MM-DD}        — one doc per UTC day for the trend chart
+//
+// Both are written via FieldValue.increment so concurrent uploads from
+// multiple devices don't race. The /superadmin page reads these and the
+// recent memos collection to render the dashboard.
+// ────────────────────────────────────────────────────────────────────────────
+
+function utcDateKey(d: Date): string {
+  // YYYY-MM-DD in UTC. We want the dashboard "today" to mean "today on the
+  // server" so the doc id is stable regardless of which timezone runs the
+  // function. (us-west1 ≈ UTC-8.)
+  return d.toISOString().slice(0, 10)
+}
+
+async function bumpAdminCounters(args: {
+  category: string
+  memoSource: string
+  geminiCost: { promptTokens: number; outputTokens: number; totalUSD: number } | null
+}) {
+  const db = getFirestore()
+  const day = utcDateKey(new Date())
+  const inc = (n: number) => FieldValue.increment(n)
+  const safeKey = (s: string) => s.replace(/[.~/[\]#\s]/g, '_') || 'unknown'
+  const cat = safeKey(args.category)
+  const src = safeKey(args.memoSource)
+  const cost = args.geminiCost
+
+  const totalsUpdate: Record<string, unknown> = {
+    memos: inc(1),
+    [`byCategory.${cat}`]: inc(1),
+    [`bySource.${src}`]: inc(1),
+    lastMemoAt: FieldValue.serverTimestamp(),
+  }
+  const dailyUpdate: Record<string, unknown> = {
+    date: day,
+    memos: inc(1),
+    [`byCategory.${cat}`]: inc(1),
+    [`bySource.${src}`]: inc(1),
+  }
+  if (cost) {
+    totalsUpdate.geminiCalls = inc(1)
+    totalsUpdate.geminiPromptTokens = inc(cost.promptTokens)
+    totalsUpdate.geminiOutputTokens = inc(cost.outputTokens)
+    totalsUpdate.geminiUSD = inc(cost.totalUSD)
+    dailyUpdate.geminiCalls = inc(1)
+    dailyUpdate.geminiPromptTokens = inc(cost.promptTokens)
+    dailyUpdate.geminiOutputTokens = inc(cost.outputTokens)
+    dailyUpdate.geminiUSD = inc(cost.totalUSD)
+  }
+
+  // set({merge:true}) so the docs are created on first run without a
+  // separate initialization step.
+  await Promise.all([
+    db.collection('admin_totals').doc('global').set(totalsUpdate, { merge: true }),
+    db.collection('admin_daily').doc(day).set(dailyUpdate, { merge: true }),
+  ])
+}
+
+// ────────────────────────────────────────────────────────────────────────────
 
 export const onPhotoUploaded = onObjectFinalized(
   {
@@ -429,6 +504,9 @@ export const onPhotoUploaded = onObjectFinalized(
       let details: string = ''
       let category: string
       let memoSource: string
+      // Token + USD for this run, or null when no Gemini call happened
+      // (device tier or stub). Used for the admin counter roll-up.
+      let geminiCost: GeminiResult['cost'] | null = null
       if (deviceActivity) {
         activity = deviceActivity
         category = categoryFromTags(tags)
@@ -449,6 +527,7 @@ export const onPhotoUploaded = onObjectFinalized(
           details = cloud.details
           category = cloud.category
           memoSource = 'cloud-vision'
+          geminiCost = cloud.cost
         } else {
           const stub = stubActivity()
           activity = stub.activity
@@ -469,6 +548,15 @@ export const onPhotoUploaded = onObjectFinalized(
         update.memoSource = memoSource
       }
       await memoRef.update(update)
+
+      // Roll up dashboard counters. Don't let a counter failure mark the
+      // memo as 'error' — the user-visible result is fine.
+      try {
+        await bumpAdminCounters({ category, memoSource, geminiCost })
+      } catch (err) {
+        logger.warn('[admin-counters] failed to bump', { err: String(err) })
+      }
+
       logger.info('memo ready', {
         uid, photoId, category, memoSource,
         preservedHumanEdit: existingHumanEdited,
