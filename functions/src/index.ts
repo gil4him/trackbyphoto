@@ -79,27 +79,57 @@ async function generateActivityWithGemini(args: {
 
     const ai = new GoogleGenerativeAI(apiKey)
     const model = ai.getGenerativeModel({
-      model: 'gemini-2.0-flash',
-      // Slightly more headroom now that we also produce the longer `details`
-      // field. Still kept low so the output is consistent across retries.
-      generationConfig: { temperature: 0.4, maxOutputTokens: 400, responseMimeType: 'application/json' },
+      // 2.5 Flash has materially better visual reasoning than 2.0 Flash —
+      // catches more objects, gets settings right more often, and is less
+      // likely to produce filler text. Pricing is higher but still cheap for
+      // single-image calls (~$0.001/photo at typical sizes).
+      model: 'gemini-2.5-flash',
+      generationConfig: {
+        // Low temp = more grounded, less floral. Each lift toward 1 made the
+        // output measurably more generic in spot checks.
+        temperature: 0.2,
+        maxOutputTokens: 400,
+        responseMimeType: 'application/json',
+      },
     })
 
+    // Prompt is grounded-observation-first. Earlier version asked for
+    // "따뜻한" (warm) tone and got back a lot of "소중한 일상의 순간" filler
+    // even when the photo had clear concrete content. We now:
+    //   - forbid named filler phrases explicitly
+    //   - require specific objects/setting in `details`
+    //   - tell the model the subject might not be in the frame
+    //   - give a few-shot anchor so it knows what "good" looks like
     const prompt = [
-      '당신은 인지 저하가 있는 어르신의 사진을 보고 가족에게 보낼 따뜻한 한국어 메모를 작성합니다.',
+      '당신은 가족이 어르신의 사진을 보고 무엇을 하셨는지 빠르게 알 수 있도록 한국어 메모를 작성하는 보조 AI입니다.',
       '',
-      '두 가지를 작성하세요:',
-      '1) activity — 한 문장 헤드라인. 15자 내외 (최대 25자). 존댓말. 예: "식사 중이세요", "공원에서 산책하셨어요".',
-      '2) details — 2~3문장의 부드러운 설명, 총 80자 내외 (최대 140자). 사진에서 보이는 사람·물건·주변·분위기·시간대를 구체적으로. 추측 금지, 보이는 것만. 존댓말.',
+      '원칙:',
+      '- 사진에 실제로 보이는 것만 적으세요. 보이지 않는 감정·관계·이유는 추측 금지.',
+      '- 일반론·상투어 금지. 다음 표현은 절대 사용하지 마세요: "소중한 순간", "잔잔한", "오늘의 한 장면", "행복하게", "사랑하는".',
+      '- 어르신 본인이 사진에 없을 수도 있어요. 그러면 무엇을 보고 계셨는지 또는 무엇을 촬영하셨는지를 적으세요.',
+      '- 존댓말. 사실 위주, 따뜻하되 단정함보다 정확함이 우선.',
       '',
-      '카테고리는 정확히 하나: 식사 / 산책 / 휴식 / 가족 / 일상.',
+      'activity (한 줄, 12~22자): 무엇을 하시는지 또는 무엇을 찍으셨는지를 구체적으로.',
+      '  좋은 예: "공원 벤치에 앉아 계세요" / "테이블 위 김치찌개 한 그릇" / "창밖 단풍을 보고 계세요"',
+      '  나쁜 예: "오늘의 한 장면" / "소중한 시간" / "휴식 중이세요"(맥락 없음)',
+      '',
+      'details (2~3문장, 80~140자): 사진에서 보이는 것을 구체적으로.',
+      '  포함: 주요 사물, 사람 수, 실내/실외, 빛(낮·저녁·실내등), 색감, 자세.',
+      '  제외: 감정 추측, 관계 추측("따님과", "친구와" 등 확인되지 않으면 금지).',
+      '',
+      'category: 식사 / 산책 / 휴식 / 가족 / 일상 중 정확히 하나.',
+      '  식사 — 음식이 사진의 주제',
+      '  산책 — 야외에서 이동·걷기',
+      '  휴식 — 실내에서 앉아 있거나 쉬는 모습',
+      '  가족 — 사람이 둘 이상 함께 있는 모습',
+      '  일상 — 위 어디에도 속하지 않는 사물·풍경·정물',
       '',
       '상황 정보 (참고용, 사진과 어긋나면 무시):',
       `- 시간: ${args.timeHint || '알 수 없음'}`,
       `- 장소: ${args.placeHint || '알 수 없음'}`,
       '',
-      'JSON으로만 답하세요:',
-      '{"activity": "...", "details": "...", "category": "..."}',
+      'JSON만 출력하세요. 다른 텍스트 금지:',
+      '{"activity":"...","details":"...","category":"..."}',
     ].join('\n')
 
     const result = await model.generateContent([
@@ -111,9 +141,9 @@ async function generateActivityWithGemini(args: {
     const cleaned = raw.replace(/^```(?:json)?\s*|\s*```$/g, '').trim()
     const parsed = JSON.parse(cleaned) as { activity?: unknown; details?: unknown; category?: unknown }
 
-    // Gemini 2.0 Flash pricing for ≤128k context (as of 2025-02):
-    //   input  $0.10 / 1M tokens
-    //   output $0.40 / 1M tokens
+    // Gemini 2.5 Flash pricing (as of 2025-mid):
+    //   input  $0.30 / 1M tokens (text + image, ≤128k context)
+    //   output $2.50 / 1M tokens
     // Photo tokens are folded into promptTokenCount by the model. We log a
     // per-call line tagged "gemini-cost" AND return the numbers so the
     // trigger can roll them up into admin_daily / admin_totals for the
@@ -121,13 +151,13 @@ async function generateActivityWithGemini(args: {
     const usage = result.response.usageMetadata
     const inTok = usage?.promptTokenCount ?? 0
     const outTok = usage?.candidatesTokenCount ?? 0
-    const inUSD = (inTok / 1_000_000) * 0.10
-    const outUSD = (outTok / 1_000_000) * 0.40
+    const inUSD = (inTok / 1_000_000) * 0.30
+    const outUSD = (outTok / 1_000_000) * 2.50
     const totalUSD = inUSD + outUSD
     if (usage) {
       logger.info('[gemini-cost] usage', {
         tag: 'gemini-cost',
-        model: 'gemini-2.0-flash',
+        model: 'gemini-2.5-flash',
         promptTokens: inTok,
         outputTokens: outTok,
         totalTokens: usage.totalTokenCount ?? inTok + outTok,
