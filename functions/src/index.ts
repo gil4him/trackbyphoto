@@ -21,7 +21,7 @@ import { onObjectFinalized } from 'firebase-functions/v2/storage'
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import { defineSecret, defineString } from 'firebase-functions/params'
 import { logger } from 'firebase-functions/v2'
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import { GoogleGenAI } from '@google/genai'
 import OpenAI from 'openai'
 
 initializeApp()
@@ -68,7 +68,8 @@ const VALID_CATEGORIES = ['식사', '산책', '휴식', '가족', '일상'] as c
 // Update when you change models so the dashboard stays honest.
 const PRICING: Record<string, { provider: 'gemini' | 'openai'; inPerM: number; outPerM: number }> = {
   // Gemini
-  'gemini-2.0-flash': { provider: 'gemini', inPerM: 0.10, outPerM: 0.40 },
+  // Note: gemini-2.0-flash was retired by Google (404 on generateContent
+  // as of mid-2026). Don't re-add without confirming availability.
   'gemini-2.5-flash': { provider: 'gemini', inPerM: 0.30, outPerM: 2.50 },
   'gemini-2.5-pro':   { provider: 'gemini', inPerM: 1.25, outPerM: 10.00 },
   // OpenAI
@@ -243,28 +244,40 @@ async function generateWithGemini(
     return null
   }
   try {
-    const ai = new GoogleGenerativeAI(apiKey)
-    const model = ai.getGenerativeModel({
+    const ai = new GoogleGenAI({ apiKey })
+    // Modern @google/genai SDK — unlike legacy @google/generative-ai v0.24,
+    // this one actually forwards `thinkingConfig` to the REST API. Gemini 2.5
+    // series enables "thinking" by default; thinkingBudget=0 disables it so
+    // the entire maxOutputTokens budget is spent on the visible JSON instead
+    // of being burned on reasoning tokens (which produced truncated output
+    // like raw="{\n  \"activity" on the legacy SDK).
+    const result = await ai.models.generateContent({
       model: modelName,
-      generationConfig: {
+      contents: [
+        { inlineData: { data: base64, mimeType } },
+        { text: prompt },
+      ],
+      config: {
         // Low temp = more grounded, less floral. Each lift toward 1 made the
         // output measurably more generic in spot checks.
         temperature: 0.2,
-        maxOutputTokens: 400,
+        maxOutputTokens: 1024,
         responseMimeType: 'application/json',
+        thinkingConfig: { thinkingBudget: 0 },
       },
     })
-    const result = await model.generateContent([
-      { inlineData: { data: base64, mimeType } },
-      { text: prompt },
-    ])
-    const raw = (result.response.text() || '').trim()
+    const raw = (result.text || '').trim()
     const parsed = parseModelResponse(raw)
     if (!parsed) {
-      logger.warn('[gemini] empty/invalid response', { raw })
+      // Stringify the full response so firebase-functions' logger doesn't
+      // silently drop nested fields (finishReason, usageMetadata, etc).
+      logger.warn('[gemini] empty/invalid response', {
+        raw,
+        responseDump: JSON.stringify(result, null, 2),
+      })
       return null
     }
-    const usage = result.response.usageMetadata
+    const usage = result.usageMetadata
     const inTok = usage?.promptTokenCount ?? 0
     const outTok = usage?.candidatesTokenCount ?? 0
     const { totalUSD } = logCost(modelName, inTok, outTok)
