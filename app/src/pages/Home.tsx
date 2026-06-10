@@ -10,7 +10,8 @@ import {
   isNativeApp,
 } from '../lib/capture'
 import { fmtDate, fmtTime } from '../util'
-import type { Memo } from '../types'
+import { MemoThumb } from '../components/MemoThumb'
+import type { Memo, AppNotification } from '../types'
 
 /**
  * The prototype's home is a single-purpose screen: a giant circular capture
@@ -21,7 +22,7 @@ import type { Memo } from '../types'
  * recent upload finishes processing (caregiver sees the result without
  * having to leave the home screen).
  */
-export function Home({ uid, patientName, memos, onOpenAsk, canCapture = true }: { uid: string; patientName: string; memos: Memo[]; onOpenAsk: () => void; canCapture?: boolean }) {
+export function Home({ uid, patientName, greetingName, memos, onOpenAsk, onOpen, canCapture = true, notifications = [], onDismissNotification }: { uid: string; patientName: string; greetingName: string; memos: Memo[]; onOpenAsk: () => void; onOpen: (id: string) => void; canCapture?: boolean; notifications?: AppNotification[]; onDismissNotification?: (id: string) => void }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
   const [busyMsg, setBusyMsg] = useState('사진을 저장하고 있어요…')
@@ -75,9 +76,27 @@ export function Home({ uid, patientName, memos, onOpenAsk, canCapture = true }: 
 
   return (
     <section className="page home" aria-label={`${patientName}님의 홈`}>
+      {notifications.length > 0 && (
+        <div className="notice-stack" role="status" aria-label="보호자 활동 알림">
+          {notifications.map((n) => (
+            <div key={n.id} className="notice">
+              <span className="notice-msg">{n.message}</span>
+              {onDismissNotification && (
+                <button
+                  className="notice-x"
+                  aria-label="알림 지우기"
+                  onClick={() => onDismissNotification(n.id)}
+                >✕</button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="home-hi">
         <div className="d">{fmtDate(today)}</div>
-        <div className="t">오늘 하루를 기록해요</div>
+        <div className="t">{greetingName}님, 안녕하세요</div>
+        <div className="sub">오늘 하루를 기록해요</div>
       </div>
 
       <div className="capwrap">
@@ -87,12 +106,14 @@ export function Home({ uid, patientName, memos, onOpenAsk, canCapture = true }: 
             action when the active patient isn't the signed-in user. */}
         {!canCapture && (
           <div className="caregiver-note" role="status">
-            <b>{patientName} 어르신의 기록을 보고 있어요.</b>
-            <span>사진 찍기는 어르신 본인 계정에서만 가능해요.</span>
+            <b>{patientName}님의 기록을 보고 있어요.</b>
+            <span>사진 찍기는 본인 계정에서만 가능해요.</span>
           </div>
         )}
-        {canCapture && (
-          <>
+        {/* Take-photo and Ask sit side by side as equal tiles. In caregiver
+            mode (no capture) the Ask tile stretches to fill the row alone. */}
+        <div className={canCapture ? 'capgrid' : 'capgrid single'}>
+          {canCapture && (
             <button
               className="capbtn"
               aria-label="사진 찍기"
@@ -115,21 +136,23 @@ export function Home({ uid, patientName, memos, onOpenAsk, canCapture = true }: 
               </svg>
               <span className="lab">사진 찍기</span>
             </button>
+          )}
 
-            <div className="cap-help">
-              버튼을 누르면 사진이 찍히고<br />
-              자동으로 기록돼요
-            </div>
-          </>
+          <button className="askbtn" onClick={onOpenAsk} aria-label="지난 기록 물어보기">
+            <svg className="ask-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="11" cy="11" r="7" />
+              <path d="M20.5 20.5l-3.6-3.6" />
+            </svg>
+            <span className="lab">지난 기록<br />물어보기</span>
+          </button>
+        </div>
+
+        {canCapture && (
+          <div className="cap-help">
+            버튼을 누르면 사진이 찍히고<br />
+            자동으로 기록돼요
+          </div>
         )}
-
-        <button className="askbtn" onClick={onOpenAsk} aria-label="지난 기록 물어보기">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <circle cx="11" cy="11" r="7" />
-            <path d="M20.5 20.5l-3.6-3.6" />
-          </svg>
-          지난 기록 물어보기
-        </button>
 
         <input
           ref={inputRef}
@@ -144,6 +167,22 @@ export function Home({ uid, patientName, memos, onOpenAsk, canCapture = true }: 
           }}
         />
       </div>
+
+      {memos.length > 0 && (
+        <div className="recent-strip" aria-label="최근 사진">
+          {memos.slice(0, 4).map((m) => (
+            <button
+              type="button"
+              key={m.id}
+              className="recent-thumb"
+              onClick={() => onOpen(m.id)}
+              aria-label="자세히 보기"
+            >
+              <MemoThumb memo={m} showLocation />
+            </button>
+          ))}
+        </div>
+      )}
 
       <Processing show={busy} message={busyMsg} sub={busySub} />
     </section>

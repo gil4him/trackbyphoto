@@ -116,6 +116,22 @@ export interface Consent {
   timestamp: Timestamp
 }
 
+/** notifications/{id} — elder-facing safeguard feed (Plan §8). Written only by
+ *  Cloud Functions when a caregiver does something material; the elder reads
+ *  unread notices as a dismissible banner and marks them read. */
+export interface AppNotification {
+  id: string
+  patientUid: string
+  actorUid: string
+  /** Dot-namespaced kind: 'recipient.add' | 'recipient.remove' |
+   *  'settings.update' | 'caregiver.invite' | 'caregiver.accept' |
+   *  'caregiver.revoke'. */
+  type: string
+  message: string
+  read: boolean
+  createdAt: Timestamp
+}
+
 /** auditLogs/{logId} — append-only record of every sensitive change.
  *  Required mitigation for elder abuse (see Plan §8). Rules forbid update/delete. */
 export interface AuditLog {

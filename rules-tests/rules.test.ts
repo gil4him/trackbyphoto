@@ -132,6 +132,16 @@ beforeEach(async () => {
       acceptedAt: new Date(),
       revokedAt: new Date(),
     })
+
+    // An unread safeguard notice for the patient
+    await setDoc(doc(db, 'notifications', 'notif1'), {
+      patientUid: PATIENT,
+      actorUid: CAREGIVER_ACTIVE_ADMIN,
+      type: 'recipient.add',
+      message: '보호자가 받는 사람을 추가했어요',
+      read: false,
+      createdAt: new Date(),
+    })
   })
 })
 
@@ -199,22 +209,45 @@ describe('memos', () => {
 // users/{patientUid} — settings doc
 // ────────────────────────────────────────────────────────────────────────────
 describe('users', () => {
-  it('patient can read+write own settings', async () => {
+  it('patient can read+write own settings (self-stamped)', async () => {
     const ref = doc(authedDb(PATIENT), 'users', PATIENT)
     await assertSucceeds(getDoc(ref))
-    await assertSucceeds(updateDoc(ref, { patientName: 'Alice 2' }))
+    await assertSucceeds(updateDoc(ref, { patientName: 'Alice 2', lastModifiedBy: PATIENT }))
   })
 
-  it('active admin caregiver can write patient settings', async () => {
+  it('active admin caregiver can write patient settings (self-stamped)', async () => {
     await assertSucceeds(
-      updateDoc(doc(authedDb(CAREGIVER_ACTIVE_ADMIN), 'users', PATIENT), { patientName: 'edited' }),
+      updateDoc(doc(authedDb(CAREGIVER_ACTIVE_ADMIN), 'users', PATIENT), {
+        patientName: 'edited',
+        lastModifiedBy: CAREGIVER_ACTIVE_ADMIN,
+      }),
+    )
+  })
+
+  it('cannot forge lastModifiedBy as someone else (trusted actor for audit)', async () => {
+    // Admin caregiver tries to frame the edit as the elder's own change so the
+    // audit trigger stays silent. The rule pins lastModifiedBy to the writer.
+    await assertFails(
+      updateDoc(doc(authedDb(CAREGIVER_ACTIVE_ADMIN), 'users', PATIENT), {
+        patientName: 'edited',
+        lastModifiedBy: PATIENT,
+      }),
+    )
+  })
+
+  it('write without lastModifiedBy is rejected', async () => {
+    await assertFails(
+      updateDoc(doc(authedDb(PATIENT), 'users', PATIENT), { patientName: 'no stamp' }),
     )
   })
 
   it('active viewer caregiver can read but NOT write patient settings', async () => {
     await assertSucceeds(getDoc(doc(authedDb(CAREGIVER_ACTIVE_VIEWER), 'users', PATIENT)))
     await assertFails(
-      updateDoc(doc(authedDb(CAREGIVER_ACTIVE_VIEWER), 'users', PATIENT), { patientName: 'edited' }),
+      updateDoc(doc(authedDb(CAREGIVER_ACTIVE_VIEWER), 'users', PATIENT), {
+        patientName: 'edited',
+        lastModifiedBy: CAREGIVER_ACTIVE_VIEWER,
+      }),
     )
   })
 
@@ -245,19 +278,29 @@ describe('memberships', () => {
     )
   })
 
-  it('caregiver CANNOT accept an invite without a consent doc reference', async () => {
-    const id = membershipId(PATIENT, CAREGIVER_INVITED)
+  // Memberships are mutated ONLY by the Cloud Functions (admin SDK). Direct
+  // client create/update is denied — this closes the hole where a caregiver
+  // could self-activate their own row by reusing any consent on file, skipping
+  // the one-shot invite code.
+  it('client cannot create a membership directly (Cloud Functions only)', async () => {
     await assertFails(
-      updateDoc(doc(authedDb(CAREGIVER_INVITED), 'memberships', id), {
-        status: 'active',
-        consentId: 'nonexistent_consent',
+      setDoc(doc(authedDb(PATIENT), 'memberships', membershipId(PATIENT, 'new_cg')), {
+        patientUid: PATIENT,
+        caregiverUid: 'new_cg',
+        role: 'viewer',
+        status: 'invited',
+        invitedBy: PATIENT,
+        consentId: null,
+        createdAt: new Date(),
+        acceptedAt: null,
+        revokedAt: null,
       }),
     )
   })
 
-  it('caregiver CAN accept an invite when consentId references a real consent', async () => {
+  it('caregiver CANNOT self-activate an invited membership (even with a valid consent)', async () => {
     const id = membershipId(PATIENT, CAREGIVER_INVITED)
-    await assertSucceeds(
+    await assertFails(
       updateDoc(doc(authedDb(CAREGIVER_INVITED), 'memberships', id), {
         status: 'active',
         consentId: 'consent1',
@@ -265,40 +308,10 @@ describe('memberships', () => {
     )
   })
 
-  it('caregiver CANNOT accept with a consent belonging to a different patient', async () => {
-    // Plant a consent owned by a DIFFERENT patient and try to accept this
-    // patient's invite using it. The tightened rule should reject it.
-    await testEnv.withSecurityRulesDisabled(async (ctx) => {
-      await setDoc(doc(ctx.firestore(), 'consents', 'consent_other_patient'), {
-        patientUid: 'other_patient_uid',
-        type: 'third_party_share',
-        grantedBy: 'self',
-        guardianUid: null,
-        scope: 'memo data + location',
-        consentTextVersion: 'v1',
-        timestamp: new Date(),
-      })
-    })
-    const id = membershipId(PATIENT, CAREGIVER_INVITED)
+  it('owner cannot update a membership directly (revoke goes through the callable)', async () => {
+    const id = membershipId(PATIENT, CAREGIVER_ACTIVE_ADMIN)
     await assertFails(
-      updateDoc(doc(authedDb(CAREGIVER_INVITED), 'memberships', id), {
-        status: 'active',
-        consentId: 'consent_other_patient',
-      }),
-    )
-  })
-
-  it('caregiver cannot grant themselves a different role while accepting', async () => {
-    // Invited row has role=admin; try to bump to guardian on accept (no-op
-    // here since it's already admin, but flip the role to viewer to catch
-    // the rule denying role-mutation on accept).
-    const id = membershipId(PATIENT, CAREGIVER_INVITED)
-    await assertFails(
-      updateDoc(doc(authedDb(CAREGIVER_INVITED), 'memberships', id), {
-        status: 'active',
-        role: 'guardian',
-        consentId: 'consent1',
-      }),
+      updateDoc(doc(authedDb(PATIENT), 'memberships', id), { status: 'revoked' }),
     )
   })
 
@@ -504,5 +517,54 @@ describe('auditLogs', () => {
       updateDoc(doc(authedDb(PATIENT), 'auditLogs', 'preexisting'), { action: 'tampered' }),
     )
     await assertFails(deleteDoc(doc(authedDb(PATIENT), 'auditLogs', 'preexisting')))
+  })
+})
+
+// ────────────────────────────────────────────────────────────────────────────
+// notifications — elder-only safeguard feed
+// ────────────────────────────────────────────────────────────────────────────
+describe('notifications', () => {
+  it('patient can read their own notification', async () => {
+    await assertSucceeds(getDoc(doc(authedDb(PATIENT), 'notifications', 'notif1')))
+  })
+
+  it('caregiver CANNOT read the patient notification feed', async () => {
+    // The notice is about the caregiver's own action — they must not see it.
+    await assertFails(getDoc(doc(authedDb(CAREGIVER_ACTIVE_ADMIN), 'notifications', 'notif1')))
+  })
+
+  it('stranger cannot read a notification', async () => {
+    await assertFails(getDoc(doc(authedDb(STRANGER), 'notifications', 'notif1')))
+  })
+
+  it('clients cannot create notifications (only Cloud Functions can)', async () => {
+    await assertFails(
+      setDoc(doc(authedDb(PATIENT), 'notifications', 'forged'), {
+        patientUid: PATIENT, actorUid: PATIENT, type: 'x', message: 'x',
+        read: false, createdAt: new Date(),
+      }),
+    )
+  })
+
+  it('patient can mark a notification read', async () => {
+    await assertSucceeds(
+      updateDoc(doc(authedDb(PATIENT), 'notifications', 'notif1'), { read: true }),
+    )
+  })
+
+  it('patient cannot edit a notification beyond the read flag', async () => {
+    await assertFails(
+      updateDoc(doc(authedDb(PATIENT), 'notifications', 'notif1'), { message: 'tampered' }),
+    )
+  })
+
+  it('caregiver cannot mark the patient notification read', async () => {
+    await assertFails(
+      updateDoc(doc(authedDb(CAREGIVER_ACTIVE_ADMIN), 'notifications', 'notif1'), { read: true }),
+    )
+  })
+
+  it('patient can dismiss (delete) their notification', async () => {
+    await assertSucceeds(deleteDoc(doc(authedDb(PATIENT), 'notifications', 'notif1')))
   })
 })

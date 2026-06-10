@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { Memo, MemoCategory } from '../types'
 import { fmtTime, isSameDay } from '../util'
-import { categoryThumbClass } from '../lib/categoryStyle'
+import { MemoThumb } from './MemoThumb'
 
 type WhenKey = 'today' | 'yesterday' | 'week' | 'all'
 type WhatKey = 'all' | MemoCategory
@@ -74,7 +74,6 @@ export function Ask({ memos, onOpen }: { memos: Memo[]; onOpen: (id: string) => 
   }, [results, grouped])
 
   const card = (m: Memo) => {
-    const grad = categoryThumbClass(m.activity)
     return (
       <button
         type="button"
@@ -83,9 +82,7 @@ export function Ask({ memos, onOpen }: { memos: Memo[]; onOpen: (id: string) => 
         onClick={() => onOpen(m.id)}
         aria-label="자세히 보기"
       >
-        <div className={`tl-thumb ${m.photoUrl ? '' : grad}`}>
-          {m.photoUrl && <img src={m.photoUrl} alt="" />}
-        </div>
+        <MemoThumb memo={m} />
         <div className="tl-body">
           <div className="when">{fmtTime(m.takenAt.toDate())}</div>
           <div className="act">{m.activity || '기록'}</div>

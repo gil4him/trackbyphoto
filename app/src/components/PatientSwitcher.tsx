@@ -38,7 +38,7 @@ export function PatientSwitcher({ selfUid, selfLabel, patients, activePatientUid
     if (patients.length === 0) return
     const unsubs = patients.map((p) =>
       onSnapshot(doc(db, 'users', p.patientUid), (snap) => {
-        const name = (snap.data()?.patientName as string | undefined) || '어르신'
+        const name = (snap.data()?.patientName as string | undefined) || '사용자'
         setNames((prev) => ({ ...prev, [p.patientUid]: name }))
       }, (err) => console.warn('[switcher] name subscription error', err)),
     )
@@ -61,7 +61,7 @@ export function PatientSwitcher({ selfUid, selfLabel, patients, activePatientUid
   const isSelf = activePatientUid === selfUid
   const activeLabel = isSelf
     ? selfLabel
-    : names[activePatientUid] || '어르신'
+    : names[activePatientUid] || '사용자'
   const activeRoleLabel = isSelf ? '내 계정' : '보호자로 보기'
 
   return (
@@ -90,7 +90,7 @@ export function PatientSwitcher({ selfUid, selfLabel, patients, activePatientUid
                 onClick={() => { onChange(p.patientUid); setOpen(false) }}
                 role="menuitem"
               >
-                <span className="ps-item-name">{names[p.patientUid] || '어르신'}</span>
+                <span className="ps-item-name">{names[p.patientUid] || '사용자'}</span>
                 <span className="ps-item-sub">보호자 · {p.role === 'admin' ? '관리자' : '뷰어'}</span>
               </button>
             )

@@ -43,7 +43,7 @@ function friendlyError(err: unknown): string {
       if (e.message?.includes('own invite')) return '내가 만든 초대 코드는 사용할 수 없어요.'
       return '코드를 사용할 수 없어요. 발급자에게 새로 요청해주세요.'
     case 'functions/already-exists':
-      return '이미 이 어르신의 보호자로 등록되어 있어요.'
+      return '이미 이 사용자의 보호자로 등록되어 있어요.'
     case 'functions/unauthenticated':
       return '먼저 로그인해주세요.'
     default:
@@ -74,7 +74,7 @@ export function AcceptInvite({ onAccepted, onCancel }: Props) {
     setBusy(true)
     try {
       const result = await acceptInvite(code)
-      toast.show('초대를 수락했어요', '어르신의 기록을 함께 볼 수 있어요')
+      toast.show('초대를 수락했어요', '사용자의 기록을 함께 볼 수 있어요')
       onAccepted(result.patientUid)
     } catch (err) {
       console.error('[accept-invite] failed', err)
@@ -90,7 +90,7 @@ export function AcceptInvite({ onAccepted, onCancel }: Props) {
 
       <div className="sect">
         <div className="help" style={{ marginBottom: 16 }}>
-          어르신이 알려주신 6자리 코드를 입력하세요.
+          사용자가 알려주신 6자리 코드를 입력하세요.
         </div>
         <input
           ref={inputRef}
@@ -129,8 +129,8 @@ export function AcceptInvite({ onAccepted, onCancel }: Props) {
       </div>
 
       <div className="proto-note">
-        <b>안내.</b> 초대를 수락하면 어르신의 일상 기록(메모, 사진, 위치)을 보실 수 있어요.
-        어르신은 언제든지 보호자 접근을 해제할 수 있습니다.
+        <b>안내.</b> 초대를 수락하면 사용자의 일상 기록(메모, 사진, 위치)을 보실 수 있어요.
+        사용자는 언제든지 보호자 접근을 해제할 수 있습니다.
       </div>
     </section>
   )

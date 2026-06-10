@@ -14,10 +14,9 @@ const ICONS = {
   ),
   today: (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M8 6h12M8 12h12M8 18h12" />
-      <circle cx="3.5" cy="6" r="1.4" />
-      <circle cx="3.5" cy="12" r="1.4" />
-      <circle cx="3.5" cy="18" r="1.4" />
+      <rect x="3" y="5" width="18" height="14" rx="2.5" />
+      <circle cx="8.5" cy="10" r="1.6" />
+      <path d="M21 16l-5-5-9 8" />
     </svg>
   ),
   ask: (
@@ -35,8 +34,8 @@ const ICONS = {
 }
 
 const TABS: { key: TabKey; label: string }[] = [
-  { key: 'home',     label: '사진' },
-  { key: 'today',    label: '오늘' },
+  { key: 'home',     label: '홈' },
+  { key: 'today',    label: '사진' },
   { key: 'ask',      label: '물어보기' },
   { key: 'settings', label: '설정' },
 ]
@@ -45,11 +44,15 @@ export function Tabs({
   active,
   onChange,
   hide,
+  avatarUrl,
 }: {
   active: TabKey
   onChange: (k: TabKey) => void
   /** Hide the bar entirely (e.g. while MemoDetail is open). */
   hide?: boolean
+  /** Signed-in user's Google avatar — shown on the settings tab in place of
+   *  the gear when present. Falls back to the gear icon when absent. */
+  avatarUrl?: string
 }) {
   if (hide) return null
   return (
@@ -62,7 +65,9 @@ export function Tabs({
           aria-label={t.label}
           aria-current={active === t.key ? 'page' : undefined}
         >
-          {ICONS[t.key]}
+          {t.key === 'settings' && avatarUrl
+            ? <img className="tab-avatar" src={avatarUrl} alt="" referrerPolicy="no-referrer" />
+            : ICONS[t.key]}
           {t.label}
         </button>
       ))}

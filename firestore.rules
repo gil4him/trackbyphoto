@@ -99,22 +99,29 @@ service cloud.firestore {
     // ────────────────────────────────────────────────────────────────────
     match /users/{patientUid} {
       allow read:  if isAdmin() || canRead(patientUid);
-      allow write: if isOwner(patientUid) || canManage(patientUid);
+      // Writers must stamp themselves as lastModifiedBy. That field is the
+      // trusted actor the onUserSettingsChanged trigger attributes the change
+      // to — without this a caregiver could edit the elder's recipients and
+      // frame it as the elder's own edit, dodging the audit log + notice.
+      allow write: if (isOwner(patientUid) || canManage(patientUid))
+                   && request.resource.data.lastModifiedBy == request.auth.uid;
     }
 
     // ────────────────────────────────────────────────────────────────────
     // memberships/{membershipId}     id = patientUid + '_' + caregiverUid
     //
-    // Create: the patient invites a caregiver (or an existing admin caregiver
-    // does, via the same rule path). Both produce a row with status='invited'.
-    // Accept: the caregiver flips status to 'active' — only allowed if a
-    // consent doc for the patient exists and the caregiver is the one named
-    // in the membership. The membership.consentId field must point to a real
-    // consents doc.
+    // Memberships are created and mutated ONLY by the caregiver-share Cloud
+    // Functions (createInvite / acceptInvite / revokeMembership), which run via
+    // the admin SDK and bypass these rules. Direct client create/update is
+    // denied on purpose: an earlier draft let a caregiver flip their own row
+    // invited → active by referencing *any* consent on file for the patient,
+    // which sidesteps the one-shot invite code entirely. The callable is the
+    // only sanctioned path to active access.
+    //
     // Read: the patient or the caregiver on the row, plus admin.
-    // Delete (revoke): patient, admin/guardian on the patient, or the
-    // caregiver themselves (a caregiver can always remove their own access).
-    // Update beyond accept (role/status changes): patient/guardian only.
+    // Delete: patient, guardian, or the caregiver themselves. Delete only ever
+    // REMOVES access (never grants it), so it's a safe client-side safety valve
+    // for instant self-removal / revocation without a round-trip to a callable.
     // ────────────────────────────────────────────────────────────────────
     match /memberships/{membershipId} {
       allow read: if isAdmin()
@@ -122,52 +129,8 @@ service cloud.firestore {
                        request.auth.uid == resource.data.patientUid
                     || request.auth.uid == resource.data.caregiverUid));
 
-      // Owner or an active admin caregiver creates invites; never the
-      // caregiver themselves (they accept, not create).
-      allow create: if signedIn()
-                    && request.resource.data.status == 'invited'
-                    && request.resource.data.caregiverUid != request.resource.data.patientUid
-                    && (
-                         request.auth.uid == request.resource.data.patientUid
-                      || hasRole(request.resource.data.patientUid, 'admin')
-                       );
-
-      // Two distinct update paths:
-      //   (a) Caregiver accepts: invited → active. Caregiver must be the one
-      //       on the row, role and patientUid/caregiverUid unchanged, and the
-      //       referenced consent must belong to this patient (not just exist
-      //       — that was the original loose check and let a stranger's
-      //       consent pass).
-      //   (b) Patient/guardian changes role or revokes (any → revoked).
-      //
-      // In practice the production accept-flow goes through the acceptInvite
-      // Cloud Function (which writes via admin SDK and bypasses these rules),
-      // so path (a) is defense-in-depth — kept tight in case the client ever
-      // bypasses the callable.
-      allow update: if signedIn() && (
-        // (a) accept
-        (
-          request.auth.uid == resource.data.caregiverUid
-          && resource.data.status == 'invited'
-          && request.resource.data.status == 'active'
-          && request.resource.data.role == resource.data.role
-          && request.resource.data.patientUid == resource.data.patientUid
-          && request.resource.data.caregiverUid == resource.data.caregiverUid
-          && request.resource.data.consentId is string
-          && exists(/databases/$(database)/documents/consents/$(request.resource.data.consentId))
-          && get(/databases/$(database)/documents/consents/$(request.resource.data.consentId)).data.patientUid == resource.data.patientUid
-        )
-        // (b) manage
-        || isOwner(resource.data.patientUid)
-        || hasRole(resource.data.patientUid, 'guardian')
-        // Admin caregiver can revoke OTHER caregivers but not change their own
-        // status, and cannot grant themselves a higher role.
-        || (
-          hasRole(resource.data.patientUid, 'admin')
-          && request.auth.uid != resource.data.caregiverUid
-          && request.resource.data.status == 'revoked'
-        )
-      );
+      allow create: if false;
+      allow update: if false;
 
       allow delete: if isOwner(resource.data.patientUid)
                     || hasRole(resource.data.patientUid, 'guardian')
@@ -248,6 +211,24 @@ service cloud.firestore {
                       || isActive(request.resource.data.patientUid)
                        );
       allow update, delete: if false;
+    }
+
+    // ────────────────────────────────────────────────────────────────────
+    // notifications/{id}
+    //
+    // Elder-facing safeguard feed (§8). The trigger and the caregiver callables
+    // write a notice here whenever a caregiver does something material. Only
+    // the elder (and super-admin) may read — a caregiver must NOT see the
+    // notices about their own actions. Written exclusively by Cloud Functions
+    // (admin SDK). The elder may mark a notice read (only that field) or dismiss
+    // it.
+    // ────────────────────────────────────────────────────────────────────
+    match /notifications/{id} {
+      allow read:   if isAdmin() || isOwner(resource.data.patientUid);
+      allow create: if false;
+      allow update: if isOwner(resource.data.patientUid)
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+      allow delete: if isOwner(resource.data.patientUid);
     }
 
     // ────────────────────────────────────────────────────────────────────

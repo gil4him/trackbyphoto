@@ -55,53 +55,57 @@ main { padding: 18px 22px calc(110px + var(--safe-bot)); }
 .home-hi { margin-top: 4px; }
 .home-hi .d { font-size: 17px; color: var(--muted); font-weight: 600; }
 .home-hi .t { font-size: 27px; font-weight: 800; margin-top: 4px; letter-spacing: -.5px; }
-.capwrap { margin: auto 0; display: flex; flex-direction: column; align-items: center; gap: 22px; padding-top: 26px; }
+.home-hi .sub { font-size: 16px; color: var(--ink-2); margin-top: 2px; }
 
-.capbtn {
-  width: 208px; height: 208px; border: none; border-radius: 50%; cursor: pointer;
+/* Recent shots — a tidy row just above the nav; newest first, tappable. */
+.recent-strip { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin: 4px 0 10px; }
+.recent-thumb { border: none; background: none; padding: 0; cursor: pointer; border-radius: 14px; }
+.recent-thumb .tl-thumb { width: 90px; height: 90px; position: relative; }
+.recent-thumb:active { transform: scale(.95); }
+/* Location caption pinned to the bottom of each thumbnail. */
+.rt-loc {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  padding: 10px 6px 4px;
+  font-size: 11px; font-weight: 700; line-height: 1.2; color: #fff; text-align: center;
+  background: linear-gradient(to top, rgba(0,0,0,.62), rgba(0,0,0,0));
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.capwrap { margin: auto 0; display: flex; flex-direction: column; align-items: center; gap: 18px; padding-top: 26px; width: 100%; }
+
+/* Take-photo and Ask are the same circular coral button, side by side. */
+.capgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; width: 100%; max-width: 360px; }
+.capgrid.single { grid-template-columns: 1fr; max-width: 220px; }
+
+.capbtn, .askbtn {
+  width: 100%; aspect-ratio: 1 / 1; border: none; border-radius: 50%; cursor: pointer;
   background: radial-gradient(120% 120% at 30% 25%, #FFB088, var(--coral1) 45%, var(--coral2));
-  box-shadow: 0 22px 44px -14px rgba(255,107,107,.7), inset 0 -6px 16px rgba(180,40,40,.25);
+  box-shadow: 0 20px 40px -16px rgba(255,107,107,.7), inset 0 -6px 16px rgba(180,40,40,.25);
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 12px; color: #fff;
+  gap: 10px; color: #fff;
   transition: transform .12s ease;
   position: relative;
   appearance: none; -webkit-appearance: none; font: inherit;
 }
-.capbtn:active { transform: scale(.96); }
-.capbtn::after {
-  content: ""; position: absolute; inset: -12px; border-radius: 50%;
+.capbtn:active, .askbtn:active { transform: scale(.96); }
+.capbtn::after, .askbtn::after {
+  content: ""; position: absolute; inset: -8px; border-radius: 50%;
   border: 3px solid rgba(255,138,91,.35);
   animation: pulse 2.4s ease-out infinite;
   pointer-events: none;
 }
 @keyframes pulse {
-  0%   { transform: scale(.96); opacity: .7; }
-  70%  { transform: scale(1.12); opacity: 0; }
+  0%   { transform: scale(.97); opacity: .7; }
+  70%  { transform: scale(1.08); opacity: 0; }
   100% { opacity: 0; }
 }
-.capbtn .cam { width: 64px; height: 64px; }
-.capbtn .lab { font-size: 27px; font-weight: 800; letter-spacing: -.5px; }
-.cap-help { font-size: 18px; color: var(--ink-2); line-height: 1.5; max-width: 250px; }
+.capbtn .cam, .askbtn .ask-ico { width: 50px; height: 50px; }
+.capbtn .lab, .askbtn .lab { font-size: 20px; font-weight: 800; letter-spacing: -.5px; line-height: 1.2; text-align: center; }
 
-.askbtn {
-  display: inline-flex; align-items: center; gap: 8px;
-  border: 1.5px solid #ffd8c4;
-  background: rgba(255,255,255,.82);
-  color: var(--coral2);
-  border-radius: 999px;
-  padding: 13px 22px;
-  font-size: 18px; font-weight: 800;
-  cursor: pointer; transition: .15s;
-  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
-  appearance: none; -webkit-appearance: none; font-family: inherit;
-}
-.askbtn:active { transform: scale(.97); }
-.askbtn svg { width: 21px; height: 21px; }
+.cap-help { font-size: 18px; color: var(--ink-2); line-height: 1.5; max-width: 250px; text-align: center; }
 
 .hidden-input { display: none; }
 
 /* ---------- TODAY (timeline) ---------- */
-.tl-ask-row { display: flex; width: 100%; justify-content: center; margin: 0 0 16px; }
 
 .tl-item {
   background: var(--card);
@@ -407,6 +411,8 @@ nav.tabbar .tab {
 }
 nav.tabbar .tab svg { width: 26px; height: 26px; }
 nav.tabbar .tab.on { color: var(--coral2); }
+nav.tabbar .tab .tab-avatar { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; }
+nav.tabbar .tab.on .tab-avatar { box-shadow: 0 0 0 2px var(--coral2); }
 
 /* ---------- SIGN IN ---------- */
 .signin { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 80vh; padding: 32px 24px; text-align: center; gap: 24px; }
@@ -570,6 +576,13 @@ nav.tabbar .tab.on { color: var(--coral2); }
 .caregiver-note { display: flex; flex-direction: column; gap: 6px; padding: 18px 18px; background: linear-gradient(135deg, #FFF6E5, #FFFBF1); border: 1px solid #F5D9A6; border-radius: 16px; color: var(--ink); }
 .caregiver-note b { font-size: 15px; }
 .caregiver-note span { font-size: 13px; color: var(--ink-2); }
+
+/* Elder safeguard notices (§8) — gentle, dismissible row at the top of Home. */
+.notice-stack { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.notice { display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: linear-gradient(135deg, #EAF3FF, #F4F9FF); border: 1px solid #C9DEF7; border-radius: 14px; color: var(--ink); }
+.notice-msg { flex: 1; font-size: 14px; line-height: 1.4; }
+.notice-x { flex: none; width: 28px; height: 28px; border: none; border-radius: 8px; background: rgba(0,0,0,0.04); color: var(--ink-2); font-size: 14px; cursor: pointer; }
+.notice-x:hover { background: rgba(0,0,0,0.08); }
 
 /* Accept-invite screen. */
 .invite-code-input { width: 100%; padding: 18px 16px; font-size: 32px; letter-spacing: 0.4em; text-align: center; font-variant-numeric: tabular-nums; font-family: ui-monospace, SFMono-Regular, monospace; border: 1px solid var(--line); border-radius: 14px; background: #fff; }

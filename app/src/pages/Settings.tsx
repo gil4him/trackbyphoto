@@ -2,13 +2,6 @@ import { useState } from 'react'
 import type { User } from 'firebase/auth'
 import type { UserSettings, Memo } from '../types'
 import { useToast } from '../components/Toast'
-import {
-  buildDailySummary,
-  openWhatsApp,
-  openSMS,
-  shareToKakao,
-  isKakaoConfigured,
-} from '../lib/share'
 import { useMemberships } from '../hooks/useMemberships'
 import {
   createInvite,
@@ -35,20 +28,8 @@ interface Props {
   onOpenAcceptInvite: () => void
 }
 
-// Public landing for "앱에서 보기" — Kakao requires this be a domain you've
-// registered on developers.kakao.com (사이트 도메인). Falls back to the live
-// hosting URL when no override is set so dev builds still produce a working
-// share card.
-const APP_LINK = 'https://trackbyphoto.web.app'
-
-export function Settings({ settings, onChange, user, onSignOut, memos, activePatientUid, isSelf, onOpenAcceptInvite }: Props) {
-  const [newName, setNewName] = useState('')
-  const [newPhone, setNewPhone] = useState('')
-  const [kakaoBusy, setKakaoBusy] = useState(false)
+export function Settings({ settings, onChange, user, onSignOut, activePatientUid, isSelf, onOpenAcceptInvite }: Props) {
   const toast = useToast()
-  const summary = buildDailySummary(memos, settings.patientName)
-  const hasSummary = summary.length > 0
-  const kakaoReady = isKakaoConfigured()
 
   // ─── caregiver-share state ───────────────────────────────────────────────
   // The owner sees their list of caregivers; revoke buttons call the cloud
@@ -59,13 +40,14 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
   // single modal swaps content based on `inviteStep`.
   const [inviteOpen, setInviteOpen] = useState(false)
   const [inviteStep, setInviteStep] = useState<'consent' | 'code'>('consent')
-  const [inviteRole, setInviteRole] = useState<InvitableRole>('admin')
+  // §8 safeguard: default to the read-only role; admin must be chosen on purpose.
+  const [inviteRole, setInviteRole] = useState<InvitableRole>('viewer')
   const [inviteBusy, setInviteBusy] = useState(false)
   const [inviteCode, setInviteCode] = useState('')
   const [inviteExpiresAt, setInviteExpiresAt] = useState('')
 
   const openInvite = () => {
-    setInviteRole('admin')
+    setInviteRole('viewer')
     setInviteStep('consent')
     setInviteCode('')
     setInviteOpen(true)
@@ -124,50 +106,7 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
     }
   }
 
-  const onWhatsApp = (phone: string) => {
-    if (!hasSummary) {
-      toast.show('아직 오늘 기록이 없어요', '사진을 한 장 찍어보세요')
-      return
-    }
-    openWhatsApp(phone, summary)
-  }
-  const onSMS = (phone: string) => {
-    if (!hasSummary) {
-      toast.show('아직 오늘 기록이 없어요', '사진을 한 장 찍어보세요')
-      return
-    }
-    openSMS(phone, summary)
-  }
-  const onKakao = async () => {
-    if (!hasSummary) {
-      toast.show('아직 오늘 기록이 없어요', '사진을 한 장 찍어보세요')
-      return
-    }
-    setKakaoBusy(true)
-    try {
-      await shareToKakao(summary, APP_LINK)
-    } catch (err) {
-      console.error('[kakao share] failed', err)
-      toast.show('카카오톡 공유에 실패했어요', '잠시 후 다시 시도해주세요')
-    } finally {
-      setKakaoBusy(false)
-    }
-  }
-
   const update = <K extends keyof UserSettings>(k: K, v: UserSettings[K]) => onChange({ ...settings, [k]: v })
-
-  const addRecipient = () => {
-    if (!newName.trim() || !newPhone.trim()) {
-      toast.show('이름과 전화번호를 모두 입력하세요')
-      return
-    }
-    update('recipients', [...settings.recipients, { name: newName.trim(), phone: newPhone.trim() }])
-    setNewName(''); setNewPhone('')
-    toast.show('받는 사람이 추가되었어요')
-  }
-
-  const removeRecipient = (i: number) =>
-    update('recipients', settings.recipients.filter((_, idx) => idx !== i))
 
   const cadenceHint = settings.cadence === 'realtime'
     ? '사진을 찍을 때마다 바로 보내요'
@@ -203,7 +142,7 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
       </div>
 
       <div className="sect">
-        <div className="sect-lab">환자 이름</div>
+        <div className="sect-lab">사용자 이름</div>
         <div className="row">
           <div className="who"><b>표시되는 이름</b><br /><span>가족 알림에 사용돼요</span></div>
           <input
@@ -261,84 +200,13 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
           (e.g., a son caring for both parents). Owner sees this too — they
           can be a caregiver on someone else's account at the same time. */}
       <div className="sect">
-        <div className="sect-lab">다른 어르신 돌보기</div>
+        <div className="sect-lab">다른 사용자 돌보기</div>
         <button className="linkbtn" onClick={onOpenAcceptInvite}>
           <span>초대 코드로 참여하기</span>
           <span aria-hidden="true">→</span>
         </button>
         <div className="help">
-          다른 어르신께 받은 6자리 초대 코드를 입력하세요.
-        </div>
-      </div>
-
-      <div className="sect">
-        <div className="sect-lab">받는 사람</div>
-        {settings.recipients.length === 0 ? (
-          <div className="row">
-            <div className="who"><span>아직 받는 사람이 없어요.</span></div>
-          </div>
-        ) : settings.recipients.map((r, i) => (
-          <div className="row recipient-row" key={i}>
-            <div className="who"><b>{r.name}</b> <span>· {r.phone}</span></div>
-            <div className="send-row">
-              <button
-                className="send-btn send-wa"
-                onClick={() => onWhatsApp(r.phone)}
-                aria-label={`${r.name}에게 WhatsApp으로 보내기`}
-                title="WhatsApp으로 보내기"
-              >
-                {/* Simple chat-bubble glyph — WhatsApp brand prohibits use of */}
-                {/* their official logo in third-party UIs without approval.   */}
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M21 11.5a8.5 8.5 0 0 1-12.6 7.4L3 21l2.2-5.3A8.5 8.5 0 1 1 21 11.5z" />
-                </svg>
-              </button>
-              <button
-                className="send-btn send-sms"
-                onClick={() => onSMS(r.phone)}
-                aria-label={`${r.name}에게 문자로 보내기`}
-                title="문자로 보내기"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M4 5h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H8l-4 3V6a1 1 0 0 1 1-1z" />
-                </svg>
-              </button>
-              <button
-                className="send-btn send-del"
-                onClick={() => removeRecipient(i)}
-                aria-label={`${r.name} 삭제`}
-                title="삭제"
-              >
-                ✕
-              </button>
-            </div>
-          </div>
-        ))}
-        <div className="add-recipient">
-          <input placeholder="이름"          value={newName}  onChange={(e) => setNewName(e.target.value)} />
-          <input placeholder="010-0000-0000" value={newPhone} onChange={(e) => setNewPhone(e.target.value)} inputMode="tel" />
-          <button onClick={addRecipient}>추가</button>
-        </div>
-        <div className="help">
-          버튼을 누르면 오늘의 요약이 메시지에 미리 입력돼요. 보내기 버튼은 직접 눌러주세요.
-        </div>
-      </div>
-
-      <div className="sect">
-        <div className="sect-lab">카카오톡으로 보내기</div>
-        <button
-          className="linkbtn kakao-btn"
-          onClick={onKakao}
-          disabled={kakaoBusy}
-          aria-label="카카오톡으로 오늘 요약 공유"
-        >
-          <span>{kakaoBusy ? '여는 중…' : '카카오톡으로 오늘 요약 보내기'}</span>
-          <span aria-hidden="true">→</span>
-        </button>
-        <div className="help">
-          {kakaoReady
-            ? '카카오톡 공유창이 열려요. 받을 사람을 직접 선택해주세요.'
-            : '카카오톡 키가 설정되지 않았어요. 버튼은 동작하지 않습니다.'}
+          다른 사용자에게 받은 6자리 초대 코드를 입력하세요.
         </div>
       </div>
 

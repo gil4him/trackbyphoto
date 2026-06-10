@@ -72,6 +72,26 @@ function genInviteCode(): string {
   return String(randomInt(0, 10 ** INVITE_CODE_LEN)).padStart(INVITE_CODE_LEN, '0')
 }
 
+// Elder-facing notice (§8 abuse safeguard). Written via admin SDK alongside the
+// audit log so the elder learns a caregiver did something material. The elder's
+// app surfaces unread notices as a dismissible banner; nobody but the elder
+// (and super-admin) can read them — see firestore.rules notifications block.
+function buildNotification(
+  patientUid: string,
+  actorUid: string,
+  type: string,
+  message: string,
+) {
+  return {
+    patientUid,
+    actorUid,
+    type,
+    message,
+    read: false,
+    createdAt: FieldValue.serverTimestamp(),
+  }
+}
+
 async function isOwnerOrAdminCaregiver(
   callerUid: string,
   patientUid: string,
@@ -110,7 +130,8 @@ async function isOwnerOrAdminCaregiver(
 
 interface CreateInviteRequest {
   patientUid: string
-  role: InvitableRole
+  /** Omitted/empty defaults to 'viewer' (least privilege). */
+  role?: InvitableRole
   /** UI-visible consent strings so the dashboard / audit log can show the
    *  exact wording the patient agreed to. Defaults applied server-side if
    *  the client doesn't pass them (older app versions). */
@@ -128,11 +149,17 @@ export const createInvite = onCall<CreateInviteRequest, Promise<CreateInviteResp
   { region: REGION, memory: '256MiB', timeoutSeconds: 30 },
   async (request) => {
     const callerUid = requireAuth(request)
-    const { patientUid, role } = request.data || ({} as CreateInviteRequest)
+    const { patientUid } = request.data || ({} as CreateInviteRequest)
 
     if (!patientUid || typeof patientUid !== 'string') {
       throw new HttpsError('invalid-argument', 'patientUid required')
     }
+    // §8 safeguard: new caregivers default to the least-privileged role.
+    // Admin must be granted deliberately by the caller passing role:'admin'.
+    // A missing/empty role lands on 'viewer'; a present-but-invalid role is a
+    // client bug we surface rather than silently downgrade.
+    const rawRole = (request.data?.role ?? '') as string
+    const role = (rawRole === '' ? 'viewer' : rawRole) as InvitableRole
     if (!INVITABLE_ROLES.includes(role)) {
       throw new HttpsError('invalid-argument', `role must be one of ${INVITABLE_ROLES.join(', ')}`)
     }
@@ -190,6 +217,15 @@ export const createInvite = onCall<CreateInviteRequest, Promise<CreateInviteResp
       details: { code, role, sensitiveConsentId: sensitiveRef.id, thirdPartyConsentId: thirdPartyRef.id },
       timestamp: FieldValue.serverTimestamp(),
     })
+    // Notify the elder only when someone OTHER than them issued the invite
+    // (i.e. an admin caregiver) — the elder doesn't need a notice about an
+    // action they just took themselves.
+    if (callerUid !== patientUid) {
+      batch.set(
+        db.collection('notifications').doc(),
+        buildNotification(patientUid, callerUid, 'caregiver.invite', '보호자가 새 보호자 초대를 만들었어요.'),
+      )
+    }
     await batch.commit()
 
     logger.info('[caregiver] invite created', { patientUid, callerUid, role, code })
@@ -294,6 +330,11 @@ export const acceptInvite = onCall<AcceptInviteRequest, Promise<AcceptInviteResp
       details: { code, role: inv.role, consentId: inv.thirdPartyConsentId },
       timestamp: FieldValue.serverTimestamp(),
     })
+    // The elder always learns when a new caregiver gains access.
+    batch.set(
+      db.collection('notifications').doc(),
+      buildNotification(inv.patientUid, callerUid, 'caregiver.accept', '새 보호자가 계정에 연결되었어요.'),
+    )
     await batch.commit()
 
     logger.info('[caregiver] invite accepted', { patientUid: inv.patientUid, callerUid, role: inv.role })
@@ -366,6 +407,13 @@ export const revokeMembership = onCall<RevokeMembershipRequest, Promise<RevokeMe
       },
       timestamp: FieldValue.serverTimestamp(),
     })
+    // Notify the elder unless they did the revoking themselves.
+    if (callerUid !== patientUid) {
+      batch.set(
+        db.collection('notifications').doc(),
+        buildNotification(patientUid, callerUid, 'caregiver.revoke', '보호자 접근이 변경되었어요.'),
+      )
+    }
     await batch.commit()
 
     logger.info('[caregiver] membership revoked', { patientUid, caregiverUid, callerUid })

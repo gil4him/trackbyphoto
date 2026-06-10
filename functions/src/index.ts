@@ -29,6 +29,9 @@ initializeApp()
 // Caregiver-share callables — invite / accept / revoke. See caregiver.ts.
 export { createInvite, acceptInvite, revokeMembership } from './caregiver'
 
+// Settings-change audit + elder notification trigger. See audit.ts.
+export { onUserSettingsChanged } from './audit'
+
 // Must match the default Storage bucket's region (created via Firebase console).
 // Storage bucket is in us-west1, so function must trigger there too.
 const REGION = 'us-west1'

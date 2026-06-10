@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { doc, onSnapshot, setDoc } from 'firebase/firestore'
+import { doc, onSnapshot, setDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from './firebase'
 import { useAuth } from './hooks/useAuth'
 import { useMemos } from './hooks/useMemos'
 import { useMemberships } from './hooks/useMemberships'
+import { useNotifications } from './hooks/useNotifications'
 import { Tabs, type TabKey } from './components/Tabs'
 import { ToastProvider } from './components/Toast'
 import { PatientSwitcher } from './components/PatientSwitcher'
@@ -43,6 +44,8 @@ function App() {
   // ("초대 코드: 123456 → trackbyphoto.web.app/accept?code=123456").
   const [showAcceptInvite, setShowAcceptInvite] = useState(false)
   const { memberships: { patients }, loading: _membershipsLoading } = useMembershipsWrapped(user?.uid)
+  // Elder safeguard notices live on the signed-in user's own account (§8).
+  const { unread: notifications, dismiss: dismissNotification } = useNotifications(user?.uid)
   const { memos } = useMemos(activePatientUid || undefined)
   const selectedMemo = selectedMemoId ? memos.find((m) => m.id === selectedMemoId) ?? null : null
 
@@ -88,7 +91,8 @@ function App() {
         // Only seed defaults for the SELF doc — never overwrite a missing
         // doc for someone we're caregiving (could be a transient consistency
         // gap, and we don't want to plant data we don't own).
-        setDoc(sref, DEFAULT_SETTINGS).catch((e) => console.error('[settings] init', e))
+        setDoc(sref, { ...DEFAULT_SETTINGS, lastModifiedBy: user.uid, lastModifiedAt: serverTimestamp() })
+          .catch((e) => console.error('[settings] init', e))
       }
     }, (err) => console.error('[settings] subscription', err))
     return () => unsub()
@@ -97,8 +101,13 @@ function App() {
   const onSettingsChange = (next: UserSettings) => {
     setSettings(next)
     if (user && activePatientUid) {
-      setDoc(doc(db, 'users', activePatientUid), next, { merge: true })
-        .catch((e) => console.error('[settings] save', e))
+      // Stamp the actor so the audit trigger can attribute the change. Rules
+      // require lastModifiedBy == auth.uid, so this can't be forged.
+      setDoc(
+        doc(db, 'users', activePatientUid),
+        { ...next, lastModifiedBy: user.uid, lastModifiedAt: serverTimestamp() },
+        { merge: true },
+      ).catch((e) => console.error('[settings] save', e))
     }
   }
 
@@ -227,8 +236,8 @@ function App() {
             <MemoDetail memo={selectedMemo} onBack={() => setSelectedMemoId(null)} />
           ) : (
             <>
-              {tab === 'home'     && <Home uid={activePatientUid || user.uid} patientName={settings.patientName} memos={memos} onOpenAsk={openAsk} canCapture={isSelf} />}
-              {tab === 'today'    && <Today memos={memos} onOpen={setSelectedMemoId} onOpenAsk={openAsk} />}
+              {tab === 'home'     && <Home uid={activePatientUid || user.uid} patientName={settings.patientName} greetingName={isSelf ? selfLabel : settings.patientName} memos={memos} onOpenAsk={openAsk} onOpen={setSelectedMemoId} canCapture={isSelf} notifications={isSelf ? notifications : []} onDismissNotification={dismissNotification} />}
+              {tab === 'today'    && <Today memos={memos} onOpen={setSelectedMemoId} />}
               {tab === 'ask'      && <Ask memos={memos} onOpen={setSelectedMemoId} />}
               {tab === 'settings' && (
                 <Settings
@@ -246,7 +255,7 @@ function App() {
           )}
         </main>
 
-        <Tabs active={tab} onChange={onTabChange} hide={!!selectedMemo} />
+        <Tabs active={tab} onChange={onTabChange} avatarUrl={user.photoURL ?? undefined} />
       </div>
     </ToastProvider>
   )
