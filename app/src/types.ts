@@ -1,6 +1,6 @@
 import type { Timestamp } from 'firebase/firestore'
 
-export type MemoCategory = '식사' | '산책' | '휴식' | '가족' | '일상'
+export type MemoCategory = '식사' | '산책' | '휴식' | '가족' | '꽃' | '기타'
 
 /** On-device Apple Vision tags attached to a memo. */
 export interface MemoVisionTags {
@@ -30,22 +30,26 @@ export interface Memo {
   lat: number | null
   lng: number | null
   place: string
-  activity: string
-  /** Longer 1–3 sentence Korean description of what's in the photo. Cloud
-   *  Vision tier (Gemini) and stub fill this; the on-device path leaves it
-   *  empty until we add a details prompt to Foundation Models. */
-  details?: string
-  category: MemoCategory
+  /** One-word activity category, surfaced as a chip in the UI and as the
+   *  byCategory key on the admin dashboard. */
+  activity: MemoCategory
+  /** Warm one-sentence caption the family reads. Produced by Foundation
+   *  Models on device, by Gemini/OpenAI in the cloud, or by the stub. ≤25자. */
+  memo: string
+  /** Two-sentence "그 순간" scene paragraph for the detail page. Cloud LLM
+   *  + stub fill this; device tier leaves it empty (Foundation Models only
+   *  writes the headline). The UI hides the section when blank. */
+  scene?: string
   status: 'pending' | 'ready' | 'error'
   createdAt: Timestamp
   /** Present when the photo was captured on a native iOS device. */
   tags?: MemoVisionTags
-  /** Which tier produced the activity — useful for the AI source badge. */
+  /** Which tier produced the memo — useful for the AI source badge. */
   memoSource?: MemoSource
   /** Specific cloud model used (e.g. 'gemini-2.5-flash', 'gpt-4o-mini').
    *  Only present on cloud-vision memos; absent on device / stub. */
   model?: string
-  /** True once a guardian has hand-edited the activity. Blocks the function
+  /** True once a guardian has hand-edited the memo. Blocks the function
    *  from ever overwriting the text on retrigger/regenerate. */
   humanEdited?: boolean
 }

@@ -1,77 +1,71 @@
-import type { User } from 'firebase/auth'
+export type TabKey = 'home' | 'today' | 'ask' | 'settings'
 
-export type TabKey = 'home' | 'today' | 'settings'
+// Bottom nav — frosted bar at the bottom of every main page. Hidden when a
+// memo detail / modal takes over (App.tsx controls that via the `hide` prop).
+//
+// Icons are inline SVGs rather than emoji so the active-tab tint actually
+// applies (emoji ignore color). The four tabs mirror the prototype:
+//   사진 (Home) · 오늘 (Today) · 물어보기 (Ask) · 설정 (Settings)
+const ICONS = {
+  home: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 9l8-5 8 5v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z" />
+    </svg>
+  ),
+  today: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M8 6h12M8 12h12M8 18h12" />
+      <circle cx="3.5" cy="6" r="1.4" />
+      <circle cx="3.5" cy="12" r="1.4" />
+      <circle cx="3.5" cy="18" r="1.4" />
+    </svg>
+  ),
+  ask: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="11" cy="11" r="7" />
+      <path d="M20.5 20.5l-3.6-3.6" />
+    </svg>
+  ),
+  settings: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="3.2" />
+      <path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4" />
+    </svg>
+  ),
+}
 
-// The nav layout is identical on every page so positions never shift under
-// the user's thumb. Back lives between Today and the Me tab; it's disabled
-// when there's no back action (i.e. on the top-level tabs themselves).
-const TABS_BEFORE: { key: TabKey; ic: string; label: string }[] = [
-  { key: 'home',  ic: '🏠', label: '홈' },
-  { key: 'today', ic: '📅', label: '오늘' },
+const TABS: { key: TabKey; label: string }[] = [
+  { key: 'home',     label: '사진' },
+  { key: 'today',    label: '오늘' },
+  { key: 'ask',      label: '물어보기' },
+  { key: 'settings', label: '설정' },
 ]
 
 export function Tabs({
   active,
   onChange,
-  onBack,
-  user,
+  hide,
 }: {
   active: TabKey
   onChange: (k: TabKey) => void
-  // Provided only when there is somewhere to go back to (e.g. memo detail).
-  // The button is always rendered for layout stability, just disabled when
-  // this is undefined.
-  onBack?: () => void
-  // The signed-in user — the "Me" tab shows their Google avatar.
-  user: User
+  /** Hide the bar entirely (e.g. while MemoDetail is open). */
+  hide?: boolean
 }) {
-  const renderTab = (t: { key: TabKey; ic: string; label: string }) => (
-    <button
-      key={t.key}
-      className={active === t.key && !onBack ? 'on' : ''}
-      onClick={() => onChange(t.key)}
-      aria-label={t.label}
-      aria-current={active === t.key && !onBack ? 'page' : undefined}
-    >
-      <div className="ic">{t.ic}</div>
-      {t.label}
-    </button>
-  )
-
-  const meActive = active === 'settings' && !onBack
-  const initial = (user.displayName || user.email || '나').trim().charAt(0).toUpperCase()
-
+  if (hide) return null
   return (
-    <nav className="tabs">
-      {TABS_BEFORE.map(renderTab)}
-
-      <button
-        key="back"
-        className={`back-tab ${onBack ? 'back-tab-active' : ''}`}
-        onClick={() => onBack?.()}
-        aria-label="뒤로가기"
-        disabled={!onBack}
-      >
-        <div className="ic back-ic">←</div>
-        뒤로
-      </button>
-
-      <button
-        key="settings"
-        className={`me-tab ${meActive ? 'on' : ''}`}
-        onClick={() => onChange('settings')}
-        aria-label="내 정보"
-        aria-current={meActive ? 'page' : undefined}
-      >
-        <div className={`avatar-ic ${meActive ? 'on' : ''}`}>
-          {user.photoURL ? (
-            <img src={user.photoURL} alt="" referrerPolicy="no-referrer" />
-          ) : (
-            <span className="avatar-initial">{initial}</span>
-          )}
-        </div>
-        나
-      </button>
+    <nav className="tabbar" aria-label="주 메뉴">
+      {TABS.map((t) => (
+        <button
+          key={t.key}
+          className={`tab ${active === t.key ? 'on' : ''}`}
+          onClick={() => onChange(t.key)}
+          aria-label={t.label}
+          aria-current={active === t.key ? 'page' : undefined}
+        >
+          {ICONS[t.key]}
+          {t.label}
+        </button>
+      ))}
     </nav>
   )
 }

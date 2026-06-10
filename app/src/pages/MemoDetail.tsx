@@ -4,6 +4,7 @@ import { db } from '../firebase'
 import { useToast } from '../components/Toast'
 import { deleteMemo } from '../lib/capture'
 import { fmtDate, fmtTime } from '../util'
+import { categoryThumbClass } from '../lib/categoryStyle'
 import type { Memo, MemoSource } from '../types'
 
 // Translate the most common Vision labels into short Korean strings so the
@@ -32,13 +33,14 @@ const SOURCE_BADGES: Record<MemoSource, { label: string; tone: 'good' | 'neutral
 
 export function MemoDetail({ memo, onBack }: { memo: Memo; onBack: () => void }) {
   const toast = useToast()
-  const [draft, setDraft] = useState(memo.activity)
+  const [draft, setDraft] = useState(memo.memo)
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [showTags, setShowTags] = useState(false)
 
   const takenAt = memo.takenAt.toDate()
   const badge = memo.memoSource ? SOURCE_BADGES[memo.memoSource] : null
+  const grad = categoryThumbClass(memo.activity)
 
   const saveEdit = async () => {
     const trimmed = draft.trim()
@@ -46,14 +48,14 @@ export function MemoDetail({ memo, onBack }: { memo: Memo; onBack: () => void })
       toast.show('메모 내용을 입력해주세요', '비워둘 수 없어요')
       return
     }
-    if (trimmed === memo.activity) {
+    if (trimmed === memo.memo) {
       setEditing(false)
       return
     }
     setSaving(true)
     try {
       await updateDoc(doc(db, 'memos', memo.id), {
-        activity: trimmed,
+        memo: trimmed,
         memoSource: 'human',
         humanEdited: true,
       })
@@ -77,34 +79,38 @@ export function MemoDetail({ memo, onBack }: { memo: Memo; onBack: () => void })
       })
   }
 
-  // Apple/Google/Kakao all accept maps URL with lat,lng — Apple Maps opens
-  // natively on iOS, Google Maps elsewhere. Cheap, no API key required.
   const mapUrl = memo.lat != null && memo.lng != null
     ? `https://maps.apple.com/?ll=${memo.lat},${memo.lng}&q=${encodeURIComponent(memo.place || '위치')}`
     : null
 
   return (
-    <section className="page active detail">
+    <section className="page detail">
       <div className="detail-topbar">
-        <button className="back" onClick={onBack} aria-label="뒤로가기">← 뒤로</button>
+        <button className="back" onClick={onBack} aria-label="뒤로가기">‹ 뒤로</button>
         <button className="del-text" onClick={onDelete}>삭제</button>
       </div>
 
-      <div className="detail-photo">
+      {/* Photo header — falls back to a category-tinted gradient if no
+          image yet (still uploading) so the review screen never goes blank. */}
+      <div className={`detail-photo ${memo.photoUrl ? '' : grad}`}>
         {memo.photoUrl
           ? <img src={memo.photoUrl} alt="" />
           : <div className="detail-photo-empty">사진을 불러오는 중…</div>}
       </div>
 
-      <div className="detail-when">
-        <div className="d-date">{fmtDate(takenAt)}</div>
-        <div className="d-time">{fmtTime(takenAt)}</div>
-        {memo.category && <span className="cat">{memo.category}</span>}
+      <div className="detail-memo">
+        {memo.memo || '메모 작성 중…'}
+      </div>
+
+      <div className="detail-meta">
+        <span className="pill t">{fmtTime(takenAt)}</span>
+        {memo.activity && <span className="pill">{memo.activity}</span>}
+        {memo.place && <span className="pill p">{memo.place}</span>}
       </div>
 
       <div className="detail-section">
         <div className="d-label">
-          <span>활동</span>
+          <span>{fmtDate(takenAt)}</span>
           {badge && !memo.humanEdited && (
             <span className={`src-badge tone-${badge.tone}`}>{badge.label}</span>
           )}
@@ -123,7 +129,7 @@ export function MemoDetail({ memo, onBack }: { memo: Memo; onBack: () => void })
               <button
                 className="d-btn-secondary"
                 disabled={saving}
-                onClick={() => { setDraft(memo.activity); setEditing(false) }}
+                onClick={() => { setDraft(memo.memo); setEditing(false) }}
               >취소</button>
               <button
                 className="d-btn-primary"
@@ -134,19 +140,16 @@ export function MemoDetail({ memo, onBack }: { memo: Memo; onBack: () => void })
           </div>
         ) : (
           <button className="d-activity" onClick={() => setEditing(true)} aria-label="활동 메모 편집">
-            {memo.activity || '메모 작성 중…'}
+            <span>{memo.memo || '메모 작성 중…'}</span>
             <span className="edit-hint">탭하여 수정</span>
           </button>
-        )}
-        {!editing && memo.details && (
-          <p className="d-details">{memo.details}</p>
         )}
       </div>
 
       <div className="detail-section">
         <div className="d-label"><span>장소</span></div>
         <div className="d-place">
-          📍 {memo.place || '위치 정보 없음'}
+          <span>📍 {memo.place || '위치 정보 없음'}</span>
           {mapUrl && (
             <a href={mapUrl} target="_blank" rel="noreferrer" className="d-map-link">
               지도에서 보기 →
@@ -154,6 +157,16 @@ export function MemoDetail({ memo, onBack }: { memo: Memo; onBack: () => void })
           )}
         </div>
       </div>
+
+      {/* "그 순간" — 2-sentence scene paragraph that paints the moment for
+          distant family. Hidden when blank so legacy / device-tier memos
+          (which only carry the short headline) degrade gracefully. */}
+      {memo.scene && (
+        <div className="detail-section">
+          <div className="d-label"><span>그 순간</span></div>
+          <p className="d-scene">{memo.scene}</p>
+        </div>
+      )}
 
       {memo.tags && (memo.tags.labels.length > 0 || memo.tags.text.length > 0 || memo.tags.faceCount > 0) && (
         <div className="detail-section">

@@ -1,166 +1,157 @@
 import { useMemo, useState } from 'react'
-import type { Memo } from '../types'
-import { fmtDate, fmtTime, isSameDay } from '../util'
+import type { Memo, MemoCategory } from '../types'
+import { fmtTime, isSameDay } from '../util'
+import { categoryThumbClass } from '../lib/categoryStyle'
 
-interface Props {
-  memos: Memo[]
-  onClose: () => void
-  onOpen: (id: string) => void
-}
+type WhenKey = 'today' | 'yesterday' | 'week' | 'all'
+type WhatKey = 'all' | MemoCategory
+
+const WHEN_OPTIONS: { key: WhenKey; label: string }[] = [
+  { key: 'today',     label: '오늘' },
+  { key: 'yesterday', label: '어제' },
+  { key: 'week',      label: '이번 주' },
+  { key: 'all',       label: '전체 기간' },
+]
+
+// Mirror the schema in types.ts. We keep "기타" in the picker since real memos
+// fall through there when the AI can't classify.
+const WHAT_OPTIONS: { key: WhatKey; label: string }[] = [
+  { key: 'all',  label: '전체' },
+  { key: '식사', label: '식사' },
+  { key: '산책', label: '산책' },
+  { key: '휴식', label: '휴식' },
+  { key: '가족', label: '가족' },
+  { key: '꽃',   label: '꽃'   },
+  { key: '기타', label: '기타' },
+]
 
 /**
- * Search modal opened from the Home page.
- *
- * Inputs: a date (When) and a free-text activity query (What). Both are
- * optional; behavior depends on which are filled:
- *
- *   date + text  →  matching memos on that day
- *   date only    →  all memos on that day
- *   text only    →  matching memos across every day, grouped by date
- *   neither      →  show the help card explaining the three modes
- *
- * No backend round-trip — we filter the in-memory memos snapshot from
- * useMemos. Cheap (≤ a few hundred docs) and works offline.
+ * Ask page — chip-based filter UI. Two axes:
+ *   언제: 오늘 · 어제 · 이번 주 · 전체 기간
+ *   무엇을: 전체 · 식사 · 산책 · 휴식 · 가족 · 꽃 · 기타
+ * In 이번 주 / 전체 기간 modes results group by day. Filtering is in-memory
+ * over the live memos snapshot — no backend round-trip.
  */
-export function Ask({ memos, onClose, onOpen }: Props) {
-  // HTML <input type="date"> stores YYYY-MM-DD. Empty string = no date filter.
-  const [dateStr, setDateStr] = useState('')
-  const [text, setText] = useState('')
+export function Ask({ memos, onOpen }: { memos: Memo[]; onOpen: (id: string) => void }) {
+  const [askWhen, setAskWhen] = useState<WhenKey>('today')
+  const [askWhat, setAskWhat] = useState<WhatKey>('all')
 
   const ready = useMemo(() => memos.filter((m) => m.status === 'ready'), [memos])
 
   const results = useMemo(() => {
-    const q = text.trim().toLowerCase()
-    const hasDate = !!dateStr
-    const hasText = !!q
-    if (!hasDate && !hasText) return [] as Memo[]
-
-    let filtered = ready
-    if (hasDate) {
-      // Parse as local-date midnight so comparison matches the user's wall
-      // clock. (new Date('YYYY-MM-DD') would treat it as UTC and shift a
-      // day in the user's tz.)
-      const [y, mo, d] = dateStr.split('-').map(Number)
-      const target = new Date(y, mo - 1, d)
-      filtered = filtered.filter((m) => isSameDay(m.takenAt.toDate(), target))
+    const today = new Date()
+    const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1)
+    // Monday-anchored current week (matches prototype: dow = (day+6)%7).
+    const t0 = new Date(today); t0.setHours(0, 0, 0, 0)
+    const dow = (t0.getDay() + 6) % 7
+    const monday = new Date(t0); monday.setDate(t0.getDate() - dow)
+    const inWhen = (taken: Date): boolean => {
+      if (askWhen === 'all') return true
+      if (askWhen === 'today') return isSameDay(taken, today)
+      if (askWhen === 'yesterday') return isSameDay(taken, yesterday)
+      if (askWhen === 'week') return taken >= monday && taken <= today
+      return false
     }
-    if (hasText) {
-      filtered = filtered.filter((m) => {
-        const hay = [m.activity, m.details, m.place, m.category]
-          .filter(Boolean).join(' ').toLowerCase()
-        return hay.includes(q)
-      })
-    }
-    return filtered
-  }, [ready, dateStr, text])
+    return ready.filter((m) => {
+      if (!inWhen(m.takenAt.toDate())) return false
+      if (askWhat !== 'all' && m.activity !== askWhat) return false
+      return true
+    })
+  }, [ready, askWhen, askWhat])
 
-  // Group results by local-date key for the "text only" view, which can span
-  // multiple days. Same grouping works for the other modes (single day → one
-  // group), so we use it unconditionally.
-  const grouped = useMemo(() => {
-    const byDay = new Map<string, Memo[]>()
+  const grouped = askWhen === 'week' || askWhen === 'all'
+
+  const groupedByDate = useMemo(() => {
+    if (!grouped) return null
+    const map = new Map<string, Memo[]>()
     for (const m of results) {
       const d = m.takenAt.toDate()
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-      if (!byDay.has(key)) byDay.set(key, [])
-      byDay.get(key)!.push(m)
+      if (!map.has(key)) map.set(key, [])
+      map.get(key)!.push(m)
     }
-    return Array.from(byDay.entries()).sort((a, b) => b[0].localeCompare(a[0]))
-  }, [results])
+    return Array.from(map.entries()).sort((a, b) => b[0].localeCompare(a[0]))
+  }, [results, grouped])
 
-  const hasQuery = !!dateStr || !!text.trim()
-  const clear = () => { setDateStr(''); setText('') }
+  const card = (m: Memo) => {
+    const grad = categoryThumbClass(m.activity)
+    return (
+      <button
+        type="button"
+        className="tl-item"
+        key={m.id}
+        onClick={() => onOpen(m.id)}
+        aria-label="자세히 보기"
+      >
+        <div className={`tl-thumb ${m.photoUrl ? '' : grad}`}>
+          {m.photoUrl && <img src={m.photoUrl} alt="" />}
+        </div>
+        <div className="tl-body">
+          <div className="when">{fmtTime(m.takenAt.toDate())}</div>
+          <div className="act">{m.activity || '기록'}</div>
+          <div className="desc">
+            {m.place ? `${m.place} · ` : ''}
+            {m.memo}
+          </div>
+        </div>
+      </button>
+    )
+  }
+
+  const dayLabel = (key: string): string => {
+    const [y, mo, d] = key.split('-').map(Number)
+    const dt = new Date(y, mo - 1, d)
+    const days = ['일', '월', '화', '수', '목', '금', '토']
+    return `${dt.getMonth() + 1}월 ${dt.getDate()}일 ${days[dt.getDay()]}요일`
+  }
 
   return (
-    <div className="ask-modal" role="dialog" aria-modal="true">
-      <div className="ask-bar">
-        <button className="ask-close" onClick={onClose} aria-label="닫기">← 닫기</button>
-        <h2>찾아보기</h2>
-        {hasQuery && <button className="ask-clear" onClick={clear}>초기화</button>}
+    <section className="page">
+      <div className="h-eyebrow">물어보기</div>
+      <h2 className="h-title" style={{ marginBottom: 4 }}>언제 · 무엇을 찾아볼까요</h2>
+
+      <div className="q-lab">언제</div>
+      <div className="qrow">
+        {WHEN_OPTIONS.map((o) => (
+          <button
+            key={o.key}
+            className={`qchip ${askWhen === o.key ? 'on' : ''}`}
+            onClick={() => setAskWhen(o.key)}
+          >{o.label}</button>
+        ))}
       </div>
 
-      <div className="ask-form">
-        <label className="ask-field">
-          <span>언제 (When)</span>
-          <input
-            type="date"
-            value={dateStr}
-            onChange={(e) => setDateStr(e.target.value)}
-            max={new Date().toISOString().slice(0, 10)}
-          />
-        </label>
-        <label className="ask-field">
-          <span>무엇을 (What)</span>
-          <input
-            type="text"
-            placeholder="예: 식사, 산책, 카페, 공원"
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            autoComplete="off"
-            inputMode="search"
-          />
-        </label>
+      <div className="q-lab">무엇을</div>
+      <div className="qrow">
+        {WHAT_OPTIONS.map((o) => (
+          <button
+            key={o.key}
+            className={`qchip ${askWhat === o.key ? 'on' : ''}`}
+            onClick={() => setAskWhat(o.key)}
+          >{o.label}</button>
+        ))}
       </div>
 
-      <div className="ask-results">
-        {!hasQuery && (
-          <div className="ask-empty">
-            <p className="ask-empty-lead">날짜를 고르거나 활동을 입력해 주세요.</p>
-            <ul className="ask-modes">
-              <li><b>날짜 + 활동</b> — 그 날의 관련 메모</li>
-              <li><b>날짜만</b> — 그 날의 모든 메모</li>
-              <li><b>활동만</b> — 매일의 관련 메모</li>
-            </ul>
+      <div className="q-results">
+        {results.length === 0 ? (
+          <div className="q-empty">
+            해당하는 기록이 없어요.<br />
+            다른 날짜나 활동을 눌러보세요.
           </div>
-        )}
-
-        {hasQuery && results.length === 0 && (
-          <div className="ask-empty">
-            <p>일치하는 메모가 없어요.</p>
-          </div>
-        )}
-
-        {hasQuery && results.length > 0 && (
+        ) : (
           <>
-            <div className="ask-summary">{results.length}건 찾았어요</div>
-            {grouped.map(([day, list]) => {
-              const [y, mo, d] = day.split('-').map(Number)
-              const dayDate = new Date(y, mo - 1, d)
-              return (
-                <div className="ask-group" key={day}>
-                  <div className="ask-day">
-                    {fmtDate(dayDate)}
-                    <small>{list.length}건</small>
+            <div className="q-count">{results.length}건을 찾았어요</div>
+            {grouped && groupedByDate
+              ? groupedByDate.map(([key, list]) => (
+                  <div key={key}>
+                    <div className="q-datehdr">{dayLabel(key)}</div>
+                    {list.map(card)}
                   </div>
-                  <div className="ask-list">
-                    {list.map((m) => (
-                      <button
-                        type="button"
-                        className="ask-item"
-                        key={m.id}
-                        onClick={() => { onOpen(m.id); onClose() }}
-                      >
-                        {m.photoUrl
-                          ? <img src={m.photoUrl} alt="" />
-                          : <div className="ask-noimg" />}
-                        <div className="ask-info">
-                          <div className="ask-time">
-                            {fmtTime(m.takenAt.toDate())}
-                            {m.category && <span className="cat">{m.category}</span>}
-                          </div>
-                          <div className="ask-act">{m.activity}</div>
-                          {m.details && <div className="ask-det">{m.details}</div>}
-                          <div className="ask-place">📍 {m.place || '위치 정보 없음'}</div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )
-            })}
+                ))
+              : results.map(card)}
           </>
         )}
       </div>
-    </div>
+    </section>
   )
 }
