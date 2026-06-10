@@ -4,8 +4,24 @@
       "collectionGroup": "memos",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "uid",     "order": "ASCENDING" },
-        { "fieldPath": "takenAt", "order": "DESCENDING" }
+        { "fieldPath": "patientUid", "order": "ASCENDING" },
+        { "fieldPath": "takenAt",    "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "memberships",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "caregiverUid", "order": "ASCENDING" },
+        { "fieldPath": "status",       "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "memberships",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "patientUid", "order": "ASCENDING" },
+        { "fieldPath": "status",     "order": "ASCENDING" }
       ]
     }
   ],

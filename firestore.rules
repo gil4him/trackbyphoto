@@ -1,33 +1,239 @@
 rules_version = '2';
+
+// ────────────────────────────────────────────────────────────────────────────
+// TrackByPhoto Firestore security rules.
+//
+// Two access paths:
+//   1. Self-managed elder: request.auth.uid == patientUid. The original path.
+//   2. Caregiver share: an active membership doc grants the caregiver scoped
+//      access (read for viewers; write for admin/guardian) per the role.
+//
+// Membership is the source of truth (custom claims will mirror it as a cache
+// later, but the rules read from Firestore for instant revocation). Every
+// sensitive write also requires an auditLog write — that's enforced at the
+// application layer, not here, because Firestore rules can't atomically gate
+// "write A only if you also write B."
+//
+// See TrackByPhoto-Plan.md §7 (PIPA consent) and Appendix C for the spec.
+// ────────────────────────────────────────────────────────────────────────────
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Super-admin: the one Google account that runs the deployment can read
-    // every memo and the admin counters. Email is signed into the auth token,
-    // so this is a single fixed identity, not a role flag in Firestore.
+    // Super-admin: the one Google account that runs deployment can read every
+    // memo + the admin counters. Email is signed into the auth token, so this
+    // is a single fixed identity, not a role flag in Firestore.
     function isAdmin() {
       return request.auth != null
         && request.auth.token.email == 'zymer4him@gmail.com';
     }
 
-    // Each authenticated user can read/write their own memos.
-    // memos/{memoId} doc has field `uid` set by the Cloud Function when it
-    // creates the memo from the uploaded photo's storage path.
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(patientUid) {
+      return signedIn() && request.auth.uid == patientUid;
+    }
+
+    // Deterministic membership doc id keeps the rule fast (no query, just a
+    // get()). Same shape on the client when it writes.
+    function membershipId(patientUid) {
+      return patientUid + '_' + request.auth.uid;
+    }
+
+    function membershipPath(patientUid) {
+      return /databases/$(database)/documents/memberships/$(membershipId(patientUid));
+    }
+
+    function membership(patientUid) {
+      return get(membershipPath(patientUid)).data;
+    }
+
+    function hasMembership(patientUid) {
+      return signedIn() && exists(membershipPath(patientUid));
+    }
+
+    function isActive(patientUid) {
+      return hasMembership(patientUid)
+        && membership(patientUid).status == 'active';
+    }
+
+    function hasRole(patientUid, role) {
+      return isActive(patientUid)
+        && membership(patientUid).role == role;
+    }
+
+    // Admin (caregiver-side) and guardian have write authority over the
+    // patient's settings/recipients. Owner always has it too. Viewer doesn't.
+    function canManage(patientUid) {
+      return isOwner(patientUid)
+        || hasRole(patientUid, 'admin')
+        || hasRole(patientUid, 'guardian');
+    }
+
+    function canRead(patientUid) {
+      return isOwner(patientUid) || isActive(patientUid);
+    }
+
+    // ────────────────────────────────────────────────────────────────────
+    // memos/{memoId}
+    //
+    // Read: patient themselves, any active caregiver (regardless of role —
+    // even viewers see memos), or admin.
+    // Create: only Cloud Functions (admin SDK bypasses rules).
+    // Update/delete: patient or admin/guardian caregiver. Plain viewers
+    // cannot edit memos.
+    // ────────────────────────────────────────────────────────────────────
     match /memos/{memoId} {
-      allow read:   if isAdmin()
-                    || (request.auth != null && resource.data.uid == request.auth.uid);
-      allow create: if false; // only Cloud Functions (admin SDK) create memos
-      allow update, delete: if request.auth != null && resource.data.uid == request.auth.uid;
+      allow read:   if isAdmin() || canRead(resource.data.patientUid);
+      allow create: if false;
+      allow update, delete: if canManage(resource.data.patientUid);
     }
 
-    // User settings (recipients, cadence, etc) live under users/{uid}.
-    match /users/{uid} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
-      allow read: if isAdmin();
+    // ────────────────────────────────────────────────────────────────────
+    // users/{patientUid}
+    //
+    // Settings doc lives here (recipients, cadence, retention…). Caregivers
+    // need to read it to see who's getting memos; admin/guardian can edit it.
+    // ────────────────────────────────────────────────────────────────────
+    match /users/{patientUid} {
+      allow read:  if isAdmin() || canRead(patientUid);
+      // Writers must stamp themselves as lastModifiedBy. That field is the
+      // trusted actor the onUserSettingsChanged trigger attributes the change
+      // to — without this a caregiver could edit the elder's recipients and
+      // frame it as the elder's own edit, dodging the audit log + notice.
+      allow write: if (isOwner(patientUid) || canManage(patientUid))
+                   && request.resource.data.lastModifiedBy == request.auth.uid;
     }
 
-    // Running totals + per-day Gemini cost rollups, written by the Cloud
-    // Function (admin SDK bypasses rules) and read by the /superadmin page.
+    // ────────────────────────────────────────────────────────────────────
+    // memberships/{membershipId}     id = patientUid + '_' + caregiverUid
+    //
+    // Memberships are created and mutated ONLY by the caregiver-share Cloud
+    // Functions (createInvite / acceptInvite / revokeMembership), which run via
+    // the admin SDK and bypass these rules. Direct client create/update is
+    // denied on purpose: an earlier draft let a caregiver flip their own row
+    // invited → active by referencing *any* consent on file for the patient,
+    // which sidesteps the one-shot invite code entirely. The callable is the
+    // only sanctioned path to active access.
+    //
+    // Read: the patient or the caregiver on the row, plus admin.
+    // Delete: patient, guardian, or the caregiver themselves. Delete only ever
+    // REMOVES access (never grants it), so it's a safe client-side safety valve
+    // for instant self-removal / revocation without a round-trip to a callable.
+    // ────────────────────────────────────────────────────────────────────
+    match /memberships/{membershipId} {
+      allow read: if isAdmin()
+                  || (signedIn() && (
+                       request.auth.uid == resource.data.patientUid
+                    || request.auth.uid == resource.data.caregiverUid));
+
+      allow create: if false;
+      allow update: if false;
+
+      allow delete: if isOwner(resource.data.patientUid)
+                    || hasRole(resource.data.patientUid, 'guardian')
+                    || (signedIn() && request.auth.uid == resource.data.caregiverUid);
+    }
+
+    // ────────────────────────────────────────────────────────────────────
+    // invites/{code}
+    //
+    // 6-digit codes (or share-link tokens) the elder hands to a caregiver.
+    // Create: owner or admin caregiver. Read: anyone signed in (they need to
+    // be able to look up the code they typed). Update/delete: creator path
+    // only. The Cloud Function that converts an invite → membership runs as
+    // admin and bypasses these rules.
+    // ────────────────────────────────────────────────────────────────────
+    match /invites/{code} {
+      allow read:   if signedIn();
+      allow create: if signedIn()
+                    && request.resource.data.used == false
+                    && (
+                         request.auth.uid == request.resource.data.patientUid
+                      || hasRole(request.resource.data.patientUid, 'admin')
+                       );
+      allow update, delete: if isOwner(resource.data.patientUid)
+                            || hasRole(resource.data.patientUid, 'admin');
+    }
+
+    // ────────────────────────────────────────────────────────────────────
+    // consents/{consentId}
+    //
+    // PIPA evidence. Create: the patient themselves (self consent) or a
+    // guardian on their behalf. Once written, consents are immutable — they
+    // are the legal record. Read: owner, any active caregiver on that
+    // patient (so the dashboard can show "consent on file"), and admin.
+    // ────────────────────────────────────────────────────────────────────
+    match /consents/{consentId} {
+      allow read: if isAdmin()
+                  || canRead(resource.data.patientUid);
+
+      // Self consent: the patient writes their own. Guardian consent: a
+      // signed-in user writing for a different patientUid with grantedBy =
+      // 'guardian' and themselves named as guardianUid. The legal validity
+      // of a guardian doc is verified out-of-band (court appointment); the
+      // rule just enforces the shape.
+      allow create: if signedIn()
+                    && request.resource.data.timestamp == request.time
+                    && (
+                         (
+                           request.resource.data.grantedBy == 'self'
+                           && request.auth.uid == request.resource.data.patientUid
+                           && request.resource.data.guardianUid == null
+                         )
+                      || (
+                           request.resource.data.grantedBy == 'guardian'
+                           && request.auth.uid == request.resource.data.guardianUid
+                         )
+                       );
+
+      // Consents are immutable evidence.
+      allow update, delete: if false;
+    }
+
+    // ────────────────────────────────────────────────────────────────────
+    // auditLogs/{logId}
+    //
+    // Append-only. Anyone who can manage the patient may write a log
+    // describing what they did. Read: owner, active caregivers, admin.
+    // Update/delete: never — the whole point is tamper resistance.
+    // ────────────────────────────────────────────────────────────────────
+    match /auditLogs/{logId} {
+      allow read: if isAdmin()
+                  || canRead(resource.data.patientUid);
+      allow create: if signedIn()
+                    && request.resource.data.actorUid == request.auth.uid
+                    && request.resource.data.timestamp == request.time
+                    && (
+                         isOwner(request.resource.data.patientUid)
+                      || isActive(request.resource.data.patientUid)
+                       );
+      allow update, delete: if false;
+    }
+
+    // ────────────────────────────────────────────────────────────────────
+    // notifications/{id}
+    //
+    // Elder-facing safeguard feed (§8). The trigger and the caregiver callables
+    // write a notice here whenever a caregiver does something material. Only
+    // the elder (and super-admin) may read — a caregiver must NOT see the
+    // notices about their own actions. Written exclusively by Cloud Functions
+    // (admin SDK). The elder may mark a notice read (only that field) or dismiss
+    // it.
+    // ────────────────────────────────────────────────────────────────────
+    match /notifications/{id} {
+      allow read:   if isAdmin() || isOwner(resource.data.patientUid);
+      allow create: if false;
+      allow update: if isOwner(resource.data.patientUid)
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+      allow delete: if isOwner(resource.data.patientUid);
+    }
+
+    // ────────────────────────────────────────────────────────────────────
+    // Admin dashboard (unchanged from pre-share).
+    // ────────────────────────────────────────────────────────────────────
     match /admin_totals/{doc} {
       allow read:  if isAdmin();
       allow write: if false;
@@ -36,9 +242,6 @@ service cloud.firestore {
       allow read:  if isAdmin();
       allow write: if false;
     }
-
-    // Runtime config (currently just the active model). Admin reads + writes
-    // directly from the dashboard so model can be flipped without a deploy.
     match /admin_config/{doc} {
       allow read, write: if isAdmin();
     }

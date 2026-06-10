@@ -3,16 +3,18 @@ import { collection, onSnapshot, orderBy, query, where, limit } from 'firebase/f
 import { db } from '../firebase'
 import type { Memo } from '../types'
 
-/** Live subscription to the current user's memos (most recent first). */
-export function useMemos(uid: string | undefined, max = 60) {
+/** Live subscription to a patient's memos (most recent first). For a
+ *  self-managed account pass the signed-in user's uid; once caregiver-share
+ *  ships, pass the patient's uid the caregiver has an active membership on. */
+export function useMemos(patientUid: string | undefined, max = 60) {
   const [memos, setMemos] = useState<Memo[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!uid) { setMemos([]); setLoading(false); return }
+    if (!patientUid) { setMemos([]); setLoading(false); return }
     const q = query(
       collection(db, 'memos'),
-      where('uid', '==', uid),
+      where('patientUid', '==', patientUid),
       orderBy('takenAt', 'desc'),
       limit(max),
     )
@@ -24,7 +26,7 @@ export function useMemos(uid: string | undefined, max = 60) {
       setLoading(false)
     })
     return () => unsub()
-  }, [uid, max])
+  }, [patientUid, max])
 
   return { memos, loading }
 }

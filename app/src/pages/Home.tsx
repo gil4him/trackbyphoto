@@ -1,39 +1,45 @@
 import { useEffect, useRef, useState } from 'react'
 import { useToast } from '../components/Toast'
 import { Processing } from '../components/Processing'
-import { Ask } from '../components/Ask'
 import {
   getGeo,
   uploadPhoto,
-  deleteMemo,
   captureNativePhoto,
   analyzePhotoTags,
   generateActivityMemo,
   isNativeApp,
 } from '../lib/capture'
-import { fmtTime, greeting } from '../util'
-import type { Memo } from '../types'
+import { fmtDate, fmtTime } from '../util'
+import { MemoThumb } from '../components/MemoThumb'
+import type { Memo, AppNotification } from '../types'
 
-export function Home({ uid, patientName, memos, onOpen }: { uid: string; patientName: string; memos: Memo[]; onOpen: (id: string) => void }) {
+/**
+ * The prototype's home is a single-purpose screen: a giant circular capture
+ * button + a date eyebrow + a secondary "지난 기록 물어보기" pill that jumps
+ * to the Ask tab. Recent thumbnails moved to the 오늘 tab.
+ *
+ * We still subscribe to the memos snapshot so we can toast when the most
+ * recent upload finishes processing (caregiver sees the result without
+ * having to leave the home screen).
+ */
+export function Home({ uid, patientName, greetingName, memos, onOpenAsk, onOpen, canCapture = true, notifications = [], onDismissNotification }: { uid: string; patientName: string; greetingName: string; memos: Memo[]; onOpenAsk: () => void; onOpen: (id: string) => void; canCapture?: boolean; notifications?: AppNotification[]; onDismissNotification?: (id: string) => void }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
   const [busyMsg, setBusyMsg] = useState('사진을 저장하고 있어요…')
-  const [asking, setAsking] = useState(false)
+  const [busySub] = useState('시간 · 장소 · 활동을 자동으로 적어요')
   const toast = useToast()
-  // Watch for the newest memo to flip from "pending" → "ready" and show a toast.
   const lastReadyId = useRef<string | null>(null)
 
   useEffect(() => {
     const newestReady = memos.find((m) => m.status === 'ready')
     if (newestReady && lastReadyId.current === null) {
-      // First load: just remember it; don't toast for historical memos.
       lastReadyId.current = newestReady.id
       return
     }
     if (newestReady && newestReady.id !== lastReadyId.current) {
       lastReadyId.current = newestReady.id
       toast.show(
-        `${fmtTime(newestReady.takenAt.toDate())} · ${newestReady.activity}`,
+        `${fmtTime(newestReady.takenAt.toDate())} · ${newestReady.memo}`,
         `${newestReady.place} — 저장되었어요`,
       )
     }
@@ -41,32 +47,23 @@ export function Home({ uid, patientName, memos, onOpen }: { uid: string; patient
 
   const onPick = async (file: File, nativePath?: string) => {
     setBusy(true)
-    setBusyMsg('사진을 저장하고 있어요…')
+    setBusyMsg('기록하는 중이에요…')
     try {
       const takenAt = new Date()
-      // Geolocation runs in parallel with the Vision → Foundation Models
-      // chain. Vision returns null on web (no native path) which short-
-      // circuits the LLM call too.
       const visionThenMemo = (async () => {
-        // analyzePhotoTags handles the platform switch internally: real
-        // Vision on native, synthetic tags in dev-server web, null in
-        // production web. Keep this call site uniform.
         const tags = await analyzePhotoTags(nativePath)
         if (tags) console.log('[capture] vision tags', tags)
         const timeHint = `${takenAt.getHours().toString().padStart(2, '0')}:${takenAt.getMinutes().toString().padStart(2, '0')}`
         const { memo, source } = await generateActivityMemo(tags, { timeHint })
         if (memo) console.log('[capture] on-device memo', memo, `(${source})`)
-        return { tags, activity: memo, source }
+        return { tags, memo, source }
       })()
-      const [geo, { tags, activity, source }] = await Promise.all([getGeo(), visionThenMemo])
-      // 'none' means the device couldn't produce a memo (no tags); the function
-      // will fill it in and persist its own source ('cloud-stub') downstream.
+      const [geo, { tags, memo, source }] = await Promise.all([getGeo(), visionThenMemo])
       const memoSource = source === 'none' ? null : source
       setBusyMsg('업로드 중이에요…')
-      await uploadPhoto({ uid, file, geo, takenAt, tags, activity, memoSource })
+      await uploadPhoto({ uid, file, geo, takenAt, tags, memo, memoSource })
       setBusyMsg('AI가 활동을 적고 있어요…')
-      // Function trigger does the rest; useEffect above will toast on memo arrival.
-      // Show processing for a moment so it feels responsive even if function is fast.
+      // Cloud Function trigger does the rest; useEffect above toasts on arrival.
       setTimeout(() => setBusy(false), 1500)
     } catch (err) {
       console.error(err)
@@ -75,49 +72,88 @@ export function Home({ uid, patientName, memos, onOpen }: { uid: string; patient
     }
   }
 
-  const recent = memos.slice(0, 8)
+  const today = new Date()
 
   return (
-    <section className="page active">
-      <div className="hero-greet">
-        <span>{greeting(patientName)}</span>
-        <small>지금 이 순간을 한 번에 담아보세요.</small>
+    <section className="page home" aria-label={`${patientName}님의 홈`}>
+      {notifications.length > 0 && (
+        <div className="notice-stack" role="status" aria-label="보호자 활동 알림">
+          {notifications.map((n) => (
+            <div key={n.id} className="notice">
+              <span className="notice-msg">{n.message}</span>
+              {onDismissNotification && (
+                <button
+                  className="notice-x"
+                  aria-label="알림 지우기"
+                  onClick={() => onDismissNotification(n.id)}
+                >✕</button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="home-hi">
+        <div className="d">{fmtDate(today)}</div>
+        <div className="t">{greetingName}님, 안녕하세요</div>
+        <div className="sub">오늘 하루를 기록해요</div>
       </div>
 
-      <div className="capture-wrap">
-        <button
-          className="capture"
-          aria-label="사진 찍기"
-          onClick={async () => {
-            if (isNativeApp) {
-              try {
-                const { file, path } = await captureNativePhoto()
-                onPick(file, path)
-              } catch (err) {
-                // User cancelled the camera or denied permission.
-                console.warn('[capture] native camera cancelled or failed', err)
-              }
-            } else {
-              inputRef.current?.click()
-            }
-          }}
-        >
-          <div className="ico">📷</div>
-          <div>사진 찍기</div>
-          <div className="sub">크게 한 번 눌러주세요</div>
-        </button>
-        {/* Secondary action: search past memos. Smaller + neutral tone so it
-            doesn't compete with the orange capture button — guardians use it,
-            not the patient. */}
-        <button
-          className="ask-trigger"
-          aria-label="찾아보기"
-          onClick={() => setAsking(true)}
-        >
-          <div className="ico">🔎</div>
-          <div>물어보기</div>
-          <div className="sub">날짜·활동 검색</div>
-        </button>
+      <div className="capwrap">
+        {/* Caregiver mode: replace the capture button with a friendly notice.
+            Cloud storage rules would block a caregiver upload anyway (path
+            scoped to the uploader's own uid), so the button has no useful
+            action when the active patient isn't the signed-in user. */}
+        {!canCapture && (
+          <div className="caregiver-note" role="status">
+            <b>{patientName}님의 기록을 보고 있어요.</b>
+            <span>사진 찍기는 본인 계정에서만 가능해요.</span>
+          </div>
+        )}
+        {/* Take-photo and Ask sit side by side as equal tiles. In caregiver
+            mode (no capture) the Ask tile stretches to fill the row alone. */}
+        <div className={canCapture ? 'capgrid' : 'capgrid single'}>
+          {canCapture && (
+            <button
+              className="capbtn"
+              aria-label="사진 찍기"
+              onClick={async () => {
+                if (isNativeApp) {
+                  try {
+                    const { file, path } = await captureNativePhoto()
+                    onPick(file, path)
+                  } catch (err) {
+                    console.warn('[capture] native camera cancelled or failed', err)
+                  }
+                } else {
+                  inputRef.current?.click()
+                }
+              }}
+            >
+              <svg className="cam" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M3 8.5A2.5 2.5 0 0 1 5.5 6h1.2l.9-1.4A1.5 1.5 0 0 1 8.9 4h6.2a1.5 1.5 0 0 1 1.3.6L17.3 6h1.2A2.5 2.5 0 0 1 21 8.5v8A2.5 2.5 0 0 1 18.5 19h-13A2.5 2.5 0 0 1 3 16.5z" />
+                <circle cx="12" cy="12.3" r="3.4" />
+              </svg>
+              <span className="lab">사진 찍기</span>
+            </button>
+          )}
+
+          <button className="askbtn" onClick={onOpenAsk} aria-label="지난 기록 물어보기">
+            <svg className="ask-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="11" cy="11" r="7" />
+              <path d="M20.5 20.5l-3.6-3.6" />
+            </svg>
+            <span className="lab">지난 기록<br />물어보기</span>
+          </button>
+        </div>
+
+        {canCapture && (
+          <div className="cap-help">
+            버튼을 누르면 사진이 찍히고<br />
+            자동으로 기록돼요
+          </div>
+        )}
+
         <input
           ref={inputRef}
           className="hidden-input"
@@ -132,58 +168,23 @@ export function Home({ uid, patientName, memos, onOpen }: { uid: string; patient
         />
       </div>
 
-      <div className="hint">사진을 찍으면 시간 · 장소 · 활동이 자동으로 저장돼요.</div>
-
-      <div className="recent-title">최근 사진</div>
-      {recent.length === 0 ? (
-        <div className="empty-recent">아직 사진이 없어요.</div>
-      ) : (
-        <div className="recent-row">
-          {recent.map((m) => (
+      {memos.length > 0 && (
+        <div className="recent-strip" aria-label="최근 사진">
+          {memos.slice(0, 4).map((m) => (
             <button
               type="button"
-              className="recent recent-btn"
               key={m.id}
+              className="recent-thumb"
               onClick={() => onOpen(m.id)}
               aria-label="자세히 보기"
             >
-              {m.photoUrl ? (
-                <img className="thumb" src={m.photoUrl} alt="" />
-              ) : (
-                <div className="thumb" style={{ background: '#eee' }} />
-              )}
-              <span
-                className="del-btn"
-                role="button"
-                aria-label="사진 삭제"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  if (!confirm('이 사진을 삭제할까요?')) return
-                  deleteMemo({ memoId: m.id, photoPath: m.photoPath }).catch((err) => {
-                    console.error(err)
-                    toast.show('삭제에 실패했어요', '잠시 후 다시 시도해주세요')
-                  })
-                }}
-              >
-                ✕
-              </span>
-              <div className="meta">
-                <b>{fmtTime(m.takenAt.toDate())}</b>
-                {m.activity || (m.status === 'pending' ? '메모 작성 중…' : '')}
-              </div>
+              <MemoThumb memo={m} showLocation />
             </button>
           ))}
         </div>
       )}
 
-      <Processing show={busy} message={busyMsg} />
-      {asking && (
-        <Ask
-          memos={memos}
-          onClose={() => setAsking(false)}
-          onOpen={onOpen}
-        />
-      )}
+      <Processing show={busy} message={busyMsg} sub={busySub} />
     </section>
   )
 }

@@ -79,36 +79,39 @@ export async function analyzePhotoTags(path: string | undefined): Promise<Vision
 }
 
 /**
- * Pick a coarse category from Vision tags. Mirrors the same heuristic the
- * Cloud Function uses for web uploads so both paths produce consistent
- * UI grouping. Defaults to 일상.
+ * Pick a coarse activity category from Vision tags. Mirrors the same
+ * heuristic the Cloud Function uses for web uploads so both paths produce
+ * consistent UI grouping. Defaults to 기타.
  */
 function categoryFromTags(tags: VisionTags): string {
   const names = tags.labels.map((l) => l.name.toLowerCase()).join(' ')
   if (/food|meal|dish|plate|bowl|drink|beverage|cup|fruit|vegetable/.test(names)) return '식사'
   if (/park|tree|outdoor|street|walk|path|garden|trail|sky|grass/.test(names)) return '산책'
+  if (/flower|blossom|petal|bouquet|rose|tulip/.test(names)) return '꽃'
   if (/sofa|bed|chair|tv|television|book|tea|home interior|indoor/.test(names)) return '휴식'
   if (tags.faceCount >= 2) return '가족'
-  return '일상'
+  return '기타'
 }
 
 /**
- * Tier-2 fallback: turn Vision tags into a Korean sentence via templates.
+ * Tier-2 fallback: turn Vision tags into a warm Korean sentence via templates.
  * Runs on any iPhone (iOS 17+) when Foundation Models isn't available, so
  * older devices still write a real on-device memo instead of leaving the
  * Cloud Function to guess from scratch. Deterministic per photo — same tags
- * pick the same sentence on retry.
+ * pick the same sentence on retry. Phrases mirror the warm-caption tone the
+ * Foundation-Models prompt asks for.
  */
 const TEMPLATE_PHRASES: Record<string, string[]> = {
-  식사: ['식사 중이에요', '식사 시간이에요'],
-  산책: ['산책 중이에요', '바깥 공기를 쐬고 계세요'],
-  휴식: ['편안히 쉬고 계세요', '여유로운 시간이에요'],
-  가족: ['가족과 함께 계세요', '소중한 사람들과 함께'],
-  일상: ['오늘의 한 장면', '잔잔한 일상의 순간'],
+  식사: ['맛있는 식사를 하고 계세요.', '식사 시간이에요.'],
+  산책: ['공원에서 산책 중이세요.', '바깥 공기를 쐬고 계세요.'],
+  휴식: ['거실에서 편안히 쉬고 계세요.', '여유로운 시간을 보내고 계세요.'],
+  가족: ['가족과 즐거운 시간을 보내고 계세요.', '함께하는 시간이에요.'],
+  꽃: ['예쁜 꽃을 보고 계세요.'],
+  기타: ['오늘의 한 순간을 담았어요.'],
 }
 function templateMemo(tags: VisionTags): string {
   const cat = categoryFromTags(tags)
-  const list = TEMPLATE_PHRASES[cat] || TEMPLATE_PHRASES['일상']
+  const list = TEMPLATE_PHRASES[cat] || TEMPLATE_PHRASES['기타']
   // Seed from the tag identity so the same photo always picks the same line.
   const seed = tags.labels.map((l) => l.name).join('|').length + tags.faceCount
   return list[seed % list.length]
@@ -162,15 +165,15 @@ export async function uploadPhoto(opts: {
   takenAt: Date
   tags?: VisionTags | null
   /**
-   * Optional on-device memo from Foundation Models (Layer 2). When present
-   * the Cloud Function uses this string verbatim and skips its own template
-   * generator. Pass empty/undefined to let the function pick a memo.
+   * Optional on-device memo sentence from Foundation Models (Layer 2). When
+   * present the Cloud Function uses this string verbatim and skips its own
+   * cloud-LLM call. Pass empty/undefined to let the function pick a memo.
    */
-  activity?: string | null
-  /** Which tier produced the activity above. Persisted onto the memo doc. */
+  memo?: string | null
+  /** Which tier produced the memo above. Persisted onto the memo doc. */
   memoSource?: 'foundation-models' | 'template' | 'cloud-stub' | null
 }): Promise<{ path: string; photoId: string }> {
-  const { uid, file, geo, takenAt, tags, activity, memoSource } = opts
+  const { uid, file, geo, takenAt, tags, memo, memoSource } = opts
   const photoId = `${takenAt.getTime()}_${Math.random().toString(36).slice(2, 8)}`
   const ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
   const path = `photos/${uid}/${photoId}.${ext}`
@@ -190,8 +193,8 @@ export async function uploadPhoto(opts: {
       // On-device memo (Foundation Models). Empty string means "function,
       // please generate one." The function never overwrites a non-empty
       // value here.
-      activity: activity || '',
-      // Which tier wrote the activity. The function persists this on the
+      memo: memo || '',
+      // Which tier wrote the memo. The function persists this on the
       // memo doc so the detail page can render the right AI source badge.
       memoSource: memoSource || '',
     },
