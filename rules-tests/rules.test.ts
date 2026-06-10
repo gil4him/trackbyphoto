@@ -55,9 +55,8 @@ beforeEach(async () => {
       patientUid: PATIENT,
       photoPath: `photos/${PATIENT}/m1.jpg`,
       photoUrl: '',
-      activity: 'walk',
-      details: '',
-      category: '산책',
+      activity: '산책',
+      memo: '공원에서 산책 중이세요.',
       status: 'ready',
       place: '',
       createdAt: new Date(),
@@ -189,7 +188,7 @@ describe('memos', () => {
     await assertFails(
       setDoc(doc(authedDb(PATIENT), 'memos', 'new_memo'), {
         patientUid: PATIENT,
-        photoPath: 'x', photoUrl: '', activity: '', details: '', category: '일상',
+        photoPath: 'x', photoUrl: '', activity: '기타', memo: '',
         status: 'pending', place: '', createdAt: new Date(), takenAt: new Date(),
       }),
     )
@@ -266,6 +265,29 @@ describe('memberships', () => {
     )
   })
 
+  it('caregiver CANNOT accept with a consent belonging to a different patient', async () => {
+    // Plant a consent owned by a DIFFERENT patient and try to accept this
+    // patient's invite using it. The tightened rule should reject it.
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'consents', 'consent_other_patient'), {
+        patientUid: 'other_patient_uid',
+        type: 'third_party_share',
+        grantedBy: 'self',
+        guardianUid: null,
+        scope: 'memo data + location',
+        consentTextVersion: 'v1',
+        timestamp: new Date(),
+      })
+    })
+    const id = membershipId(PATIENT, CAREGIVER_INVITED)
+    await assertFails(
+      updateDoc(doc(authedDb(CAREGIVER_INVITED), 'memberships', id), {
+        status: 'active',
+        consentId: 'consent_other_patient',
+      }),
+    )
+  })
+
   it('caregiver cannot grant themselves a different role while accepting', async () => {
     // Invited row has role=admin; try to bump to guardian on accept (no-op
     // here since it's already admin, but flip the role to viewer to catch
@@ -336,6 +358,87 @@ describe('consents', () => {
       updateDoc(doc(authedDb(PATIENT), 'consents', 'consent1'), { scope: 'changed' }),
     )
     await assertFails(deleteDoc(doc(authedDb(PATIENT), 'consents', 'consent1')))
+  })
+})
+
+// ────────────────────────────────────────────────────────────────────────────
+// invites — 6-digit codes the patient hands to a caregiver
+//
+// In production the createInvite Cloud Function writes via admin SDK and
+// bypasses these rules. The rules still need to make sense for any direct
+// client write attempt (defense-in-depth), so this block exercises them.
+// ────────────────────────────────────────────────────────────────────────────
+describe('invites', () => {
+  const VALID_INVITE = {
+    patientUid: PATIENT,
+    role: 'admin',
+    createdBy: PATIENT,
+    expiresAt: new Date(Date.now() + 24 * 3600 * 1000),
+    used: false,
+    createdAt: new Date(),
+  }
+
+  it('patient can create an invite for themselves', async () => {
+    await assertSucceeds(
+      setDoc(doc(authedDb(PATIENT), 'invites', '111111'), VALID_INVITE),
+    )
+  })
+
+  it('admin caregiver can create an invite for the patient', async () => {
+    await assertSucceeds(
+      setDoc(doc(authedDb(CAREGIVER_ACTIVE_ADMIN), 'invites', '222222'), {
+        ...VALID_INVITE,
+        createdBy: CAREGIVER_ACTIVE_ADMIN,
+      }),
+    )
+  })
+
+  it('stranger cannot create an invite for someone else', async () => {
+    await assertFails(
+      setDoc(doc(authedDb(STRANGER), 'invites', '333333'), {
+        ...VALID_INVITE,
+        createdBy: STRANGER,
+      }),
+    )
+  })
+
+  it('viewer caregiver cannot create an invite (admin/owner only)', async () => {
+    await assertFails(
+      setDoc(doc(authedDb(CAREGIVER_ACTIVE_VIEWER), 'invites', '444444'), {
+        ...VALID_INVITE,
+        createdBy: CAREGIVER_ACTIVE_VIEWER,
+      }),
+    )
+  })
+
+  it('used=true on create is rejected (must start unused)', async () => {
+    await assertFails(
+      setDoc(doc(authedDb(PATIENT), 'invites', '555555'), {
+        ...VALID_INVITE,
+        used: true,
+      }),
+    )
+  })
+
+  it('any signed-in user can read an invite (to look up the code they typed)', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'invites', '666666'), VALID_INVITE)
+    })
+    await assertSucceeds(getDoc(doc(authedDb(STRANGER), 'invites', '666666')))
+  })
+
+  it('owner can delete their own invite', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'invites', '777777'), VALID_INVITE)
+    })
+    await assertSucceeds(deleteDoc(doc(authedDb(PATIENT), 'invites', '777777')))
+  })
+
+  it('stranger cannot delete an invite', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'invites', '888888'), VALID_INVITE)
+    })
+    await assertFails(deleteDoc(doc(authedDb(STRANGER), 'invites', '888888')))
   })
 })
 

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useToast } from '../components/Toast'
 
-export function SignIn({ onGoogle }: { onGoogle: () => Promise<void> }) {
+export function SignIn({ onGoogle, onAcceptInvite }: { onGoogle: () => Promise<void>; onAcceptInvite?: () => void }) {
   const [busy, setBusy] = useState(false)
   const toast = useToast()
 
@@ -40,6 +40,16 @@ export function SignIn({ onGoogle }: { onGoogle: () => Promise<void> }) {
       <p className="signin-note">
         가족과 메모를 공유하기 위해 로그인해 주세요. 사진과 메모는 본인 계정에만 저장됩니다.
       </p>
+
+      {/* Caregiver entry point. The accept-invite screen also requires
+          authentication, so we still kick caregivers through the Google
+          button first — the click just sets a flag so they land on the
+          accept screen post-login. */}
+      {onAcceptInvite && (
+        <button className="signin-secondary" onClick={onAcceptInvite}>
+          초대 코드로 참여하기 →
+        </button>
+      )}
     </section>
   )
 }

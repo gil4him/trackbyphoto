@@ -9,8 +9,8 @@ import type { Memo, MemoSource } from '../types'
 
 interface RegenResult {
   memoId: string
-  old: { activity: string; details: string; category: string; memoSource: string; model: string }
-  new: { activity: string; details: string; category: string; model: string }
+  old: { activity: string; memo: string; scene: string; memoSource: string; model: string }
+  new: { activity: string; memo: string; scene: string; model: string }
   cost: { promptTokens: number; outputTokens: number; totalUSD: number }
 }
 
@@ -19,6 +19,13 @@ interface BackfillResult {
   migrated: number
   alreadyOk: number
   skippedNoUid: number
+}
+
+interface BackfillMemoResult {
+  scanned: number
+  migrated: number
+  alreadyOk: number
+  skippedEmpty: number
 }
 
 /** Single source of truth for the admin email. Mirrored in firestore.rules. */
@@ -100,6 +107,8 @@ export function SuperAdmin({ onSignOut }: { onSignOut: () => Promise<void> }) {
   // One-shot migration state — see backfillPatientUid Cloud Function.
   const [backfillBusy, setBackfillBusy] = useState(false)
   const [backfill, setBackfill] = useState<BackfillResult | null>(null)
+  const [memoMigrateBusy, setMemoMigrateBusy] = useState(false)
+  const [memoMigrate, setMemoMigrate] = useState<BackfillMemoResult | null>(null)
 
   // Live subscription to the totals doc — it bumps on every new memo so the
   // dashboard updates without a refresh while a phone is uploading.
@@ -182,6 +191,31 @@ export function SuperAdmin({ onSignOut }: { onSignOut: () => Promise<void> }) {
       setError(`마이그레이션 실패: ${(err as Error).message}`)
     } finally {
       setBackfillBusy(false)
+    }
+  }
+
+  const onMemoMigrate = async () => {
+    if (!confirm(
+      '기존 memos를 새 스키마(activity=카테고리, memo=문장)로 변환할까요?\n'
+      + '- 옛 activity(문장) → 새 memo\n'
+      + '- 옛 category → 새 activity (일상 → 기타)\n'
+      + '- details 필드 삭제\n'
+      + '이미 변환된 문서는 건너뜁니다.',
+    )) return
+    setMemoMigrateBusy(true)
+    setError(null)
+    try {
+      const fn = httpsCallable<Record<string, never>, BackfillMemoResult>(
+        getFunctions(undefined, 'us-west1'),
+        'backfillMemoSchema',
+      )
+      const res = await fn({})
+      setMemoMigrate(res.data)
+    } catch (err) {
+      console.error('[superadmin] memo migrate', err)
+      setError(`메모 스키마 마이그레이션 실패: ${(err as Error).message}`)
+    } finally {
+      setMemoMigrateBusy(false)
     }
   }
 
@@ -273,6 +307,23 @@ export function SuperAdmin({ onSignOut }: { onSignOut: () => Promise<void> }) {
         {backfill && (
           <pre style={{ marginTop: 12, fontSize: 13, color: 'var(--ink-2)' }}>
             scanned: {backfill.scanned} · migrated: {backfill.migrated} · already ok: {backfill.alreadyOk} · skipped (no uid): {backfill.skippedNoUid}
+          </pre>
+        )}
+
+        <p className="muted picker-help" style={{ marginTop: 24 }}>
+          메모 스키마 변환: 옛 activity(문장)→memo, 옛 category→activity, details 삭제. 멱등성 보장.
+        </p>
+        <button
+          type="button"
+          className="d-btn-primary"
+          onClick={onMemoMigrate}
+          disabled={memoMigrateBusy}
+        >
+          {memoMigrateBusy ? '실행 중…' : '메모 스키마 백필 실행'}
+        </button>
+        {memoMigrate && (
+          <pre style={{ marginTop: 12, fontSize: 13, color: 'var(--ink-2)' }}>
+            scanned: {memoMigrate.scanned} · migrated: {memoMigrate.migrated} · already ok: {memoMigrate.alreadyOk} · skipped (empty): {memoMigrate.skippedEmpty}
           </pre>
         )}
       </section>
@@ -462,15 +513,18 @@ export function SuperAdmin({ onSignOut }: { onSignOut: () => Promise<void> }) {
                   <span className="adm-time">
                     {fmtDate(m.takenAt.toDate())} {fmtTime(m.takenAt.toDate())}
                   </span>
-                  {m.category && <span className="adm-cat">{m.category}</span>}
+                  {m.activity && <span className="adm-cat">{m.activity}</span>}
                   {m.memoSource && (
                     <span className="adm-src">{SOURCE_KO[m.memoSource] || m.memoSource}</span>
                   )}
                   {m.model && <span className="adm-model">{m.model}</span>}
                 </div>
-                <div className="adm-act">{m.activity || '(작성 중)'}</div>
+                <div className="adm-act">{m.memo || '(작성 중)'}</div>
                 <div className="adm-meta">
-                  <span>👤 {m.patientUid.slice(0, 8)}…</span>
+                  {/* Legacy memos written before the patientUid backfill carry
+                      `uid` instead — fall back to that, then '—', so the
+                      dashboard renders before migration runs. */}
+                  <span>👤 {(m.patientUid || (m as unknown as { uid?: string }).uid || '—').slice(0, 8)}…</span>
                   <span>📍 {m.place || '위치 없음'}</span>
                 </div>
                 <button
@@ -507,18 +561,18 @@ export function SuperAdmin({ onSignOut }: { onSignOut: () => Promise<void> }) {
                     ? <span className="regen-model">{regen.old.model}</span>
                     : <span className="regen-model muted">{regen.old.memoSource || '—'}</span>}
                 </div>
-                <div className="regen-cat">{regen.old.category || '—'}</div>
-                <div className="regen-act">{regen.old.activity || '(없음)'}</div>
-                <div className="regen-det">{regen.old.details || '(상세 없음)'}</div>
+                <div className="regen-cat">{regen.old.activity || '—'}</div>
+                <div className="regen-act">{regen.old.memo || '(없음)'}</div>
+                <div className="regen-det">{regen.old.scene || '(장면 없음)'}</div>
               </div>
               <div className="regen-col new">
                 <div className="regen-col-head">
                   <span className="regen-label">새로운 결과</span>
                   <span className="regen-model">{regen.new.model}</span>
                 </div>
-                <div className="regen-cat">{regen.new.category}</div>
-                <div className="regen-act">{regen.new.activity}</div>
-                <div className="regen-det">{regen.new.details}</div>
+                <div className="regen-cat">{regen.new.activity}</div>
+                <div className="regen-act">{regen.new.memo}</div>
+                <div className="regen-det">{regen.new.scene || '(장면 없음)'}</div>
               </div>
             </div>
             <div className="regen-note muted">

@@ -134,9 +134,16 @@ service cloud.firestore {
 
       // Two distinct update paths:
       //   (a) Caregiver accepts: invited → active. Caregiver must be the one
-      //       on the row, role and patientUid/caregiverUid unchanged, and a
-      //       consent doc must already exist for the patient.
+      //       on the row, role and patientUid/caregiverUid unchanged, and the
+      //       referenced consent must belong to this patient (not just exist
+      //       — that was the original loose check and let a stranger's
+      //       consent pass).
       //   (b) Patient/guardian changes role or revokes (any → revoked).
+      //
+      // In practice the production accept-flow goes through the acceptInvite
+      // Cloud Function (which writes via admin SDK and bypasses these rules),
+      // so path (a) is defense-in-depth — kept tight in case the client ever
+      // bypasses the callable.
       allow update: if signedIn() && (
         // (a) accept
         (
@@ -148,6 +155,7 @@ service cloud.firestore {
           && request.resource.data.caregiverUid == resource.data.caregiverUid
           && request.resource.data.consentId is string
           && exists(/databases/$(database)/documents/consents/$(request.resource.data.consentId))
+          && get(/databases/$(database)/documents/consents/$(request.resource.data.consentId)).data.patientUid == resource.data.patientUid
         )
         // (b) manage
         || isOwner(resource.data.patientUid)
