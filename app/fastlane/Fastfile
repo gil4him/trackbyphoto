@@ -51,8 +51,16 @@ end
 # "match" repo (decrypt-only, no Apple portal access needed). Runs both locally
 # and on CI so signing is identical everywhere — no Xcode account required.
 def ios_install_signing
-  setup_ci if is_ci   # CI only: create a temporary keychain
-  match(type: "appstore", readonly: true)
+  if is_ci
+    setup_ci   # creates the temp "fastlane_tmp_keychain" (empty password)
+    # Pass the keychain + password explicitly so match's set-key-partition-list
+    # succeeds — otherwise the imported signing key isn't usable and xcodebuild
+    # reports "no matching profile".
+    match(type: "appstore", readonly: true,
+          keychain_name: "fastlane_tmp_keychain", keychain_password: "")
+  else
+    match(type: "appstore", readonly: true)
+  end
   # Xcode 15 reads profiles from ~/Library/MobileDevice/Provisioning Profiles;
   # Xcode 16+ from ~/Library/Developer/Xcode/UserData/Provisioning Profiles.
   # On CI, mirror whatever match installed into BOTH so xcodebuild finds it
