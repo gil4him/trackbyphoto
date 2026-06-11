@@ -418,6 +418,19 @@ nav.tabbar .tab.on { color: var(--coral2); }
   border-radius: 999px; background: #FF3B30; color: #fff;
   font-size: 11px; font-weight: 800; line-height: 17px; text-align: center;
 }
+
+/* "New version deployed" prompt — a tap reloads to the fresh build. */
+.update-prompt {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(92px + var(--safe-bot)); z-index: 60;
+  display: inline-flex; align-items: center; gap: 10px;
+  background: var(--ink); color: #fff; border: none;
+  padding: 11px 18px; border-radius: 999px; cursor: pointer;
+  font: inherit; font-size: 14px; font-weight: 700; white-space: nowrap;
+  box-shadow: 0 12px 30px -8px rgba(0,0,0,.45);
+}
+.update-prompt:active { transform: translateX(-50%) scale(.97); }
+.update-go { color: #FFB84D; font-weight: 800; }
 nav.tabbar .tab .tab-avatar { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; }
 nav.tabbar .tab.on .tab-avatar { box-shadow: 0 0 0 2px var(--coral2); }
 

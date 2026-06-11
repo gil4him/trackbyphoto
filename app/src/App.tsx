@@ -5,6 +5,7 @@ import { useAuth } from './hooks/useAuth'
 import { useMemos } from './hooks/useMemos'
 import { useMemberships } from './hooks/useMemberships'
 import { useNotifications } from './hooks/useNotifications'
+import { useAppUpdate } from './hooks/useAppUpdate'
 import { syncCaregiverName } from './lib/caregiver'
 import { setFaviconBadge } from './lib/favicon'
 import { Tabs, type TabKey } from './components/Tabs'
@@ -48,6 +49,8 @@ function App() {
   const { memberships: { patients }, loading: _membershipsLoading } = useMembershipsWrapped(user?.uid)
   // Elder safeguard notices live on the signed-in user's own account (§8).
   const { unread: notifications, dismiss: dismissNotification } = useNotifications(user?.uid)
+  // True once a newer build has been deployed than the one we're running.
+  const updateReady = useAppUpdate()
   const { memos } = useMemos(activePatientUid || undefined)
   const selectedMemo = selectedMemoId ? memos.find((m) => m.id === selectedMemoId) ?? null : null
 
@@ -242,6 +245,11 @@ function App() {
   return (
     <ToastProvider>
       <div className={`app${isSelf ? '' : ' caregiver-mode'}`}>
+        {updateReady && (
+          <button className="update-prompt" onClick={() => window.location.reload()}>
+            새 버전이 있어요 <span className="update-go">새로고침</span>
+          </button>
+        )}
         <main>
           {patients.length > 0 && !selectedMemo && (
             <PatientSwitcher
