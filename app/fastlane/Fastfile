@@ -53,6 +53,25 @@ end
 def ios_install_signing
   setup_ci if is_ci   # CI only: create a temporary keychain
   match(type: "appstore", readonly: true)
+  # Xcode 15 reads profiles from ~/Library/MobileDevice/Provisioning Profiles;
+  # Xcode 16+ from ~/Library/Developer/Xcode/UserData/Provisioning Profiles.
+  # On CI, mirror whatever match installed into BOTH so xcodebuild finds it
+  # regardless of the runner's Xcode version.
+  if is_ci
+    require "fileutils"
+    dirs = [
+      File.expand_path("~/Library/MobileDevice/Provisioning Profiles"),
+      File.expand_path("~/Library/Developer/Xcode/UserData/Provisioning Profiles"),
+    ]
+    dirs.each { |d| FileUtils.mkdir_p(d) }
+    profiles = dirs.flat_map { |d| Dir.glob(File.join(d, "*.mobileprovision")) }.uniq
+    profiles.each do |src|
+      dirs.each do |d|
+        dst = File.join(d, File.basename(src))
+        FileUtils.cp(src, dst) unless File.expand_path(src) == dst
+      end
+    end
+  end
 end
 
 # The exact profile name match installed (handles match's auto-numbered names),
