@@ -1,0 +1,125 @@
+# Runs the Fastlane lanes on GitHub's servers so you can ship without a local
+# build. Trigger it by hand: GitHub → Actions → "Mobile release" → Run workflow
+# → pick a lane. iOS runs on a Mac runner, Android on a Linux runner.
+#
+# Add these under Settings → Secrets and variables → Actions → "Secrets":
+#   Apple:   APPLE_ID, APPLE_TEAM_ID, ASC_KEY_ID, ASC_ISSUER_ID,
+#            ASC_KEY_P8_BASE64 (the .p8 file, base64-encoded),
+#            MATCH_GIT_URL, MATCH_PASSWORD,
+#            MATCH_GIT_BASIC_AUTHORIZATION (base64 of "user:token" for the match repo)
+#   Android: ANDROID_KEYSTORE_BASE64 (your .jks, base64-encoded),
+#            ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD,
+#            PLAY_JSON_KEY_BASE64 (the Play service-account JSON, base64-encoded)
+# To base64 a file on a Mac:  base64 -i thefile > thefile.txt  (paste its contents).
+
+name: Mobile release
+
+on:
+  workflow_dispatch:
+    inputs:
+      lane:
+        description: "Which lane to run"
+        required: true
+        type: choice
+        options:
+          - beta_ios
+          - beta_android
+          - release_ios
+          - release_android
+
+jobs:
+  ios:
+    if: endsWith(github.event.inputs.lane, 'ios')
+    runs-on: macos-14
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.2"
+          bundler-cache: true
+          working-directory: app
+
+      - name: Write App Store Connect API key
+        run: echo "$ASC_KEY_P8_BASE64" | base64 --decode > fastlane/AuthKey.p8
+        env:
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+
+      - name: Run Fastlane (${{ github.event.inputs.lane }})
+        run: bundle exec fastlane ${{ github.event.inputs.lane }}
+        env:
+          CI: "true"
+          IOS_BUNDLE_ID: com.gil4him.trackbyphoto
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_PATH: ./fastlane/AuthKey.p8
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
+
+  android:
+    if: endsWith(github.event.inputs.lane, 'android')
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.2"
+          bundler-cache: true
+          working-directory: app
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      # The android/ project isn't committed, so generate it here (matching the
+      # installed Capacitor version). If you later commit android/, this is a no-op.
+      - name: Ensure Android platform
+        run: |
+          if [ ! -d android ]; then
+            npm install "@capacitor/android@$(node -p "require('@capacitor/core/package.json').version")"
+            npx cap add android
+          fi
+
+      - name: Write keystore + Play key
+        run: |
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > fastlane/upload-keystore.jks
+          echo "$PLAY_JSON_KEY_BASE64" | base64 --decode > fastlane/play-key.json
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          PLAY_JSON_KEY_BASE64: ${{ secrets.PLAY_JSON_KEY_BASE64 }}
+
+      - name: Run Fastlane (${{ github.event.inputs.lane }})
+        run: bundle exec fastlane ${{ github.event.inputs.lane }}
+        env:
+          CI: "true"
+          ANDROID_PACKAGE: com.gil4him.trackbyphoto
+          ANDROID_KEYSTORE_PATH: ./fastlane/upload-keystore.jks
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          PLAY_JSON_KEY_PATH: ./fastlane/play-key.json

@@ -1,0 +1,8 @@
+# Configures "match" — the tool that stores your iOS signing certificate and
+# provisioning profile (encrypted) in a private git repo, so CI can sign without
+# a Mac's keychain. You set MATCH_GIT_URL and MATCH_PASSWORD as secrets/env.
+
+git_url(ENV["MATCH_GIT_URL"])
+storage_mode("git")
+type("appstore")
+app_identifier([ENV["IOS_BUNDLE_ID"]])

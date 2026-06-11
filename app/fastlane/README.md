@@ -36,9 +36,28 @@ TrackByPhoto** (bundle ID `com.gil4him.trackbyphoto`).
    `keytool -genkey -v -keystore fastlane/upload-keystore.jks -alias upload -keyalg RSA -keysize 2048 -validity 10000`
    then put the passwords/alias into `.env`.
 
+## Running it automatically with GitHub Actions
+
+There's also a workflow at `.github/workflows/mobile-release.yml` that runs these
+lanes on GitHub's servers (a Mac runner for iOS, Linux for Android) — no local
+build needed. Trigger it by hand: **GitHub → Actions → "Mobile release" → Run
+workflow → pick a lane**.
+
+For it to work you add your secrets once under **Settings → Secrets and variables
+→ Actions**. The full list is in the comment at the top of the workflow file.
+Two notes:
+
+- File-type secrets (the Apple `.p8`, the Play JSON, the Android `.jks`) are
+  stored **base64-encoded**. On a Mac: `base64 -i thefile` and paste the output.
+- iOS CI signing uses **match**: run `fastlane match init` then
+  `fastlane match appstore` once locally to create a small private "certs" repo,
+  then add `MATCH_GIT_URL`, `MATCH_PASSWORD`, and `MATCH_GIT_BASIC_AUTHORIZATION`
+  as secrets. (Local builds don't need match — Xcode signs them.)
+
 ## What each file here is
 
 - **Appfile** — the IDs (bundle ID, Apple login, team) Fastlane needs.
 - **Fastfile** — the actual build/upload recipes (the lanes above).
+- **Matchfile** — where the iOS signing certificate/profile are stored (for CI).
 - **.env.example** — a template listing every secret/ID you must provide.
 - **.env** (you create it) — your real secrets; never committed.
