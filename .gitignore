@@ -39,3 +39,15 @@ app/ios/App/App/capacitor.config.json
 app/ios/.gradle/
 xcuserdata/
 *.xcworkspace/xcuserdata/
+
+# Fastlane — never commit secrets, signing keys, or build output.
+app/fastlane/.env
+app/fastlane/report.xml
+app/fastlane/Preview.html
+app/fastlane/test_output/
+app/build/
+app/vendor/bundle/
+*.p8
+*.jks
+*.keystore
+app/fastlane/play-key.json

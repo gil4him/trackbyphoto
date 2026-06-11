@@ -1,0 +1,6 @@
+# Tells Fastlane which app it's working with — your bundle ID, Apple login, and
+# Apple team — all pulled from the .env file so no secrets live in the code.
+
+app_identifier(ENV["IOS_BUNDLE_ID"])   # e.g. com.gil4him.trackbyphoto
+apple_id(ENV["APPLE_ID"])              # your Apple Developer account email
+team_id(ENV["APPLE_TEAM_ID"])          # your 10-character Apple Team ID

@@ -1,0 +1,5 @@
+# Declares Fastlane (the release-automation tool) so `bundle install` sets it up
+# at a known version for everyone, instead of relying on a global install.
+source "https://rubygems.org"
+
+gem "fastlane"
