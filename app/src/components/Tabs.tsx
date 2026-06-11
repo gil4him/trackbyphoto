@@ -45,6 +45,7 @@ export function Tabs({
   onChange,
   hide,
   avatarUrl,
+  unreadCount = 0,
 }: {
   active: TabKey
   onChange: (k: TabKey) => void
@@ -53,6 +54,8 @@ export function Tabs({
   /** Signed-in user's Google avatar — shown on the settings tab in place of
    *  the gear when present. Falls back to the gear icon when absent. */
   avatarUrl?: string
+  /** Unread notification count — shown as a red badge on the Home tab. */
+  unreadCount?: number
 }) {
   if (hide) return null
   return (
@@ -68,6 +71,9 @@ export function Tabs({
           {t.key === 'settings' && avatarUrl
             ? <img className="tab-avatar" src={avatarUrl} alt="" referrerPolicy="no-referrer" />
             : ICONS[t.key]}
+          {t.key === 'home' && unreadCount > 0 && (
+            <span className="tab-badge" aria-label={`알림 ${unreadCount}건`}>{unreadCount > 9 ? '9+' : unreadCount}</span>
+          )}
           {t.label}
         </button>
       ))}

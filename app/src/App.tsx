@@ -6,6 +6,7 @@ import { useMemos } from './hooks/useMemos'
 import { useMemberships } from './hooks/useMemberships'
 import { useNotifications } from './hooks/useNotifications'
 import { syncCaregiverName } from './lib/caregiver'
+import { setFaviconBadge } from './lib/favicon'
 import { Tabs, type TabKey } from './components/Tabs'
 import { ToastProvider } from './components/Toast'
 import { PatientSwitcher } from './components/PatientSwitcher'
@@ -140,6 +141,7 @@ function App() {
     const nav = navigator as Navigator & { setAppBadge?: (n?: number) => Promise<void>; clearAppBadge?: () => Promise<void> }
     if (n > 0) nav.setAppBadge?.(n).catch(() => {})
     else nav.clearAppBadge?.().catch(() => {})
+    setFaviconBadge(n)
     document.title = n > 0 ? `(${n}) 오늘하루 · TrackByPhoto` : '오늘하루 · TrackByPhoto'
   }, [notifications.length])
 
@@ -273,7 +275,7 @@ function App() {
           )}
         </main>
 
-        <Tabs active={tab} onChange={onTabChange} avatarUrl={user.photoURL ?? undefined} />
+        <Tabs active={tab} onChange={onTabChange} avatarUrl={user.photoURL ?? undefined} unreadCount={notifications.length} />
       </div>
     </ToastProvider>
   )
