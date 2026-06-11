@@ -8,13 +8,26 @@
 #   release_android build + upload to the Play "production" track
 #   beta / release  do both platforms at once
 
+# Keep our human-written fastlane/README.md (don't let fastlane overwrite it).
+skip_docs
+
 # ── Shared: build the web app and copy it into the native project ─────────────
 # Capacitor wraps our React/Vite site, so before any native build we rebuild the
 # web bundle and sync it into ios/ or android/. Keeps native builds current.
 def sync_web(platform)
   Dir.chdir("..") do                      # step up from app/fastlane to app/
     sh("npm", "run", "build")
-    sh("npx", "cap", "sync", platform)
+    # `cap sync` runs `pod install`. Run it OUTSIDE Fastlane's Bundler env, or
+    # CocoaPods (its own Ruby) tries to load our fastlane Gemfile and dies with
+    # "Could not find … in locally installed gems".
+    cap = -> { sh("npx", "cap", "sync", platform) }
+    if defined?(Bundler) && Bundler.respond_to?(:with_unbundled_env)
+      Bundler.with_unbundled_env(&cap)
+    elsif defined?(Bundler) && Bundler.respond_to?(:with_clean_env)
+      Bundler.with_clean_env(&cap)
+    else
+      cap.call
+    end
   end
 end
 
@@ -34,22 +47,48 @@ def asc_api_key
   )
 end
 
-# On a CI machine there's no signing certificate, so fetch the distribution cert
-# + provisioning profile from the private "match" repo (see Matchfile). Locally
-# this does nothing — Xcode's automatic signing on your Mac handles it.
-def ios_ci_signing(api_key)
-  return unless is_ci
-  setup_ci
-  match(type: "appstore", readonly: true, api_key: api_key)
+# Install the distribution certificate + provisioning profile from the private
+# "match" repo (decrypt-only, no Apple portal access needed). Runs both locally
+# and on CI so signing is identical everywhere — no Xcode account required.
+def ios_install_signing
+  setup_ci if is_ci   # CI only: create a temporary keychain
+  match(type: "appstore", readonly: true)
 end
 
-# Tells the build which profile to sign with — manual (match) only on CI.
-def ios_export_options
-  return {} unless is_ci
-  {
-    signingStyle: "manual",
-    provisioningProfiles: { ENV["IOS_BUNDLE_ID"] => "match AppStore #{ENV['IOS_BUNDLE_ID']}" }
-  }
+# The exact profile name match installed (handles match's auto-numbered names),
+# with a sensible fallback. Used for both the archive and the export.
+def ios_profile_name
+  ENV["sigh_#{ENV['IOS_BUNDLE_ID']}_appstore_profile-name"] || "match AppStore #{ENV['IOS_BUNDLE_ID']}"
+end
+
+# Apply manual match signing to the App target ONLY. (Setting it globally also
+# hits the CocoaPods library targets, which don't accept a provisioning profile
+# and fail the archive.) Run after match so we use the exact profile name.
+def ios_configure_signing
+  update_code_signing_settings(
+    path: "ios/App/App.xcodeproj",
+    targets: ["App"],
+    use_automatic_signing: false,
+    team_id: ENV["APPLE_TEAM_ID"],
+    code_sign_identity: "Apple Distribution",
+    bundle_identifier: ENV["IOS_BUNDLE_ID"],
+    profile_name: ios_profile_name
+  )
+end
+
+# Build + sign + export an App Store .ipa with the match cert/profile.
+def ios_build
+  build_app(
+    workspace: "ios/App/App.xcworkspace",
+    scheme: "App",
+    export_method: "app-store",
+    output_directory: "build/ios",
+    clean: true,
+    export_options: {
+      signingStyle: "manual",
+      provisioningProfiles: { ENV["IOS_BUNDLE_ID"] => ios_profile_name }
+    }
+  )
 end
 
 # ── Android signing: passed straight to Gradle so we don't edit build.gradle ──
@@ -68,32 +107,20 @@ end
 lane :beta_ios do
   sync_web("ios")
   key = asc_api_key
-  ios_ci_signing(key)
+  ios_install_signing
+  ios_configure_signing
   increment_build_number(xcodeproj: "ios/App/App.xcodeproj", build_number: unique_build_number)
-  build_app(
-    workspace: "ios/App/App.xcworkspace",
-    scheme: "App",
-    export_method: "app-store",
-    output_directory: "build/ios",
-    clean: true,
-    export_options: ios_export_options
-  )
+  ios_build
   upload_to_testflight(api_key: key, skip_waiting_for_build_processing: true)
 end
 
 lane :release_ios do
   sync_web("ios")
   key = asc_api_key
-  ios_ci_signing(key)
+  ios_install_signing
+  ios_configure_signing
   increment_build_number(xcodeproj: "ios/App/App.xcodeproj", build_number: unique_build_number)
-  build_app(
-    workspace: "ios/App/App.xcworkspace",
-    scheme: "App",
-    export_method: "app-store",
-    output_directory: "build/ios",
-    clean: true,
-    export_options: ios_export_options
-  )
+  ios_build
   upload_to_app_store(
     api_key: key,
     submit_for_review: false,   # uploads the build; you press "submit" in App Store Connect
