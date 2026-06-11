@@ -81,6 +81,28 @@ export async function revokeMembership(args: {
   await fn(args)
 }
 
+/**
+ * Change a caregiver's role (admin ↔ viewer). Owner or guardian only; the
+ * function writes an audit log in the same batch.
+ */
+export async function setMembershipRole(args: {
+  patientUid: string
+  caregiverUid: string
+  role: InvitableRole
+}): Promise<void> {
+  const fn = httpsCallable<typeof args, { ok: true }>(fns(), 'setMembershipRole')
+  await fn(args)
+}
+
+/**
+ * Stamp the signed-in caregiver's real (Google) name onto their membership
+ * rows so the patient sees a name, not a UID. Fire-and-forget on sign-in.
+ */
+export async function syncCaregiverName(): Promise<void> {
+  const fn = httpsCallable<void, { updated: number }>(fns(), 'syncCaregiverName')
+  await fn()
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // UI helpers
 // ────────────────────────────────────────────────────────────────────────────

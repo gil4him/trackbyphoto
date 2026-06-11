@@ -101,6 +101,7 @@ export const onUserSettingsChanged = onDocumentWritten(
       })
     const notify = (type: string, message: string) =>
       batch.set(db.collection('notifications').doc(), {
+        recipientUid: patientUid, // safeguard notices are read by the elder
         patientUid,
         actorUid,
         type,

@@ -1,10 +1,10 @@
-// Live subscription to the elder's unread safeguard notices (Plan §8).
+// Live subscription to the signed-in user's unread notices.
 //
-// Only used in the SELF view — the notices belong to the patient and the rules
-// only let the patient read them, so we subscribe on the signed-in uid. A
-// caregiver looking at someone else's account never sees these.
+// Addressed by `recipientUid`, so this one feed covers both the elder's §8
+// safeguard notices AND a caregiver's new-photo notices — whatever is addressed
+// to the current uid, in any view.
 //
-// Two equality filters (patientUid + read) need no composite index; we sort
+// Two equality filters (recipientUid + read) need no composite index; we sort
 // newest-first on the client to avoid an orderBy that would.
 
 import { useEffect, useState } from 'react'
@@ -19,7 +19,7 @@ export function useNotifications(uid: string | undefined) {
     if (!uid) { setUnread([]); return }
     const q = query(
       collection(db, 'notifications'),
-      where('patientUid', '==', uid),
+      where('recipientUid', '==', uid),
       where('read', '==', false),
     )
     const unsub = onSnapshot(q, (snap) => {

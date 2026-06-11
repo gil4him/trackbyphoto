@@ -133,12 +133,23 @@ beforeEach(async () => {
       revokedAt: new Date(),
     })
 
-    // An unread safeguard notice for the patient
+    // An unread safeguard notice addressed to the patient
     await setDoc(doc(db, 'notifications', 'notif1'), {
+      recipientUid: PATIENT,
       patientUid: PATIENT,
       actorUid: CAREGIVER_ACTIVE_ADMIN,
       type: 'recipient.add',
       message: '보호자가 받는 사람을 추가했어요',
+      read: false,
+      createdAt: new Date(),
+    })
+    // A new-photo notice addressed to a caregiver
+    await setDoc(doc(db, 'notifications', 'notif_cg'), {
+      recipientUid: CAREGIVER_ACTIVE_ADMIN,
+      patientUid: PATIENT,
+      actorUid: PATIENT,
+      type: 'photo.new',
+      message: 'Alice님이 새 사진을 올렸어요',
       read: false,
       createdAt: new Date(),
     })
@@ -528,9 +539,22 @@ describe('notifications', () => {
     await assertSucceeds(getDoc(doc(authedDb(PATIENT), 'notifications', 'notif1')))
   })
 
-  it('caregiver CANNOT read the patient notification feed', async () => {
-    // The notice is about the caregiver's own action — they must not see it.
+  it('caregiver CANNOT read a notice addressed to the patient', async () => {
     await assertFails(getDoc(doc(authedDb(CAREGIVER_ACTIVE_ADMIN), 'notifications', 'notif1')))
+  })
+
+  it('caregiver CAN read a notice addressed to them (new photo)', async () => {
+    await assertSucceeds(getDoc(doc(authedDb(CAREGIVER_ACTIVE_ADMIN), 'notifications', 'notif_cg')))
+  })
+
+  it('patient CANNOT read a caregiver-addressed notice', async () => {
+    await assertFails(getDoc(doc(authedDb(PATIENT), 'notifications', 'notif_cg')))
+  })
+
+  it('caregiver can mark their own notice read', async () => {
+    await assertSucceeds(
+      updateDoc(doc(authedDb(CAREGIVER_ACTIVE_ADMIN), 'notifications', 'notif_cg'), { read: true }),
+    )
   })
 
   it('stranger cannot read a notification', async () => {

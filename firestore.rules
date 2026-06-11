@@ -216,19 +216,20 @@ service cloud.firestore {
     // ────────────────────────────────────────────────────────────────────
     // notifications/{id}
     //
-    // Elder-facing safeguard feed (§8). The trigger and the caregiver callables
-    // write a notice here whenever a caregiver does something material. Only
-    // the elder (and super-admin) may read — a caregiver must NOT see the
-    // notices about their own actions. Written exclusively by Cloud Functions
-    // (admin SDK). The elder may mark a notice read (only that field) or dismiss
-    // it.
+    // Per-recipient feed. `recipientUid` is whoever the notice is addressed to:
+    //   - elder safeguard notices (§8): recipientUid == patientUid
+    //   - caregiver new-photo notices: recipientUid == that caregiver's uid
+    // Only the recipient (and super-admin) may read it. Written exclusively by
+    // Cloud Functions (admin SDK). The recipient may mark a notice read (only
+    // that field) or dismiss it.
     // ────────────────────────────────────────────────────────────────────
     match /notifications/{id} {
-      allow read:   if isAdmin() || isOwner(resource.data.patientUid);
+      allow read:   if isAdmin()
+                    || (signedIn() && request.auth.uid == resource.data.recipientUid);
       allow create: if false;
-      allow update: if isOwner(resource.data.patientUid)
+      allow update: if signedIn() && request.auth.uid == resource.data.recipientUid
                     && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
-      allow delete: if isOwner(resource.data.patientUid);
+      allow delete: if signedIn() && request.auth.uid == resource.data.recipientUid;
     }
 
     // ────────────────────────────────────────────────────────────────────

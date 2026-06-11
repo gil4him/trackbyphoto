@@ -83,6 +83,10 @@ function buildNotification(
   message: string,
 ) {
   return {
+    // These notices are addressed to the elder (the safeguard feed). The
+    // recipient is who reads it — generalized so caregiver-facing notices
+    // (e.g. new-photo) can target a caregiverUid instead.
+    recipientUid: patientUid,
     patientUid,
     actorUid,
     type,
@@ -264,6 +268,9 @@ export const acceptInvite = onCall<AcceptInviteRequest, Promise<AcceptInviteResp
   { region: REGION, memory: '256MiB', timeoutSeconds: 30 },
   async (request) => {
     const callerUid = requireAuth(request)
+    // Real name from the verified Google token — stored on the membership so the
+    // patient sees a name (not a UID) in 보호자 관리. Can't be forged.
+    const callerName = (request.auth?.token?.name as string) || (request.auth?.token?.email as string) || ''
     const code = (request.data?.code || '').trim()
     if (!/^\d{6}$/.test(code)) {
       throw new HttpsError('invalid-argument', '6-digit code required')
@@ -315,6 +322,7 @@ export const acceptInvite = onCall<AcceptInviteRequest, Promise<AcceptInviteResp
     batch.set(membershipRef, {
       patientUid: inv.patientUid,
       caregiverUid: callerUid,
+      caregiverName: callerName,
       role: inv.role,
       status: 'active',
       invitedBy: inv.patientUid, // best signal we have without storing creator on invite separately
@@ -418,5 +426,95 @@ export const revokeMembership = onCall<RevokeMembershipRequest, Promise<RevokeMe
 
     logger.info('[caregiver] membership revoked', { patientUid, caregiverUid, callerUid })
     return { ok: true }
+  },
+)
+
+// ────────────────────────────────────────────────────────────────────────────
+// setMembershipRole
+//
+// Owner or active guardian changes a caregiver's role (admin ↔ viewer). Per
+// spec §6 an admin caregiver may NOT change roles — only the owner/guardian.
+// Routed through a callable so the membership update (rules deny client writes)
+// and the audit log happen atomically via the admin SDK.
+// ────────────────────────────────────────────────────────────────────────────
+
+interface SetMembershipRoleRequest {
+  patientUid: string
+  caregiverUid: string
+  role: InvitableRole
+}
+
+export const setMembershipRole = onCall<SetMembershipRoleRequest, Promise<{ ok: true }>>(
+  { region: REGION, memory: '256MiB', timeoutSeconds: 30 },
+  async (request) => {
+    const callerUid = requireAuth(request)
+    const { patientUid, caregiverUid, role } = request.data || ({} as SetMembershipRoleRequest)
+    if (!patientUid || !caregiverUid) {
+      throw new HttpsError('invalid-argument', 'patientUid and caregiverUid required')
+    }
+    if (!INVITABLE_ROLES.includes(role)) {
+      throw new HttpsError('invalid-argument', `role must be one of ${INVITABLE_ROLES.join(', ')}`)
+    }
+
+    const db = getFirestore()
+    // Authz: owner, or an active guardian on this patient.
+    let allowed = callerUid === patientUid
+    if (!allowed) {
+      const callerSnap = await db.collection('memberships').doc(membershipDocId(patientUid, callerUid)).get()
+      const cm = callerSnap.data() as { status?: string; role?: string } | undefined
+      allowed = cm?.status === 'active' && cm?.role === 'guardian'
+    }
+    if (!allowed) {
+      throw new HttpsError('permission-denied', 'only the owner or a guardian can change roles')
+    }
+
+    const ref = db.collection('memberships').doc(membershipDocId(patientUid, caregiverUid))
+    const snap = await ref.get()
+    if (!snap.exists) throw new HttpsError('not-found', 'membership not found')
+
+    const batch = db.batch()
+    batch.update(ref, { role })
+    batch.set(db.collection('auditLogs').doc(), {
+      patientUid,
+      actorUid: callerUid,
+      action: 'membership.role',
+      details: { caregiverUid, role },
+      timestamp: FieldValue.serverTimestamp(),
+    })
+    await batch.commit()
+
+    logger.info('[caregiver] role changed', { patientUid, caregiverUid, role, callerUid })
+    return { ok: true }
+  },
+)
+
+// ────────────────────────────────────────────────────────────────────────────
+// syncCaregiverName
+//
+// The caregiver app calls this on sign-in. It stamps the caller's verified
+// Google name onto every membership where they're the caregiver, so the patient
+// sees a real name in 보호자 관리 (and backfills memberships created before this
+// field existed). Idempotent — only writes rows whose name is stale.
+// ────────────────────────────────────────────────────────────────────────────
+
+export const syncCaregiverName = onCall<void, Promise<{ updated: number }>>(
+  { region: REGION, memory: '256MiB', timeoutSeconds: 30 },
+  async (request) => {
+    const callerUid = requireAuth(request)
+    const name = (request.auth?.token?.name as string) || (request.auth?.token?.email as string) || ''
+    if (!name) return { updated: 0 }
+
+    const db = getFirestore()
+    const snap = await db.collection('memberships').where('caregiverUid', '==', callerUid).get()
+    const batch = db.batch()
+    let updated = 0
+    snap.forEach((d) => {
+      if ((d.data() as { caregiverName?: string }).caregiverName !== name) {
+        batch.update(d.ref, { caregiverName: name })
+        updated++
+      }
+    })
+    if (updated > 0) await batch.commit()
+    return { updated }
   },
 )

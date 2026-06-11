@@ -26,8 +26,8 @@ import OpenAI from 'openai'
 
 initializeApp()
 
-// Caregiver-share callables — invite / accept / revoke. See caregiver.ts.
-export { createInvite, acceptInvite, revokeMembership } from './caregiver'
+// Caregiver-share callables — invite / accept / revoke / role / name-sync.
+export { createInvite, acceptInvite, revokeMembership, setMembershipRole, syncCaregiverName } from './caregiver'
 
 // Settings-change audit + elder notification trigger. See audit.ts.
 export { onUserSettingsChanged } from './audit'
@@ -724,6 +724,9 @@ export const onPhotoUploaded = onObjectFinalized(
     const memoRef = db.collection('memos').doc(photoId)
     const existing = await memoRef.get()
     const existingHumanEdited = existing.exists && existing.data()?.humanEdited === true
+    // Only a brand-new upload should notify caregivers — a retrigger on the
+    // same Storage path must not re-fire the notice.
+    const wasNew = !existing.exists
     if (!existingHumanEdited) {
       await memoRef.set({
         // `patientUid` (not `uid`) is the schema field per the caregiver-share
@@ -826,6 +829,37 @@ export const onPhotoUploaded = onObjectFinalized(
         if (cloudModel) update.model = cloudModel
       }
       await memoRef.update(update)
+
+      // Notify each active caregiver that a new photo is in. One notification
+      // doc per caregiver, addressed via recipientUid so it shows on their feed
+      // + app-icon badge. Best-effort — never fail the memo over a notice.
+      if (wasNew) {
+        try {
+          const cgs = await db.collection('memberships')
+            .where('patientUid', '==', uid)
+            .where('status', '==', 'active')
+            .get()
+          if (!cgs.empty) {
+            const patientName = (await db.collection('users').doc(uid).get()).data()?.patientName as string || '사용자'
+            const notifyBatch = db.batch()
+            cgs.forEach((d) => {
+              notifyBatch.set(db.collection('notifications').doc(), {
+                recipientUid: d.data().caregiverUid,
+                patientUid: uid,
+                actorUid: uid,
+                type: 'photo.new',
+                message: `${patientName}님이 새 사진을 올렸어요`,
+                memoId: photoId,
+                read: false,
+                createdAt: FieldValue.serverTimestamp(),
+              })
+            })
+            await notifyBatch.commit()
+          }
+        } catch (err) {
+          logger.warn('[notify] caregiver photo notice failed', { err: String(err) })
+        }
+      }
 
       // Roll up dashboard counters. Don't let a counter failure mark the
       // memo as 'error' — the user-visible result is fine. byCategory is

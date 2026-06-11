@@ -6,6 +6,7 @@ import { useMemberships } from '../hooks/useMemberships'
 import {
   createInvite,
   revokeMembership,
+  setMembershipRole,
   formatInviteCode,
   type InvitableRole,
 } from '../lib/caregiver'
@@ -40,14 +41,15 @@ export function Settings({ settings, onChange, user, onSignOut, activePatientUid
   // single modal swaps content based on `inviteStep`.
   const [inviteOpen, setInviteOpen] = useState(false)
   const [inviteStep, setInviteStep] = useState<'consent' | 'code'>('consent')
-  // §8 safeguard: default to the read-only role; admin must be chosen on purpose.
-  const [inviteRole, setInviteRole] = useState<InvitableRole>('viewer')
+  // The managing caregiver (the elder's child) is the common case, so default to
+  // 관리자(편집 가능); 뷰어 stays selectable in the picker for view-only relatives.
+  const [inviteRole, setInviteRole] = useState<InvitableRole>('admin')
   const [inviteBusy, setInviteBusy] = useState(false)
   const [inviteCode, setInviteCode] = useState('')
   const [inviteExpiresAt, setInviteExpiresAt] = useState('')
 
   const openInvite = () => {
-    setInviteRole('viewer')
+    setInviteRole('admin')
     setInviteStep('consent')
     setInviteCode('')
     setInviteOpen(true)
@@ -103,6 +105,16 @@ export function Settings({ settings, onChange, user, onSignOut, activePatientUid
     } catch (err) {
       console.error('[revoke] failed', err)
       toast.show('해제에 실패했어요')
+    }
+  }
+
+  const onSetRole = async (caregiverUid: string, role: InvitableRole) => {
+    try {
+      await setMembershipRole({ patientUid: activePatientUid, caregiverUid, role })
+      toast.show(role === 'admin' ? '관리자로 변경했어요' : '뷰어로 변경했어요')
+    } catch (err) {
+      console.error('[role] failed', err)
+      toast.show('역할 변경에 실패했어요')
     }
   }
 
@@ -164,25 +176,39 @@ export function Settings({ settings, onChange, user, onSignOut, activePatientUid
               <div className="who"><span>아직 등록된 보호자가 없어요.</span></div>
             </div>
           ) : caregivers.map((m) => {
-            const label = m.caregiverUid.slice(0, 6) + '…'
-            const roleLabel = m.role === 'admin' ? '관리자' : m.role === 'guardian' ? '후견인' : '뷰어'
+            const label = m.caregiverName || (m.caregiverUid.slice(0, 6) + '…')
             const statusLabel = m.status === 'invited' ? '초대됨' : m.status === 'active' ? '활성' : '해제됨'
+            const canSetRole = m.status === 'active' && m.role !== 'guardian'
             return (
-              <div className="row recipient-row" key={m.id}>
-                <div className="who">
-                  <b>{label}</b>
-                  <span> · {roleLabel} · {statusLabel}</span>
+              <div className="cg-row" key={m.id}>
+                <div className="row recipient-row">
+                  <div className="who">
+                    <b>{label}</b>
+                    <span> · {m.role === 'guardian' ? '후견인 · ' : ''}{statusLabel}</span>
+                  </div>
+                  <div className="send-row">
+                    {m.status !== 'revoked' && (
+                      <button
+                        className="send-btn send-del"
+                        onClick={() => onRevoke(m.caregiverUid, label)}
+                        aria-label="보호자 접근 해제"
+                        title="해제"
+                      >✕</button>
+                    )}
+                  </div>
                 </div>
-                <div className="send-row">
-                  {m.status !== 'revoked' && (
+                {canSetRole && (
+                  <div className="seg cg-role-seg">
                     <button
-                      className="send-btn send-del"
-                      onClick={() => onRevoke(m.caregiverUid, label)}
-                      aria-label="보호자 접근 해제"
-                      title="해제"
-                    >✕</button>
-                  )}
-                </div>
+                      className={m.role === 'admin' ? 'on' : ''}
+                      onClick={() => onSetRole(m.caregiverUid, 'admin')}
+                    >관리자 (편집 가능)</button>
+                    <button
+                      className={m.role === 'viewer' ? 'on' : ''}
+                      onClick={() => onSetRole(m.caregiverUid, 'viewer')}
+                    >뷰어 (보기만)</button>
+                  </div>
+                )}
               </div>
             )
           })}

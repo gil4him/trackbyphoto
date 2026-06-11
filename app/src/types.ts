@@ -78,6 +78,10 @@ export type MembershipStatus = 'invited' | 'active' | 'revoked'
 export interface Membership {
   patientUid: string
   caregiverUid: string
+  /** Caregiver's real (Google) name, stamped by the Cloud Functions from the
+   *  verified token so the patient sees a name, not a UID. May be absent on
+   *  rows created before this field existed (until the caregiver re-syncs). */
+  caregiverName?: string
   role: MembershipRole
   status: MembershipStatus
   invitedBy: string
@@ -121,13 +125,18 @@ export interface Consent {
  *  unread notices as a dismissible banner and marks them read. */
 export interface AppNotification {
   id: string
+  /** Whoever the notice is addressed to — the elder for safeguard notices,
+   *  a caregiver for new-photo notices. The feed subscribes on this. */
+  recipientUid: string
   patientUid: string
   actorUid: string
   /** Dot-namespaced kind: 'recipient.add' | 'recipient.remove' |
    *  'settings.update' | 'caregiver.invite' | 'caregiver.accept' |
-   *  'caregiver.revoke'. */
+   *  'caregiver.revoke' | 'photo.new'. */
   type: string
   message: string
+  /** Present on 'photo.new' — the memo the notice points at. */
+  memoId?: string
   read: boolean
   createdAt: Timestamp
 }

@@ -62,41 +62,51 @@ export function PatientSwitcher({ selfUid, selfLabel, patients, activePatientUid
   const activeLabel = isSelf
     ? selfLabel
     : names[activePatientUid] || '사용자'
-  const activeRoleLabel = isSelf ? '내 계정' : '보호자로 보기'
-
-  return (
-    <div className="patient-switcher" ref={ref}>
-      <button className="ps-pill" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
-        <span className="ps-name">{activeLabel}</span>
-        <span className="ps-sub">{activeRoleLabel}</span>
-        <span className="ps-caret" aria-hidden="true">▾</span>
+  // Switch menu (self + every patient).
+  const menu = open && (
+    <div className="ps-menu" role="menu">
+      <button
+        className={`ps-item ${isSelf ? 'on' : ''}`}
+        onClick={() => { onChange(selfUid); setOpen(false) }}
+        role="menuitem"
+      >
+        <span className="ps-item-name">{selfLabel}</span>
+        <span className="ps-item-sub">내 계정</span>
       </button>
-      {open && (
-        <div className="ps-menu" role="menu">
+      {patients.map((p) => {
+        const selected = activePatientUid === p.patientUid
+        return (
           <button
-            className={`ps-item ${isSelf ? 'on' : ''}`}
-            onClick={() => { onChange(selfUid); setOpen(false) }}
+            key={p.patientUid}
+            className={`ps-item ${selected ? 'on' : ''}`}
+            onClick={() => { onChange(p.patientUid); setOpen(false) }}
             role="menuitem"
           >
-            <span className="ps-item-name">{selfLabel}</span>
-            <span className="ps-item-sub">내 계정</span>
+            <span className="ps-item-name">{names[p.patientUid] || '사용자'}</span>
+            <span className="ps-item-sub">보호자 · {p.role === 'admin' ? '관리자' : '뷰어'}</span>
           </button>
-          {patients.map((p) => {
-            const selected = activePatientUid === p.patientUid
-            return (
-              <button
-                key={p.patientUid}
-                className={`ps-item ${selected ? 'on' : ''}`}
-                onClick={() => { onChange(p.patientUid); setOpen(false) }}
-                role="menuitem"
-              >
-                <span className="ps-item-name">{names[p.patientUid] || '사용자'}</span>
-                <span className="ps-item-sub">보호자 · {p.role === 'admin' ? '관리자' : '뷰어'}</span>
-              </button>
-            )
-          })}
-        </div>
+        )
+      })}
+    </div>
+  )
+
+  // Full-width top bar in both modes — light/coral for self, blue for caregiver
+  // — so placement is consistent and only the styling signals whose account.
+  return (
+    <div className={`acct-bar${isSelf ? '' : ' caregiver'}`} ref={ref}>
+      <button className="acct-chip" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+        {!isSelf && <span className="acct-eye" aria-hidden="true">👁</span>}
+        <span className="acct-name">{isSelf ? activeLabel : `${activeLabel}님`}</span>
+        <span className="ps-caret" aria-hidden="true">▾</span>
+      </button>
+      {isSelf ? (
+        <span className="acct-tag">내 계정</span>
+      ) : (
+        <button className="acct-return" onClick={() => { onChange(selfUid); setOpen(false) }}>
+          내 계정으로
+        </button>
       )}
+      {menu}
     </div>
   )
 }

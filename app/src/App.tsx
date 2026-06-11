@@ -5,6 +5,7 @@ import { useAuth } from './hooks/useAuth'
 import { useMemos } from './hooks/useMemos'
 import { useMemberships } from './hooks/useMemberships'
 import { useNotifications } from './hooks/useNotifications'
+import { syncCaregiverName } from './lib/caregiver'
 import { Tabs, type TabKey } from './components/Tabs'
 import { ToastProvider } from './components/Toast'
 import { PatientSwitcher } from './components/PatientSwitcher'
@@ -65,6 +66,12 @@ function App() {
     // should bounce us back to self automatically.
   }, [user, patients])
 
+  // Stamp our real name onto any memberships where we're the caregiver, so the
+  // patient sees a name (not a UID) in 보호자 관리. Backfills older rows too.
+  useEffect(() => {
+    if (user) syncCaregiverName().catch((e) => console.warn('[caregiver] name sync failed', e))
+  }, [user])
+
   // /accept and /accept-invite both jump to the accept screen. Honors a
   // ?code= query param too so the deep link can pre-fill the code field.
   useEffect(() => {
@@ -124,6 +131,17 @@ function App() {
   useEffect(() => {
     document.documentElement.style.fontSize = settings.bigText ? '17px' : '16px'
   }, [settings.bigText])
+
+  // Surface unread notifications on the "web icon": a count badge on an
+  // installed PWA's app icon (setAppBadge, no-op in plain tabs) and a count in
+  // the browser tab title so it's visible everywhere.
+  useEffect(() => {
+    const n = notifications.length
+    const nav = navigator as Navigator & { setAppBadge?: (n?: number) => Promise<void>; clearAppBadge?: () => Promise<void> }
+    if (n > 0) nav.setAppBadge?.(n).catch(() => {})
+    else nav.clearAppBadge?.().catch(() => {})
+    document.title = n > 0 ? `(${n}) 오늘하루 · TrackByPhoto` : '오늘하루 · TrackByPhoto'
+  }, [notifications.length])
 
   const isAdminRoute =
     typeof window !== 'undefined' && window.location.pathname === '/superadmin'
@@ -221,7 +239,7 @@ function App() {
 
   return (
     <ToastProvider>
-      <div className="app">
+      <div className={`app${isSelf ? '' : ' caregiver-mode'}`}>
         <main>
           {patients.length > 0 && !selectedMemo && (
             <PatientSwitcher
@@ -236,7 +254,7 @@ function App() {
             <MemoDetail memo={selectedMemo} onBack={() => setSelectedMemoId(null)} />
           ) : (
             <>
-              {tab === 'home'     && <Home uid={activePatientUid || user.uid} patientName={settings.patientName} greetingName={isSelf ? selfLabel : settings.patientName} memos={memos} onOpenAsk={openAsk} onOpen={setSelectedMemoId} canCapture={isSelf} notifications={isSelf ? notifications : []} onDismissNotification={dismissNotification} />}
+              {tab === 'home'     && <Home uid={activePatientUid || user.uid} patientName={settings.patientName} greetingName={isSelf ? selfLabel : settings.patientName} memos={memos} onOpenAsk={openAsk} onOpen={setSelectedMemoId} canCapture={isSelf} notifications={notifications} onDismissNotification={dismissNotification} />}
               {tab === 'today'    && <Today memos={memos} onOpen={setSelectedMemoId} />}
               {tab === 'ask'      && <Ask memos={memos} onOpen={setSelectedMemoId} />}
               {tab === 'settings' && (
