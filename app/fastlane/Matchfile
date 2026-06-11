@@ -2,7 +2,13 @@
 # provisioning profile (encrypted) in a private git repo, so CI can sign without
 # a Mac's keychain. You set MATCH_GIT_URL and MATCH_PASSWORD as secrets/env.
 
-git_url(ENV["MATCH_GIT_URL"])
+# Private repo that holds the encrypted iOS certificate + profile.
+git_url(ENV["MATCH_GIT_URL"] || "https://github.com/gil4him/shomery-certificates.git")
 storage_mode("git")
 type("appstore")
-app_identifier([ENV["IOS_BUNDLE_ID"]])
+app_identifier([ENV["IOS_BUNDLE_ID"] || "com.gil4him.trackbyphoto"])
+
+# macOS ships LibreSSL, which fails match's newer file encryption ("couldn't set
+# additional authenticated data"). Use the legacy algorithm so encrypt (here)
+# and decrypt (CI) stay consistent on the same OpenSSL.
+force_legacy_encryption(true)
