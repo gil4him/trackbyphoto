@@ -51,3 +51,6 @@ app/vendor/bundle/
 *.jks
 *.keystore
 app/fastlane/play-key.json
+# Generated on an EOL Ruby 2.6 locally — pins gems that break modern Ruby in CI.
+# Let each environment resolve its own (CI runs Ruby 3.2).
+app/Gemfile.lock
