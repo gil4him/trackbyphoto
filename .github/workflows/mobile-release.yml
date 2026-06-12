@@ -30,12 +30,18 @@ on:
 jobs:
   ios:
     if: endsWith(github.event.inputs.lane, 'ios')
-    runs-on: macos-14
+    runs-on: macos-15
     defaults:
       run:
         working-directory: app
     steps:
       - uses: actions/checkout@v4
+
+      # Match the modern Xcode the signing flow is proven on locally — the
+      # older default toolchain was the prime suspect in CI signing failures.
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
 
       - uses: actions/setup-node@v4
         with:

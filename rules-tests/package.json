@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "firebase emulators:exec --only firestore --project trackbyphoto-test 'vitest run'",
-    "test:watch": "firebase emulators:exec --only firestore --project trackbyphoto-test 'vitest'"
+    "test": "firebase emulators:exec --only firestore --project demo-trackbyphoto-test 'vitest run'",
+    "test:watch": "firebase emulators:exec --only firestore --project demo-trackbyphoto-test 'vitest'"
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^4.0.1",

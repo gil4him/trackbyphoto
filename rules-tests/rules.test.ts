@@ -11,7 +11,9 @@ import {
 } from 'firebase/firestore'
 import { describe, it, beforeAll, beforeEach, afterAll } from 'vitest'
 
-const PROJECT_ID = 'trackbyphoto-test'
+// demo- prefix = fully offline project, so the Firebase CLI never asks for
+// credentials (needed on logged-out CI runners). Must match package.json.
+const PROJECT_ID = 'demo-trackbyphoto-test'
 const ADMIN_EMAIL = 'zymer4him@gmail.com'
 
 // Fixtures — UIDs chosen to be obviously distinct in failure messages.

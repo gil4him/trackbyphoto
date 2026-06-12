@@ -1,0 +1,197 @@
+# CI + auto-deploy.
+#
+#   pull_request → main:  run the test suite only.
+#   push        → main:   run tests, then (if green) ship both stores:
+#                           iOS     → TestFlight        (fastlane beta_ios)
+#                           Android → Play internal     (fastlane beta_android)
+#
+# The Android job quietly skips itself until its secrets exist
+# (ANDROID_KEYSTORE_PASSWORD + PLAY_JSON_KEY_BASE64 etc.) so pushes stay green
+# while Play Console setup is pending. Manual one-off lanes (incl. the release
+# lanes) live in mobile-release.yml.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  # ── Tests: web build, functions typecheck, rules + functions emulator suites ──
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            app/package-lock.json
+            functions/package-lock.json
+            rules-tests/package-lock.json
+            functions-tests/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          npm ci --prefix app
+          npm ci --prefix functions
+          npm ci --prefix rules-tests
+          npm ci --prefix functions-tests
+
+      - name: Build web app (tsc + vite)
+        working-directory: app
+        run: npm run build
+
+      - name: Typecheck Cloud Functions
+        working-directory: functions
+        run: npm run lint
+
+      # The Firestore emulator is a Java app.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+
+      - name: Firestore security-rules tests (51)
+        working-directory: rules-tests
+        run: npm test
+
+      - name: Cloud Functions integration tests (21)
+        working-directory: functions-tests
+        run: npm test
+
+  # ── iOS → TestFlight on push to main ─────────────────────────────────────────
+  ios:
+    name: iOS → TestFlight
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: macos-15
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+
+      # The signing flow is proven on a modern Xcode locally; the older default
+      # toolchain was the prime suspect in earlier CI signing failures.
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.2"
+          bundler-cache: true
+          working-directory: app
+
+      - name: Write App Store Connect API key
+        run: echo "$ASC_KEY_P8_BASE64" | base64 --decode > fastlane/AuthKey.p8
+        env:
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+
+      - name: Build, sign, upload to TestFlight
+        run: bundle exec fastlane beta_ios
+        env:
+          CI: "true"
+          IOS_BUNDLE_ID: com.gil4him.trackbyphoto
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_PATH: ./fastlane/AuthKey.p8
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
+
+  # ── Android → Play internal on push to main ──────────────────────────────────
+  android:
+    name: Android → Play internal
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    # Secrets aren't readable in a job-level `if`, so gate each step instead:
+    # until the Android secrets are configured this job is a green no-op.
+    env:
+      HAS_ANDROID_SECRETS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD != '' && secrets.PLAY_JSON_KEY_BASE64 != '' }}
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - name: Android secrets not configured — skipping deploy
+        if: env.HAS_ANDROID_SECRETS != 'true'
+        working-directory: .
+        run: echo "::notice::Set ANDROID_KEYSTORE_* and PLAY_JSON_KEY_BASE64 repo secrets to enable Play uploads."
+
+      - uses: actions/checkout@v4
+        if: env.HAS_ANDROID_SECRETS == 'true'
+
+      - uses: actions/setup-node@v4
+        if: env.HAS_ANDROID_SECRETS == 'true'
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+        if: env.HAS_ANDROID_SECRETS == 'true'
+
+      - uses: ruby/setup-ruby@v1
+        if: env.HAS_ANDROID_SECRETS == 'true'
+        with:
+          ruby-version: "3.2"
+          bundler-cache: true
+          working-directory: app
+
+      - uses: actions/setup-java@v4
+        if: env.HAS_ANDROID_SECRETS == 'true'
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      # The android/ project isn't committed; generate it to match the
+      # installed Capacitor version. No-op if android/ is committed later.
+      - name: Ensure Android platform
+        if: env.HAS_ANDROID_SECRETS == 'true'
+        run: |
+          if [ ! -d android ]; then
+            npm install "@capacitor/android@$(node -p "require('@capacitor/core/package.json').version")"
+            npx cap add android
+          fi
+
+      - name: Write keystore + Play key
+        if: env.HAS_ANDROID_SECRETS == 'true'
+        run: |
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > fastlane/upload-keystore.jks
+          echo "$PLAY_JSON_KEY_BASE64" | base64 --decode > fastlane/play-key.json
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          PLAY_JSON_KEY_BASE64: ${{ secrets.PLAY_JSON_KEY_BASE64 }}
+
+      - name: Build signed AAB, upload to Play internal
+        if: env.HAS_ANDROID_SECRETS == 'true'
+        run: bundle exec fastlane beta_android
+        env:
+          CI: "true"
+          ANDROID_PACKAGE: com.gil4him.trackbyphoto
+          ANDROID_KEYSTORE_PATH: ./fastlane/upload-keystore.jks
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          PLAY_JSON_KEY_PATH: ./fastlane/play-key.json
