@@ -7,14 +7,14 @@ node_modules/
 .env
 .env.local
 .env.*.local
-# Firebase v2 functions env files: .env.{projectId}
-functions/.env
-functions/.env.*
+# Worker service-account keys (they belong in ~/.trackbyphoto, never here)
+*sa-key*.json
+*service-account*.json
 
 # build output
 dist/
 app/dist/
-functions/lib/
+worker/dist/
 # Local Capacitor plugin ships its built TS so the React app can import it
 # directly without forcing CI to run an extra build step.
 !app/plugins/on-device-vision/dist/

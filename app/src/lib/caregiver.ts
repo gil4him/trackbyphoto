@@ -1,29 +1,17 @@
-// Client-side wrappers for the caregiver-share Cloud Functions.
-//
-// Three callables live in functions/src/caregiver.ts:
-//   createInvite      — patient/admin issues a 6-digit code; the function
+// Client-side wrappers for the caregiver-share requests, handled by the Mac
+// mini worker (worker/src/handlers/caregiver.ts) via the requests queue:
+//   createInvite      — patient/admin issues a 6-digit code; the worker
 //                       bundles two consent docs + the invite + an audit log
 //                       into a single batched commit.
-//   acceptInvite      — caregiver enters the code; function validates and
+//   acceptInvite      — caregiver enters the code; worker validates and
 //                       atomically activates the membership.
-//   revokeMembership  — owner/admin/self revokes; function flips status and
+//   revokeMembership  — owner/admin/self revokes; worker flips status and
 //                       writes the audit log.
 //
-// The region MUST match `REGION` in the functions module ('us-west1') —
-// httpsCallable hits the wrong endpoint otherwise and the call silently 404s.
-//
-// We construct a fresh httpsCallable on every call rather than memoizing
-// because the underlying Functions instance is cheap and memoizing across
-// auth state changes can hold a stale Auth token; the SDK reads the current
-// token on each call anyway.
+// Each call rejects with WorkerError('unavailable') when the Mac mini doesn't
+// answer in time — show WORKER_OFFLINE_MESSAGE in that case.
 
-import { getFunctions, httpsCallable } from 'firebase/functions'
-
-const REGION = 'us-west1'
-
-function fns() {
-  return getFunctions(undefined, REGION)
-}
+import { callWorker } from './worker'
 
 export type InvitableRole = 'admin' | 'viewer'
 
@@ -45,9 +33,7 @@ export async function createInvite(args: {
   thirdPartyScope?: string
   consentTextVersion?: string
 }): Promise<CreateInviteResult> {
-  const fn = httpsCallable<typeof args, CreateInviteResult>(fns(), 'createInvite')
-  const res = await fn(args)
-  return res.data
+  return callWorker<CreateInviteResult>('createInvite', args)
 }
 
 export interface AcceptInviteResult {
@@ -62,36 +48,32 @@ export interface AcceptInviteResult {
  * `patientUid` so the new memos load immediately.
  */
 export async function acceptInvite(code: string): Promise<AcceptInviteResult> {
-  const fn = httpsCallable<{ code: string }, AcceptInviteResult>(fns(), 'acceptInvite')
-  const res = await fn({ code })
-  return res.data
+  return callWorker<AcceptInviteResult>('acceptInvite', { code })
 }
 
 /**
  * Flip a membership to status='revoked'. The patient or an active admin
  * caregiver can revoke any caregiver; a caregiver can self-revoke. The
- * function writes an audit log in the same batch.
+ * worker writes an audit log in the same batch.
  */
 export async function revokeMembership(args: {
   patientUid: string
   caregiverUid: string
   reason?: string
 }): Promise<void> {
-  const fn = httpsCallable<typeof args, { ok: true }>(fns(), 'revokeMembership')
-  await fn(args)
+  await callWorker<{ ok: true }>('revokeMembership', args)
 }
 
 /**
  * Change a caregiver's role (admin ↔ viewer). Owner or guardian only; the
- * function writes an audit log in the same batch.
+ * worker writes an audit log in the same batch.
  */
 export async function setMembershipRole(args: {
   patientUid: string
   caregiverUid: string
   role: InvitableRole
 }): Promise<void> {
-  const fn = httpsCallable<typeof args, { ok: true }>(fns(), 'setMembershipRole')
-  await fn(args)
+  await callWorker<{ ok: true }>('setMembershipRole', args)
 }
 
 /**
@@ -99,8 +81,7 @@ export async function setMembershipRole(args: {
  * rows so the patient sees a name, not a UID. Fire-and-forget on sign-in.
  */
 export async function syncCaregiverName(): Promise<void> {
-  const fn = httpsCallable<void, { updated: number }>(fns(), 'syncCaregiverName')
-  await fn()
+  await callWorker<{ updated: number }>('syncCaregiverName')
 }
 
 // ────────────────────────────────────────────────────────────────────────────

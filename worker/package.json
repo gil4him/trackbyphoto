@@ -1,0 +1,27 @@
+{
+  "name": "trackbyphoto-worker",
+  "private": true,
+  "type": "module",
+  "description": "Mac mini worker: replaces every Cloud Function. Listens to Firestore (memos, requests, users) and runs memo AI on the local Ollama model.",
+  "engines": {
+    "node": ">=20"
+  },
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "lint": "tsc --noEmit",
+    "start": "node dist/index.js",
+    "dev": "npm run build && node dist/index.js",
+    "probe": "npm run build && node dist/scripts/probe.js",
+    "test": "firebase emulators:exec --only firestore --project demo-trackbyphoto 'vitest run'",
+    "test:watch": "firebase emulators:exec --only firestore --project demo-trackbyphoto 'vitest'"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.10.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.6.0",
+    "vitest": "^3.0.5"
+  }
+}

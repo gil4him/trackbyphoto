@@ -1,0 +1,75 @@
+/**
+ * TrackByPhoto Mac mini worker — replaces every Cloud Function.
+ *
+ * Runs under launchd (KeepAlive) on the Mac mini with a service-account key,
+ * and talks to Firebase over outbound connections only; nothing listens on
+ * a port. Three Firestore listeners:
+ *   memos    status == 'pending'  → photo memo pipeline (local Ollama model)
+ *   requests status == 'pending'  → former HTTPS callables (invites, roles…)
+ *   users    any change           → settings-change audit + elder notices
+ *
+ * Any listener error exits the process; launchd restarts it and the initial
+ * snapshots catch up on whatever queued in between.
+ *
+ * Env:
+ *   GOOGLE_APPLICATION_CREDENTIALS  service-account key (prod)
+ *   FIREBASE_STORAGE_BUCKET         default trackbyphoto-app.firebasestorage.app
+ *   OLLAMA_BASE_URL / OLLAMA_MODEL  default http://localhost:11434 / gemma4:e4b
+ *   KAKAO_REST_KEY                  optional, Korean reverse geocoding
+ *   WORKER_STATE_DIR                default ~/.trackbyphoto/state
+ *   FIRESTORE_EMULATOR_HOST etc.    honored by firebase-admin for local runs
+ */
+
+import { homedir } from 'node:os'
+import { join } from 'node:path'
+import { initializeApp } from 'firebase-admin/app'
+import { logger } from './log.js'
+import { ollamaAvailable, resolveModel } from './llm/ollama.js'
+import { MemoScheduler, watchPendingMemos } from './handlers/memo.js'
+import { purgeStaleRequests, requeueInterruptedRequests, watchRequests } from './handlers/requests.js'
+import { SettingsCache, watchUserSettings } from './handlers/audit.js'
+
+const STORAGE_BUCKET = process.env.FIREBASE_STORAGE_BUCKET || 'trackbyphoto-app.firebasestorage.app'
+const STATE_DIR = process.env.WORKER_STATE_DIR || join(homedir(), '.trackbyphoto', 'state')
+
+async function main() {
+  initializeApp({ storageBucket: STORAGE_BUCKET })
+
+  logger.info('[worker] starting', {
+    bucket: STORAGE_BUCKET,
+    emulator: process.env.FIRESTORE_EMULATOR_HOST || null,
+    model: await resolveModel(),
+    ollama: (await ollamaAvailable()) ? 'up' : 'DOWN (memos will wait)',
+  })
+
+  await requeueInterruptedRequests()
+  await purgeStaleRequests()
+
+  const cache = new SettingsCache(join(STATE_DIR, 'users-cache.json'))
+  const scheduler = new MemoScheduler()
+  const unsubs = [
+    watchPendingMemos(scheduler),
+    watchRequests(),
+    watchUserSettings(cache),
+  ]
+  const purgeTimer = setInterval(() => {
+    purgeStaleRequests().catch((err) => logger.warn('[request] purge failed', { err: String(err) }))
+  }, 3600 * 1000)
+
+  const shutdown = (signal: string) => {
+    logger.info('[worker] shutting down', { signal })
+    clearInterval(purgeTimer)
+    scheduler.stop()
+    unsubs.forEach((u) => u())
+    cache.flush()
+    process.exit(0)
+  }
+  process.on('SIGTERM', () => shutdown('SIGTERM'))
+  process.on('SIGINT', () => shutdown('SIGINT'))
+  logger.info('[worker] listening')
+}
+
+main().catch((err) => {
+  logger.error('[worker] fatal startup error', { err: String(err), stack: (err as Error)?.stack })
+  process.exit(1)
+})

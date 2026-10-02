@@ -81,13 +81,25 @@ service cloud.firestore {
     //
     // Read: patient themselves, any active caregiver (regardless of role —
     // even viewers see memos), or admin.
-    // Create: only Cloud Functions (admin SDK bypasses rules).
+    // Create: the patient, right after uploading their photo, as a 'pending'
+    // job for the Mac mini worker (admin SDK) to fill in. The doc must point
+    // at the creator's own photo folder and carry only the placeholder shape,
+    // so a client can't pre-mark a memo ready or claim someone else's photo.
     // Update/delete: patient or admin/guardian caregiver. Plain viewers
     // cannot edit memos.
     // ────────────────────────────────────────────────────────────────────
     match /memos/{memoId} {
       allow read:   if isAdmin() || canRead(resource.data.patientUid);
-      allow create: if false;
+      allow create: if isOwner(request.resource.data.patientUid)
+                    && request.resource.data.status == 'pending'
+                    && request.resource.data.photoPath is string
+                    && request.resource.data.photoPath.matches('photos/' + request.auth.uid + '/[^/]+')
+                    && request.resource.data.createdAt == request.time
+                    && request.resource.data.keys().hasOnly([
+                         'patientUid', 'photoPath', 'photoUrl', 'takenAt', 'lat', 'lng',
+                         'place', 'activity', 'memo', 'scene', 'status', 'createdAt',
+                         'tags', 'deviceMemo', 'deviceMemoSource'
+                       ]);
       allow update, delete: if canManage(resource.data.patientUid);
     }
 
@@ -100,7 +112,7 @@ service cloud.firestore {
     match /users/{patientUid} {
       allow read:  if isAdmin() || canRead(patientUid);
       // Writers must stamp themselves as lastModifiedBy. That field is the
-      // trusted actor the onUserSettingsChanged trigger attributes the change
+      // trusted actor the worker's settings audit attributes the change
       // to — without this a caregiver could edit the elder's recipients and
       // frame it as the elder's own edit, dodging the audit log + notice.
       allow write: if (isOwner(patientUid) || canManage(patientUid))
@@ -110,18 +122,18 @@ service cloud.firestore {
     // ────────────────────────────────────────────────────────────────────
     // memberships/{membershipId}     id = patientUid + '_' + caregiverUid
     //
-    // Memberships are created and mutated ONLY by the caregiver-share Cloud
-    // Functions (createInvite / acceptInvite / revokeMembership), which run via
-    // the admin SDK and bypass these rules. Direct client create/update is
+    // Memberships are created and mutated ONLY by the Mac mini worker's
+    // caregiver-share handlers (createInvite / acceptInvite / revokeMembership),
+    // which run via the admin SDK and bypass these rules. Direct client create/update is
     // denied on purpose: an earlier draft let a caregiver flip their own row
     // invited → active by referencing *any* consent on file for the patient,
-    // which sidesteps the one-shot invite code entirely. The callable is the
-    // only sanctioned path to active access.
+    // which sidesteps the one-shot invite code entirely. The worker request is
+    // the only sanctioned path to active access.
     //
     // Read: the patient or the caregiver on the row, plus admin.
     // Delete: patient, guardian, or the caregiver themselves. Delete only ever
     // REMOVES access (never grants it), so it's a safe client-side safety valve
-    // for instant self-removal / revocation without a round-trip to a callable.
+    // for instant self-removal / revocation without a round-trip to the worker.
     // ────────────────────────────────────────────────────────────────────
     match /memberships/{membershipId} {
       allow read: if isAdmin()
@@ -143,7 +155,7 @@ service cloud.firestore {
     // 6-digit codes (or share-link tokens) the elder hands to a caregiver.
     // Create: owner or admin caregiver. Read: anyone signed in (they need to
     // be able to look up the code they typed). Update/delete: creator path
-    // only. The Cloud Function that converts an invite → membership runs as
+    // only. The worker handler that converts an invite → membership runs as
     // admin and bypasses these rules.
     // ────────────────────────────────────────────────────────────────────
     match /invites/{code} {
@@ -220,7 +232,7 @@ service cloud.firestore {
     //   - elder safeguard notices (§8): recipientUid == patientUid
     //   - caregiver new-photo notices: recipientUid == that caregiver's uid
     // Only the recipient (and super-admin) may read it. Written exclusively by
-    // Cloud Functions (admin SDK). The recipient may mark a notice read (only
+    // the Mac mini worker (admin SDK). The recipient may mark a notice read (only
     // that field) or dismiss it.
     // ────────────────────────────────────────────────────────────────────
     match /notifications/{id} {
@@ -230,6 +242,33 @@ service cloud.firestore {
       allow update: if signedIn() && request.auth.uid == resource.data.recipientUid
                     && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
       allow delete: if signedIn() && request.auth.uid == resource.data.recipientUid;
+    }
+
+    // ────────────────────────────────────────────────────────────────────
+    // requests/{id}
+    //
+    // Work queue for the Mac mini worker — the replacement for HTTPS
+    // callables. The worker trusts uid/email/name on the doc as the caller's
+    // identity, so create pins them to the verified auth token, and clients
+    // can never update the doc (the worker writes the result via admin SDK).
+    // The caller reads its own result, then deletes the doc.
+    // ────────────────────────────────────────────────────────────────────
+    match /requests/{id} {
+      allow create: if signedIn()
+                    && request.resource.data.keys().hasOnly(['type', 'uid', 'email', 'name', 'payload', 'status', 'createdAt'])
+                    && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.email == request.auth.token.get('email', null)
+                    && request.resource.data.name == request.auth.token.get('name', null)
+                    && request.resource.data.status == 'pending'
+                    && request.resource.data.createdAt == request.time
+                    && request.resource.data.payload is map
+                    // Must match HANDLERS in worker/src/handlers/requests.ts.
+                    && request.resource.data.type in [
+                         'createInvite', 'acceptInvite', 'revokeMembership', 'setMembershipRole',
+                         'syncCaregiverName', 'regenerateMemo', 'backfillMemoSchema', 'backfillPatientUid'
+                       ];
+      allow read, delete: if signedIn() && request.auth.uid == resource.data.uid;
+      allow update: if false;
     }
 
     // ────────────────────────────────────────────────────────────────────

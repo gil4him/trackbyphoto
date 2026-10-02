@@ -13,8 +13,10 @@ export interface MemoVisionTags {
 export type MemoSource =
   | 'foundation-models' // iOS 26+ Apple Intelligence on-device LLM
   | 'template'          // pre-iOS-26: Korean sentence template over Vision tags
-  | 'cloud-vision'      // Gemini 2.0 Flash Vision (web upload / older iPhone)
-  | 'cloud-stub'        // final fallback when Gemini is unreachable
+  | 'local-llm'         // Mac mini worker's local vision model (Ollama)
+  | 'local-stub'        // fallback after the local model failed repeatedly
+  | 'cloud-vision'      // legacy: Gemini/OpenAI Cloud Function (older memos)
+  | 'cloud-stub'        // legacy: Cloud Function fallback (older memos)
   | 'human'             // guardian hand-edited the activity
 
 export interface Memo {
@@ -34,9 +36,9 @@ export interface Memo {
    *  byCategory key on the admin dashboard. */
   activity: MemoCategory
   /** Warm one-sentence caption the family reads. Produced by Foundation
-   *  Models on device, by Gemini/OpenAI in the cloud, or by the stub. ≤25자. */
+   *  Models on device, by the Mac mini's local model, or by the stub. ≤25자. */
   memo: string
-  /** Two-sentence "그 순간" scene paragraph for the detail page. Cloud LLM
+  /** Two-sentence "그 순간" scene paragraph for the detail page. Local LLM
    *  + stub fill this; device tier leaves it empty (Foundation Models only
    *  writes the headline). The UI hides the section when blank. */
   scene?: string
@@ -46,10 +48,10 @@ export interface Memo {
   tags?: MemoVisionTags
   /** Which tier produced the memo — useful for the AI source badge. */
   memoSource?: MemoSource
-  /** Specific cloud model used (e.g. 'gemini-2.5-flash', 'gpt-4o-mini').
-   *  Only present on cloud-vision memos; absent on device / stub. */
+  /** Specific model used (e.g. 'gemma4:e4b'; older memos: 'gemini-2.5-flash').
+   *  Only present on local-llm / cloud-vision memos; absent on device / stub. */
   model?: string
-  /** True once a guardian has hand-edited the memo. Blocks the function
+  /** True once a guardian has hand-edited the memo. Blocks the worker
    *  from ever overwriting the text on retrigger/regenerate. */
   humanEdited?: boolean
 }
@@ -78,7 +80,7 @@ export type MembershipStatus = 'invited' | 'active' | 'revoked'
 export interface Membership {
   patientUid: string
   caregiverUid: string
-  /** Caregiver's real (Google) name, stamped by the Cloud Functions from the
+  /** Caregiver's real (Google) name, stamped by the Mac mini worker from the
    *  verified token so the patient sees a name, not a UID. May be absent on
    *  rows created before this field existed (until the caregiver re-syncs). */
   caregiverName?: string
@@ -121,7 +123,7 @@ export interface Consent {
 }
 
 /** notifications/{id} — elder-facing safeguard feed (Plan §8). Written only by
- *  Cloud Functions when a caregiver does something material; the elder reads
+ *  the Mac mini worker when a caregiver does something material; the elder reads
  *  unread notices as a dismissible banner and marks them read. */
 export interface AppNotification {
   id: string

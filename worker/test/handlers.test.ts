@@ -1,75 +1,33 @@
-// Integration tests for the caregiver-share Cloud Functions.
-//
-// Strategy: firebase-functions-test (offline) `wrap()`s each function and runs
-// its handler in-process, while the function's own admin-SDK writes hit a real
-// Firestore emulator (FIRESTORE_EMULATOR_HOST is set by `firebase emulators:exec`).
-// We then assert the resulting Firestore docs with the admin SDK.
-//
-// We import the function source directly from ../functions/src (not index.ts) so
-// we don't pull in the Gemini/OpenAI photo-pipeline deps, and we own initializeApp.
+// Integration tests for the worker's request handlers + settings audit,
+// ported from the old functions-tests suite. Handlers run in-process; their
+// admin-SDK writes hit a real Firestore emulator (FIRESTORE_EMULATOR_HOST is
+// set by `firebase emulators:exec`), then we assert the resulting docs.
 //
 // Run: npm test   (boots the Firestore emulator, then vitest)
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
-// Import admin from the FUNCTIONS' copy (not functions-tests') so it's the exact
-// same instance the function source resolves — otherwise initializeApp() here
-// registers on a different copy and the handlers see "default app does not exist".
-import admin from '../functions/node_modules/firebase-admin/lib/index.js'
-import functionsTest from 'firebase-functions-test'
-
+import { describe, it, expect, beforeEach } from 'vitest'
 import {
   createInvite,
   acceptInvite,
   revokeMembership,
   setMembershipRole,
   syncCaregiverName,
-} from '../functions/src/caregiver'
-import { onUserSettingsChanged } from '../functions/src/audit'
+} from '../src/handlers/caregiver'
+import { processSettingsChange } from '../src/handlers/audit'
+import { db, clearFirestore, seedMembership, count } from './setup'
 
-const PROJECT = 'demo-trackbyphoto'
-process.env.GCLOUD_PROJECT = PROJECT
-process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080'
+interface Auth { uid: string; token?: { name?: string; email?: string } }
 
-const testEnv = functionsTest()
-admin.initializeApp({ projectId: PROJECT })
-const db = admin.firestore()
-
-// ── helpers ──────────────────────────────────────────────────────────────────
-
-interface Auth { uid: string; token?: Record<string, unknown> }
-
-// Invoke a v2 callable as a given user.
-function call<T>(fn: T, data: unknown, auth: Auth): Promise<any> {
-  return (testEnv.wrap(fn as any) as any)({ data, auth: { uid: auth.uid, token: auth.token || {} } })
+// Invoke a handler as a given user (same shape the old callable tests used).
+function call<T extends (...a: any[]) => Promise<any>>(fn: T, data: unknown, auth: Auth): Promise<any> {
+  return fn({ uid: auth.uid, email: auth.token?.email ?? null, name: auth.token?.name ?? null }, data)
 }
 
-// Fire the users/{patientUid} write trigger with a before/after settings shape.
+// Feed a users/{patientUid} before/after pair to the settings audit.
 function fireSettings(patientUid: string, before: Record<string, unknown>, after: Record<string, unknown>) {
-  const path = `users/${patientUid}`
-  const b = testEnv.firestore.makeDocumentSnapshot(before, path)
-  const a = testEnv.firestore.makeDocumentSnapshot(after, path)
-  return (testEnv.wrap(onUserSettingsChanged as any) as any)({
-    data: testEnv.makeChange(b, a),
-    params: { patientUid },
-  })
+  return processSettingsChange(patientUid, before, after)
 }
 
-async function clearFirestore() {
-  const host = process.env.FIRESTORE_EMULATOR_HOST
-  await fetch(`http://${host}/emulator/v1/projects/${PROJECT}/databases/(default)/documents`, { method: 'DELETE' })
-}
-
-async function seedMembership(patientUid: string, caregiverUid: string, extra: Record<string, unknown> = {}) {
-  await db.doc(`memberships/${patientUid}_${caregiverUid}`).set({
-    patientUid, caregiverUid, role: 'admin', status: 'active', consentId: 'c1', ...extra,
-  })
-}
-
-const count = async (coll: string, field: string, value: string) =>
-  (await db.collection(coll).where(field, '==', value).get()).size
-
-beforeAll(async () => { await clearFirestore() })
-afterAll(() => { testEnv.cleanup() })
 beforeEach(async () => { await clearFirestore() })
 
 // ── createInvite ─────────────────────────────────────────────────────────────
@@ -95,7 +53,7 @@ describe('createInvite', () => {
   })
 
   it('rejects an unauthenticated caller', async () => {
-    await expect((testEnv.wrap(createInvite as any) as any)({ data: { patientUid: 'p1' } })).rejects.toThrow()
+    await expect(call(createInvite, { patientUid: 'p1' }, { uid: '' })).rejects.toThrow()
   })
 })
 
@@ -206,8 +164,8 @@ describe('syncCaregiverName', () => {
   })
 })
 
-// ── onUserSettingsChanged trigger ────────────────────────────────────────────
-describe('onUserSettingsChanged', () => {
+// ── settings audit (formerly onUserSettingsChanged) ────────────────────────────────────────────
+describe('settings audit', () => {
   it('caregiver adds a recipient → recipient.add audit log + notification', async () => {
     await fireSettings(
       'p1',

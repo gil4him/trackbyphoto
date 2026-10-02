@@ -7,7 +7,7 @@ import type { Memo } from '../types'
 /**
  * Square memo thumbnail used on Today / Ask / Home.
  *
- * Prefers the denormalized `photoUrl` written by the Cloud Function. When that's
+ * Prefers the denormalized `photoUrl` written by the Mac mini worker. When that's
  * missing (older docs, re-analyzed/backfilled memos), it falls back to resolving
  * a fresh download URL from `photoPath` via the Storage SDK so the photo still
  * shows instead of a bare category-gradient block. Only blanks pay the extra

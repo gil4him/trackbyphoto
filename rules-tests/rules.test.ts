@@ -158,9 +158,10 @@ beforeEach(async () => {
   })
 })
 
-function authedDb(uid: string, opts: { email?: string } = {}) {
-  const ctx = opts.email
-    ? testEnv.authenticatedContext(uid, { email: opts.email })
+function authedDb(uid: string, opts: { email?: string; name?: string } = {}) {
+  const claims = { ...(opts.email ? { email: opts.email } : {}), ...(opts.name ? { name: opts.name } : {}) }
+  const ctx = Object.keys(claims).length
+    ? testEnv.authenticatedContext(uid, claims)
     : testEnv.authenticatedContext(uid)
   return ctx.firestore()
 }
@@ -207,14 +208,98 @@ describe('memos', () => {
     )
   })
 
-  it('clients cannot create memos (only Cloud Functions can)', async () => {
+  // Pending placeholder the client writes right after uploading its photo.
+  const pendingMemo = (uid: string, extra: Record<string, unknown> = {}) => ({
+    patientUid: uid,
+    photoPath: `photos/${uid}/new_memo.jpg`, photoUrl: '',
+    takenAt: new Date(), lat: null, lng: null,
+    place: '', activity: '기타', memo: '', scene: '',
+    status: 'pending', createdAt: serverTimestamp(),
+    deviceMemo: '', deviceMemoSource: '',
+    ...extra,
+  })
+
+  it('patient can create a pending memo for their own photo', async () => {
+    await assertSucceeds(setDoc(doc(authedDb(PATIENT), 'memos', 'new_memo'), pendingMemo(PATIENT)))
+  })
+
+  it('patient cannot create a memo already marked ready', async () => {
     await assertFails(
-      setDoc(doc(authedDb(PATIENT), 'memos', 'new_memo'), {
-        patientUid: PATIENT,
-        photoPath: 'x', photoUrl: '', activity: '기타', memo: '',
-        status: 'pending', place: '', createdAt: new Date(), takenAt: new Date(),
-      }),
+      setDoc(doc(authedDb(PATIENT), 'memos', 'new_memo'), pendingMemo(PATIENT, { status: 'ready' })),
     )
+  })
+
+  it("patient cannot point a memo at someone else's photo", async () => {
+    await assertFails(
+      setDoc(doc(authedDb(PATIENT), 'memos', 'new_memo'),
+        pendingMemo(PATIENT, { photoPath: `photos/${STRANGER}/x.jpg` })),
+    )
+  })
+
+  it('patient cannot pre-set worker-only fields (humanEdited, memoSource)', async () => {
+    await assertFails(
+      setDoc(doc(authedDb(PATIENT), 'memos', 'new_memo'), pendingMemo(PATIENT, { humanEdited: true })),
+    )
+    await assertFails(
+      setDoc(doc(authedDb(PATIENT), 'memos', 'new_memo'), pendingMemo(PATIENT, { memoSource: 'local-llm' })),
+    )
+  })
+
+  it("caregiver cannot create a memo on the patient's behalf", async () => {
+    await assertFails(
+      setDoc(doc(authedDb(CAREGIVER_ACTIVE_ADMIN), 'memos', 'new_memo'), pendingMemo(PATIENT)),
+    )
+  })
+})
+
+// ────────────────────────────────────────────────────────────────────────────
+// requests/{id} — Mac mini worker queue (replaces HTTPS callables)
+// ────────────────────────────────────────────────────────────────────────────
+describe('requests', () => {
+  const EMAIL = 'alice@example.com'
+  const NAME = 'Alice'
+  const req = (extra: Record<string, unknown> = {}) => ({
+    type: 'createInvite', uid: PATIENT, email: EMAIL, name: NAME,
+    payload: { patientUid: PATIENT }, status: 'pending', createdAt: serverTimestamp(),
+    ...extra,
+  })
+  const alice = () => authedDb(PATIENT, { email: EMAIL, name: NAME })
+
+  it('user can create a request stamped with their own verified identity', async () => {
+    await assertSucceeds(setDoc(doc(alice(), 'requests', 'r1'), req()))
+  })
+
+  it('a user with no display name stamps name: null', async () => {
+    await assertSucceeds(
+      setDoc(doc(authedDb(PATIENT, { email: EMAIL }), 'requests', 'r1'), req({ name: null })),
+    )
+  })
+
+  it('cannot forge another uid', async () => {
+    await assertFails(setDoc(doc(alice(), 'requests', 'r1'), req({ uid: STRANGER })))
+  })
+
+  it('cannot forge the admin email (regenerateMemo gate)', async () => {
+    await assertFails(
+      setDoc(doc(alice(), 'requests', 'r1'), req({ type: 'regenerateMemo', email: ADMIN_EMAIL })),
+    )
+  })
+
+  it('cannot forge the display name (acceptInvite stores it)', async () => {
+    await assertFails(setDoc(doc(alice(), 'requests', 'r1'), req({ name: '김보호' })))
+  })
+
+  it('cannot submit a pre-completed request or an unknown type', async () => {
+    await assertFails(setDoc(doc(alice(), 'requests', 'r1'), req({ status: 'done', result: {} })))
+    await assertFails(setDoc(doc(alice(), 'requests', 'r1'), req({ type: 'deleteEverything' })))
+  })
+
+  it('owner can read + delete their request; nobody can update it', async () => {
+    await setDoc(doc(alice(), 'requests', 'r1'), req())
+    await assertFails(getDoc(doc(authedDb(STRANGER), 'requests', 'r1')))
+    await assertFails(updateDoc(doc(alice(), 'requests', 'r1'), { status: 'done' }))
+    await assertSucceeds(getDoc(doc(alice(), 'requests', 'r1')))
+    await assertSucceeds(deleteDoc(doc(alice(), 'requests', 'r1')))
   })
 })
 
@@ -291,11 +376,11 @@ describe('memberships', () => {
     )
   })
 
-  // Memberships are mutated ONLY by the Cloud Functions (admin SDK). Direct
+  // Memberships are mutated ONLY by the Mac mini worker (admin SDK). Direct
   // client create/update is denied — this closes the hole where a caregiver
   // could self-activate their own row by reusing any consent on file, skipping
   // the one-shot invite code.
-  it('client cannot create a membership directly (Cloud Functions only)', async () => {
+  it('client cannot create a membership directly (worker only)', async () => {
     await assertFails(
       setDoc(doc(authedDb(PATIENT), 'memberships', membershipId(PATIENT, 'new_cg')), {
         patientUid: PATIENT,
@@ -390,7 +475,7 @@ describe('consents', () => {
 // ────────────────────────────────────────────────────────────────────────────
 // invites — 6-digit codes the patient hands to a caregiver
 //
-// In production the createInvite Cloud Function writes via admin SDK and
+// In production the worker's createInvite handler writes via admin SDK and
 // bypasses these rules. The rules still need to make sense for any direct
 // client write attempt (defense-in-depth), so this block exercises them.
 // ────────────────────────────────────────────────────────────────────────────
@@ -563,7 +648,7 @@ describe('notifications', () => {
     await assertFails(getDoc(doc(authedDb(STRANGER), 'notifications', 'notif1')))
   })
 
-  it('clients cannot create notifications (only Cloud Functions can)', async () => {
+  it('clients cannot create notifications (only the worker can)', async () => {
     await assertFails(
       setDoc(doc(authedDb(PATIENT), 'notifications', 'forged'), {
         patientUid: PATIENT, actorUid: PATIENT, type: 'x', message: 'x',
