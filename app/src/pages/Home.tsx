@@ -63,7 +63,7 @@ export function Home({ uid, patientName, greetingName, memos, onOpenAsk, onOpen,
       setBusyMsg('업로드 중이에요…')
       await uploadPhoto({ uid, file, geo, takenAt, tags, memo, memoSource })
       setBusyMsg('AI가 활동을 적고 있어요…')
-      // Cloud Function trigger does the rest; useEffect above toasts on arrival.
+      // The Mac mini worker does the rest; useEffect above toasts on arrival.
       setTimeout(() => setBusy(false), 1500)
     } catch (err) {
       console.error(err)

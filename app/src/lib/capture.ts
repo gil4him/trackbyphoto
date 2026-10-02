@@ -1,5 +1,5 @@
 import { ref, uploadBytes, deleteObject } from 'firebase/storage'
-import { deleteDoc, doc } from 'firebase/firestore'
+import { deleteDoc, doc, serverTimestamp, setDoc, Timestamp } from 'firebase/firestore'
 import { Capacitor } from '@capacitor/core'
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera'
 import { Geolocation } from '@capacitor/geolocation'
@@ -61,7 +61,7 @@ export async function captureNativePhoto(): Promise<{ file: File; path: string }
 /**
  * Run Apple Vision on a captured photo. On native iOS calls the real
  * plugin. On web we return null so the upload skips the on-device tier
- * and lets the Cloud Function's Gemini Vision call generate the memo
+ * and lets the Mac mini worker's local vision model generate the memo
  * from the actual photo bytes — real AI on the deployed URL, not synthetic
  * tags.
  */
@@ -80,7 +80,7 @@ export async function analyzePhotoTags(path: string | undefined): Promise<Vision
 
 /**
  * Pick a coarse activity category from Vision tags. Mirrors the same
- * heuristic the Cloud Function uses for web uploads so both paths produce
+ * heuristic the Mac mini worker uses for web uploads so both paths produce
  * consistent UI grouping. Defaults to 기타.
  */
 function categoryFromTags(tags: VisionTags): string {
@@ -97,7 +97,7 @@ function categoryFromTags(tags: VisionTags): string {
  * Tier-2 fallback: turn Vision tags into a warm Korean sentence via templates.
  * Runs on any iPhone (iOS 17+) when Foundation Models isn't available, so
  * older devices still write a real on-device memo instead of leaving the
- * Cloud Function to guess from scratch. Deterministic per photo — same tags
+ * worker to guess from scratch. Deterministic per photo — same tags
  * pick the same sentence on retry. Phrases mirror the warm-caption tone the
  * Foundation-Models prompt asks for.
  */
@@ -121,8 +121,8 @@ function templateMemo(tags: VisionTags): string {
  * Generate the activity memo on the device. Walks down the on-device ladder:
  *   1. Apple Foundation Models (iPhone 15 Pro+ on iOS 26+) → warm LLM memo
  *   2. Korean sentence template from Vision tags → works on any iPhone
- *   3. (web / no tags / both failed) → empty string; the Cloud Function will
- *      run Gemini 2.0 Flash on the photo bytes itself.
+ *   3. (web / no tags / both failed) → empty string; the Mac mini worker
+ *      runs its local vision model on the photo bytes itself.
  * Returns the memo + which tier produced it (caller can log this).
  */
 export async function generateActivityMemo(
@@ -145,7 +145,7 @@ export async function generateActivityMemo(
     // templated sentence so the device still ships a memo, even when offline.
     return { memo: templateMemo(tags), source: 'template' }
   }
-  // Web path: no on-device memo; let the Cloud Function's Gemini Vision tier
+  // Web path: no on-device memo; let the Mac mini worker's local model
   // produce the real AI memo from the photo bytes.
   return { memo: '', source: 'none' }
 }
@@ -154,9 +154,11 @@ export async function generateActivityMemo(
 export const isNativeApp = isNative
 
 /**
- * Uploads a photo to Cloud Storage with geo + timestamp as custom metadata.
- * The Cloud Function `onPhotoUploaded` reads that metadata, runs AI + reverse
- * geocoding, and writes a Firestore memo doc which the client then sees live.
+ * Uploads a photo to Cloud Storage, then creates memos/{photoId} as a
+ * 'pending' job. The Mac mini worker picks it up, runs AI + reverse
+ * geocoding, and fills in the memo, which the client then sees live.
+ * The doc is created only after the upload finishes so the worker never
+ * looks for a photo that isn't there yet.
  */
 export async function uploadPhoto(opts: {
   uid: string
@@ -166,12 +168,12 @@ export async function uploadPhoto(opts: {
   tags?: VisionTags | null
   /**
    * Optional on-device memo sentence from Foundation Models (Layer 2). When
-   * present the Cloud Function uses this string verbatim and skips its own
-   * cloud-LLM call. Pass empty/undefined to let the function pick a memo.
+   * present the worker uses this string verbatim and skips its own
+   * local-LLM call. Pass empty/undefined to let the worker write one.
    */
   memo?: string | null
   /** Which tier produced the memo above. Persisted onto the memo doc. */
-  memoSource?: 'foundation-models' | 'template' | 'cloud-stub' | null
+  memoSource?: 'foundation-models' | 'template' | null
 }): Promise<{ path: string; photoId: string }> {
   const { uid, file, geo, takenAt, tags, memo, memoSource } = opts
   const photoId = `${takenAt.getTime()}_${Math.random().toString(36).slice(2, 8)}`
@@ -180,24 +182,37 @@ export async function uploadPhoto(opts: {
 
   await uploadBytes(ref(storage, path), file, {
     contentType: file.type || 'image/jpeg',
+    // Kept on the object for forensics; the worker reads the memo doc below.
     customMetadata: {
       uid,
       photoId,
       takenAt: takenAt.toISOString(),
       lat: geo ? String(geo.lat) : '',
       lng: geo ? String(geo.lng) : '',
-      // Vision tags ride as a JSON string in customMetadata. The Cloud
-      // Function parses this and stores it on the memo doc; the 8 KB
-      // per-key metadata limit is plenty for our trimmed tag set.
-      tags: tags ? JSON.stringify(tags) : '',
-      // On-device memo (Foundation Models). Empty string means "function,
-      // please generate one." The function never overwrites a non-empty
-      // value here.
-      memo: memo || '',
-      // Which tier wrote the memo. The function persists this on the
-      // memo doc so the detail page can render the right AI source badge.
-      memoSource: memoSource || '',
     },
+  })
+
+  // Placeholder the UI renders as "메모 작성 중…" until the worker fills it.
+  // Shape is enforced by the memos create rule in firestore.rules.
+  await setDoc(doc(db, 'memos', photoId), {
+    // `patientUid` (not `uid`) is the schema field per the caregiver-share
+    // plan. For self-managed accounts the uploader IS the patient.
+    patientUid: uid,
+    photoPath: path,
+    photoUrl: '',
+    takenAt: Timestamp.fromDate(takenAt),
+    lat: geo ? geo.lat : null,
+    lng: geo ? geo.lng : null,
+    place: '',
+    activity: '기타',
+    memo: '',
+    scene: '',
+    status: 'pending',
+    createdAt: serverTimestamp(),
+    ...(tags ? { tags } : {}),
+    // On-device memo + tier. Empty means "worker, please write one."
+    deviceMemo: memo || '',
+    deviceMemoSource: memoSource || '',
   })
 
   return { path, photoId }

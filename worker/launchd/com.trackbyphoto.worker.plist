@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Template: scripts/install.sh replaces __HOME__ and copies this to
+     ~/Library/LaunchAgents. KeepAlive restarts the worker whenever it exits
+     (it exits on purpose if a Firestore listener dies). -->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.trackbyphoto.worker</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>__HOME__/trackbyphoto-worker/scripts/run.sh</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>__HOME__/trackbyphoto-worker</string>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+    <key>StandardOutPath</key>
+    <string>__HOME__/Library/Logs/trackbyphoto-worker.log</string>
+    <key>StandardErrorPath</key>
+    <string>__HOME__/Library/Logs/trackbyphoto-worker.log</string>
+</dict>
+</plist>

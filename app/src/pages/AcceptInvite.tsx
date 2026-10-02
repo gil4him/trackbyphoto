@@ -1,5 +1,5 @@
 // Caregiver flow: enter a 6-digit invite code → confirmation screen →
-// acceptInvite callable → success → switch context to the new patient.
+// acceptInvite request → success → switch context to the new patient.
 //
 // Two screens, no extra navigation. Why no PIPA-style consent on this side?
 // The patient signs both consents at the moment they generate the code (the
@@ -21,6 +21,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useToast } from '../components/Toast'
 import { acceptInvite, normalizeInviteCode } from '../lib/caregiver'
+import { WORKER_OFFLINE_MESSAGE } from '../lib/worker'
 
 interface Props {
   onAccepted: (patientUid: string) => void
@@ -28,24 +29,26 @@ interface Props {
 }
 
 function friendlyError(err: unknown): string {
-  // Firebase callable errors have shape { code, message, details }. We map
-  // the well-known status codes to gentle Korean copy. Anything we don't
+  // Worker errors (lib/worker.ts) have shape { code, message }. We map the
+  // well-known status codes to gentle Korean copy. Anything we don't
   // recognize falls through to a generic line so we never leak a stack to
   // an elder's caregiver.
   const e = err as { code?: string; message?: string }
   switch (e.code) {
-    case 'functions/not-found':
+    case 'not-found':
       return '초대 코드를 찾을 수 없어요. 다시 확인해주세요.'
-    case 'functions/deadline-exceeded':
+    case 'deadline-exceeded':
       return '초대 코드가 만료되었어요. 새로 받아주세요.'
-    case 'functions/failed-precondition':
+    case 'failed-precondition':
       if (e.message?.includes('used')) return '이미 사용된 초대 코드예요.'
       if (e.message?.includes('own invite')) return '내가 만든 초대 코드는 사용할 수 없어요.'
       return '코드를 사용할 수 없어요. 발급자에게 새로 요청해주세요.'
-    case 'functions/already-exists':
+    case 'already-exists':
       return '이미 이 사용자의 보호자로 등록되어 있어요.'
-    case 'functions/unauthenticated':
+    case 'unauthenticated':
       return '먼저 로그인해주세요.'
+    case 'unavailable':
+      return WORKER_OFFLINE_MESSAGE
     default:
       return '초대 수락에 실패했어요. 잠시 후 다시 시도해주세요.'
   }

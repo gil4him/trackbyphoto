@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react'
 import {
   collection, doc, getDocs, limit, onSnapshot, orderBy, query, setDoc,
 } from 'firebase/firestore'
-import { getFunctions, httpsCallable } from 'firebase/functions'
 import { db } from '../firebase'
+import { callWorker } from '../lib/worker'
 import { fmtDate, fmtTime } from '../util'
 import type { Memo, MemoSource } from '../types'
 
@@ -31,18 +31,13 @@ interface BackfillMemoResult {
 /** Single source of truth for the admin email. Mirrored in firestore.rules. */
 export const ADMIN_EMAIL = 'zymer4him@gmail.com'
 
-/** Models supported by the cloud function. Must stay in sync with the
- *  PRICING table in functions/src/index.ts. The dashboard picker only lists
- *  these. Prices are USD per 1M tokens; for the per-call estimate we use
- *  ~1k input + ~150 output as a typical photo-memo shape. */
-export const MODELS: { id: string; label: string; provider: 'Gemini' | 'OpenAI'; inPerM: number; outPerM: number }[] = [
-  { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash (균형, 추천)',          provider: 'Gemini', inPerM: 0.30, outPerM: 2.50 },
-  { id: 'gemini-2.5-pro',   label: 'Gemini 2.5 Pro (최고 품질, 비쌈)',       provider: 'Gemini', inPerM: 1.25, outPerM: 10.00 },
-  { id: 'gpt-4o-mini',      label: 'GPT-4o mini (저렴)',                     provider: 'OpenAI', inPerM: 0.15, outPerM: 0.60 },
-  { id: 'gpt-4o',           label: 'GPT-4o (강력, 비쌈)',                    provider: 'OpenAI', inPerM: 2.50, outPerM: 10.00 },
-  { id: 'gpt-4.1-mini',     label: 'GPT-4.1 mini (중간)',                    provider: 'OpenAI', inPerM: 0.40, outPerM: 1.60 },
-  { id: 'gpt-4.1',          label: 'GPT-4.1 (강력)',                         provider: 'OpenAI', inPerM: 2.00, outPerM: 8.00 },
+/** Local models the Mac mini worker can run. Must stay in sync with
+ *  LOCAL_MODELS in worker/src/llm/ollama.ts (the worker ignores any other
+ *  value in admin_config/global.model). All run free on the Mac mini. */
+export const MODELS: { id: string; label: string; provider: string }[] = [
+  { id: 'gemma4:e4b', label: 'Gemma 4 E4B (Mac mini, 무료)', provider: 'Mac mini' },
 ]
+const DEFAULT_MODEL = MODELS[0].id
 
 interface ByModelEntry { calls?: number; usd?: number }
 
@@ -74,6 +69,8 @@ interface DailyDoc {
 const SOURCE_KO: Record<MemoSource | string, string> = {
   'foundation-models': 'Apple Intelligence',
   'template':          'iPhone 분석',
+  'local-llm':         '로컬 AI (Mac mini)',
+  'local-stub':        '로컬 AI 추정',
   'cloud-vision':      '클라우드 AI (Gemini)',
   'cloud-stub':        '클라우드 추정',
   'human':             '직접 작성',
@@ -95,7 +92,7 @@ export function SuperAdmin({ onSignOut }: { onSignOut: () => Promise<void> }) {
   const [recent, setRecent] = useState<Memo[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  // Live config — the function reads admin_config/global.model on every
+  // Live config — the worker reads admin_config/global.model on every
   // photo (60s cache), so writing here switches the active model within a
   // minute, no deploy required.
   const [config, setConfig] = useState<AdminConfig | null>(null)
@@ -104,7 +101,7 @@ export function SuperAdmin({ onSignOut }: { onSignOut: () => Promise<void> }) {
   // running the photo through the currently active model.
   const [regenBusy, setRegenBusy] = useState<string | null>(null)
   const [regen, setRegen] = useState<RegenResult | null>(null)
-  // One-shot migration state — see backfillPatientUid Cloud Function.
+  // One-shot migration state — see backfillPatientUid in worker/src/handlers/admin.ts.
   const [backfillBusy, setBackfillBusy] = useState(false)
   const [backfill, setBackfill] = useState<BackfillResult | null>(null)
   const [memoMigrateBusy, setMemoMigrateBusy] = useState(false)
@@ -160,13 +157,8 @@ export function SuperAdmin({ onSignOut }: { onSignOut: () => Promise<void> }) {
     setRegenBusy(memoId)
     setError(null)
     try {
-      // Function lives in us-west1 to match the storage trigger.
-      const fn = httpsCallable<{ memoId: string }, RegenResult>(
-        getFunctions(undefined, 'us-west1'),
-        'regenerateMemo',
-      )
-      const res = await fn({ memoId })
-      setRegen(res.data)
+      // Generation takes ~20-30 s on the Mac mini, longer if photos are queued.
+      setRegen(await callWorker<RegenResult>('regenerateMemo', { memoId }, { timeoutMs: 240_000 }))
     } catch (err) {
       console.error('[superadmin] regen', err)
       setError(`재분석 실패: ${(err as Error).message}`)
@@ -180,12 +172,7 @@ export function SuperAdmin({ onSignOut }: { onSignOut: () => Promise<void> }) {
     setBackfillBusy(true)
     setError(null)
     try {
-      const fn = httpsCallable<Record<string, never>, BackfillResult>(
-        getFunctions(undefined, 'us-west1'),
-        'backfillPatientUid',
-      )
-      const res = await fn({})
-      setBackfill(res.data)
+      setBackfill(await callWorker<BackfillResult>('backfillPatientUid', {}, { timeoutMs: 600_000 }))
     } catch (err) {
       console.error('[superadmin] backfill', err)
       setError(`마이그레이션 실패: ${(err as Error).message}`)
@@ -205,12 +192,7 @@ export function SuperAdmin({ onSignOut }: { onSignOut: () => Promise<void> }) {
     setMemoMigrateBusy(true)
     setError(null)
     try {
-      const fn = httpsCallable<Record<string, never>, BackfillMemoResult>(
-        getFunctions(undefined, 'us-west1'),
-        'backfillMemoSchema',
-      )
-      const res = await fn({})
-      setMemoMigrate(res.data)
+      setMemoMigrate(await callWorker<BackfillMemoResult>('backfillMemoSchema', {}, { timeoutMs: 600_000 }))
     } catch (err) {
       console.error('[superadmin] memo migrate', err)
       setError(`메모 스키마 마이그레이션 실패: ${(err as Error).message}`)
@@ -220,7 +202,7 @@ export function SuperAdmin({ onSignOut }: { onSignOut: () => Promise<void> }) {
   }
 
   const onChangeModel = async (newModel: string) => {
-    if (newModel === (config?.model || 'gemini-2.5-flash')) return
+    if (newModel === (config?.model || DEFAULT_MODEL)) return
     setSaving(true)
     try {
       // merge so we don't clobber other config keys we may add later.
@@ -332,13 +314,11 @@ export function SuperAdmin({ onSignOut }: { onSignOut: () => Promise<void> }) {
         <h2>활성 모델</h2>
         <p className="muted picker-help">
           새 사진을 분석할 모델을 고르세요. 변경 후 약 1분 안에 적용됩니다.
-          비용은 사진 한 장당 예상치이며, 실제 비용은 사진 크기에 따라 달라집니다.
+          모든 모델은 Mac mini에서 무료로 실행돼요.
         </p>
         <div className="model-grid">
           {MODELS.map((m) => {
-            const active = (config?.model || 'gemini-2.5-flash') === m.id
-            // Typical photo memo: ~1k input + ~150 output tokens
-            const perCallUSD = (1000 / 1_000_000) * m.inPerM + (150 / 1_000_000) * m.outPerM
+            const active = (config?.model || DEFAULT_MODEL) === m.id
             return (
               <button
                 key={m.id}
@@ -348,14 +328,12 @@ export function SuperAdmin({ onSignOut }: { onSignOut: () => Promise<void> }) {
                 disabled={saving}
               >
                 <div className="model-top">
-                  <span className={`model-prov ${m.provider.toLowerCase()}`}>{m.provider}</span>
+                  <span className="model-prov local">{m.provider}</span>
                   {active && <span className="model-dot">● 활성</span>}
                 </div>
                 <div className="model-id">{m.id}</div>
                 <div className="model-label">{m.label}</div>
-                <div className="model-cost">
-                  {fmtUSD(perCallUSD)} / 사진
-                </div>
+                <div className="model-cost">무료 / 사진</div>
               </button>
             )
           })}
@@ -379,7 +357,7 @@ export function SuperAdmin({ onSignOut }: { onSignOut: () => Promise<void> }) {
         </div>
 
         <div className="stat-card highlight">
-          <div className="stat-label">Gemini 누적 비용</div>
+          <div className="stat-label">AI 누적 비용</div>
           <div className="stat-value">{fmtUSD(totals?.geminiUSD)}</div>
           <div className="stat-sub">
             호출 {fmtInt(totals?.geminiCalls)}회 · in {fmtInt(totals?.geminiPromptTokens)} / out {fmtInt(totals?.geminiOutputTokens)} 토큰
@@ -406,11 +384,12 @@ export function SuperAdmin({ onSignOut }: { onSignOut: () => Promise<void> }) {
         </p>
         <div className="bar-list">
           {Object.entries(totals?.byModel || {})
-            .sort((a, b) => (b[1].usd || 0) - (a[1].usd || 0))
+            .sort((a, b) => (b[1].calls || 0) - (a[1].calls || 0))
             .map(([model, entry]) => {
-              const totalUSD = Object.values(totals?.byModel || {})
-                .reduce((s, e) => s + (e.usd || 0), 0)
-              const pct = totalUSD > 0 ? Math.round(((entry.usd || 0) / totalUSD) * 100) : 0
+              // Share of calls, not cost — local models are free.
+              const totalCalls = Object.values(totals?.byModel || {})
+                .reduce((s, e) => s + (e.calls || 0), 0)
+              const pct = totalCalls > 0 ? Math.round(((entry.calls || 0) / totalCalls) * 100) : 0
               return (
                 <div className="bar-row" key={model}>
                   <div className="bar-name">{model}</div>
@@ -422,7 +401,7 @@ export function SuperAdmin({ onSignOut }: { onSignOut: () => Promise<void> }) {
               )
             })}
           {Object.keys(totals?.byModel || {}).length === 0 && (
-            <div className="muted">아직 클라우드 모델 호출이 없어요.</div>
+            <div className="muted">아직 AI 모델 호출이 없어요.</div>
           )}
         </div>
       </section>
@@ -478,7 +457,7 @@ export function SuperAdmin({ onSignOut }: { onSignOut: () => Promise<void> }) {
             <tr>
               <th>날짜 (UTC)</th>
               <th>메모</th>
-              <th>Gemini 호출</th>
+              <th>AI 호출</th>
               <th>비용</th>
             </tr>
           </thead>

@@ -538,6 +538,7 @@ nav.tabbar .tab.on .tab-avatar { box-shadow: 0 0 0 2px var(--coral2); }
 .model-prov { padding: 2px 8px; border-radius: 999px; font-weight: 700; letter-spacing: 0.02em; }
 .model-prov.gemini { background: #E8F0FE; color: #1A3A8A; }
 .model-prov.openai { background: #E5F4EA; color: #0F5C2E; }
+.model-prov.local { background: #F3ECFB; color: #4B2A7A; }
 .model-dot { color: #c2410c; font-weight: 700; }
 .model-id { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 13px; color: var(--ink); }
 .model-label { font-size: 13px; color: var(--ink-2); }

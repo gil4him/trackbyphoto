@@ -3,6 +3,7 @@ import type { User } from 'firebase/auth'
 import type { UserSettings, Memo } from '../types'
 import { useToast } from '../components/Toast'
 import { useMemberships } from '../hooks/useMemberships'
+import { isWorkerOffline, WORKER_OFFLINE_MESSAGE } from '../lib/worker'
 import {
   createInvite,
   revokeMembership,
@@ -71,7 +72,7 @@ export function Settings({ settings, onChange, user, onSignOut, activePatientUid
       setInviteStep('code')
     } catch (err) {
       console.error('[invite] create failed', err)
-      toast.show('초대 코드 생성에 실패했어요', '잠시 후 다시 시도해주세요')
+      toast.show('초대 코드 생성에 실패했어요', isWorkerOffline(err) ? WORKER_OFFLINE_MESSAGE : '잠시 후 다시 시도해주세요')
     } finally {
       setInviteBusy(false)
     }
@@ -104,7 +105,7 @@ export function Settings({ settings, onChange, user, onSignOut, activePatientUid
       toast.show('보호자 접근을 해제했어요')
     } catch (err) {
       console.error('[revoke] failed', err)
-      toast.show('해제에 실패했어요')
+      toast.show('해제에 실패했어요', isWorkerOffline(err) ? WORKER_OFFLINE_MESSAGE : undefined)
     }
   }
 
@@ -114,7 +115,7 @@ export function Settings({ settings, onChange, user, onSignOut, activePatientUid
       toast.show(role === 'admin' ? '관리자로 변경했어요' : '뷰어로 변경했어요')
     } catch (err) {
       console.error('[role] failed', err)
-      toast.show('역할 변경에 실패했어요')
+      toast.show('역할 변경에 실패했어요', isWorkerOffline(err) ? WORKER_OFFLINE_MESSAGE : undefined)
     }
   }
 
