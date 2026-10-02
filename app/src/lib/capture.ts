@@ -14,12 +14,14 @@ const isNative = Capacitor.isNativePlatform()
 /**
  * Get GPS coordinates. Uses Capacitor's native plugin on iOS (better accuracy
  * and a real permission prompt), falls back to the browser Geolocation API in
- * the web view. Returns null on denial / unavailable.
+ * the web view. Asks for a fresh high-accuracy (GPS) fix so the place label
+ * names the actual building, not the surrounding cell-tower area. Returns
+ * null on denial / unavailable.
  */
 export async function getGeo(): Promise<Geo | null> {
   if (isNative) {
     try {
-      const pos = await Geolocation.getCurrentPosition({ enableHighAccuracy: false, timeout: 4000, maximumAge: 60000 })
+      const pos = await Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 8000, maximumAge: 15000 })
       return { lat: pos.coords.latitude, lng: pos.coords.longitude }
     } catch {
       return null
@@ -30,7 +32,7 @@ export async function getGeo(): Promise<Geo | null> {
     navigator.geolocation.getCurrentPosition(
       (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
       () => resolve(null),
-      { enableHighAccuracy: false, timeout: 4000, maximumAge: 60000 },
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 15000 },
     )
   })
 }

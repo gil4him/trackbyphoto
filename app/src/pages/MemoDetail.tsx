@@ -94,7 +94,7 @@ export function MemoDetail({ memo, onBack }: { memo: Memo; onBack: () => void })
 
       {/* Photo header — falls back to a category-tinted gradient if no
           image yet (still uploading) so the review screen never goes blank. */}
-      <div className={`detail-photo ${memo.photoUrl ? '' : grad}`}>
+      <div className={`detail-photo ${memo.photoUrl ? 'has-img' : grad}`}>
         {memo.photoUrl
           ? <img src={memo.photoUrl} alt="" />
           : <div className="detail-photo-empty">사진을 불러오는 중…</div>}
@@ -151,7 +151,10 @@ export function MemoDetail({ memo, onBack }: { memo: Memo; onBack: () => void })
       <div className="detail-section">
         <div className="d-label"><span>장소</span></div>
         <div className="d-place">
-          <span>📍 {memo.place || '위치 정보 없음'}</span>
+          <div className="d-place-main">
+            <span>📍 {memo.place || '위치 정보 없음'}</span>
+            {memo.address && <span className="d-address">{memo.address}</span>}
+          </div>
           {mapUrl && (
             <a href={mapUrl} target="_blank" rel="noreferrer" className="d-map-link">
               지도에서 보기 →

@@ -23,7 +23,7 @@ import { getFirestore, FieldValue, type DocumentData } from 'firebase-admin/fire
 import { getStorage } from 'firebase-admin/storage'
 import { logger } from '../log.js'
 import { bumpAdminCounters } from '../counters.js'
-import { reverseGeocode } from '../geocode.js'
+import { reverseGeocode, type GeoResult } from '../geocode.js'
 import {
   generateMemo,
   LlmGenerationError,
@@ -48,7 +48,7 @@ export interface PhotoInfo {
 export interface MemoDeps {
   /** Resolve the photo; null when the object doesn't exist. */
   loadPhoto: (photoPath: string) => Promise<PhotoInfo | null>
-  geocode: (lat: number | null, lng: number | null) => Promise<string>
+  geocode: (lat: number | null, lng: number | null) => Promise<GeoResult>
   generate: (args: { imageBase64: string; timeHint?: string; placeHint?: string }) => Promise<LlmResult>
 }
 
@@ -128,7 +128,7 @@ export async function processMemo(memoId: string, attempt: number, deps: MemoDep
     return 'done'
   }
 
-  const place = await deps.geocode(lat, lng)
+  const { place, address } = await deps.geocode(lat, lng)
 
   let activity: string
   let memo: string
@@ -177,11 +177,12 @@ export async function processMemo(memoId: string, attempt: number, deps: MemoDep
   }
 
   // Skip the interpretive fields when a guardian has already corrected the
-  // memo. photoUrl + place are still safe to refresh (they're factual).
+  // memo. photoUrl + place/address are still safe to refresh (they're factual).
   const firstCompletion = !data.notifiedAt
   const update: Record<string, unknown> = {
     photoUrl: photo.photoUrl,
     place,
+    address,
     status: 'ready',
     // Device hints have served their purpose; keep the memo schema clean.
     deviceMemo: FieldValue.delete(),
