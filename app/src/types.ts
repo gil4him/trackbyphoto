@@ -31,7 +31,10 @@ export interface Memo {
   takenAt: Timestamp
   lat: number | null
   lng: number | null
+  /** Short label for lists: "Tiger Sugar · 반포4동, 서초구". */
   place: string
+  /** Full street address from the phone's GPS fix, shown on the detail page. */
+  address?: string
   /** One-word activity category, surfaced as a chip in the UI and as the
    *  byCategory key on the admin dashboard. */
   activity: MemoCategory

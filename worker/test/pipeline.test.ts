@@ -15,7 +15,7 @@ function deps(overrides: Partial<MemoDeps> = {}): MemoDeps & { generateCalls: nu
   const d = {
     generateCalls: 0,
     loadPhoto: async () => ({ photoUrl: PHOTO_URL, base64: async () => 'aGk=' }),
-    geocode: async () => '서초동, 서초구',
+    geocode: async () => ({ place: '서초동, 서초구', address: '서울특별시 서초구 서초대로 1' }),
     generate: async () => {
       d.generateCalls++
       return {
@@ -59,6 +59,7 @@ describe('processMemo', () => {
     expect(m.model).toBe('gemma4:e4b')
     expect(m.photoUrl).toBe(PHOTO_URL)
     expect(m.place).toBe('서초동, 서초구')
+    expect(m.address).toBe('서울특별시 서초구 서초대로 1')
     expect(await count('notifications', 'type', 'photo.new')).toBe(1)
     const totals = (await db.doc('admin_totals/global').get()).data()!
     expect(totals.memos).toBe(1)

@@ -20,6 +20,12 @@ SRC="$(cd "$(dirname "$0")/.." && pwd)"
 
 stop_agent() {
   launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null || true
+  # bootout returns before the job is gone; bootstrapping too soon fails
+  # with "5: Input/output error". Wait (up to ~10 s) for it to unload.
+  for _ in $(seq 1 20); do
+    launchctl print "gui/$(id -u)/$LABEL" >/dev/null 2>&1 || return 0
+    sleep 0.5
+  done
 }
 
 if [ "${1:-}" = "uninstall" ]; then
