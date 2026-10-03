@@ -1,0 +1,62 @@
+# Temporary diagnostic: build the iOS app for the simulator, launch it, and
+# capture the console log and any crash report. Not meant to be merged.
+name: iOS launch smoke test
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  smoke:
+    runs-on: macos-15
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - name: Install, build web, sync iOS
+        run: |
+          npm ci
+          npm run build
+          npx cap sync ios
+      - name: Build for simulator
+        working-directory: app/ios/App
+        run: |
+          set -o pipefail
+          xcodebuild -workspace App.xcworkspace -scheme App -configuration Release \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build CODE_SIGNING_ALLOWED=NO build | tail -5
+      - name: Boot simulator, launch app, capture logs
+        working-directory: app/ios/App
+        run: |
+          UDID=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin)["devices"]; print(next(x["udid"] for k,v in d.items() if "iOS" in k for x in v if "iPhone" in x["name"]))')
+          echo "simulator $UDID"
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+          APP=$(find build/Build/Products -name 'App.app' -maxdepth 3 | head -1)
+          echo "app $APP"; ls "$APP" | grep -i -E "GoogleService|public|capacitor" || true
+          xcrun simctl install "$UDID" "$APP"
+          (xcrun simctl launch --console-pty "$UDID" com.gil4him.trackbyphoto > launch.log 2>&1 &)
+          sleep 25
+          echo "===== launch console ====="; tail -80 launch.log || true
+          echo "===== running? ====="; xcrun simctl spawn "$UDID" launchctl list | grep -i trackbyphoto || echo "NOT RUNNING"
+          echo "===== unified log (App) ====="
+          xcrun simctl spawn "$UDID" log show --last 2m --style compact --predicate 'process == "App" AND (messageType == error OR messageType == fault OR eventMessage CONTAINS[c] "exception" OR eventMessage CONTAINS[c] "terminat")' | tail -60 || true
+          echo "===== crash reports ====="
+          for f in $(ls -t ~/Library/Logs/DiagnosticReports/App* 2>/dev/null | head -2); do echo "--- $f"; head -120 "$f"; done
+          xcrun simctl io "$UDID" screenshot "$GITHUB_WORKSPACE/launch.png" || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-launch-smoke
+          path: |
+            launch.png
+            app/ios/App/launch.log
