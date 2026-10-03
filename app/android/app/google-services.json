@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "2450507790",
+    "project_id": "trackbyphoto-app",
+    "storage_bucket": "trackbyphoto-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:2450507790:android:a129e62a1482637ed6945f",
+        "android_client_info": {
+          "package_name": "com.gil4him.trackbyphoto"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "2450507790-sg6aslk50o370o1j8qdaec7a3ia2c0fp.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.gil4him.trackbyphoto",
+            "certificate_hash": "96c5bd0706a3f7ed8217fce94f7692c485ec623b"
+          }
+        },
+        {
+          "client_id": "2450507790-5as2k5plmqe0btrp6iujs77b8di33rtc.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBM10R-Yux8tY-r_AHnsFPdU5xI30nhlUY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "2450507790-5as2k5plmqe0btrp6iujs77b8di33rtc.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "2450507790-bm487tuidp02nmupo805gpc14g6bb49a.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.gil4him.trackbyphoto."
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
