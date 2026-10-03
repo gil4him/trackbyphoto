@@ -1,10 +1,10 @@
 PODS:
-  - Capacitor (8.4.0):
+  - Capacitor (8.5.2):
     - CapacitorCordova
   - CapacitorCamera (8.2.0):
     - Capacitor
     - IONCameraLib (~> 1.0.4)
-  - CapacitorCordova (8.4.0)
+  - CapacitorCordova (8.5.2)
   - CapacitorGeolocation (8.2.0):
     - Capacitor
     - IONGeolocationLib (= 2.1.0)
@@ -38,9 +38,9 @@ EXTERNAL SOURCES:
     :path: "../../plugins/on-device-vision"
 
 SPEC CHECKSUMS:
-  Capacitor: 75bd117ba037a51bb0f19ded32c67f4b3bc16600
+  Capacitor: 89067779e14fb7ea56af07b4817f45d1f0c2a269
   CapacitorCamera: 8f6acf83664118321111e76acef86390211ccb08
-  CapacitorCordova: 71d81f350e6c30bf2a846593b5c480fbd68e9bac
+  CapacitorCordova: 5bec5648cbd09a176ce34ce5e7b6cdabb2c8a327
   CapacitorGeolocation: b36f6287bfc9f2eefa04dc900496f2c8ae666136
   IONCameraLib: f2349804460bd9e3f892e42109b8d996ab3fa19d
   IONGeolocationLib: 6a7b6f76063fb1b01cfb14fae7d0f526e3c9b271

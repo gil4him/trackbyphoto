@@ -69,6 +69,38 @@ jobs:
         working-directory: worker
         run: npm test
 
+  # ── Android build check (PRs and main): unsigned debug APK, no secrets ──
+  # Catches manifest/Gradle/plugin breakage before the Play deploy is set up.
+  android-build:
+    name: Android build check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Install, build web, sync Android
+        run: |
+          npm ci
+          npm run build
+          npx cap sync android
+
+      - name: Assemble debug APK
+        working-directory: app/android
+        run: ./gradlew assembleDebug --no-daemon
+
   # ── iOS → TestFlight on push to main ─────────────────────────────────────────
   ios:
     name: iOS → TestFlight
