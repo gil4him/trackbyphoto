@@ -48,7 +48,10 @@ export async function captureNativePhoto(): Promise<{ file: File; path: string }
     source: CameraSource.Camera,
     resultType: CameraResultType.Uri,
     quality: 85,
-    saveToGallery: false,
+    // Also keep a copy in the Photos app like a normal camera shot. The first
+    // save asks for Photos "add" permission (NSPhotoLibraryAddUsageDescription);
+    // if it's declined the save is skipped and the upload still proceeds.
+    saveToGallery: true,
   })
   if (!photo.webPath) throw new Error('camera returned no path')
   const res = await fetch(photo.webPath)
