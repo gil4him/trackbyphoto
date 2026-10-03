@@ -9,8 +9,12 @@ export function SignIn({ onGoogle, onAcceptInvite }: { onGoogle: () => Promise<v
     setBusy(true)
     try {
       await onGoogle()
-    } catch {
-      toast.show('로그인에 실패했어요', '잠시 후 다시 시도해주세요')
+    } catch (err) {
+      // Show the underlying reason (Firebase code or native plugin message)
+      // so a failure on a phone can be read off the screen and reported.
+      const e = err as { code?: string; message?: string }
+      const reason = (e?.code || e?.message || String(err)).slice(0, 160)
+      toast.show('로그인에 실패했어요', reason)
       setBusy(false)
     }
     // On success, onAuthStateChanged unmounts this screen.
