@@ -29,6 +29,22 @@ function shouldUseRedirect(): boolean {
   return /iPad|iPhone|iPod|Android/i.test(navigator.userAgent)
 }
 
+// Android phones without Credential Manager support (older OS or Play
+// services) reject the default flow with "Your device doesn't support
+// credential manager"; retry with the legacy Google Sign-In screen, which
+// still returns an ID token.
+async function nativeGoogleSignIn() {
+  try {
+    return await FirebaseAuthentication.signInWithGoogle()
+  } catch (err) {
+    const message = (err as { message?: string })?.message ?? ''
+    if (Capacitor.getPlatform() === 'android' && /credential manager/i.test(message)) {
+      return FirebaseAuthentication.signInWithGoogle({ useCredentialManager: false })
+    }
+    throw err
+  }
+}
+
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null)
   const [ready, setReady] = useState(false)
@@ -54,7 +70,7 @@ export function useAuth() {
   const signInWithGoogle = async () => {
     if (isNative) {
       try {
-        const result = await FirebaseAuthentication.signInWithGoogle()
+        const result = await nativeGoogleSignIn()
         const idToken = result.credential?.idToken
         if (!idToken) throw new Error('native Google sign-in returned no ID token')
         await signInWithCredential(auth, GoogleAuthProvider.credential(idToken))
