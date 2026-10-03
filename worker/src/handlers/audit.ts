@@ -125,15 +125,15 @@ export async function processSettingsChange(
 
   if (added.length > 0) {
     log('recipient.add', { recipients: added })
-    notify('recipient.add', `보호자가 받는 사람을 추가했어요: ${added.map((r) => r.name).join(', ')}`)
+    notify('recipient.add', `가족이 받는 사람을 추가했어요: ${added.map((r) => r.name).join(', ')}`)
   }
   if (removed.length > 0) {
     log('recipient.remove', { recipients: removed })
-    notify('recipient.remove', `보호자가 받는 사람을 삭제했어요: ${removed.map((r) => r.name).join(', ')}`)
+    notify('recipient.remove', `가족이 받는 사람을 삭제했어요: ${removed.map((r) => r.name).join(', ')}`)
   }
   if (otherChanged.length > 0) {
     log('settings.update', { fields: otherChanged })
-    notify('settings.update', '보호자가 설정을 변경했어요.')
+    notify('settings.update', '가족이 설정을 변경했어요.')
   }
 
   await batch.commit()

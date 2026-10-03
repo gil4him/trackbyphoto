@@ -14,6 +14,8 @@
 // recipient *will* be bound to a specific phone, and these per-row buttons
 // stop being the primary delivery path.
 
+import { Capacitor } from '@capacitor/core'
+import { Share } from '@capacitor/share'
 import type { Memo } from '../types'
 import { fmtTime, isSameDay } from '../util'
 
@@ -201,4 +203,56 @@ export async function shareToKakao(text: string, linkUrl: string): Promise<void>
  *  button cleanly in environments where Kakao isn't wired up yet. */
 export function isKakaoConfigured(): boolean {
   return Boolean(import.meta.env.VITE_KAKAO_JS_KEY)
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// 가족초대 — invite link delivery
+// ────────────────────────────────────────────────────────────────────────────
+
+// Always the hosted web app: the native apps run on capacitor://localhost /
+// https://localhost, which mean nothing on the recipient's phone. Until
+// Universal/App Links exist, the link opens in the recipient's browser.
+const INVITE_ORIGIN = 'https://trackbyphoto.web.app'
+
+export function inviteLink(code: string): string {
+  return `${INVITE_ORIGIN}/accept?code=${code}`
+}
+
+export function buildInviteMessage(patientName: string, code: string): string {
+  const who = patientName.trim() || '가족'
+  return `[오늘하루] ${who}님이 가족으로 초대했어요.\n아래 링크를 눌러 참여해주세요 (24시간 유효)\n${inviteLink(code)}`
+}
+
+/**
+ * 카카오톡으로 초대. On the website the Kakao SDK opens KakaoTalk's friend
+ * picker directly. The native apps can't use it (Kakao only accepts
+ * registered web domains, and a WebView origin can't be registered), so they
+ * open the OS share sheet, where KakaoTalk is one tap away. Returns 'copied'
+ * when neither is available and the message went to the clipboard instead.
+ */
+export async function shareInviteToKakao(patientName: string, code: string): Promise<'shared' | 'copied'> {
+  const text = buildInviteMessage(patientName, code)
+  if (!Capacitor.isNativePlatform() && isKakaoConfigured()) {
+    try {
+      await shareToKakao(text, inviteLink(code))
+      return 'shared'
+    } catch (err) {
+      console.warn('[invite] Kakao SDK share failed, using the share sheet', err)
+    }
+  }
+  if ((await Share.canShare()).value) {
+    try {
+      await Share.share({ title: '오늘하루 가족초대', text, dialogTitle: '카카오톡으로 초대' })
+    } catch {
+      // The user closed the sheet without picking an app; nothing to do.
+    }
+    return 'shared'
+  }
+  await navigator.clipboard.writeText(text)
+  return 'copied'
+}
+
+/** 전화번호로 초대: open the SMS composer with the invite prefilled. */
+export function sendInviteSMS(phone: string, patientName: string, code: string): void {
+  openSMS(phone, buildInviteMessage(patientName, code))
 }

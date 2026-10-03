@@ -153,13 +153,15 @@ service cloud.firestore {
     // invites/{code}
     //
     // 6-digit codes (or share-link tokens) the elder hands to a caregiver.
-    // Create: owner or admin caregiver. Read: anyone signed in (they need to
-    // be able to look up the code they typed). Update/delete: creator path
+    // Create: owner or admin caregiver. Get: anyone signed in (the invitee's
+    // confirm screen looks up the code from their link). List: nobody, so
+    // live codes can't be enumerated. Update/delete: creator path
     // only. The worker handler that converts an invite → membership runs as
     // admin and bypasses these rules.
     // ────────────────────────────────────────────────────────────────────
     match /invites/{code} {
-      allow read:   if signedIn();
+      allow get:    if signedIn();
+      allow list:   if false;
       allow create: if signedIn()
                     && request.resource.data.used == false
                     && (

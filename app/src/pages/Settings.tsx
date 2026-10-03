@@ -8,9 +8,9 @@ import {
   createInvite,
   revokeMembership,
   setMembershipRole,
-  formatInviteCode,
   type InvitableRole,
 } from '../lib/caregiver'
+import { sendInviteSMS, shareInviteToKakao } from '../lib/share'
 
 interface Props {
   settings: UserSettings
@@ -22,87 +22,81 @@ interface Props {
    *  user (self path) or another patient the user is caregiving for. */
   activePatientUid: string
   /** True when activePatientUid === user.uid. Drives whether to show the
-   *  invite-management section (only the patient can invite caregivers
-   *  to their own account) and whether to show the accept-another-invite
-   *  shortcut. */
+   *  가족 관리 section (only the patient can invite family to their own
+   *  account). */
   isSelf: boolean
-  /** Called when the user taps "초대 코드로 참여하기" in caregiver mode. */
-  onOpenAcceptInvite: () => void
 }
 
-export function Settings({ settings, onChange, user, onSignOut, activePatientUid, isSelf, onOpenAcceptInvite }: Props) {
+export function Settings({ settings, onChange, user, onSignOut, activePatientUid, isSelf }: Props) {
   const toast = useToast()
 
   // ─── caregiver-share state ───────────────────────────────────────────────
   // The owner sees their list of caregivers; revoke buttons call the cloud
   // function so the audit log gets written atomically.
   const { caregivers } = useMemberships(activePatientUid)
-  // Invite modal state. Two steps: (1) consent text shown to patient,
-  // (2) generated code reveal. We don't separate them into routes — the
-  // single modal swaps content based on `inviteStep`.
+  // 가족초대 modal. Two steps in one overlay: (1) a single consent screen,
+  // (2) send the invite link by KakaoTalk or text message. The code itself is
+  // never shown — the recipient just taps the link.
   const [inviteOpen, setInviteOpen] = useState(false)
-  const [inviteStep, setInviteStep] = useState<'consent' | 'code'>('consent')
-  // The managing caregiver (the elder's child) is the common case, so default to
-  // 관리자(편집 가능); 뷰어 stays selectable in the picker for view-only relatives.
-  const [inviteRole, setInviteRole] = useState<InvitableRole>('admin')
+  const [inviteStep, setInviteStep] = useState<'confirm' | 'send'>('confirm')
   const [inviteBusy, setInviteBusy] = useState(false)
   const [inviteCode, setInviteCode] = useState('')
-  const [inviteExpiresAt, setInviteExpiresAt] = useState('')
+  const [showPhoneField, setShowPhoneField] = useState(false)
+  const [invitePhone, setInvitePhone] = useState('')
 
   const openInvite = () => {
-    setInviteRole('admin')
-    setInviteStep('consent')
+    setInviteStep('confirm')
     setInviteCode('')
+    setShowPhoneField(false)
+    setInvitePhone('')
     setInviteOpen(true)
   }
   const closeInvite = () => { setInviteOpen(false); setInviteBusy(false) }
 
-  const onGenerateCode = async () => {
+  const onCreateInvite = async () => {
     setInviteBusy(true)
     try {
       const res = await createInvite({
         patientUid: activePatientUid,
-        role: inviteRole,
+        // Family can edit by default (the common case is the elder's child);
+        // it can be lowered to 뷰어 per person in 가족 관리.
+        role: 'admin',
         sensitiveScope: '메모 텍스트와 사진',
-        thirdPartyScope: '메모 + 위치 + 사진을 보호자와 공유',
-        consentTextVersion: 'v1',
+        thirdPartyScope: '메모 + 위치 + 사진을 가족과 공유',
+        // v2: the two consents merged into one screen and 보호자 → 가족 wording.
+        consentTextVersion: 'v2',
       })
       setInviteCode(res.code)
-      setInviteExpiresAt(res.expiresAt)
-      setInviteStep('code')
+      setInviteStep('send')
     } catch (err) {
       console.error('[invite] create failed', err)
-      toast.show('초대 코드 생성에 실패했어요', isWorkerOffline(err) ? WORKER_OFFLINE_MESSAGE : '잠시 후 다시 시도해주세요')
+      toast.show('초대 만들기에 실패했어요', isWorkerOffline(err) ? WORKER_OFFLINE_MESSAGE : '잠시 후 다시 시도해주세요')
     } finally {
       setInviteBusy(false)
     }
   }
 
-  const onCopyCode = async () => {
+  const onKakaoInvite = async () => {
     try {
-      await navigator.clipboard.writeText(inviteCode)
-      toast.show('코드를 복사했어요')
-    } catch {
-      // Some browsers (older Safari over HTTP) block clipboard — we degrade
-      // silently; the code is on-screen and the user can read it aloud.
+      const result = await shareInviteToKakao(settings.patientName, inviteCode)
+      if (result === 'copied') toast.show('초대 메시지를 복사했어요', '카카오톡에 붙여넣어 보내주세요')
+    } catch (err) {
+      console.error('[invite] kakao share failed', err)
+      toast.show('카카오톡을 열 수 없어요', '전화번호로 초대해 주세요')
     }
   }
 
-  const onShareCode = async () => {
-    const text = `[오늘하루] 초대 코드: ${formatInviteCode(inviteCode)}\nhttps://trackbyphoto.web.app/accept?code=${inviteCode}`
-    if (navigator.share) {
-      try { await navigator.share({ title: '오늘하루 초대', text }) }
-      catch { /* user cancelled */ }
-    } else {
-      onCopyCode()
-    }
+  const phoneDigits = invitePhone.replace(/\D+/g, '')
+  const onSmsInvite = () => {
+    if (phoneDigits.length < 9) return
+    sendInviteSMS(invitePhone, settings.patientName, inviteCode)
   }
 
   const onRevoke = async (caregiverUid: string, caregiverLabel: string) => {
-    if (!confirm(`${caregiverLabel} 보호자의 접근을 해제할까요?`)) return
+    if (!confirm(`${caregiverLabel}님의 접근을 해제할까요?`)) return
     try {
       await revokeMembership({ patientUid: activePatientUid, caregiverUid })
-      toast.show('보호자 접근을 해제했어요')
+      toast.show('가족 접근을 해제했어요')
     } catch (err) {
       console.error('[revoke] failed', err)
       toast.show('해제에 실패했어요', isWorkerOffline(err) ? WORKER_OFFLINE_MESSAGE : undefined)
@@ -129,7 +123,7 @@ export function Settings({ settings, onChange, user, onSignOut, activePatientUid
 
   return (
     <section className="page">
-      <div className="h-eyebrow">가족 · 보호자 설정</div>
+      <div className="h-eyebrow">가족 설정</div>
       <h2 className="h-title">설정</h2>
 
       {/* Account — kept so the user can sign out / see which Google account
@@ -171,10 +165,10 @@ export function Settings({ settings, onChange, user, onSignOut, activePatientUid
           don't get to invite or revoke from the patient's perspective. */}
       {isSelf && (
         <div className="sect">
-          <div className="sect-lab">보호자 관리</div>
+          <div className="sect-lab">가족 관리</div>
           {caregivers.length === 0 ? (
             <div className="row">
-              <div className="who"><span>아직 등록된 보호자가 없어요.</span></div>
+              <div className="who"><span>아직 함께하는 가족이 없어요.</span></div>
             </div>
           ) : caregivers.map((m) => {
             const label = m.caregiverName || (m.caregiverUid.slice(0, 6) + '…')
@@ -192,7 +186,7 @@ export function Settings({ settings, onChange, user, onSignOut, activePatientUid
                       <button
                         className="send-btn send-del"
                         onClick={() => onRevoke(m.caregiverUid, label)}
-                        aria-label="보호자 접근 해제"
+                        aria-label="가족 접근 해제"
                         title="해제"
                       >✕</button>
                     )}
@@ -214,28 +208,14 @@ export function Settings({ settings, onChange, user, onSignOut, activePatientUid
             )
           })}
           <button className="linkbtn" onClick={openInvite} style={{ marginTop: 8 }}>
-            <span>보호자 초대하기</span>
+            <span>가족초대</span>
             <span aria-hidden="true">→</span>
           </button>
           <div className="help">
-            보호자에게 6자리 코드를 알려주세요. 코드는 24시간 동안만 사용할 수 있어요.
+            카카오톡이나 문자로 초대 링크를 보낼 수 있어요. 링크는 24시간 동안 유효해요.
           </div>
         </div>
       )}
-
-      {/* Even when viewing as caregiver, surface a way to join another elder
-          (e.g., a son caring for both parents). Owner sees this too — they
-          can be a caregiver on someone else's account at the same time. */}
-      <div className="sect">
-        <div className="sect-lab">다른 사용자 돌보기</div>
-        <button className="linkbtn" onClick={onOpenAcceptInvite}>
-          <span>초대 코드로 참여하기</span>
-          <span aria-hidden="true">→</span>
-        </button>
-        <div className="help">
-          다른 사용자에게 받은 6자리 초대 코드를 입력하세요.
-        </div>
-      </div>
 
       <div className="sect">
         <div className="sect-lab">전송 시점</div>
@@ -309,41 +289,21 @@ export function Settings({ settings, onChange, user, onSignOut, activePatientUid
         카카오톡 발송은 Phase 2에 추가됩니다.
       </div>
 
-      {/* Invite modal — two steps in one overlay.
-          Step 1 (consent): patient reads the two PIPA notices and selects
-          the caregiver's role. Tap "동의하고 코드 발급" triggers the cloud
-          function which writes both consents + the invite + audit log in
-          one batch.
-          Step 2 (code): patient sees the 6-digit code, can copy or share. */}
+      {/* 가족초대 modal — two steps in one overlay.
+          Step 1 (confirm): one consent screen. Tapping "동의하고 초대하기"
+          has the worker write both consents + the invite + audit log in one
+          batch.
+          Step 2 (send): KakaoTalk or text message — nothing else. */}
       {inviteOpen && (
         <div className="modal-backdrop" role="dialog" aria-modal="true">
           <div className="modal">
-            {inviteStep === 'consent' ? (
+            {inviteStep === 'confirm' ? (
               <>
-                <div className="modal-title">보호자 초대 동의</div>
+                <div className="modal-title">가족초대</div>
                 <div className="modal-body">
-                  <div className="consent-block">
-                    <b>1. 민감정보 처리 동의</b>
-                    <p>일상 메모와 사진을 앱이 저장·처리하는 것에 동의합니다.</p>
-                  </div>
-                  <div className="consent-block">
-                    <b>2. 제3자 제공 동의</b>
-                    <p>보호자(가족)에게 메모·위치·사진을 공유하는 것에 동의합니다.</p>
-                  </div>
-
-                  <div className="seg" style={{ marginTop: 12 }}>
-                    <button
-                      className={inviteRole === 'admin' ? 'on' : ''}
-                      onClick={() => setInviteRole('admin')}
-                    >관리자 (편집 가능)</button>
-                    <button
-                      className={inviteRole === 'viewer' ? 'on' : ''}
-                      onClick={() => setInviteRole('viewer')}
-                    >뷰어 (보기만)</button>
-                  </div>
-                  <div className="help" style={{ marginTop: 8 }}>
-                    관리자는 메모를 수정하거나 다른 보호자를 초대할 수 있어요.
-                    뷰어는 보기만 가능해요.
+                  <p>가족을 초대하면 내 일상 기록(메모·사진·위치)을 초대한 가족이 함께 볼 수 있어요.</p>
+                  <div className="help" style={{ marginTop: 10 }}>
+                    아래 버튼을 누르면 민감정보(메모·사진) 처리와 가족에게 제공(제3자 제공)에 동의하는 것으로 기록돼요.
                   </div>
                 </div>
                 <div className="modal-actions">
@@ -351,30 +311,51 @@ export function Settings({ settings, onChange, user, onSignOut, activePatientUid
                   <button
                     className="linkbtn"
                     disabled={inviteBusy}
-                    onClick={onGenerateCode}
+                    onClick={onCreateInvite}
                   >
-                    <span>{inviteBusy ? '생성 중…' : '동의하고 코드 발급'}</span>
+                    <span>{inviteBusy ? '만드는 중…' : '동의하고 초대하기'}</span>
                     <span aria-hidden="true">→</span>
                   </button>
                 </div>
               </>
             ) : (
               <>
-                <div className="modal-title">초대 코드</div>
+                <div className="modal-title">초대 보내기</div>
                 <div className="modal-body">
-                  <div className="invite-code-display">{formatInviteCode(inviteCode)}</div>
-                  <div className="help" style={{ textAlign: 'center' }}>
-                    이 코드를 보호자에게 알려주세요.
-                  </div>
-                  <div className="help" style={{ textAlign: 'center', marginTop: 4 }}>
-                    {inviteExpiresAt && `${new Date(inviteExpiresAt).toLocaleString('ko-KR')}까지 유효`}
-                  </div>
-                  <div className="modal-actions" style={{ marginTop: 16 }}>
-                    <button className="signin-secondary" onClick={onCopyCode}>코드 복사</button>
-                    <button className="linkbtn" onClick={onShareCode}>
-                      <span>공유하기</span>
-                      <span aria-hidden="true">→</span>
+                  <div className="invite-send">
+                    <button className="invite-btn invite-kakao" onClick={onKakaoInvite}>
+                      카카오톡으로 초대
                     </button>
+                    {showPhoneField ? (
+                      <div className="invite-phone">
+                        <label htmlFor="invite-phone">받는 사람 전화번호</label>
+                        <input
+                          id="invite-phone"
+                          type="tel"
+                          inputMode="tel"
+                          autoComplete="tel"
+                          placeholder="010-1234-5678"
+                          value={invitePhone}
+                          onChange={(e) => setInvitePhone(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === 'Enter') onSmsInvite() }}
+                          autoFocus
+                        />
+                        <button
+                          className="invite-btn invite-sms"
+                          onClick={onSmsInvite}
+                          disabled={phoneDigits.length < 9}
+                        >
+                          문자 보내기
+                        </button>
+                      </div>
+                    ) : (
+                      <button className="invite-btn invite-sms" onClick={() => setShowPhoneField(true)}>
+                        전화번호로 초대
+                      </button>
+                    )}
+                  </div>
+                  <div className="help" style={{ textAlign: 'center', marginTop: 12 }}>
+                    초대 링크는 24시간 동안 1명만 사용할 수 있어요.
                   </div>
                 </div>
                 <div className="modal-actions">

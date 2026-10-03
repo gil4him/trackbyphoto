@@ -31,6 +31,8 @@ PODS:
   - CapacitorGeolocation (8.2.0):
     - Capacitor
     - IONGeolocationLib (= 2.1.0)
+  - CapacitorShare (8.0.3):
+    - Capacitor
   - FirebaseAppCheckInterop (12.19.0)
   - FirebaseAuth (12.19.0):
     - FirebaseAppCheckInterop (~> 12.19.0)
@@ -99,6 +101,7 @@ DEPENDENCIES:
   - "CapacitorFirebaseAuthentication (from `../../node_modules/@capacitor-firebase/authentication`)"
   - "CapacitorFirebaseAuthentication/Google (from `../../node_modules/@capacitor-firebase/authentication`)"
   - "CapacitorGeolocation (from `../../node_modules/@capacitor/geolocation`)"
+  - "CapacitorShare (from `../../node_modules/@capacitor/share`)"
   - OnDeviceVision (from `../../plugins/on-device-vision`)
 
 SPEC REPOS:
@@ -132,6 +135,8 @@ EXTERNAL SOURCES:
     :path: "../../node_modules/@capacitor-firebase/authentication"
   CapacitorGeolocation:
     :path: "../../node_modules/@capacitor/geolocation"
+  CapacitorShare:
+    :path: "../../node_modules/@capacitor/share"
   OnDeviceVision:
     :path: "../../plugins/on-device-vision"
 
@@ -143,6 +148,7 @@ SPEC CHECKSUMS:
   CapacitorCordova: 5bec5648cbd09a176ce34ce5e7b6cdabb2c8a327
   CapacitorFirebaseAuthentication: 826e1dae433819492daff947f3d674d1579a6ee7
   CapacitorGeolocation: b36f6287bfc9f2eefa04dc900496f2c8ae666136
+  CapacitorShare: 5b5e53347556bee89ae6163ed20b5b3c25fe75f1
   FirebaseAppCheckInterop: bd4b791ffaed7ae719304af6369d243ddee5e4a0
   FirebaseAuth: 8c38236f67e5e3dd6aacf3e0c46b3eed31e9c820
   FirebaseAuthInterop: f1ad187a0052276ad49a990538accfdf36fc595d
@@ -160,6 +166,6 @@ SPEC CHECKSUMS:
   PromisesSwift: 217dea0fd5d2ad65222a109c48698add13cc1c5b
   RecaptchaInterop: 11e0b637842dfb48308d242afc3f448062325aba
 
-PODFILE CHECKSUM: e5871479989b102545171bf09161819dda43f375
+PODFILE CHECKSUM: eb8be0ddc36bde7078f7a008d3542b379fae168b
 
 COCOAPODS: 1.16.2
