@@ -72,12 +72,12 @@ main { padding: 18px 22px calc(110px + var(--safe-bot)); }
 }
 .capwrap { margin: auto 0; display: flex; flex-direction: column; align-items: center; gap: 18px; padding-top: 26px; width: 100%; }
 
-/* Take-photo and Ask are the same circular coral button, side by side. */
+/* Take-photo and Ask are the same soft-square coral button, side by side. */
 .capgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; width: 100%; max-width: 360px; }
 .capgrid.single { grid-template-columns: 1fr; max-width: 220px; }
 
 .capbtn, .askbtn {
-  width: 100%; aspect-ratio: 1 / 1; border: none; border-radius: 50%; cursor: pointer;
+  width: 100%; aspect-ratio: 1 / 1; border: none; border-radius: 28%; cursor: pointer;
   background: radial-gradient(120% 120% at 30% 25%, #FFB088, var(--coral1) 45%, var(--coral2));
   box-shadow: 0 20px 40px -16px rgba(255,107,107,.7), inset 0 -6px 16px rgba(180,40,40,.25);
   display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -88,7 +88,7 @@ main { padding: 18px 22px calc(110px + var(--safe-bot)); }
 }
 .capbtn:active, .askbtn:active { transform: scale(.96); }
 .capbtn::after, .askbtn::after {
-  content: ""; position: absolute; inset: -8px; border-radius: 50%;
+  content: ""; position: absolute; inset: -8px; border-radius: calc(28% + 6px);
   border: 3px solid rgba(255,138,91,.35);
   animation: pulse 2.4s ease-out infinite;
   pointer-events: none;
@@ -675,5 +675,6 @@ nav.tabbar .tab.on .tab-avatar { box-shadow: 0 0 0 2px var(--coral2); }
 .invite-code-display { font-size: 36px; font-weight: 800; letter-spacing: 0.3em; font-variant-numeric: tabular-nums; font-family: ui-monospace, SFMono-Regular, monospace; text-align: center; padding: 12px 0; color: var(--ink); }
 
 /* Secondary signin button reused on AcceptInvite + SignIn. */
+.signin-error { margin: 10px 0 0; max-width: 320px; font-size: 13px; line-height: 1.4; color: #c0392b; text-align: center; word-break: break-word; user-select: text; -webkit-user-select: text; }
 .signin-secondary { display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: 10px 16px; font: inherit; font-weight: 600; color: var(--ink-2); cursor: pointer; }
 .signin-secondary:hover { border-color: var(--coral2); color: var(--ink); }
