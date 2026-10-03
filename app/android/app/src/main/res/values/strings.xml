@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">오늘하루</string>
+    <string name="title_activity_main">오늘하루</string>
+    <string name="package_name">com.gil4him.trackbyphoto</string>
+    <string name="custom_url_scheme">com.gil4him.trackbyphoto</string>
+</resources>
