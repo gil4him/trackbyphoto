@@ -3,16 +3,17 @@ import { logger } from './log.js'
 // Reverse geocoding.
 //
 // Returns two strings:
-//   place   — short label for lists: "Tiger Sugar · 반포4동, 서초구"
+//   place   — short label for lists: "Tiger Sugar · 강남고속버스터미널, 서초구"
 //   address — full street address for the detail page:
 //             "서울특별시 서초구 신반포로 194"
 //
 // Strategy:
 //  1. If coords look Korean (lat 33–39, lng 124–132) AND a Kakao REST key is
-//     set, hit Kakao Local — best Korean building/dong names. Set the key via
-//     the worker env (KAKAO_REST_KEY=... in the launchd plist / worker/.env).
-//  2. Otherwise hit OpenStreetMap Nominatim — free, no API key, global
-//     coverage. Pulls a short, human-readable name from the address parts.
+//     set (KAKAO_REST_KEY in ~/.trackbyphoto/worker.env), Kakao Local gives
+//     the exact road address and building name. Kakao's reverse lookup has no
+//     shop names, so OpenStreetMap Nominatim runs alongside and contributes
+//     the shop/landmark name ("Tiger Sugar") when it has one.
+//  2. Otherwise Nominatim alone — free, no API key, global coverage.
 //  3. If everything fails, return empty strings so the UI shows "위치 정보 없음" rather
 //     than a fake Korean place name. (Previously a stub list of Korean
 //     locations was returned even for US coords, which is what produced the
@@ -37,6 +38,19 @@ function cleanName(name: string | undefined): string {
   return cut.length > 30 ? `${cut.slice(0, 30)}…` : cut
 }
 
+/**
+ * True when two names likely mean the same place: one contains the other, or
+ * they share a 4+ character ending ("서울고속버스터미널" / "강남고속버스터미널").
+ */
+function sameName(a: string, b: string): boolean {
+  const x = a.replace(/\s/g, ''), y = b.replace(/\s/g, '')
+  if (!x || !y) return false
+  if (x.includes(y) || y.includes(x)) return true
+  let n = 0
+  while (n < x.length && n < y.length && x[x.length - 1 - n] === y[y.length - 1 - n]) n++
+  return n >= 4
+}
+
 /** "Name · 동, 구" — drops parts that are missing or repeat the name. */
 function formatPlace(name: string, local: string | undefined, district: string | undefined): string {
   const area = [local, district].map((s) => (s || '').trim()).filter((s, i, a) => s && s !== name && a.indexOf(s) === i).join(', ')
@@ -57,7 +71,14 @@ interface KakaoCoord2AddressResponse {
   documents?: KakaoCoord2AddressDoc[]
 }
 
-async function reverseGeocodeKakao(lat: number, lng: number, apiKey: string): Promise<GeoResult> {
+interface KakaoParts {
+  building: string
+  dong: string
+  district: string
+  address: string
+}
+
+async function reverseGeocodeKakao(lat: number, lng: number, apiKey: string): Promise<KakaoParts> {
   const url = `https://dapi.kakao.com/v2/local/geo/coord2address.json?x=${lng}&y=${lat}`
   const res = await fetch(url, { headers: { Authorization: `KakaoAK ${apiKey}` } })
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
@@ -65,16 +86,15 @@ async function reverseGeocodeKakao(lat: number, lng: number, apiKey: string): Pr
   const doc = data.documents?.[0]
   if (!doc) throw new Error('no documents')
 
-  // region_2depth ("강남구", "성남시") + region_3depth ("역삼동") are what
-  // family members recognize; the building name, when Kakao has one, leads.
-  const place = formatPlace(
-    cleanName(doc.road_address?.building_name),
-    doc.address?.region_3depth_name,
-    doc.address?.region_2depth_name,
-  )
-  const address = (doc.road_address?.address_name || doc.address?.address_name || '').trim()
-  if (!place && !address) throw new Error('no usable address fields')
-  return { place: place || address, address }
+  const parts = {
+    building: cleanName(doc.road_address?.building_name),
+    // region_3depth is the 법정동 ("반포동"); region_2depth the 구/시 ("서초구").
+    dong: (doc.address?.region_3depth_name || '').trim(),
+    district: (doc.address?.region_2depth_name || '').trim(),
+    address: (doc.road_address?.address_name || doc.address?.address_name || '').trim(),
+  }
+  if (!parts.building && !parts.dong && !parts.address) throw new Error('no usable address fields')
+  return parts
 }
 
 interface NominatimResponse {
@@ -106,7 +126,12 @@ interface NominatimResponse {
   }
 }
 
-async function reverseGeocodeNominatim(lat: number, lng: number): Promise<GeoResult> {
+/** GeoResult plus the shop/landmark name on its own, for merging with Kakao. */
+interface NominatimResult extends GeoResult {
+  poi: string
+}
+
+async function reverseGeocodeNominatim(lat: number, lng: number): Promise<NominatimResult> {
   // Nominatim usage policy requires a real User-Agent identifying the app.
   // Korean-language results when available (Accept-Language: ko, en).
   const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`
@@ -122,7 +147,8 @@ async function reverseGeocodeNominatim(lat: number, lng: number): Promise<GeoRes
 
   // A named feature (cafe, park, building) leads; then the neighborhood
   // (Korea: 동 → suburb) and district (Korea: 구 → borough; US: city).
-  const name = cleanName(a.amenity || a.shop || a.leisure || a.tourism || a.office || a.building || a.park || data.name)
+  const poi = cleanName(a.amenity || a.shop || a.leisure || a.tourism || a.office || a.park)
+  const name = poi || cleanName(a.building || data.name)
   const local = a.neighbourhood || a.quarter || a.suburb || a.village
   const district = a.borough || a.city_district || a.town || a.city || a.county
   const place = formatPlace(name, local, district) || a.state || ''
@@ -139,11 +165,11 @@ async function reverseGeocodeNominatim(lat: number, lng: number): Promise<GeoRes
   if (!place && !address) {
     if (data.display_name) {
       const short = data.display_name.split(',').slice(0, 2).map((s) => s.trim()).join(', ')
-      return { place: short, address: data.display_name }
+      return { place: short, address: data.display_name, poi }
     }
     throw new Error('no usable address fields')
   }
-  return { place: place || address, address }
+  return { place: place || address, address, poi }
 }
 
 export async function reverseGeocode(lat: number | null, lng: number | null): Promise<GeoResult> {
@@ -151,15 +177,29 @@ export async function reverseGeocode(lat: number | null, lng: number | null): Pr
 
   const kakaoKey = process.env.KAKAO_REST_KEY || ''
   if (kakaoKey && isLikelyKorea(lat, lng)) {
-    try {
-      return await reverseGeocodeKakao(lat, lng, kakaoKey)
-    } catch (err) {
-      logger.warn('[reverseGeocode] Kakao failed; falling back to Nominatim', { err: String(err), lat, lng })
+    const [kakao, osm] = await Promise.allSettled([
+      reverseGeocodeKakao(lat, lng, kakaoKey),
+      reverseGeocodeNominatim(lat, lng),
+    ])
+    if (kakao.status === 'fulfilled') {
+      const k = kakao.value
+      let poi = osm.status === 'fulfilled' ? osm.value.poi : ''
+      // OSM and Kakao naming the same landmark: keep Kakao's official name.
+      if (poi && k.building && sameName(poi, k.building)) poi = ''
+      // "Tiger Sugar · 강남고속버스터미널, 서초구" when both names exist,
+      // else "강남고속버스터미널 · 반포동, 서초구", else "반포동, 서초구".
+      const place = poi
+        ? formatPlace(poi, k.building || k.dong, k.district)
+        : formatPlace(k.building, k.dong, k.district)
+      return { place: place || k.address, address: k.address }
     }
+    logger.warn('[reverseGeocode] Kakao failed; falling back to Nominatim', { err: String(kakao.reason), lat, lng })
+    if (osm.status === 'fulfilled') return { place: osm.value.place, address: osm.value.address }
   }
 
   try {
-    return await reverseGeocodeNominatim(lat, lng)
+    const { place, address } = await reverseGeocodeNominatim(lat, lng)
+    return { place, address }
   } catch (err) {
     logger.warn('[reverseGeocode] Nominatim failed; returning empty', { err: String(err), lat, lng })
     return EMPTY
