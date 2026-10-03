@@ -1,9 +1,13 @@
 import { initializeApp } from 'firebase/app'
+import { Capacitor } from '@capacitor/core'
 import {
   browserLocalPersistence,
   connectAuthEmulator,
   getAuth,
+  indexedDBLocalPersistence,
+  initializeAuth,
   setPersistence,
+  type Auth,
 } from 'firebase/auth'
 import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore'
 import { getStorage, connectStorageEmulator } from 'firebase/storage'
@@ -30,13 +34,26 @@ const cfg = {
 }
 
 export const app = initializeApp(cfg)
-export const auth = getAuth(app)
-// Persist sessions to localStorage explicitly. iOS Safari sometimes degrades
-// to in-memory persistence when the iframe cookie write fails — pinning it
-// keeps the session across the redirect round-trip.
-setPersistence(auth, browserLocalPersistence).catch((e) =>
-  console.warn('[auth] setPersistence failed', e),
-)
+
+// In the iOS/Android apps, getAuth() would wire in the popup/redirect
+// resolver, which loads a hidden iframe from authDomain. That iframe never
+// loads inside the Capacitor WebView, so auth never resolves and the app sits
+// on "준비 중이에요…" forever. Native sign-in goes through the native Google
+// sheet + signInWithCredential (see useAuth), so no resolver is needed.
+function createAuth(): Auth {
+  if (Capacitor.isNativePlatform()) {
+    return initializeAuth(app, { persistence: indexedDBLocalPersistence })
+  }
+  const a = getAuth(app)
+  // Persist sessions to localStorage explicitly. iOS Safari sometimes degrades
+  // to in-memory persistence when the iframe cookie write fails — pinning it
+  // keeps the session across the redirect round-trip.
+  setPersistence(a, browserLocalPersistence).catch((e) =>
+    console.warn('[auth] setPersistence failed', e),
+  )
+  return a
+}
+export const auth = createAuth()
 export const db = getFirestore(app)
 export const storage = getStorage(app)
 
