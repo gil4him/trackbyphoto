@@ -6,7 +6,7 @@ import { useMemos } from './hooks/useMemos'
 import { useMemberships } from './hooks/useMemberships'
 import { useNotifications } from './hooks/useNotifications'
 import { useAppUpdate } from './hooks/useAppUpdate'
-import { syncCaregiverName } from './lib/caregiver'
+import { normalizeInviteCode, syncCaregiverName } from './lib/caregiver'
 import { setFaviconBadge } from './lib/favicon'
 import { Tabs, type TabKey } from './components/Tabs'
 import { ToastProvider } from './components/Toast'
@@ -16,7 +16,7 @@ import { Today } from './pages/Today'
 import { Settings } from './pages/Settings'
 import { MemoDetail } from './pages/MemoDetail'
 import { SignIn } from './pages/SignIn'
-import { AcceptInvite } from './pages/AcceptInvite'
+import { AcceptInvite, PENDING_INVITE_KEY } from './pages/AcceptInvite'
 import { SuperAdmin, ADMIN_EMAIL } from './pages/SuperAdmin'
 import { Ask } from './components/Ask'
 import type { UserSettings } from './types'
@@ -43,8 +43,8 @@ function App() {
   // a patient they're an active caregiver on. `activePatientUid` is the
   // patientUid we're currently rendering — defaults to the signed-in user.
   const [activePatientUid, setActivePatientUid] = useState<string | null>(null)
-  // /accept-invite is its own URL so we can deep-link from a Kakao/SMS share
-  // ("초대 코드: 123456 → trackbyphoto.web.app/accept?code=123456").
+  // /accept is its own URL: the 가족초대 link sent by KakaoTalk or text message
+  // is trackbyphoto.web.app/accept?code=123456.
   const [showAcceptInvite, setShowAcceptInvite] = useState(false)
   const { memberships: { patients }, loading: _membershipsLoading } = useMembershipsWrapped(user?.uid)
   // Elder safeguard notices live on the signed-in user's own account (§8).
@@ -71,17 +71,23 @@ function App() {
   }, [user, patients])
 
   // Stamp our real name onto any memberships where we're the caregiver, so the
-  // patient sees a name (not a UID) in 보호자 관리. Backfills older rows too.
+  // patient sees a name (not a UID) in 가족 관리. Backfills older rows too.
   useEffect(() => {
     if (user) syncCaregiverName().catch((e) => console.warn('[caregiver] name sync failed', e))
   }, [user])
 
-  // /accept and /accept-invite both jump to the accept screen. Honors a
-  // ?code= query param too so the deep link can pre-fill the code field.
+  // /accept and /accept-invite both jump to the accept screen. The code is
+  // also stashed so it survives sign-in even if the query string doesn't;
+  // AcceptInvite clears it once the invite is accepted or dismissed.
   useEffect(() => {
     if (typeof window === 'undefined') return
     const path = window.location.pathname
-    if (path === '/accept' || path === '/accept-invite') setShowAcceptInvite(true)
+    if (path !== '/accept' && path !== '/accept-invite') return
+    setShowAcceptInvite(true)
+    const code = normalizeInviteCode(new URLSearchParams(window.location.search).get('code') || '')
+    if (code.length === 6) {
+      try { localStorage.setItem(PENDING_INVITE_KEY, code) } catch { /* storage blocked */ }
+    }
   }, [])
 
   // If the selected memo disappears from the live snapshot (e.g. delete from
@@ -162,17 +168,16 @@ function App() {
   }
 
   if (!user) {
-    // Unauthenticated caregivers landing on /accept-invite still need to sign
-    // in first (the acceptInvite callable requires auth). The
-    // showAcceptInvite flag persists across the redirect round-trip so they
-    // land on the accept screen as soon as they're signed in.
+    // Family members arriving from an invite link still need to sign in first
+    // (acceptInvite requires auth). The redirect returns to the same /accept
+    // URL, so they land on the confirm screen as soon as they're signed in.
     return (
       <ToastProvider>
         <div className="app">
           <main>
             <SignIn
               onGoogle={signInWithGoogle}
-              onAcceptInvite={() => setShowAcceptInvite(true)}
+              invited={showAcceptInvite}
             />
           </main>
         </div>
@@ -276,7 +281,6 @@ function App() {
                   memos={memos}
                   activePatientUid={activePatientUid || user.uid}
                   isSelf={isSelf}
-                  onOpenAcceptInvite={() => setShowAcceptInvite(true)}
                 />
               )}
             </>

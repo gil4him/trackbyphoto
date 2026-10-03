@@ -77,7 +77,7 @@ export function Home({ uid, patientName, greetingName, memos, onOpenAsk, onOpen,
   return (
     <section className="page home" aria-label={`${patientName}님의 홈`}>
       {notifications.length > 0 && (
-        <div className="notice-stack" role="status" aria-label="보호자 활동 알림">
+        <div className="notice-stack" role="status" aria-label="가족 활동 알림">
           {notifications.map((n) => (
             <div key={n.id} className="notice">
               <span className="notice-msg">{n.message}</span>

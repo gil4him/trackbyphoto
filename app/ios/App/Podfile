@@ -14,6 +14,7 @@ def capacitor_pods
   pod 'CapacitorFirebaseAuthentication', :path => '../../node_modules/@capacitor-firebase/authentication'
   pod 'CapacitorCamera', :path => '../../node_modules/@capacitor/camera'
   pod 'CapacitorGeolocation', :path => '../../node_modules/@capacitor/geolocation'
+  pod 'CapacitorShare', :path => '../../node_modules/@capacitor/share'
   pod 'OnDeviceVision', :path => '../../plugins/on-device-vision'
 end
 

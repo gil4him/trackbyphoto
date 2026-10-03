@@ -172,7 +172,7 @@ export async function createInvite(caller: Caller, data: CreateInviteRequest): P
   const now = Date.now()
   const expiresAt = Timestamp.fromMillis(now + INVITE_TTL_HOURS * 3600 * 1000)
   const sensitiveScope = data.sensitiveScope || '메모 텍스트와 사진'
-  const thirdPartyScope = data.thirdPartyScope || '메모 + 위치 + 사진을 보호자와 공유'
+  const thirdPartyScope = data.thirdPartyScope || '메모 + 위치 + 사진을 가족과 공유'
   const consentTextVersion = data.consentTextVersion || 'v1'
 
   // Find an unused 6-digit code. Two retries — 6-digit space (10^6) makes
@@ -184,6 +184,13 @@ export async function createInvite(caller: Caller, data: CreateInviteRequest): P
     if (!existing.exists) { code = candidate; break }
   }
   if (!code) throw new HttpsError('internal', 'could not allocate a unique invite code; try again')
+
+  // The invitee's confirm screen reads the invite by its code and shows
+  // "OOO님의 기록에 참여할까요?" — use the elder's display name (the same name
+  // family notices use), falling back to the caller's Google name.
+  const userSnap = await db.collection('users').doc(patientUid).get()
+  const storedName = (userSnap.data() as { patientName?: unknown } | undefined)?.patientName
+  const patientName = (typeof storedName === 'string' && storedName.trim()) || caller.name || ''
 
   const sensitiveRef = db.collection('consents').doc()
   const thirdPartyRef = db.collection('consents').doc()
@@ -203,6 +210,7 @@ export async function createInvite(caller: Caller, data: CreateInviteRequest): P
   batch.set(thirdPartyRef, { ...consentBase, type: 'third_party_share', scope: thirdPartyScope })
   batch.set(inviteRef, {
     patientUid,
+    patientName,
     role,
     createdBy: callerUid,
     sensitiveConsentId: sensitiveRef.id,
@@ -224,7 +232,7 @@ export async function createInvite(caller: Caller, data: CreateInviteRequest): P
   if (callerUid !== patientUid) {
     batch.set(
       db.collection('notifications').doc(),
-      buildNotification(patientUid, callerUid, 'caregiver.invite', '보호자가 새 보호자 초대를 만들었어요.'),
+      buildNotification(patientUid, callerUid, 'caregiver.invite', '가족이 새 가족초대를 만들었어요.'),
     )
   }
   await batch.commit()
@@ -335,7 +343,7 @@ export async function acceptInvite(caller: Caller, data: AcceptInviteRequest): P
   // The elder always learns when a new caregiver gains access.
   batch.set(
     db.collection('notifications').doc(),
-    buildNotification(inv.patientUid, callerUid, 'caregiver.accept', '새 보호자가 계정에 연결되었어요.'),
+    buildNotification(inv.patientUid, callerUid, 'caregiver.accept', '새 가족이 기록에 연결되었어요.'),
   )
   await batch.commit()
 
@@ -410,7 +418,7 @@ export async function revokeMembership(caller: Caller, data: RevokeMembershipReq
   if (callerUid !== patientUid) {
     batch.set(
       db.collection('notifications').doc(),
-      buildNotification(patientUid, callerUid, 'caregiver.revoke', '보호자 접근이 변경되었어요.'),
+      buildNotification(patientUid, callerUid, 'caregiver.revoke', '가족 접근이 변경되었어요.'),
     )
   }
   await batch.commit()
