@@ -44,14 +44,17 @@ jobs:
           APP=$(find build/Build/Products -name 'App.app' -maxdepth 3 | head -1)
           echo "app $APP"; ls "$APP" | grep -i -E "GoogleService|public|capacitor" || true
           xcrun simctl install "$UDID" "$APP"
-          (xcrun simctl launch --console-pty "$UDID" com.gil4him.trackbyphoto > launch.log 2>&1 &)
-          sleep 25
-          echo "===== launch console ====="; tail -80 launch.log || true
-          echo "===== running? ====="; xcrun simctl spawn "$UDID" launchctl list | grep -i trackbyphoto || echo "NOT RUNNING"
-          echo "===== unified log (App) ====="
-          xcrun simctl spawn "$UDID" log show --last 2m --style compact --predicate 'process == "App" AND (messageType == error OR messageType == fault OR eventMessage CONTAINS[c] "exception" OR eventMessage CONTAINS[c] "terminat")' | tail -60 || true
-          echo "===== crash reports ====="
-          for f in $(ls -t ~/Library/Logs/DiagnosticReports/App* 2>/dev/null | head -2); do echo "--- $f"; head -120 "$f"; done
+          echo "===== launch ====="
+          xcrun simctl launch "$UDID" com.gil4him.trackbyphoto || echo "launch command failed: $?"
+          sleep 15
+          echo "===== running? ====="; xcrun simctl spawn "$UDID" launchctl list | grep -i -E "trackbyphoto|UIKitApplication" || echo "NOT RUNNING"
+          echo "===== log mentioning the app ====="
+          xcrun simctl spawn "$UDID" log show --last 1m --style compact --predicate 'process == "App" OR eventMessage CONTAINS[c] "trackbyphoto"' | grep -v -E "^Timestamp" | tail -150 || true
+          echo "===== diagnostic reports ====="
+          ls -lt ~/Library/Logs/DiagnosticReports 2>/dev/null | head -10
+          for f in $(ls -t ~/Library/Logs/DiagnosticReports/*.ips 2>/dev/null | head -3); do
+            if grep -q -E '"(procName|app_name|name)" *: *"App"|trackbyphoto' "$f"; then echo "--- $f"; head -c 12000 "$f"; echo; fi
+          done
           xcrun simctl io "$UDID" screenshot "$GITHUB_WORKSPACE/launch.png" || true
       - uses: actions/upload-artifact@v4
         if: always()
