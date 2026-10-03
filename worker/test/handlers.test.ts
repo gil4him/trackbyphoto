@@ -43,6 +43,17 @@ describe('createInvite', () => {
     expect(await count('auditLogs', 'action', 'invite.create')).toBe(1)
   })
 
+  it("stores the elder's display name for the invitee's confirm screen", async () => {
+    await db.doc('users/p1').set({ patientName: '엄마' })
+    const res = await call(createInvite, { patientUid: 'p1', role: 'admin' }, { uid: 'p1', token: { name: '환자' } })
+    expect((await db.doc(`invites/${res.code}`).get()).data()!.patientName).toBe('엄마')
+  })
+
+  it('falls back to the Google name when no display name is set', async () => {
+    const res = await call(createInvite, { patientUid: 'p1', role: 'admin' }, { uid: 'p1', token: { name: '환자' } })
+    expect((await db.doc(`invites/${res.code}`).get()).data()!.patientName).toBe('환자')
+  })
+
   it('defaults a missing role to viewer (§8 least privilege)', async () => {
     const res = await call(createInvite, { patientUid: 'p1' }, { uid: 'p1' })
     expect((await db.doc(`invites/${res.code}`).get()).data()!.role).toBe('viewer')

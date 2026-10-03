@@ -674,6 +674,17 @@ nav.tabbar .tab.on .tab-avatar { box-shadow: 0 0 0 2px var(--coral2); }
 
 .invite-code-display { font-size: 36px; font-weight: 800; letter-spacing: 0.3em; font-variant-numeric: tabular-nums; font-family: ui-monospace, SFMono-Regular, monospace; text-align: center; padding: 12px 0; color: var(--ink); }
 
+/* 가족초대 send step: two large, unmistakable choices. */
+.invite-send { display: flex; flex-direction: column; gap: 12px; }
+.invite-btn { width: 100%; min-height: 56px; border: none; border-radius: 14px; font: inherit; font-size: 17px; font-weight: 700; cursor: pointer; }
+.invite-btn:disabled { opacity: .45; cursor: default; }
+.invite-kakao { background: #FEE500; color: #191919; }
+.invite-sms { background: var(--coral1); color: #fff; }
+.invite-phone { display: flex; flex-direction: column; gap: 8px; }
+.invite-phone label { font-size: 14px; font-weight: 600; color: var(--ink-2); }
+.invite-phone input { width: 100%; padding: 14px 16px; font-size: 18px; border: 1px solid var(--line); border-radius: 14px; background: #fff; font-family: inherit; }
+.invite-phone input:focus { outline: none; border-color: var(--coral2); }
+
 /* Secondary signin button reused on AcceptInvite + SignIn. */
 .signin-error { margin: 10px 0 0; max-width: 320px; font-size: 13px; line-height: 1.4; color: #c0392b; text-align: center; word-break: break-word; user-select: text; -webkit-user-select: text; }
 .signin-secondary { display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: 10px 16px; font: inherit; font-weight: 600; color: var(--ink-2); cursor: pointer; }

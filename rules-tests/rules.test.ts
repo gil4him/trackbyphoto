@@ -7,7 +7,8 @@ import {
   type RulesTestEnvironment,
 } from '@firebase/rules-unit-testing'
 import {
-  doc, getDoc, setDoc, updateDoc, deleteDoc, serverTimestamp,
+  doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, serverTimestamp,
+  collection, query, where,
 } from 'firebase/firestore'
 import { describe, it, beforeAll, beforeEach, afterAll } from 'vitest'
 
@@ -531,11 +532,19 @@ describe('invites', () => {
     )
   })
 
-  it('any signed-in user can read an invite (to look up the code they typed)', async () => {
+  it('any signed-in user can get an invite by its code (the invite link)', async () => {
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
       await setDoc(doc(ctx.firestore(), 'invites', '666666'), VALID_INVITE)
     })
     await assertSucceeds(getDoc(doc(authedDb(STRANGER), 'invites', '666666')))
+  })
+
+  it('no one can list invites (codes must not be enumerable)', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'invites', '676767'), VALID_INVITE)
+    })
+    await assertFails(getDocs(collection(authedDb(STRANGER), 'invites')))
+    await assertFails(getDocs(query(collection(authedDb(PATIENT), 'invites'), where('patientUid', '==', PATIENT))))
   })
 
   it('owner can delete their own invite', async () => {
