@@ -16,7 +16,26 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // Shared debug key whose SHA-1 is registered on the Firebase Android app,
+    // so Google sign-in works in debug builds. Not committed (public repo):
+    // it lives on the Mac mini and in the ANDROID_DEBUG_KEYSTORE_BASE64 CI
+    // secret. Without it, Gradle's default per-machine debug key is used and
+    // the build still succeeds (sign-in just won't work in that APK).
+    def sharedDebugKeystore = file('debug.keystore')
+    signingConfigs {
+        debug {
+            if (sharedDebugKeystore.exists()) {
+                storeFile sharedDebugKeystore
+                storePassword 'android'
+                keyAlias 'androiddebugkey'
+                keyPassword 'android'
+            }
+        }
+    }
     buildTypes {
+        debug {
+            signingConfig signingConfigs.debug
+        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'

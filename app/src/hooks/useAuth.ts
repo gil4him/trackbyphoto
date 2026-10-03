@@ -1,14 +1,23 @@
 import { useEffect, useState } from 'react'
+import { Capacitor } from '@capacitor/core'
+import { FirebaseAuthentication } from '@capacitor-firebase/authentication'
 import {
   getRedirectResult,
   GoogleAuthProvider,
   onAuthStateChanged,
+  signInWithCredential,
   signInWithPopup,
   signInWithRedirect,
   signOut as fbSignOut,
   type User,
 } from 'firebase/auth'
 import { auth } from '../firebase'
+
+// In the iOS/Android apps Google refuses OAuth inside the embedded WebView
+// (disallowed_useragent), so the native Google account sheet runs instead
+// and its ID token signs in the Firebase JS SDK — same Firebase user (uid)
+// as on the web, so Firestore rules and data are unchanged.
+const isNative = Capacitor.isNativePlatform()
 
 // Use the redirect flow on every mobile UA (iOS Safari any mode + Android).
 // signInWithPopup on iOS Safari is unreliable: the popup opens against the
@@ -29,9 +38,11 @@ export function useAuth() {
     // post-Google handoff issues (storage partition, ITP, etc). v9 already
     // routes the result into onAuthStateChanged, but calling this directly
     // makes errors visible and is a no-op on a non-redirect load.
-    getRedirectResult(auth).catch((err) =>
-      console.error('[auth] getRedirectResult failed', err),
-    )
+    if (!isNative) {
+      getRedirectResult(auth).catch((err) =>
+        console.error('[auth] getRedirectResult failed', err),
+      )
+    }
 
     const unsub = onAuthStateChanged(auth, (u) => {
       setUser(u)
@@ -41,6 +52,18 @@ export function useAuth() {
   }, [])
 
   const signInWithGoogle = async () => {
+    if (isNative) {
+      try {
+        const result = await FirebaseAuthentication.signInWithGoogle()
+        const idToken = result.credential?.idToken
+        if (!idToken) throw new Error('native Google sign-in returned no ID token')
+        await signInWithCredential(auth, GoogleAuthProvider.credential(idToken))
+      } catch (err) {
+        console.error('[auth] native Google sign-in failed', err)
+        throw err
+      }
+      return
+    }
     const provider = new GoogleAuthProvider()
     provider.setCustomParameters({ prompt: 'select_account' })
     try {
@@ -55,7 +78,11 @@ export function useAuth() {
     }
   }
 
-  const signOut = () => fbSignOut(auth)
+  const signOut = async () => {
+    // Also clear the native Google session so the account picker shows again.
+    if (isNative) await FirebaseAuthentication.signOut().catch(() => {})
+    await fbSignOut(auth)
+  }
 
   return { user, ready, signInWithGoogle, signOut }
 }
