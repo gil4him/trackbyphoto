@@ -3,18 +3,22 @@ import { useToast } from '../components/Toast'
 
 export function SignIn({ onGoogle, onAcceptInvite }: { onGoogle: () => Promise<void>; onAcceptInvite?: () => void }) {
   const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const toast = useToast()
 
   const handleGoogle = async () => {
     setBusy(true)
+    setError(null)
     try {
       await onGoogle()
     } catch (err) {
       // Show the underlying reason (Firebase code or native plugin message)
       // so a failure on a phone can be read off the screen and reported.
       const e = err as { code?: string; message?: string }
-      const reason = (e?.code || e?.message || String(err)).slice(0, 160)
+      const reason = [e?.code, e?.message].filter(Boolean).join(' · ').slice(0, 200) || String(err)
       toast.show('로그인에 실패했어요', reason)
+      // The toast fades quickly; keep the reason on screen until the next try.
+      setError(reason)
       setBusy(false)
     }
     // On success, onAuthStateChanged unmounts this screen.
@@ -40,6 +44,8 @@ export function SignIn({ onGoogle, onAcceptInvite }: { onGoogle: () => Promise<v
         </span>
         {busy ? '로그인 중…' : 'Google로 로그인'}
       </button>
+
+      {error && <p className="signin-error">{error}</p>}
 
       <p className="signin-note">
         가족과 메모를 공유하기 위해 로그인해 주세요. 사진과 메모는 본인 계정에만 저장됩니다.
