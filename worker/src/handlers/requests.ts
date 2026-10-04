@@ -35,6 +35,8 @@ import {
   unlinkDevice,
 } from './pairing.js'
 
+import { registerFcmToken, setChannels } from './push.js'
+
 type Handler = (caller: Caller, payload: any) => Promise<unknown>
 
 // Must match the `type in [...]` allow-list in firestore.rules.
@@ -54,6 +56,8 @@ export const HANDLERS: Record<string, Handler> = {
   completePairing,
   unlinkDevice,
   deleteManagedElder,
+  registerFcmToken,
+  setChannels,
 }
 
 const STALE_AFTER_MS = 24 * 3600 * 1000

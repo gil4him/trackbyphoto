@@ -14,7 +14,7 @@ export default defineConfig({
       // existing installs get cleaned up automatically.
       selfDestroying: true,
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg'],
+      includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       manifest: {
         name: '오늘하루 · TrackByPhoto',
         short_name: '오늘하루',
@@ -26,12 +26,12 @@ export default defineConfig({
         orientation: 'portrait',
         start_url: '/',
         scope: '/',
-        // The PNG icon set hasn't been generated yet. SVG with sizes:"any"
-        // is honored by Chrome/Android and ignored by iOS Safari (which
-        // falls back to the apple-touch-icon meta). Avoids the manifest
-        // 404 noise we were getting from the missing icon-*.png files.
+        // Home-screen icons (Android/Chrome install, desktop install). iPhone
+        // takes the apple-touch-icon from index.html instead.
         icons: [
-          { src: '/favicon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any maskable' }
+          { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+          { src: '/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ]
       }
     })

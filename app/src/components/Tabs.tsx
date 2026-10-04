@@ -1,4 +1,4 @@
-export type TabKey = 'home' | 'today' | 'ask' | 'settings'
+export type TabKey = 'home' | 'today' | 'ask' | 'alerts' | 'settings'
 
 // Bottom nav — frosted bar at the bottom of every main page. Hidden when a
 // memo detail / modal takes over (App.tsx controls that via the `hide` prop).
@@ -6,6 +6,7 @@ export type TabKey = 'home' | 'today' | 'ask' | 'settings'
 // Icons are inline SVGs rather than emoji so the active-tab tint actually
 // applies (emoji ignore color). The four tabs mirror the prototype:
 //   사진 (Home) · 오늘 (Today) · 물어보기 (Ask) · 설정 (Settings)
+// plus 알림 (notification centre) once family push is rolled out.
 const ICONS = {
   home: (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -25,6 +26,12 @@ const ICONS = {
       <path d="M20.5 20.5l-3.6-3.6" />
     </svg>
   ),
+  alerts: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z" />
+      <path d="M10 20.5a2 2 0 0 0 4 0" />
+    </svg>
+  ),
   settings: (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <circle cx="12" cy="12" r="3.2" />
@@ -37,6 +44,7 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: 'home',     label: '홈' },
   { key: 'today',    label: '사진' },
   { key: 'ask',      label: '물어보기' },
+  { key: 'alerts',   label: '알림' },
   { key: 'settings', label: '설정' },
 ]
 
@@ -46,6 +54,7 @@ export function Tabs({
   hide,
   avatarUrl,
   unreadCount = 0,
+  showAlerts = false,
 }: {
   active: TabKey
   onChange: (k: TabKey) => void
@@ -54,13 +63,17 @@ export function Tabs({
   /** Signed-in user's Google avatar — shown on the settings tab in place of
    *  the gear when present. Falls back to the gear icon when absent. */
   avatarUrl?: string
-  /** Unread notification count — shown as a red badge on the Home tab. */
+  /** Unread notification count — a red badge on the 알림 tab, or on the Home
+   *  tab while 알림 isn't shown. */
   unreadCount?: number
+  /** Show the 알림 tab (notification centre). */
+  showAlerts?: boolean
 }) {
   if (hide) return null
+  const badgeTab: TabKey = showAlerts ? 'alerts' : 'home'
   return (
     <nav className="tabbar" aria-label="주 메뉴">
-      {TABS.map((t) => (
+      {TABS.filter((t) => t.key !== 'alerts' || showAlerts).map((t) => (
         <button
           key={t.key}
           className={`tab ${active === t.key ? 'on' : ''}`}
@@ -71,7 +84,7 @@ export function Tabs({
           {t.key === 'settings' && avatarUrl
             ? <img className="tab-avatar" src={avatarUrl} alt="" referrerPolicy="no-referrer" />
             : ICONS[t.key]}
-          {t.key === 'home' && unreadCount > 0 && (
+          {t.key === badgeTab && unreadCount > 0 && (
             <span className="tab-badge" aria-label={`알림 ${unreadCount}건`}>{unreadCount > 9 ? '9+' : unreadCount}</span>
           )}
           {t.label}

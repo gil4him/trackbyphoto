@@ -155,6 +155,12 @@ service cloud.firestore {
         allow read:  if isAdmin() || canRead(patientUid);
         allow write: if false;
       }
+
+      // users/{uid}/private/{doc} — worker-only data about a person, such as
+      // the push tokens of their devices. No client reads or writes it.
+      match /private/{doc} {
+        allow read, write: if false;
+      }
     }
 
     // ────────────────────────────────────────────────────────────────────
@@ -403,7 +409,8 @@ service cloud.firestore {
                          'createInvite', 'acceptInvite', 'revokeMembership', 'setMembershipRole',
                          'syncCaregiverName', 'regenerateMemo', 'backfillMemoSchema', 'backfillPatientUid',
                          'createManagedElder', 'createPairingLink', 'approvePairing', 'unlinkDevice', 'deleteManagedElder',
-                         'pairDevice', 'completePairing'
+                         'pairDevice', 'completePairing',
+                         'registerFcmToken', 'setChannels'
                        ]
                     // An elder's phone makes no requests; an anonymous
                     // session may only redeem a pairing code.
