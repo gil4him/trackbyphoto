@@ -11,11 +11,12 @@ import type { Memo, Reaction } from '../types'
 const canSpeak = typeof window !== 'undefined' && 'speechSynthesis' in window
 
 /**
- * 가족 소식 on the parent's phone: the newest message from family in large
- * type, read aloud, and two ways to answer without typing: a heart, or
- * holding a button and talking. Identical on every plan.
+ * 가족 소식: the newest message from family in large type, read aloud, and
+ * two ways to answer without typing: a heart, or holding a button and
+ * talking. The same screen on a parent's linked phone and in the regular app
+ * (someone looking at their own records), and identical on every plan.
  */
-export function FamilyNews({ uid, patientName, item, unreadIds, memo, voiceOn, onDone }: {
+export function FamilyNews({ uid, patientName, item, unreadIds, memo, voiceOn, backLabel = '‹ 처음으로', onDone }: {
   uid: string
   patientName: string
   item: Reaction
@@ -24,6 +25,7 @@ export function FamilyNews({ uid, patientName, item, unreadIds, memo, voiceOn, o
   memo?: Memo
   /** Voice replies are switched on for this parent. */
   voiceOn: boolean
+  backLabel?: string
   onDone: () => void
 }) {
   const toast = useToast()
@@ -122,7 +124,7 @@ export function FamilyNews({ uid, patientName, item, unreadIds, memo, voiceOn, o
 
   return (
     <section className="page news">
-      <button className="elder-back" onClick={onDone}>‹ 처음으로</button>
+      <button className="elder-back" onClick={onDone}>{backLabel}</button>
 
       {memo && <div className="news-photo"><MemoThumb memo={memo} /></div>}
 

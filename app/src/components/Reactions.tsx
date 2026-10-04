@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useToast } from './Toast'
 import { COMMENT_MAX, familyActor, removeReaction, sendComment, sendFamilyHeart } from '../lib/reactions'
-import { myHeart } from '../lib/reactionsModel'
+import { myHeart, replyTarget } from '../lib/reactionsModel'
 import { S } from '../lib/strings'
 import { fmtTime } from '../util'
 import type { Reaction } from '../types'
@@ -19,6 +19,9 @@ export interface ReactionsContext {
   voiceOn: boolean
   /** The patient's plan lets the family hear voice replies. */
   voiceAllowed: boolean
+  /** Set when the viewer is the patient: open 가족 소식 to answer a photo's
+   *  newest family message with a heart or their voice. */
+  onReply?: (item: Reaction, unreadIds: string[]) => void
 }
 
 /** The parent's voice reply: playable with its transcript, or the locked
@@ -62,6 +65,7 @@ export function Reactions({ memoId, ctx, max }: { memoId: string; ctx: Reactions
   const shown = max ? thread.slice(-max) : thread
 
   if (!ctx.canReact && items.length === 0) return null
+  const target = ctx.onReply ? replyTarget(items, ctx.patientUid) : null
 
   const toggleHeart = async () => {
     try {
@@ -131,8 +135,15 @@ export function Reactions({ memoId, ctx, max }: { memoId: string; ctx: Reactions
           />
           <button type="submit" className="rx-send" disabled={busy || !draft.trim()}>보내기</button>
         </form>
-      ) : familyHearts.length > 0 && (
-        <div className="rx-hearts">❤️ {familyHearts.map((r) => r.actorName).join(', ')}</div>
+      ) : (
+        <div className="rx-bar">
+          {familyHearts.length > 0 && <div className="rx-hearts">❤️ {familyHearts.map((r) => r.actorName).join(', ')}</div>}
+          {target && (
+            <button type="button" className="rx-reply" onClick={() => ctx.onReply!(target.item, target.unreadIds)}>
+              답장하기
+            </button>
+          )}
+        </div>
       )}
     </div>
   )
