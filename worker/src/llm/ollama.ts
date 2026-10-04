@@ -6,7 +6,7 @@
 
 import { getFirestore } from 'firebase-admin/firestore'
 import { logger } from '../log.js'
-import { buildPrompt, parseModelResponse, VALID_CATEGORIES } from './prompt.js'
+import { buildPrompt, parseModelResponse, VALID_CATEGORIES, type PromptHints } from './prompt.js'
 
 const OLLAMA_URL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434'
 const DEFAULT_MODEL = process.env.OLLAMA_MODEL || 'gemma4:e4b'
@@ -91,10 +91,8 @@ interface OllamaGenerateResponse {
 
 /** Run the memo prompt on a photo. Throws LlmUnavailableError or
  *  LlmGenerationError; never returns a partial result. */
-export async function generateMemo(args: {
+export async function generateMemo(args: PromptHints & {
   imageBase64: string
-  timeHint?: string
-  placeHint?: string
   /** Skip the admin_config lookup (used by scripts/probe.ts). */
   model?: string
 }): Promise<LlmResult> {
@@ -107,7 +105,7 @@ export async function generateMemo(args: {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model,
-        prompt: buildPrompt(args.timeHint, args.placeHint),
+        prompt: buildPrompt({ timeHint: args.timeHint, placeHint: args.placeHint, homeHint: args.homeHint }),
         images: [args.imageBase64],
         format: RESPONSE_SCHEMA,
         stream: false,

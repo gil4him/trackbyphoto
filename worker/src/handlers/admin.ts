@@ -13,6 +13,7 @@ import { getStorage } from 'firebase-admin/storage'
 import { logger } from '../log.js'
 import { WorkerError as HttpsError, type Caller } from '../context.js'
 import { generateMemo } from '../llm/ollama.js'
+import { homeHintFor, localTimeHint } from '../travel.js'
 
 export const ADMIN_EMAIL = 'zymer4him@gmail.com'
 
@@ -50,13 +51,17 @@ export async function regenerateMemo(caller: Caller, data: { memoId?: string }) 
   }
 
   const [buffer] = await getStorage().bucket().file(photoPath).download()
-  const takenAt: Date | undefined = memo.takenAt?.toDate?.()
+  const patientUid = (memo.patientUid as string) || ''
+  const lat = typeof memo.lat === 'number' ? memo.lat : null
+  const lng = typeof memo.lng === 'number' ? memo.lng : null
   let result
   try {
+    // Same hints the pipeline gives, so the comparison is like for like.
     result = await generateMemo({
       imageBase64: buffer.toString('base64'),
-      timeHint: takenAt ? takenAt.toTimeString().slice(0, 5) : undefined,
+      timeHint: await localTimeHint(patientUid, memo.takenAt?.toDate?.(), lat, lng),
       placeHint: (memo.place as string | undefined) || undefined,
+      homeHint: await homeHintFor(patientUid, lat, lng),
     })
   } catch (err) {
     throw new HttpsError('internal', `local model failed: ${(err as Error).message}`)

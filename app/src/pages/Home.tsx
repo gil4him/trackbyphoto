@@ -6,7 +6,6 @@ import {
   uploadPhoto,
   captureNativePhoto,
   analyzePhotoTags,
-  generateActivityMemo,
   isNativeApp,
 } from '../lib/capture'
 import { fmtDate, fmtTime } from '../util'
@@ -50,18 +49,9 @@ export function Home({ uid, patientName, greetingName, memos, onOpenAsk, onOpen,
     setBusyMsg('기록하는 중이에요…')
     try {
       const takenAt = new Date()
-      const visionThenMemo = (async () => {
-        const tags = await analyzePhotoTags(nativePath)
-        if (tags) console.log('[capture] vision tags', tags)
-        const timeHint = `${takenAt.getHours().toString().padStart(2, '0')}:${takenAt.getMinutes().toString().padStart(2, '0')}`
-        const { memo, source } = await generateActivityMemo(tags, { timeHint })
-        if (memo) console.log('[capture] on-device memo', memo, `(${source})`)
-        return { tags, memo, source }
-      })()
-      const [geo, { tags, memo, source }] = await Promise.all([getGeo(), visionThenMemo])
-      const memoSource = source === 'none' ? null : source
+      const [geo, tags] = await Promise.all([getGeo(), analyzePhotoTags(nativePath)])
       setBusyMsg('업로드 중이에요…')
-      await uploadPhoto({ uid, file, geo, takenAt, tags, memo, memoSource })
+      await uploadPhoto({ uid, file, geo, takenAt, tags })
       setBusyMsg('AI가 활동을 적고 있어요…')
       // The Mac mini worker does the rest; useEffect above toasts on arrival.
       setTimeout(() => setBusy(false), 1500)

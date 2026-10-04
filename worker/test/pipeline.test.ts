@@ -6,18 +6,21 @@ import { Timestamp } from 'firebase-admin/firestore'
 import { MAX_ATTEMPTS, processMemo, type MemoDeps } from '../src/handlers/memo'
 import { processRequest } from '../src/handlers/requests'
 import { LlmGenerationError, LlmUnavailableError } from '../src/llm/ollama'
-import { parseModelResponse } from '../src/llm/prompt'
+import { buildPrompt, parseModelResponse, type PromptHints } from '../src/llm/prompt'
+import { distanceKm, inferHome, resetHomeCache, utcOffsetHours } from '../src/travel'
 import { db, clearFirestore, seedMembership, count } from './setup'
 
 const PHOTO_URL = 'https://example.test/photo.jpg?token=t'
 
-function deps(overrides: Partial<MemoDeps> = {}): MemoDeps & { generateCalls: number } {
+function deps(overrides: Partial<MemoDeps> = {}): MemoDeps & { generateCalls: number; lastHints: PromptHints | null } {
   const d = {
     generateCalls: 0,
+    lastHints: null as PromptHints | null,
     loadPhoto: async () => ({ photoUrl: PHOTO_URL, base64: async () => 'aGk=' }),
     geocode: async () => ({ place: '서초동, 서초구', address: '서울특별시 서초구 서초대로 1' }),
-    generate: async () => {
+    generate: async (args: PromptHints) => {
       d.generateCalls++
+      d.lastHints = args
       return {
         activity: '산책', memo: '공원에서 산책 중이세요.', scene: '나무 사이를 걷고 계세요. 평온한 오후예요.',
         model: 'gemma4:e4b', cost: { promptTokens: 1200, outputTokens: 50, totalUSD: 0 },
@@ -44,7 +47,7 @@ async function seedPending(id: string, extra: Record<string, unknown> = {}) {
 
 const memo = async (id: string) => (await db.doc(`memos/${id}`).get()).data()!
 
-beforeEach(async () => { await clearFirestore() })
+beforeEach(async () => { await clearFirestore(); resetHomeCache() })
 
 describe('processMemo', () => {
   it('writes the local-model memo, notifies caregivers once, bumps counters', async () => {
@@ -74,20 +77,49 @@ describe('processMemo', () => {
     expect(await count('notifications', 'type', 'photo.new')).toBe(1)
   })
 
-  it('uses the on-device memo verbatim and skips the model', async () => {
+  it('ignores a memo written on the phone and writes its own from the photo', async () => {
     await seedPending('m1', {
-      deviceMemo: '맛있는 식사를 하고 계세요.',
+      deviceMemo: '오늘의 한 순간을 담았어요.\n\n지어낸 긴 이야기.',
       deviceMemoSource: 'foundation-models',
       tags: { labels: [{ name: 'food', confidence: 0.9 }], text: [], faceCount: 0 },
     })
     const d = deps()
     await processMemo('m1', 1, d)
     const m = await memo('m1')
-    expect(d.generateCalls).toBe(0)
-    expect(m.memo).toBe('맛있는 식사를 하고 계세요.')
-    expect(m.activity).toBe('식사')
-    expect(m.memoSource).toBe('foundation-models')
+    expect(d.generateCalls).toBe(1)
+    expect(m.memo).toBe('공원에서 산책 중이세요.')
+    expect(m.memoSource).toBe('local-llm')
     expect(m.deviceMemo).toBeUndefined()
+  })
+
+  it('tells the model the photo is far from the home the family set', async () => {
+    await db.doc('users/p1').set({ patientName: '엄마', home: { lat: 37.48, lng: 127.01 } })
+    // Nagoya airport, 13:18 local (04:18 UTC).
+    await seedPending('m1', { lat: 34.86, lng: 136.82, takenAt: Timestamp.fromDate(new Date('2026-10-04T04:18:00Z')) })
+    const d = deps({ geocode: async () => ({ place: 'FamilyMart · 도코나메시, 일본', address: '' }) })
+    await processMemo('m1', 1, d)
+    expect(d.lastHints?.homeHint?.away).toBe(true)
+    expect(d.lastHints?.homeHint?.km).toBeGreaterThan(800)
+    expect(d.lastHints?.placeHint).toBe('FamilyMart · 도코나메시, 일본')
+    expect(d.lastHints?.timeHint).toBe('13:18')
+  })
+
+  it('infers home from where most photos were taken', async () => {
+    for (let i = 0; i < 6; i++) await seedPending(`old${i}`, { status: 'ready', lat: 37.48 + i * 0.001, lng: 127.01 })
+    await seedPending('m1', { lat: 37.481, lng: 127.011 })
+    const d = deps()
+    await processMemo('m1', 1, d)
+    expect(d.lastHints?.homeHint).toEqual({ km: 0, away: false })
+  })
+
+  it('gives no distance hint when the photo has no location', async () => {
+    await db.doc('users/p1').set({ patientName: '엄마', home: { lat: 37.48, lng: 127.01 } })
+    await seedPending('m1', { lat: null, lng: null, takenAt: Timestamp.fromDate(new Date('2026-10-04T04:18:00Z')) })
+    const d = deps()
+    await processMemo('m1', 1, d)
+    expect(d.lastHints?.homeHint).toBeUndefined()
+    // Falls back to the home's clock rather than the worker's.
+    expect(d.lastHints?.timeHint).toBe('13:18')
   })
 
   it('leaves the memo pending while Ollama is unreachable', async () => {
@@ -106,7 +138,8 @@ describe('processMemo', () => {
     const m = await memo('m1')
     expect(m.status).toBe('ready')
     expect(m.memoSource).toBe('local-stub')
-    expect(m.memo).toBeTruthy()
+    expect(m.memo).toBe('사진을 기록했어요.')
+    expect(m.activity).toBe('기타')
   })
 
   it('preserves a guardian edit made while pending', async () => {
@@ -175,5 +208,38 @@ describe('parseModelResponse', () => {
   })
   it('rejects output without a memo', () => {
     expect(parseModelResponse('{"activity":"산책"}')).toBeNull()
+  })
+})
+
+describe('memo text clean-up', () => {
+  it('accepts the wider category list', () => {
+    expect(parseModelResponse('{"activity":"여행","memo":"나고야 시내 거리 구경","scene":"거리예요."}')?.activity).toBe('여행')
+  })
+  it('keeps the title to one line and the description to three sentences', () => {
+    const out = parseModelResponse(JSON.stringify({
+      activity: '이동',
+      memo: '공항에 도착했어요.\n\n그리고 아주 길게 이어지는 지어낸 이야기가 계속 이어지고 또 이어집니다.',
+      scene: '하나예요. 둘이에요.\n셋이에요. 넷이에요.',
+    }))!
+    expect(out.memo).toBe('공항에 도착했어요.')
+    expect(out.scene).toBe('하나예요. 둘이에요. 셋이에요.')
+  })
+})
+
+describe('travel context', () => {
+  const seoul = { lat: 37.48, lng: 127.01 }
+  it('measures distance and picks the photographer\'s clock', () => {
+    expect(Math.round(distanceKm(seoul, { lat: 34.86, lng: 136.82 }) / 100)).toBe(9)
+    expect(utcOffsetHours(seoul)).toBe(9)
+    expect(utcOffsetHours({ lat: 37.4, lng: -122.1 })).toBe(-8)
+  })
+  it('needs enough agreeing photos to infer a home', () => {
+    expect(inferHome([seoul, seoul, seoul])).toBeNull()
+    expect(inferHome([seoul, seoul, seoul, seoul, seoul, { lat: 34.86, lng: 136.82 }])?.lat).toBeCloseTo(37.48)
+  })
+  it('only steers toward 여행/출장 when far from home', () => {
+    expect(buildPrompt({ homeHint: { km: 900, away: true } })).toContain('여행이나 출장 중일 가능성')
+    expect(buildPrompt({ homeHint: { km: 1, away: false } })).toContain('집 또는 집 근처')
+    expect(buildPrompt()).not.toContain('집과의 거리')
   })
 })
