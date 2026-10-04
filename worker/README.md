@@ -34,6 +34,14 @@ The worker only makes outbound connections. Ollama stays on `localhost`. When th
    ```sh
    KAKAO_REST_KEY=...          # better Korean place names (else OpenStreetMap)
    # OLLAMA_MODEL=gemma4:e4b   # default model when admin_config doesn't pick one
+
+   # Digest delivery (all optional; without them the digest still arrives in the app):
+   # SMTP_URL=smtps://user:app-password@smtp.gmail.com   # e-mail, any SMTP account
+   # MAIL_FROM=오늘하루 <name@example.com>
+   # KAKAO_ALIMTALK_API_KEY=... KAKAO_ALIMTALK_API_SECRET=... KAKAO_ALIMTALK_PFID=...
+   # KAKAO_ALIMTALK_SENDER=...  KAKAO_ALIMTALK_TEMPLATE_DIGEST=...   # 알림톡 (Solapi), Korean numbers
+   # WHATSAPP_TOKEN=... WHATSAPP_PHONE_ID=... WHATSAPP_TEMPLATE_DIGEST=...   # other countries
+   # TWILIO_ACCOUNT_SID=... TWILIO_AUTH_TOKEN=... TWILIO_FROM=...           # SMS fallback
    ```
 
 3. **Install** the worker as a launchd agent. It starts at login and restarts automatically if it exits:

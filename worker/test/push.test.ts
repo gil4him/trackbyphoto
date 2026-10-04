@@ -76,7 +76,7 @@ describe('pushToUsers', () => {
 
   it('never throws, even when FCM does', async () => {
     await registerFcmToken(KID, { token: TOKEN(1) })
-    await expect(pushToUsers(['cg1'], MSG, { send: async () => { throw new Error('fcm down') } })).resolves.toBeUndefined()
+    await expect(pushToUsers(['cg1'], MSG, { send: async () => { throw new Error('fcm down') } })).resolves.toBe(0)
   })
 })
 
@@ -117,8 +117,8 @@ describe('registerFcmToken', () => {
 describe('setChannels', () => {
   it('changes only what was asked, logs it, and is not mistaken for a settings change by family', async () => {
     await db.doc('users/cg1').set({ patientName: '민수', lastModifiedBy: 'someone-else' })
-    expect((await setChannels(KID, { messenger: true, bogus: true })).channels).toEqual({ push: true, email: true, messenger: true })
-    expect((await setChannels(KID, { push: false })).channels).toEqual({ push: false, email: true, messenger: true })
+    expect((await setChannels(KID, { email: false, bogus: true })).channels).toEqual({ push: true, email: false, messenger: false })
+    expect((await setChannels(KID, { push: false })).channels).toEqual({ push: false, email: false, messenger: false })
     expect(await count('auditLogs', 'action', 'channels.update')).toBe(2)
     await expect(setChannels(KID, { bogus: true })).rejects.toThrow(/nothing to change/)
 

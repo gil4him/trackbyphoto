@@ -29,6 +29,8 @@ import { FamilyNews } from './pages/FamilyNews'
 import { FamilyNewsCard } from './components/FamilyNewsCard'
 import { InstallHint } from './components/InstallHint'
 import { Notifications } from './pages/Notifications'
+import { DigestPage } from './pages/DigestPage'
+import { digestIdFromPath } from './lib/digest'
 import { disablePush, refreshPush } from './lib/push'
 import type { AppNotification } from './types'
 import { entitlements, flagOn } from './lib/plans'
@@ -65,6 +67,9 @@ function App() {
   const user = authUser && !authUser.isAnonymous ? authUser : null
   // Pairing screen: opened by a /pair link, or by "가족에게 받은 코드가 있어요".
   const [pairCode, setPairCode] = useState<string | null>(pairCodeFromUrl)
+  // The digest page: opened by a /digest/{id} link (push, e-mail, message) or
+  // from the 알림 list.
+  const [digestId, setDigestId] = useState<string | null>(() => (typeof window === 'undefined' ? null : digestIdFromPath(window.location.pathname)))
   const [tab, setTab] = useState<TabKey>('home')
   const [selectedMemoId, setSelectedMemoId] = useState<string | null>(null)
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS)
@@ -95,6 +100,7 @@ function App() {
   // v2 family push + notification centre, behind its own rollout flag. A
   // parent's linked phone never registers for pushes.
   const pushOn = flagOn(plans, 'pushFamily')
+  const digestOn = flagOn(plans, 'digest')
   const familyUid = user && !elder ? user.uid : undefined
   useEffect(() => {
     if (pushOn && familyUid) void refreshPush()
@@ -332,6 +338,7 @@ function App() {
   const onTabChange = (k: TabKey) => {
     setOpenNews(null)
     setSelectedMemoId(null)
+    if (digestId) closeDigest()
     setTab(k)
   }
   // Tapping the askbtn from Home jumps to the Ask tab — that way it has a
@@ -349,7 +356,12 @@ function App() {
 
   // Opening a notice from 알림: go to whose records it is about, and to the
   // photo when it is already loaded.
+  const closeDigest = () => {
+    setDigestId(null)
+    if (digestIdFromPath(window.location.pathname)) window.history.replaceState(null, '', '/')
+  }
   const openNotice = (n: AppNotification) => {
+    if (n.digestId) { setDigestId(n.digestId); return }
     const reachable = n.patientUid === user.uid || patients.some((p) => p.patientUid === n.patientUid)
     if (!reachable) return
     if (n.patientUid !== (activePatientUid || user.uid)) {
@@ -387,7 +399,7 @@ function App() {
           </button>
         )}
         <main>
-          {patients.length > 0 && !selectedMemo && !openNews && (
+          {patients.length > 0 && !selectedMemo && !openNews && !digestId && (
             <PatientSwitcher
               selfUid={user.uid}
               selfLabel={selfLabel}
@@ -409,10 +421,32 @@ function App() {
             />
           ) : selectedMemo ? (
             <MemoDetail memo={selectedMemo} onBack={() => setSelectedMemoId(null)} rx={rx} />
+          ) : digestId ? (
+            <DigestPage
+              digestId={digestId}
+              knownMemos={memos}
+              onBack={closeDigest}
+              onOpenMemo={(d, memoId) => {
+                // A photo that is already loaded opens over the digest (뒤로
+                // comes back to it); otherwise go to that parent's records.
+                if (d.patientUid === (activePatientUid || user.uid) && memos.some((m) => m.id === memoId)) {
+                  setSelectedMemoId(memoId)
+                } else {
+                  onSwitchPatient(d.patientUid)
+                  closeDigest()
+                  setTab('today')
+                }
+              }}
+              onMore={(d) => {
+                if (d.patientUid !== (activePatientUid || user.uid)) onSwitchPatient(d.patientUid)
+                closeDigest()
+                setTab('today')
+              }}
+            />
           ) : (
             <>
               {tab === 'home'     && pushOn && <InstallHint />}
-              {tab === 'alerts'   && <Notifications uid={user.uid} onOpen={openNotice} />}
+              {tab === 'alerts'   && <Notifications uid={user.uid} onOpen={openNotice} digestOn={digestOn} messengerIncluded={flagOn(plans, 'messengerFree') || entitlements(plans, settings.plan?.tier)?.messenger === true} />}
               {tab === 'home'     && <Home uid={activePatientUid || user.uid} patientName={settings.patientName} greetingName={isSelf ? selfLabel : settings.patientName} memos={memos} onOpenAsk={openAsk} onOpen={setSelectedMemoId} canCapture={isSelf} notifications={bannerNotices} onDismissNotification={dismissNotification} newsCard={ownNews && <FamilyNewsCard news={ownNews} onOpen={() => { if (ownNews.state !== 'none') openFamilyNews(ownNews) }} />} />}
               {tab === 'today'    && <Today memos={memos} onOpen={setSelectedMemoId} uid={activePatientUid || user.uid} rx={rx} />}
               {tab === 'ask'      && <Ask memos={memos} onOpen={setSelectedMemoId} />}
@@ -428,13 +462,15 @@ function App() {
                   onSwitchPatient={(uid) => { onSwitchPatient(uid); setTab('home') }}
                   myRole={patients.find((p) => p.patientUid === activePatientUid)?.role}
                   voiceRollout={flagOn(plans, 'voiceReplies')}
+                  digestRollout={digestOn}
+                  weeklyIncluded={entitlements(plans, settings.plan?.tier)?.weekly === true}
                 />
               )}
             </>
           )}
         </main>
 
-        <Tabs active={tab} onChange={onTabChange} avatarUrl={user.photoURL ?? undefined} unreadCount={notifications.length} showAlerts={pushOn} />
+        <Tabs active={tab} onChange={onTabChange} avatarUrl={user.photoURL ?? undefined} unreadCount={notifications.length} showAlerts={pushOn || digestOn} />
       </div>
     </ToastProvider>
   )

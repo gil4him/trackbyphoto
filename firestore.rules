@@ -312,6 +312,18 @@ service cloud.firestore {
     }
 
     // ────────────────────────────────────────────────────────────────────
+    // digests/{id}
+    //
+    // The evening summary of a parent's day (and weekly / monthly ones).
+    // Written only by the worker. Whoever may see the parent's memos may read
+    // it; the link in an e-mail or message opens it only after sign-in.
+    // ────────────────────────────────────────────────────────────────────
+    match /digests/{id} {
+      allow read:  if isAdmin() || canRead(resource.data.patientUid);
+      allow write: if false;
+    }
+
+    // ────────────────────────────────────────────────────────────────────
     // reactions/{id}
     //
     // Hearts and comments from family; hearts and voice replies from the
@@ -413,7 +425,7 @@ service cloud.firestore {
                          'syncCaregiverName', 'regenerateMemo', 'backfillMemoSchema', 'backfillPatientUid',
                          'createManagedElder', 'createPairingLink', 'approvePairing', 'unlinkDevice', 'deleteManagedElder',
                          'pairDevice', 'completePairing',
-                         'registerFcmToken', 'setChannels'
+                         'registerFcmToken', 'setChannels', 'setDigest'
                        ]
                     // An elder's phone makes no requests; an anonymous
                     // session may only redeem a pairing code.

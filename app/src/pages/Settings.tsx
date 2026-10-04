@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { User } from 'firebase/auth'
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore'
 import { db } from '../firebase'
-import type { UserSettings, Memo } from '../types'
+import type { DigestSettings, UserSettings, Memo } from '../types'
 import { useToast } from '../components/Toast'
 import { useMemberships } from '../hooks/useMemberships'
 import { isWorkerOffline, WORKER_OFFLINE_MESSAGE } from '../lib/worker'
@@ -17,6 +17,7 @@ import { RegisterElder } from './RegisterElder'
 import { ElderDevices } from '../components/ElderDevices'
 import { deleteManagedElder } from '../lib/pairing'
 import { getGeo } from '../lib/location'
+import { DEFAULT_DIGEST, DIGEST_HOURS, saveDigestSettings } from '../lib/digest'
 
 /** Version of the 음성 답장 consent text shown below. */
 const VOICE_CONSENT_VERSION = 'voice-v1'
@@ -40,9 +41,13 @@ interface Props {
   myRole?: string
   /** Voice replies are rolled out (admin_config/plans flag). */
   voiceRollout?: boolean
+  /** The digest is rolled out: 하루 요약 replaces the old 전송 시점 choice. */
+  digestRollout?: boolean
+  /** This parent's plan includes the weekly highlight. */
+  weeklyIncluded?: boolean
 }
 
-export function Settings({ settings, onChange, user, onSignOut, memos, activePatientUid, isSelf, onSwitchPatient, myRole, voiceRollout = false }: Props) {
+export function Settings({ settings, onChange, user, onSignOut, memos, activePatientUid, isSelf, onSwitchPatient, myRole, voiceRollout = false, digestRollout = false, weeklyIncluded = false }: Props) {
   const toast = useToast()
   // A family-managed elder (부모님 등록하기): family runs 가족 관리 and
   // 기기 관리 for them, since the elder's phone has no settings at all.
@@ -213,6 +218,22 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
     toast.show('집 위치를 저장했어요')
   }
 
+  // 하루 요약: when the worker sends the digest of this person's day.
+  const digest = { ...DEFAULT_DIGEST, ...settings.digest }
+  const deviceTz = Intl.DateTimeFormat().resolvedOptions().timeZone
+  const [digestBusy, setDigestBusy] = useState(false)
+  const changeDigest = async (changes: Partial<DigestSettings>) => {
+    setDigestBusy(true)
+    try {
+      await saveDigestSettings(activePatientUid, changes)
+    } catch (err) {
+      console.error('[digest] settings change failed', err)
+      toast.show('바꾸지 못했어요', isWorkerOffline(err) ? WORKER_OFFLINE_MESSAGE : '잠시 후 다시 시도해 주세요')
+    } finally {
+      setDigestBusy(false)
+    }
+  }
+
   const cadenceHint = settings.cadence === 'realtime'
     ? '사진을 찍을 때마다 바로 보내요'
     : settings.cadence === 'weekly'
@@ -373,7 +394,42 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
         </div>
       )}
 
-      <div className="sect">
+      {digestRollout && canManageHere && (
+        <div className="sect">
+          <div className="sect-lab">하루 요약</div>
+          <div className="seg">
+            <button className={digest.cadence === 'daily' ? 'on' : ''} disabled={digestBusy} onClick={() => changeDigest({ cadence: 'daily' })}>매일 저녁</button>
+            <button className={digest.cadence === 'weekly' ? 'on' : ''} disabled={digestBusy || !weeklyIncluded} onClick={() => changeDigest({ cadence: 'weekly' })}>
+              매주 일요일{!weeklyIncluded && <> <span className="plan-chip">Plus 이상</span></>}
+            </button>
+          </div>
+          <div className="row">
+            <div className="who"><b>보내는 시간</b><br /><span>{digest.tz === 'Asia/Seoul' ? '한국 시간' : digest.tz} 기준</span></div>
+            <select
+              className="dg-hour"
+              value={digest.hourLocal}
+              disabled={digestBusy}
+              onChange={(e) => changeDigest({ hourLocal: Number(e.target.value) })}
+              aria-label="하루 요약을 보내는 시간"
+            >
+              {[...new Set([...DIGEST_HOURS, digest.hourLocal])].sort((a, b) => a - b).map((h) => (
+                <option key={h} value={h}>{h < 12 ? `오전 ${h}시` : h === 12 ? '낮 12시' : `오후 ${h - 12}시`}</option>
+              ))}
+            </select>
+          </div>
+          {deviceTz !== 'Asia/Seoul' && (
+            <div className="seg" style={{ marginTop: 10 }}>
+              <button className={digest.tz === 'Asia/Seoul' ? 'on' : ''} disabled={digestBusy} onClick={() => changeDigest({ tz: 'Asia/Seoul' })}>한국 시간</button>
+              <button className={digest.tz === deviceTz ? 'on' : ''} disabled={digestBusy} onClick={() => changeDigest({ tz: deviceTz })}>이 기기의 시간</button>
+            </div>
+          )}
+          <div className="help">
+            {settings.patientName}님의 하루를 두세 문장으로 정리해 가족에게 보내요. 사진이 없는 날은 보내지 않아요. 받는 방법은 알림 탭에서 고를 수 있어요.
+          </div>
+        </div>
+      )}
+
+      {!digestRollout && <div className="sect">
         <div className="sect-lab">전송 시점</div>
         <div className="seg">
           <button
@@ -390,7 +446,7 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
           >매주</button>
         </div>
         <div className="help">{cadenceHint}</div>
-      </div>
+      </div>}
 
       <div className="sect">
         <div className="sect-lab">자동 기록</div>

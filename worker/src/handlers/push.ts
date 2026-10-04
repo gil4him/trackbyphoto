@@ -11,7 +11,7 @@
  * elder session can't create requests at all (firestore.rules), and pushes
  * only ever go to the family members a notice is addressed to.
  *
- * A push carries the same one line as the in-app notice and a link to the
+ * A push carries the same one line as the in-app notice and a link into the
  * app, never the photo. Tokens FCM reports as gone are pruned. Everything
  * here is best effort: a failed push must never fail a memo or a reply.
  */
@@ -21,6 +21,7 @@ import { getMessaging } from 'firebase-admin/messaging'
 import { logger } from '../log.js'
 import { WorkerError as HttpsError, type Caller } from '../context.js'
 import { flagOn } from '../plans.js'
+import { maskPhone, normalizePhone } from '../messenger/index.js'
 
 const APP_URL = process.env.APP_URL || 'https://trackbyphoto.web.app/'
 /** One person's devices: phone, tablet, a couple of browsers. */
@@ -36,6 +37,8 @@ export interface PushMessage {
   body: string
   /** String key/values the app can read when the push is opened. */
   data?: Record<string, string>
+  /** Path inside the app that a tap opens (default: the home screen). */
+  path?: string
 }
 
 /** Injected so tests run without FCM. Returns the tokens that are dead. */
@@ -49,10 +52,15 @@ export const defaultPushDeps: PushDeps = {
       tokens,
       notification: { title: message.title, body: message.body },
       data: message.data ?? {},
-      webpush: { fcmOptions: { link: APP_URL } },
+      webpush: { fcmOptions: { link: appLink(message.path) } },
     })
     return { dead: deadTokens(tokens, res.responses) }
   },
+}
+
+/** Absolute link to a page of the app. */
+export function appLink(path = ''): string {
+  return APP_URL.replace(/\/$/, '') + '/' + path.replace(/^\//, '')
 }
 
 /** Which of the tokens FCM says are gone for good (same order as `tokens`). */
@@ -62,10 +70,12 @@ export function deadTokens(tokens: string[], responses: Array<{ success: boolean
 
 const pushDoc = (uid: string) => getFirestore().doc(`users/${uid}/private/push`)
 
-/** Push one message to each of these people's devices. Never throws. */
-export async function pushToUsers(uids: string[], message: PushMessage, deps: PushDeps = defaultPushDeps): Promise<void> {
+/** Push one message to each of these people's devices; returns how many
+ *  people it reached. Never throws. */
+export async function pushToUsers(uids: string[], message: PushMessage, deps: PushDeps = defaultPushDeps): Promise<number> {
+  let reached = 0
   try {
-    if (uids.length === 0 || !(await flagOn('pushFamily'))) return
+    if (uids.length === 0 || !(await flagOn('pushFamily'))) return 0
     const db = getFirestore()
     for (const uid of new Set(uids)) {
       const tokens = ((await pushDoc(uid).get()).data()?.fcmTokens as string[] | undefined) ?? []
@@ -78,10 +88,12 @@ export async function pushToUsers(uids: string[], message: PushMessage, deps: Pu
         logger.info('[push] pruned dead tokens', { uid, pruned: dead.length })
       }
       logger.info('[push] sent', { uid, devices: tokens.length - dead.length, type: message.data?.type })
+      if (tokens.length > dead.length) reached++
     }
   } catch (err) {
     logger.warn('[push] failed', { err: String(err) })
   }
+  return reached
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -114,26 +126,42 @@ export async function registerFcmToken(caller: Caller, data: { token?: unknown; 
 
 const CHANNELS = ['push', 'email', 'messenger'] as const
 
-/** How the caller wants to be told: 앱 알림 / 이메일 요약 / 카카오톡 요약. */
-export async function setChannels(caller: Caller, data: Record<string, unknown>): Promise<{ channels: Record<string, boolean> }> {
+/** Where the worker keeps a family member's phone number; no client can read it. */
+export const contactDoc = (uid: string) => getFirestore().doc(`users/${uid}/private/contact`)
+
+/**
+ * How the caller wants to be told: 앱 알림 / 이메일 요약 / 카카오톡 요약.
+ * 카카오톡 요약 needs a phone number: `phone` sets it (kept in
+ * users/{uid}/private/contact; the users doc only shows a masked copy).
+ */
+export async function setChannels(caller: Caller, data: Record<string, unknown>): Promise<{ channels: Record<string, unknown> }> {
   const uid = requireFamilyAccount(caller)
   const changes: Record<string, boolean> = {}
   for (const key of CHANNELS) {
     if (typeof data?.[key] === 'boolean') changes[key] = data[key] as boolean
   }
-  if (Object.keys(changes).length === 0) throw new HttpsError('invalid-argument', 'nothing to change')
+  const phone = data?.phone === undefined ? undefined : normalizePhone(data.phone)
+  if (phone === null) throw new HttpsError('invalid-argument', 'phone number not recognised')
+  if (Object.keys(changes).length === 0 && !phone) throw new HttpsError('invalid-argument', 'nothing to change')
 
   const db = getFirestore()
   const userRef = db.doc(`users/${uid}`)
   const channels = await db.runTransaction(async (tx) => {
-    const current = ((await tx.get(userRef)).data()?.channels as Record<string, boolean> | undefined) ?? { push: true, email: true, messenger: false }
-    const next = { ...current, ...changes }
+    const [userSnap, contactSnap] = await Promise.all([tx.get(userRef), tx.get(contactDoc(uid))])
+    const current = (userSnap.data()?.channels as Record<string, unknown> | undefined) ?? { push: true, email: true, messenger: false }
+    const next: Record<string, unknown> = { ...current, ...changes }
+    if (phone) next.messengerTo = maskPhone(phone)
+    if (next.messenger === true && !phone && !contactSnap.data()?.phone) {
+      throw new HttpsError('failed-precondition', 'a phone number is needed for messenger delivery')
+    }
+    if (phone) tx.set(contactDoc(uid), { phone, updatedAt: FieldValue.serverTimestamp() }, { merge: true })
     tx.set(userRef, { channels: next }, { merge: true })
     tx.set(db.collection('auditLogs').doc(), {
       patientUid: uid,
       actorUid: uid,
       action: 'channels.update',
-      details: changes,
+      // The number itself stays out of the log.
+      details: { ...changes, ...(phone ? { phone: 'set' } : {}) },
       timestamp: FieldValue.serverTimestamp(),
     })
     return next

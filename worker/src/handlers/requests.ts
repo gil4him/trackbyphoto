@@ -36,6 +36,7 @@ import {
 } from './pairing.js'
 
 import { registerFcmToken, setChannels } from './push.js'
+import { setDigest } from './digest.js'
 
 type Handler = (caller: Caller, payload: any) => Promise<unknown>
 
@@ -58,6 +59,7 @@ export const HANDLERS: Record<string, Handler> = {
   deleteManagedElder,
   registerFcmToken,
   setChannels,
+  setDigest,
 }
 
 const STALE_AFTER_MS = 24 * 3600 * 1000

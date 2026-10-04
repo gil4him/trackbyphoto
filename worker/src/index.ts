@@ -31,6 +31,7 @@ import { purgeStaleRequests, requeueInterruptedRequests, watchRequests } from '.
 import { SettingsCache, watchUserSettings } from './handlers/audit.js'
 import { ReactionScheduler, watchReactions } from './handlers/reactions.js'
 import { startRetention } from './handlers/retention.js'
+import { startDigests } from './handlers/digest.js'
 import { startHeartbeat } from './heartbeat.js'
 import { sttAvailable } from './llm/stt.js'
 
@@ -66,6 +67,7 @@ async function main() {
     watchUserSettings(cache),
     startHeartbeat(() => scheduler.waiting),
     startRetention(),
+    startDigests(),
   ]
   const purgeTimer = setInterval(() => {
     purgeStaleRequests().catch((err) => logger.warn('[request] purge failed', { err: String(err) }))

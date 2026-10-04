@@ -44,7 +44,7 @@ export interface ReactionDeps {
   loadClip: (audioPath: string) => Promise<ClipInfo | null>
   transcribe: (audio: Buffer) => Promise<string>
   /** Push a voice reply to family devices (default: handlers/push). */
-  push?: (uids: string[], message: PushMessage) => Promise<void>
+  push?: (uids: string[], message: PushMessage) => Promise<unknown>
 }
 
 export const defaultReactionDeps: ReactionDeps = {

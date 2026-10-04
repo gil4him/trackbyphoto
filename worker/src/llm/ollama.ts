@@ -6,7 +6,15 @@
 
 import { getFirestore } from 'firebase-admin/firestore'
 import { logger } from '../log.js'
-import { buildPrompt, parseModelResponse, VALID_CATEGORIES, type PromptHints } from './prompt.js'
+import {
+  buildDigestPrompt,
+  buildPrompt,
+  parseModelResponse,
+  parseSummary,
+  VALID_CATEGORIES,
+  type DigestPromptArgs,
+  type PromptHints,
+} from './prompt.js'
 
 const OLLAMA_URL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434'
 const DEFAULT_MODEL = process.env.OLLAMA_MODEL || 'gemma4:e4b'
@@ -95,6 +103,38 @@ interface OllamaGenerateResponse {
   error?: string
 }
 
+/** One /api/generate call. Throws LlmUnavailableError or LlmGenerationError. */
+async function ollamaGenerate(model: string, body: Record<string, unknown>): Promise<{ raw: string; promptTokens: number; outputTokens: number }> {
+  const started = Date.now()
+  let res: Response
+  try {
+    res = await fetch(`${OLLAMA_URL}/api/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model,
+        stream: false,
+        // Thinking burns time and output budget on a few short lines.
+        think: false,
+        keep_alive: KEEP_ALIVE,
+        ...body,
+      }),
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    })
+  } catch (err) {
+    // Connection refused / DNS / timeout before any response.
+    if (!(await ollamaAvailable())) throw new LlmUnavailableError(`ollama unreachable: ${String(err)}`)
+    throw new LlmGenerationError(`ollama request failed: ${String(err)}`)
+  }
+
+  const json = (await res.json().catch(() => ({}))) as OllamaGenerateResponse
+  if (!res.ok) throw new LlmGenerationError(`ollama HTTP ${res.status}: ${json.error || ''}`)
+  const promptTokens = json.prompt_eval_count ?? 0
+  const outputTokens = json.eval_count ?? 0
+  logger.info('[llm-cost] usage', { model, promptTokens, outputTokens, ms: Date.now() - started })
+  return { raw: (json.response || '').trim(), promptTokens, outputTokens }
+}
+
 /** Run the memo prompt on a photo. Throws LlmUnavailableError or
  *  LlmGenerationError; never returns a partial result. */
 export async function generateMemo(args: PromptHints & {
@@ -105,40 +145,33 @@ export async function generateMemo(args: PromptHints & {
   temperature?: number
 }): Promise<LlmResult> {
   const model = args.model || await resolveModel()
-  const started = Date.now()
-  let res: Response
-  try {
-    res = await fetch(`${OLLAMA_URL}/api/generate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model,
-        prompt: buildPrompt({ timeHint: args.timeHint, placeHint: args.placeHint, homeHint: args.homeHint, textHint: args.textHint }),
-        images: [args.imageBase64],
-        format: RESPONSE_SCHEMA,
-        stream: false,
-        // Thinking burns time and output budget on a one-line caption.
-        think: false,
-        keep_alive: KEEP_ALIVE,
-        options: { temperature: args.temperature ?? TEMPERATURE, num_predict: 600 },
-      }),
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-    })
-  } catch (err) {
-    // Connection refused / DNS / timeout before any response.
-    if (!(await ollamaAvailable())) throw new LlmUnavailableError(`ollama unreachable: ${String(err)}`)
-    throw new LlmGenerationError(`ollama request failed: ${String(err)}`)
-  }
-
-  const body = (await res.json().catch(() => ({}))) as OllamaGenerateResponse
-  if (!res.ok) throw new LlmGenerationError(`ollama HTTP ${res.status}: ${body.error || ''}`)
-
-  const raw = (body.response || '').trim()
+  const { raw, promptTokens, outputTokens } = await ollamaGenerate(model, {
+    prompt: buildPrompt({ timeHint: args.timeHint, placeHint: args.placeHint, homeHint: args.homeHint, textHint: args.textHint }),
+    images: [args.imageBase64],
+    format: RESPONSE_SCHEMA,
+    options: { temperature: args.temperature ?? TEMPERATURE, num_predict: 600 },
+  })
   const parsed = parseModelResponse(raw)
   if (!parsed) throw new LlmGenerationError(`unparseable model output: ${raw.slice(0, 200)}`)
-
-  const promptTokens = body.prompt_eval_count ?? 0
-  const outputTokens = body.eval_count ?? 0
-  logger.info('[llm-cost] usage', { model, promptTokens, outputTokens, ms: Date.now() - started })
   return { ...parsed, model, cost: { promptTokens, outputTokens, totalUSD: 0 } }
+}
+
+const SUMMARY_SCHEMA = {
+  type: 'object',
+  properties: { summary: { type: 'string' } },
+  required: ['summary'],
+}
+
+/** Two or three sentences about a day (or week, or month) from its memos.
+ *  Text only: the model never sees the photos again. */
+export async function generateSummary(args: DigestPromptArgs & { model?: string }): Promise<string> {
+  const model = args.model || await resolveModel()
+  const { raw } = await ollamaGenerate(model, {
+    prompt: buildDigestPrompt(args),
+    format: SUMMARY_SCHEMA,
+    options: { temperature: TEMPERATURE, num_predict: 400 },
+  })
+  const summary = parseSummary(raw)
+  if (!summary) throw new LlmGenerationError(`unparseable summary: ${raw.slice(0, 200)}`)
+  return summary
 }

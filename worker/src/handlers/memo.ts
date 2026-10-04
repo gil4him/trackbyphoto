@@ -66,7 +66,7 @@ export interface MemoDeps {
   geocode: (lat: number | null, lng: number | null) => Promise<GeoResult>
   generate: (args: PromptHints & { imageBase64: string; temperature?: number }) => Promise<LlmResult>
   /** Push the new-photo notice to family devices (default: handlers/push). */
-  push?: (uids: string[], message: PushMessage) => Promise<void>
+  push?: (uids: string[], message: PushMessage) => Promise<unknown>
 }
 
 export const defaultMemoDeps: MemoDeps = {
