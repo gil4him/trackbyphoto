@@ -833,3 +833,11 @@ describe('notifications feed query', () => {
     )))
   })
 })
+
+describe('worker heartbeat', () => {
+  it('any signed-in user can read it; nobody can write it from the app', async () => {
+    await assertSucceeds(getDoc(doc(authedDb(STRANGER), 'system', 'worker')))
+    await assertFails(setDoc(doc(authedDb(PATIENT), 'system', 'worker'), { lastSeen: new Date() }))
+    await assertFails(getDoc(doc(testEnv.unauthenticatedContext().firestore(), 'system', 'worker')))
+  })
+})

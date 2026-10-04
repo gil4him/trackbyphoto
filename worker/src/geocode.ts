@@ -30,6 +30,9 @@ export interface GeoResult {
 
 const EMPTY: GeoResult = { place: '', address: '' }
 
+/** A lookup that hangs must not hold up the memo queue. */
+const TIMEOUT_MS = 8_000
+
 /** OSM shop names sometimes carry a keyword list ("리김밥(고터) 김밥,떡볶이,…"); keep the name. */
 function cleanName(name: string | undefined): string {
   const n = (name || '').trim()
@@ -80,7 +83,7 @@ interface KakaoParts {
 
 async function reverseGeocodeKakao(lat: number, lng: number, apiKey: string): Promise<KakaoParts> {
   const url = `https://dapi.kakao.com/v2/local/geo/coord2address.json?x=${lng}&y=${lat}`
-  const res = await fetch(url, { headers: { Authorization: `KakaoAK ${apiKey}` } })
+  const res = await fetch(url, { headers: { Authorization: `KakaoAK ${apiKey}` }, signal: AbortSignal.timeout(TIMEOUT_MS) })
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
   const data = (await res.json()) as KakaoCoord2AddressResponse
   const doc = data.documents?.[0]
@@ -140,6 +143,7 @@ async function reverseGeocodeNominatim(lat: number, lng: number): Promise<Nomina
       'User-Agent': 'TrackByPhoto/1.0 (https://trackbyphoto.web.app)',
       'Accept-Language': 'ko,en',
     },
+    signal: AbortSignal.timeout(TIMEOUT_MS),
   })
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
   const data = (await res.json()) as NominatimResponse

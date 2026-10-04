@@ -339,5 +339,13 @@ service cloud.firestore {
     match /admin_config/{doc} {
       allow read, write: if isAdmin();
     }
+
+    // Worker heartbeat (system/worker): when the Mac mini was last alive and
+    // whether its model answers. Nothing personal in it; the app reads it to
+    // explain a memo that is taking long. Written with the Admin SDK only.
+    match /system/{doc} {
+      allow read:  if signedIn();
+      allow write: if false;
+    }
   }
 }

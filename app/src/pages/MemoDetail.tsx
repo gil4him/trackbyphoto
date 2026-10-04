@@ -5,6 +5,7 @@ import { useToast } from '../components/Toast'
 import { deleteMemo } from '../lib/capture'
 import { fmtDate, fmtTime } from '../util'
 import { categoryThumbClass } from '../lib/categoryStyle'
+import { useWorkerStatus } from '../hooks/useWorkerStatus'
 import type { Memo, MemoSource } from '../types'
 
 const SOURCE_BADGES: Record<MemoSource, { label: string; tone: 'good' | 'neutral' | 'warn' }> = {
@@ -38,6 +39,9 @@ export function MemoDetail({ memo, onBack, readOnly = false }: { memo: Memo; onB
   const grad = categoryThumbClass(memo.activity)
   // Pending with text already there means the worker is re-writing it.
   const rewriting = memo.status === 'pending' && !!memo.memo
+  // The memo server is off or its model isn't answering: say so, don't spin.
+  const serverDown = useWorkerStatus(memo.status === 'pending') === 'down'
+  const waitingText = serverDown ? '메모 서버가 잠시 쉬고 있어요. 다시 켜지면 자동으로 써 드려요.' : '메모 작성 중…'
   const body = memo.scene || ''
 
   const startEdit = () => {
@@ -120,7 +124,7 @@ export function MemoDetail({ memo, onBack, readOnly = false }: { memo: Memo; onB
       </div>
 
       <div className="detail-memo">
-        {memo.memo || '메모 작성 중…'}
+        {memo.memo || (serverDown ? '메모를 기다리는 중이에요' : '메모 작성 중…')}
       </div>
 
       <div className="detail-meta">
@@ -133,7 +137,7 @@ export function MemoDetail({ memo, onBack, readOnly = false }: { memo: Memo; onB
         <div className="d-label">
           <span>{fmtDate(takenAt)}</span>
           {rewriting
-            ? <span className="src-badge tone-neutral">다시 쓰는 중…</span>
+            ? <span className="src-badge tone-neutral">{serverDown ? '서버가 쉬는 중' : '다시 쓰는 중…'}</span>
             : memo.humanEdited
               ? <span className="src-badge tone-good">직접 작성</span>
               : badge && <span className={`src-badge tone-${badge.tone}`}>{badge.label}</span>}
@@ -165,7 +169,7 @@ export function MemoDetail({ memo, onBack, readOnly = false }: { memo: Memo; onB
           <>
             {body
               ? <p className="d-scene">{body}</p>
-              : <p className="d-scene muted">{memo.memo ? '설명이 아직 없어요.' : '메모 작성 중…'}</p>}
+              : <p className="d-scene muted">{memo.memo ? '설명이 아직 없어요.' : waitingText}</p>}
             {!readOnly && memo.memo && !rewriting && (
               <div className="d-actions">
                 <button className="d-btn-secondary" disabled={saving} onClick={rewrite}>AI로 다시 쓰기</button>

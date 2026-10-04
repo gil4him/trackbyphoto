@@ -29,6 +29,7 @@ import { MemoScheduler, watchPendingMemos } from './handlers/memo.js'
 import { watchGeocodeRequests } from './handlers/place.js'
 import { purgeStaleRequests, requeueInterruptedRequests, watchRequests } from './handlers/requests.js'
 import { SettingsCache, watchUserSettings } from './handlers/audit.js'
+import { startHeartbeat } from './heartbeat.js'
 
 const STORAGE_BUCKET = process.env.FIREBASE_STORAGE_BUCKET || 'trackbyphoto-app.firebasestorage.app'
 const STATE_DIR = process.env.WORKER_STATE_DIR || join(homedir(), '.trackbyphoto', 'state')
@@ -57,6 +58,7 @@ async function main() {
     watchGeocodeRequests(),
     watchRequests(),
     watchUserSettings(cache),
+    startHeartbeat(() => scheduler.waiting),
   ]
   const purgeTimer = setInterval(() => {
     purgeStaleRequests().catch((err) => logger.warn('[request] purge failed', { err: String(err) }))
