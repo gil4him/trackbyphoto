@@ -9,6 +9,7 @@ import {
   completePairing,
   createManagedElder,
   createPairingLink,
+  deleteManagedElder,
   pairDevice,
   resetPairingThrottle,
   unlinkDevice,
@@ -228,5 +229,39 @@ describe('managed elder cannot manage sharing from their own phone', () => {
     const patientUid = await registerElder()
     const res = await createInvite(FAMILY, { patientUid, role: 'admin' })
     expect(res.code).toMatch(/^\d{6}$/)
+  })
+})
+
+describe('deleteManagedElder', () => {
+  it('erases the elder account, devices and every patient-owned doc', async () => {
+    const patientUid = await registerElder()
+    const link = await createPairingLink(FAMILY, { patientUid })
+    await pairDevice(ANON('anon1'), { code: link.code, device: DEVICE })
+    await seedMembership(patientUid, 'fam2', { role: 'viewer' })
+    await db.collection('memos').add({ patientUid, status: 'ready' })
+
+    await deleteManagedElder(FAMILY, { patientUid })
+
+    await expect(getAuth().getUser(patientUid)).rejects.toThrow()
+    expect((await db.doc(`users/${patientUid}`).get()).exists).toBe(false)
+    expect((await db.collection(`users/${patientUid}/devices`).get()).size).toBe(0)
+    for (const c of ['memos', 'consents', 'memberships', 'pairings', 'auditLogs', 'notifications']) {
+      expect((await db.collection(c).where('patientUid', '==', patientUid).get()).size, c).toBe(0)
+    }
+  })
+
+  it('only the guardian may delete', async () => {
+    const patientUid = await registerElder()
+    await seedMembership(patientUid, 'fam2')
+    const admin = { uid: 'fam2', email: 'son@example.com', name: '아들' }
+    await expect(deleteManagedElder(admin, { patientUid })).rejects.toThrow(/only the guardian/)
+    await expect(deleteManagedElder({ uid: patientUid, email: null, name: null }, { patientUid })).rejects.toThrow(/family account/)
+    expect((await db.doc(`users/${patientUid}`).get()).exists).toBe(true)
+  })
+
+  it('refuses self-managed accounts', async () => {
+    await db.doc('users/self1').set({ patientName: '본인' })
+    await seedMembership('self1', 'fam1', { role: 'guardian' })
+    await expect(deleteManagedElder(FAMILY, { patientUid: 'self1' })).rejects.toThrow(/family-managed/)
   })
 })

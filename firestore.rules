@@ -314,7 +314,7 @@ service cloud.firestore {
                     && request.resource.data.type in [
                          'createInvite', 'acceptInvite', 'revokeMembership', 'setMembershipRole',
                          'syncCaregiverName', 'regenerateMemo', 'backfillMemoSchema', 'backfillPatientUid',
-                         'createManagedElder', 'createPairingLink', 'approvePairing', 'unlinkDevice',
+                         'createManagedElder', 'createPairingLink', 'approvePairing', 'unlinkDevice', 'deleteManagedElder',
                          'pairDevice', 'completePairing'
                        ]
                     // An elder's phone makes no requests; an anonymous
