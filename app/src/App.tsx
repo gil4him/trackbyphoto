@@ -27,6 +27,10 @@ import { useReactions } from './hooks/useReactions'
 import { useElderNews, type OpenNews } from './hooks/useElderNews'
 import { FamilyNews } from './pages/FamilyNews'
 import { FamilyNewsCard } from './components/FamilyNewsCard'
+import { InstallHint } from './components/InstallHint'
+import { Notifications } from './pages/Notifications'
+import { disablePush, refreshPush } from './lib/push'
+import type { AppNotification } from './types'
 import { entitlements, flagOn } from './lib/plans'
 import { byMemo } from './lib/reactionsModel'
 import type { ReactionsContext } from './components/Reactions'
@@ -87,6 +91,14 @@ function App() {
   // and reply screen a parent's linked phone has.
   const ownNews = useElderNews(reactionsOn && user && activePatientUid === user.uid ? reactions : null, user?.uid)
   const [openNews, setOpenNews] = useState<OpenNews | null>(null)
+
+  // v2 family push + notification centre, behind its own rollout flag. A
+  // parent's linked phone never registers for pushes.
+  const pushOn = flagOn(plans, 'pushFamily')
+  const familyUid = user && !elder ? user.uid : undefined
+  useEffect(() => {
+    if (pushOn && familyUid) void refreshPush()
+  }, [pushOn, familyUid])
   // Keep sending photos that are still on this phone (weak connection).
   useOutboxSync(user?.uid)
   const selectedMemo = selectedMemoId ? memos.find((m) => m.id === selectedMemoId) ?? null : null
@@ -335,6 +347,26 @@ function App() {
     setOpenNews(news)
   }
 
+  // Opening a notice from 알림: go to whose records it is about, and to the
+  // photo when it is already loaded.
+  const openNotice = (n: AppNotification) => {
+    const reachable = n.patientUid === user.uid || patients.some((p) => p.patientUid === n.patientUid)
+    if (!reachable) return
+    if (n.patientUid !== (activePatientUid || user.uid)) {
+      onSwitchPatient(n.patientUid)
+      setTab('today')
+    } else if (n.memoId && memos.some((m) => m.id === n.memoId)) {
+      setSelectedMemoId(n.memoId)
+    } else {
+      setTab('today')
+    }
+  }
+  // This device stops getting pushes for the account that signs out.
+  const signOutHere = async () => {
+    if (pushOn) await disablePush().catch(() => {})
+    await signOut()
+  }
+
   const rx: ReactionsContext | undefined = reactionsOn ? {
     byMemo: reactionsByMemo,
     me: { uid: user.uid, name: user.displayName || selfLabel },
@@ -379,6 +411,8 @@ function App() {
             <MemoDetail memo={selectedMemo} onBack={() => setSelectedMemoId(null)} rx={rx} />
           ) : (
             <>
+              {tab === 'home'     && pushOn && <InstallHint />}
+              {tab === 'alerts'   && <Notifications uid={user.uid} onOpen={openNotice} />}
               {tab === 'home'     && <Home uid={activePatientUid || user.uid} patientName={settings.patientName} greetingName={isSelf ? selfLabel : settings.patientName} memos={memos} onOpenAsk={openAsk} onOpen={setSelectedMemoId} canCapture={isSelf} notifications={bannerNotices} onDismissNotification={dismissNotification} newsCard={ownNews && <FamilyNewsCard news={ownNews} onOpen={() => { if (ownNews.state !== 'none') openFamilyNews(ownNews) }} />} />}
               {tab === 'today'    && <Today memos={memos} onOpen={setSelectedMemoId} uid={activePatientUid || user.uid} rx={rx} />}
               {tab === 'ask'      && <Ask memos={memos} onOpen={setSelectedMemoId} />}
@@ -387,7 +421,7 @@ function App() {
                   settings={settings}
                   onChange={onSettingsChange}
                   user={user}
-                  onSignOut={signOut}
+                  onSignOut={signOutHere}
                   memos={memos}
                   activePatientUid={activePatientUid || user.uid}
                   isSelf={isSelf}
@@ -400,7 +434,7 @@ function App() {
           )}
         </main>
 
-        <Tabs active={tab} onChange={onTabChange} avatarUrl={user.photoURL ?? undefined} unreadCount={notifications.length} />
+        <Tabs active={tab} onChange={onTabChange} avatarUrl={user.photoURL ?? undefined} unreadCount={notifications.length} showAlerts={pushOn} />
       </div>
     </ToastProvider>
   )

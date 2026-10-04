@@ -41,6 +41,7 @@ import {
 import { withModelLock } from '../llm/lock.js'
 import { areaOf, readableText, stubActivity, type PromptHints, type VisionTags } from '../llm/prompt.js'
 import { homeHintFor, localTimeHint } from '../travel.js'
+import { pushToUsers, type PushMessage } from './push.js'
 
 /** Failed generations on one photo before falling back to the stub. */
 export const MAX_ATTEMPTS = 5
@@ -60,6 +61,8 @@ export interface MemoDeps {
   loadPhoto: (photoPath: string) => Promise<PhotoInfo | null>
   geocode: (lat: number | null, lng: number | null) => Promise<GeoResult>
   generate: (args: PromptHints & { imageBase64: string; temperature?: number }) => Promise<LlmResult>
+  /** Push the new-photo notice to family devices (default: handlers/push). */
+  push?: (uids: string[], message: PushMessage) => Promise<void>
 }
 
 export const defaultMemoDeps: MemoDeps = {
@@ -269,6 +272,11 @@ export async function processMemo(memoId: string, attempt: number, deps: MemoDep
           })
         })
         await notifyBatch.commit()
+        await (deps.push ?? pushToUsers)(cgs.docs.map((d) => d.data().caregiverUid as string), {
+          title: '오늘하루',
+          body: `${patientName}님이 새 사진을 올렸어요`,
+          data: { type: 'photo.new', patientUid, memoId },
+        })
       }
     } catch (err) {
       logger.warn('[notify] caregiver photo notice failed', { err: String(err) })

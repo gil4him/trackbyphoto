@@ -178,8 +178,10 @@ export interface AppNotification {
    *  'caregiver.revoke' | 'photo.new'. */
   type: string
   message: string
-  /** Present on 'photo.new' — the memo the notice points at. */
+  /** Present on 'photo.new' and 'reaction.*' — the memo the notice points at. */
   memoId?: string
+  /** Present on 'reaction.*'. */
+  reactionId?: string
   read: boolean
   createdAt: Timestamp
 }

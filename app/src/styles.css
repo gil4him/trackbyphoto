@@ -776,3 +776,22 @@ nav.tabbar .tab.on .tab-avatar { box-shadow: 0 0 0 2px var(--coral2); }
 .rx-reply { flex: none; margin-left: auto; height: 40px; padding: 0 16px; border-radius: 999px; border: 1.5px solid var(--coral2); background: #fff; color: var(--coral2); font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; }
 /* 가족 소식 card on the regular app's home sits under the two tiles. */
 .home .news-card { margin-top: 16px; }
+
+/* ── v2 phase 2: home-screen hint, notification centre ──────────────── */
+.install-hint { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; padding: 12px 14px; border-radius: 16px; background: #FFF1E9; border: 1px solid #FFD3BD; font-size: 15px; }
+.install-msg { flex: 1; min-width: 0; font-weight: 600; line-height: 1.4; }
+.install-go { flex: none; border: none; background: var(--coral2); color: #fff; font: inherit; font-size: 14px; font-weight: 700; border-radius: 999px; padding: 8px 14px; cursor: pointer; }
+.install-steps { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 10px; line-height: 1.5; }
+.plan-chip { display: inline-block; margin-left: 4px; padding: 1px 8px; border-radius: 999px; background: #f1f1f4; color: var(--ink-2); font-size: 12px; font-weight: 700; vertical-align: middle; }
+.switch:disabled { opacity: .45; cursor: default; }
+.ntf-head { display: flex; align-items: center; justify-content: space-between; }
+.ntf-readall { background: none; border: none; font: inherit; font-size: 13.5px; color: var(--ink-2); text-decoration: underline; cursor: pointer; }
+.ntf-list { list-style: none; margin: 0; padding: 0; }
+.ntf-row { width: 100%; display: flex; align-items: center; gap: 12px; padding: 13px 4px; background: none; border: none; border-bottom: 1px solid var(--line); font: inherit; text-align: left; cursor: pointer; color: var(--ink-2); }
+.ntf-row.unread { color: var(--ink); }
+.ntf-row.unread .ntf-msg { font-weight: 700; }
+.ntf-icon { flex: none; width: 36px; height: 36px; border-radius: 50%; background: #f6f6f8; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+.ntf-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ntf-msg { font-size: 15.5px; line-height: 1.4; }
+.ntf-when { font-size: 13px; color: var(--muted); }
+.ntf-dot { flex: none; width: 9px; height: 9px; border-radius: 50%; background: var(--coral2); }

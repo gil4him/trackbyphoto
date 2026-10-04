@@ -9,6 +9,9 @@
  * kept, and hearing the parent's voice.
  */
 
+import { getFirestore } from 'firebase-admin/firestore'
+import { logger } from './log.js'
+
 export const PLAN_TIERS = ['free', 'basic', 'plus', 'family'] as const
 export type PlanTier = (typeof PLAN_TIERS)[number]
 
@@ -33,3 +36,27 @@ export interface PlansDoc extends Record<PlanTier, PlanEntitlements> {
   fairUse: { photosPerDay: number | null }
   flags: Record<PlanFlag, boolean>
 }
+
+let cache: { value: PlansDoc | null; expiresAt: number } | null = null
+
+/** The plans doc, re-read at most once a minute. Null when it doesn't exist
+ *  or can't be read; callers then treat every flag as off. */
+export async function getPlans(): Promise<PlansDoc | null> {
+  const now = Date.now()
+  if (cache && cache.expiresAt > now) return cache.value
+  let value: PlansDoc | null = null
+  try {
+    value = ((await getFirestore().doc('admin_config/plans').get()).data() as PlansDoc | undefined) ?? null
+  } catch (err) {
+    logger.warn('[plans] read failed; treating every flag as off', { err: String(err) })
+  }
+  cache = { value, expiresAt: now + 60_000 }
+  return value
+}
+
+export async function flagOn(flag: PlanFlag): Promise<boolean> {
+  return (await getPlans())?.flags?.[flag] === true
+}
+
+/** Tests change the doc between cases. */
+export function resetPlansCache() { cache = null }

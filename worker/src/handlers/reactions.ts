@@ -26,6 +26,7 @@ import { getStorage } from 'firebase-admin/storage'
 import { logger } from '../log.js'
 import { withModelLock } from '../llm/lock.js'
 import { SttError, SttUnavailableError, transcribe } from '../llm/stt.js'
+import { pushToUsers, type PushMessage } from './push.js'
 
 export const MAX_ATTEMPTS = 5
 const RETRY_DELAYS_MS = [15_000, 60_000, 2 * 60_000, 5 * 60_000]
@@ -42,6 +43,8 @@ export interface ReactionDeps {
   /** Resolve the clip; null when it is missing or too large. */
   loadClip: (audioPath: string) => Promise<ClipInfo | null>
   transcribe: (audio: Buffer) => Promise<string>
+  /** Push a voice reply to family devices (default: handlers/push). */
+  push?: (uids: string[], message: PushMessage) => Promise<void>
 }
 
 export const defaultReactionDeps: ReactionDeps = {
@@ -162,6 +165,14 @@ export async function processReaction(reactionId: string, attempt: number, deps:
     return true
   })
   if (finished) logger.info('[reaction] handled', { reactionId, kind, fromElder, notified: recipients.length })
+  // A voice reply is worth a push; hearts and comments stay in the app.
+  if (finished && fromElder && kind === 'voice') {
+    await (deps.push ?? pushToUsers)(recipients, {
+      title: '오늘하루',
+      body: message,
+      data: { type: 'reaction.voice', patientUid, memoId: String(data.memoId ?? ''), reactionId },
+    })
+  }
   return 'done'
 }
 

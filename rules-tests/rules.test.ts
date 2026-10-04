@@ -8,7 +8,7 @@ import {
 } from '@firebase/rules-unit-testing'
 import {
   doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, serverTimestamp,
-  collection, query, where,
+  collection, query, where, orderBy, limit,
 } from 'firebase/firestore'
 import { ref, uploadBytes, getBytes } from 'firebase/storage'
 import { describe, it, beforeAll, beforeEach, afterAll } from 'vitest'
@@ -986,5 +986,40 @@ describe('plans', () => {
     })
     await assertSucceeds(setDoc(doc(authedDb(PATIENT), 'users', PATIENT), { bigText: false, plan: { tier: 'basic' }, lastModifiedBy: PATIENT }, { merge: true }))
     await assertSucceeds(setDoc(doc(authedDb(STRANGER), 'users', STRANGER), { patientName: 'x', lastModifiedBy: STRANGER }))
+  })
+})
+
+describe('push tokens and the notification centre', () => {
+  it('nobody reads or writes the private push doc from an app', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'users', PATIENT, 'private', 'push'), { fcmTokens: ['t'] })
+    })
+    await assertFails(getDoc(doc(authedDb(PATIENT), 'users', PATIENT, 'private', 'push')))
+    await assertFails(getDoc(doc(authedDb(CAREGIVER_ACTIVE_ADMIN), 'users', PATIENT, 'private', 'push')))
+    await assertFails(setDoc(doc(authedDb(PATIENT), 'users', PATIENT, 'private', 'push'), { fcmTokens: ['mine'] }))
+  })
+
+  it('a signed-in family account may ask the worker to register a token or change channels', async () => {
+    const req = (type: string) => ({
+      type, uid: CAREGIVER_ACTIVE_ADMIN, email: 'cg@example.com', name: null, payload: {}, status: 'pending', createdAt: serverTimestamp(),
+    })
+    const db = authedDb(CAREGIVER_ACTIVE_ADMIN, { email: 'cg@example.com' })
+    await assertSucceeds(setDoc(doc(db, 'requests', 'r1'), req('registerFcmToken')))
+    await assertSucceeds(setDoc(doc(db, 'requests', 'r2'), req('setChannels')))
+  })
+
+  it('a user can list their own notices newest first (notification centre query)', async () => {
+    await assertSucceeds(getDocs(query(
+      collection(authedDb(CAREGIVER_ACTIVE_ADMIN), 'notifications'),
+      where('recipientUid', '==', CAREGIVER_ACTIVE_ADMIN),
+      orderBy('createdAt', 'desc'),
+      limit(50),
+    )))
+    await assertFails(getDocs(query(
+      collection(authedDb(STRANGER), 'notifications'),
+      where('recipientUid', '==', CAREGIVER_ACTIVE_ADMIN),
+      orderBy('createdAt', 'desc'),
+      limit(50),
+    )))
   })
 })
