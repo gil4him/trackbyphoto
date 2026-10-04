@@ -77,3 +77,8 @@ export async function approvePairing(pairingId: string, approve: boolean): Promi
 export async function unlinkDevice(patientUid: string, deviceId: string): Promise<void> {
   await callWorker('unlinkDevice', { patientUid, deviceId })
 }
+
+/** 부모님 삭제 — guardian only; erases the parent's account and all records. */
+export async function deleteManagedElder(patientUid: string): Promise<void> {
+  await callWorker('deleteManagedElder', { patientUid }, { timeoutMs: 60_000 })
+}

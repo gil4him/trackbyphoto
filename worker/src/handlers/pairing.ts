@@ -28,6 +28,9 @@
  *                       device's status on every elder-session read/write, so
  *                       the phone loses access immediately.
  *
+ *   deleteManagedElder  The guardian erases the parent's account and all of
+ *                       its data (부모님 삭제).
+ *
  * Elder sessions are custom tokens with claims { elder: true, deviceId }.
  * Rules use those claims to keep the elder's phone to capture + reading its
  * own records: no settings writes, no invites, no membership removal.
@@ -35,6 +38,7 @@
 
 import { createHash, randomInt } from 'node:crypto'
 import { getAuth } from 'firebase-admin/auth'
+import { getStorage } from 'firebase-admin/storage'
 import { getFirestore, FieldValue, Timestamp, type DocumentReference } from 'firebase-admin/firestore'
 import { logger } from '../log.js'
 import { WorkerError as HttpsError, type Caller } from '../context.js'
@@ -550,5 +554,55 @@ export async function unlinkDevice(caller: Caller, data: { patientUid?: string; 
     logger.warn('[pairing] revokeRefreshTokens failed', { patientUid, err: String(err) }))
 
   logger.info('[pairing] device unlinked', { patientUid, deviceId, callerUid })
+  return { ok: true }
+}
+
+// Every top-level collection whose docs belong to one patient (by patientUid).
+const PATIENT_COLLECTIONS = ['memos', 'consents', 'memberships', 'pairings', 'invites', 'auditLogs', 'notifications']
+
+/**
+ * 부모님 삭제: the guardian (the family member who registered the parent)
+ * erases a family-managed elder entirely — sign-in account (which also cuts
+ * off any linked phone), settings, devices, records, photos, consents, and
+ * every family member's access. Self-managed accounts can't be deleted here.
+ */
+export async function deleteManagedElder(caller: Caller, data: { patientUid?: string }): Promise<{ ok: true }> {
+  const callerUid = requireFamilyAccount(caller)
+  const patientUid = data?.patientUid
+  if (!patientUid || typeof patientUid !== 'string') throw new HttpsError('invalid-argument', 'patientUid required')
+  if (patientUid === callerUid) throw new HttpsError('permission-denied', 'cannot delete your own account here')
+  const db = getFirestore()
+  const userRef = db.collection('users').doc(patientUid)
+  const user = await userRef.get()
+  if ((user.data() as { accountType?: string } | undefined)?.accountType !== 'managed') {
+    throw new HttpsError('failed-precondition', 'only a family-managed account can be deleted')
+  }
+  const m = (await db.collection('memberships').doc(`${patientUid}_${callerUid}`).get()).data() as
+    { status?: string; role?: string } | undefined
+  if (m?.status !== 'active' || m.role !== 'guardian') {
+    throw new HttpsError('permission-denied', 'only the guardian can delete this account')
+  }
+
+  // Auth first: once the elder's user is gone no phone can refresh a token,
+  // and the devices doc removal below fails every rules check immediately.
+  await getAuth().deleteUser(patientUid).catch((err) => {
+    if ((err as { code?: string }).code !== 'auth/user-not-found') throw err
+  })
+
+  const writer = db.bulkWriter()
+  for (const name of PATIENT_COLLECTIONS) {
+    const snap = await db.collection(name).where('patientUid', '==', patientUid).get()
+    for (const d of snap.docs) writer.delete(d.ref)
+  }
+  await writer.close()
+  await db.recursiveDelete(userRef)
+
+  // Tests run without a storage emulator; skip rather than reach real GCS.
+  if (!process.env.FIRESTORE_EMULATOR_HOST || process.env.FIREBASE_STORAGE_EMULATOR_HOST) {
+    await getStorage().bucket().deleteFiles({ prefix: `photos/${patientUid}/` }).catch((err) =>
+      logger.warn('[pairing] photo cleanup failed', { patientUid, err: String(err) }))
+  }
+
+  logger.info('[pairing] managed elder deleted', { patientUid, callerUid })
   return { ok: true }
 }

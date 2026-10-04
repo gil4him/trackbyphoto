@@ -30,6 +30,7 @@ import {
   completePairing,
   createManagedElder,
   createPairingLink,
+  deleteManagedElder,
   pairDevice,
   unlinkDevice,
 } from './pairing.js'
@@ -52,6 +53,7 @@ export const HANDLERS: Record<string, Handler> = {
   approvePairing,
   completePairing,
   unlinkDevice,
+  deleteManagedElder,
 }
 
 const STALE_AFTER_MS = 24 * 3600 * 1000

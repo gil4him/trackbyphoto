@@ -13,6 +13,7 @@ import {
 import { sendInviteSMS, shareInviteToKakao } from '../lib/share'
 import { RegisterElder } from './RegisterElder'
 import { ElderDevices } from '../components/ElderDevices'
+import { deleteManagedElder } from '../lib/pairing'
 
 interface Props {
   settings: UserSettings
@@ -42,6 +43,25 @@ export function Settings({ settings, onChange, user, onSignOut, activePatientUid
   // The owner sees their list of caregivers; revoke buttons call the cloud
   // function so the audit log gets written atomically.
   const { caregivers } = useMemberships(activePatientUid)
+  // 부모님 삭제 is for the guardian (whoever registered the parent) only.
+  const isGuardian = isManaged && !isSelf && caregivers.some(
+    (m) => m.caregiverUid === user.uid && m.role === 'guardian' && m.status === 'active')
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deleteBusy, setDeleteBusy] = useState(false)
+  const onDeleteElder = async () => {
+    setDeleteBusy(true)
+    try {
+      await deleteManagedElder(activePatientUid)
+      setDeleteOpen(false)
+      onSwitchPatient(user.uid)
+      toast.show(`${settings.patientName}님을 삭제했어요`)
+    } catch (err) {
+      console.error('[elder] delete failed', err)
+      toast.show('삭제하지 못했어요', isWorkerOffline(err) ? WORKER_OFFLINE_MESSAGE : '잠시 후 다시 시도해 주세요')
+    } finally {
+      setDeleteBusy(false)
+    }
+  }
   // 가족초대 modal. Two steps in one overlay: (1) a single consent screen,
   // (2) send the invite link by KakaoTalk or text message. The code itself is
   // never shown — the recipient just taps the link.
@@ -323,6 +343,34 @@ export function Settings({ settings, onChange, user, onSignOut, activePatientUid
           has the worker write both consents + the invite + audit log in one
           batch.
           Step 2 (send): KakaoTalk or text message — nothing else. */}
+      {isGuardian && (
+        <div className="sect">
+          <div className="sect-lab">부모님 삭제</div>
+          <button className="linkbtn danger-btn" onClick={() => setDeleteOpen(true)}>
+            <span>{settings.patientName}님 삭제하기</span>
+          </button>
+          <div className="help">
+            잘못 등록했거나 더 이상 쓰지 않을 때만 사용하세요. 사진과 기록이 모두 지워지고 되돌릴 수 없어요.
+          </div>
+        </div>
+      )}
+      {deleteOpen && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <div className="modal">
+            <div className="modal-title">{settings.patientName}님을 삭제할까요?</div>
+            <div className="modal-body">
+              <p>{settings.patientName}님의 사진·기록·설정이 모두 지워지고, 연결된 휴대폰과 가족 모두 더 이상 볼 수 없어요. 되돌릴 수 없어요.</p>
+            </div>
+            <div className="modal-actions">
+              <button className="signin-secondary" disabled={deleteBusy} onClick={() => setDeleteOpen(false)}>취소</button>
+              <button className="linkbtn danger-btn" disabled={deleteBusy} onClick={onDeleteElder}>
+                <span>{deleteBusy ? '삭제하는 중…' : '삭제하기'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {inviteOpen && (
         <div className="modal-backdrop" role="dialog" aria-modal="true">
           <div className="modal">

@@ -350,6 +350,10 @@ main { padding: 18px 22px calc(110px + var(--safe-bot)); }
   font-family: inherit;
 }
 
+.linkbtn.danger-btn { color: #c62828; border-color: #f2c4c4; justify-content: center; }
+.linkbtn.danger-btn:disabled { opacity: .6; }
+
+
 .add-recipient { display: flex; gap: 8px; margin-top: 8px; }
 .add-recipient input {
   flex: 1; min-width: 0;
