@@ -4,6 +4,7 @@ import { db } from './firebase'
 import { useAuth } from './hooks/useAuth'
 import { useMemos } from './hooks/useMemos'
 import { useMemberships } from './hooks/useMemberships'
+import { useOutboxSync } from './hooks/useOutbox'
 import { useNotifications } from './hooks/useNotifications'
 import { useAppUpdate } from './hooks/useAppUpdate'
 import { normalizeInviteCode, syncCaregiverName } from './lib/caregiver'
@@ -68,6 +69,8 @@ function App() {
   // True once a newer build has been deployed than the one we're running.
   const updateReady = useAppUpdate()
   const { memos } = useMemos(activePatientUid || undefined)
+  // Keep sending photos that are still on this phone (weak connection).
+  useOutboxSync(user?.uid)
   const selectedMemo = selectedMemoId ? memos.find((m) => m.id === selectedMemoId) ?? null : null
 
   // Initialize activePatientUid when the user signs in. Read the persisted
@@ -321,7 +324,7 @@ function App() {
           ) : (
             <>
               {tab === 'home'     && <Home uid={activePatientUid || user.uid} patientName={settings.patientName} greetingName={isSelf ? selfLabel : settings.patientName} memos={memos} onOpenAsk={openAsk} onOpen={setSelectedMemoId} canCapture={isSelf} notifications={notifications} onDismissNotification={dismissNotification} />}
-              {tab === 'today'    && <Today memos={memos} onOpen={setSelectedMemoId} />}
+              {tab === 'today'    && <Today memos={memos} onOpen={setSelectedMemoId} uid={activePatientUid || user.uid} />}
               {tab === 'ask'      && <Ask memos={memos} onOpen={setSelectedMemoId} />}
               {tab === 'settings' && (
                 <Settings

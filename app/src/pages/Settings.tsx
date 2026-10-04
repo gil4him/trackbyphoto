@@ -14,7 +14,7 @@ import { sendInviteSMS, shareInviteToKakao } from '../lib/share'
 import { RegisterElder } from './RegisterElder'
 import { ElderDevices } from '../components/ElderDevices'
 import { deleteManagedElder } from '../lib/pairing'
-import { getGeo } from '../lib/capture'
+import { getGeo } from '../lib/location'
 
 interface Props {
   settings: UserSettings

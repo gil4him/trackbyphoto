@@ -5,7 +5,8 @@
  * with status 'pending' (rules only let the owner create it, pending, pointing
  * at their own photo folder). The worker watches pending memos and for each:
  *   1. resolves a tokenized download URL for the photo,
- *   2. reverse-geocodes lat/lng,
+ *   2. reverse-geocodes lat/lng (a failed or late lookup is finished by
+ *      handlers/place.ts),
  *   3. writes the memo from the photo itself:
  *        a. local vision model on Ollama (memoSource 'local-llm'), told the
  *           time, the place and how far from home the photo was taken,
@@ -120,7 +121,12 @@ export async function processMemo(memoId: string, attempt: number, deps: MemoDep
     return 'done'
   }
 
-  const { place, address } = await deps.geocode(lat, lng)
+  // No coordinates yet: the phone may still attach them (it keeps trying for
+  // a fix after the upload), so leave place alone rather than writing ''.
+  // Coordinates but no answer from the geocoder: flag it for a retry.
+  const hasCoords = lat != null && lng != null
+  const { place, address } = hasCoords ? await deps.geocode(lat, lng) : { place: '', address: '' }
+  const located = !!(place || address)
 
   let activity: string
   let memo: string
@@ -132,7 +138,7 @@ export async function processMemo(memoId: string, attempt: number, deps: MemoDep
   try {
     const result = await deps.generate({
       imageBase64: await photo.base64(),
-      timeHint: await localTimeHint(patientUid, data.takenAt?.toDate?.(), lat, lng),
+      timeHint: await localTimeHint(patientUid, data.takenAt?.toDate?.(), lat, lng, data.tzOffsetMin as number | undefined),
       // Only pass when non-empty so the model isn't told 알 수 없음 twice.
       placeHint: place || undefined,
       homeHint: await homeHintFor(patientUid, lat, lng),
@@ -166,14 +172,19 @@ export async function processMemo(memoId: string, attempt: number, deps: MemoDep
   const firstCompletion = !data.notifiedAt
   const update: Record<string, unknown> = {
     photoUrl: photo.photoUrl,
-    place,
-    address,
     status: 'ready',
     // Sent by older app builds; never used (see header).
     deviceMemo: FieldValue.delete(),
     deviceMemoSource: FieldValue.delete(),
   }
   if (firstCompletion) update.notifiedAt = FieldValue.serverTimestamp()
+  if (located) {
+    update.place = place
+    update.address = address
+    update.needsGeocode = FieldValue.delete()
+  } else if (hasCoords) {
+    update.needsGeocode = true // picked up by handlers/place.ts
+  }
   if (!humanEdited) {
     update.activity = activity
     update.memo = memo

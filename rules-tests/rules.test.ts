@@ -224,6 +224,12 @@ describe('memos', () => {
     await assertSucceeds(setDoc(doc(authedDb(PATIENT), 'memos', 'new_memo'), pendingMemo(PATIENT)))
   })
 
+  it('patient can send the phone time zone, but not arbitrary extra fields', async () => {
+    await assertSucceeds(setDoc(doc(authedDb(PATIENT), 'memos', 'new_memo'), pendingMemo(PATIENT, { tzOffsetMin: 540 })))
+    await assertFails(setDoc(doc(authedDb(PATIENT), 'memos', 'other_memo'),
+      pendingMemo(PATIENT, { photoPath: `photos/${PATIENT}/other_memo.jpg`, notifiedAt: new Date() })))
+  })
+
   it('patient cannot create a memo already marked ready', async () => {
     await assertFails(
       setDoc(doc(authedDb(PATIENT), 'memos', 'new_memo'), pendingMemo(PATIENT, { status: 'ready' })),
@@ -244,6 +250,25 @@ describe('memos', () => {
     await assertFails(
       setDoc(doc(authedDb(PATIENT), 'memos', 'new_memo'), pendingMemo(PATIENT, { memoSource: 'local-llm' })),
     )
+  })
+
+  // The app's outbox checks whether an earlier attempt already delivered a
+  // memo. A plain get() of a missing memo is denied, so it uses this query.
+  it('patient can look up whether their own memo exists, even when it does not', async () => {
+    const lookup = (uid: string, id: string) => query(
+      collection(authedDb(uid), 'memos'),
+      where('patientUid', '==', uid),
+      where('photoPath', '==', `photos/${uid}/${id}.jpg`),
+    )
+    await assertSucceeds(getDocs(lookup(PATIENT, 'not_sent_yet')))
+    await assertFails(getDoc(doc(authedDb(PATIENT), 'memos', 'not_sent_yet')))
+    await assertFails(getDocs(query(collection(authedDb(STRANGER), 'memos'), where('patientUid', '==', PATIENT))))
+  })
+
+  it('patient can attach a late location to their memo; a stranger cannot', async () => {
+    const late = { lat: 34.86, lng: 136.82, needsGeocode: true }
+    await assertSucceeds(updateDoc(doc(authedDb(PATIENT), 'memos', 'memo1'), late))
+    await assertFails(updateDoc(doc(authedDb(STRANGER), 'memos', 'memo1'), late))
   })
 
   it("caregiver cannot create a memo on the patient's behalf", async () => {

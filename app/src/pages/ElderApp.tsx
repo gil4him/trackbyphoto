@@ -58,7 +58,7 @@ export function ElderApp({ uid, deviceId, patientName, memos, onRelink }: {
         ) : view === 'records' ? (
           <>
             <button className="elder-back" onClick={() => setView('home')}>‹ 처음으로</button>
-            <Today memos={memos} onOpen={setOpenId} readOnly />
+            <Today memos={memos} onOpen={setOpenId} uid={uid} readOnly />
           </>
         ) : (
           <Home

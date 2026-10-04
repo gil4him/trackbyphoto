@@ -1,41 +1,16 @@
-import { ref, uploadBytes, deleteObject } from 'firebase/storage'
-import { deleteDoc, doc, serverTimestamp, setDoc, Timestamp } from 'firebase/firestore'
+import { ref, deleteObject } from 'firebase/storage'
+import { deleteDoc, doc } from 'firebase/firestore'
 import { Capacitor } from '@capacitor/core'
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera'
-import { Geolocation } from '@capacitor/geolocation'
 import { OnDeviceVision, type VisionTags } from 'on-device-vision'
 import { db, storage } from '../firebase'
+import { findFix, recentFix } from './location'
+import { shrinkPhoto } from './image'
+import { outbox } from './outboxBackend'
 
-export interface Geo { lat: number; lng: number }
 export type { VisionTags }
 
 const isNative = Capacitor.isNativePlatform()
-
-/**
- * Get GPS coordinates. Uses Capacitor's native plugin on iOS (better accuracy
- * and a real permission prompt), falls back to the browser Geolocation API in
- * the web view. Asks for a fresh high-accuracy (GPS) fix so the place label
- * names the actual building, not the surrounding cell-tower area. Returns
- * null on denial / unavailable.
- */
-export async function getGeo(): Promise<Geo | null> {
-  if (isNative) {
-    try {
-      const pos = await Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 8000, maximumAge: 15000 })
-      return { lat: pos.coords.latitude, lng: pos.coords.longitude }
-    } catch {
-      return null
-    }
-  }
-  return new Promise((resolve) => {
-    if (!('geolocation' in navigator)) return resolve(null)
-    navigator.geolocation.getCurrentPosition(
-      (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      () => resolve(null),
-      { enableHighAccuracy: true, timeout: 8000, maximumAge: 15000 },
-    )
-  })
-}
 
 /**
  * Open the native iOS camera (via Capacitor) and return the captured photo as
@@ -85,57 +60,36 @@ export async function analyzePhotoTags(path: string | undefined): Promise<Vision
 export const isNativeApp = isNative
 
 /**
- * Uploads a photo to Cloud Storage, then creates memos/{photoId} as a
- * 'pending' job. The Mac mini worker picks it up, runs AI + reverse
- * geocoding, and fills in the memo, which the client then sees live.
- * The doc is created only after the upload finishes so the worker never
- * looks for a photo that isn't there yet.
+ * Record a photo that was just taken. It is shrunk and put in the on-phone
+ * outbox, which uploads it and creates memos/{photoId} as a 'pending' job for
+ * the worker — straight away on a good connection, later on a bad one. The
+ * location is attached as soon as the phone finds it, even after sending.
+ * Returns once the photo is safely stored on the phone.
  */
-export async function uploadPhoto(opts: {
-  uid: string
-  file: File
-  geo: Geo | null
-  takenAt: Date
-  tags?: VisionTags | null
-}): Promise<{ path: string; photoId: string }> {
-  const { uid, file, geo, takenAt, tags } = opts
+export async function savePhoto(opts: { uid: string; file: File; nativePath?: string }): Promise<{ photoId: string }> {
+  const { uid, file, nativePath } = opts
+  const takenAt = new Date()
   const photoId = `${takenAt.getTime()}_${Math.random().toString(36).slice(2, 8)}`
-  const ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
-  const path = `photos/${uid}/${photoId}.${ext}`
-
-  await uploadBytes(ref(storage, path), file, {
-    contentType: file.type || 'image/jpeg',
-    // Kept on the object for forensics; the worker reads the memo doc below.
-    customMetadata: {
-      uid,
-      photoId,
-      takenAt: takenAt.toISOString(),
-      lat: geo ? String(geo.lat) : '',
-      lng: geo ? String(geo.lng) : '',
-    },
+  const here = recentFix()
+  const [blob, tags] = await Promise.all([shrinkPhoto(file), analyzePhotoTags(nativePath)])
+  const shrunk = blob !== file
+  await outbox.enqueue({
+    photoId,
+    uid,
+    blob,
+    ext: shrunk ? 'jpg' : (file.name.split('.').pop() || 'jpg').toLowerCase(),
+    takenAtMs: takenAt.getTime(),
+    lat: here?.lat ?? null,
+    lng: here?.lng ?? null,
+    tzOffsetMin: -takenAt.getTimezoneOffset(),
+    tags,
   })
-
-  // Placeholder the UI renders as "메모 작성 중…" until the worker fills it.
-  // Shape is enforced by the memos create rule in firestore.rules.
-  await setDoc(doc(db, 'memos', photoId), {
-    // `patientUid` (not `uid`) is the schema field per the caregiver-share
-    // plan. For self-managed accounts the uploader IS the patient.
-    patientUid: uid,
-    photoPath: path,
-    photoUrl: '',
-    takenAt: Timestamp.fromDate(takenAt),
-    lat: geo ? geo.lat : null,
-    lng: geo ? geo.lng : null,
-    place: '',
-    activity: '기타',
-    memo: '',
-    scene: '',
-    status: 'pending',
-    createdAt: serverTimestamp(),
-    ...(tags ? { tags } : {}),
-  })
-
-  return { path, photoId }
+  if (!here) {
+    void findFix()
+      .then((geo) => (geo ? outbox.attachGeo(photoId, geo) : undefined))
+      .catch((err) => console.warn('[capture] could not attach location', err))
+  }
+  return { photoId }
 }
 
 /**

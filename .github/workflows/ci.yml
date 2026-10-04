@@ -48,6 +48,10 @@ jobs:
         working-directory: app
         run: npm run build
 
+      - name: Web app unit tests (photo outbox)
+        working-directory: app
+        run: npm test
+
       - name: Typecheck Mac mini worker
         working-directory: worker
         run: npm run lint
