@@ -17,6 +17,8 @@ import { Settings } from './pages/Settings'
 import { MemoDetail } from './pages/MemoDetail'
 import { SignIn } from './pages/SignIn'
 import { AcceptInvite, PENDING_INVITE_KEY } from './pages/AcceptInvite'
+import { PairDevice } from './pages/PairDevice'
+import { ElderApp } from './pages/ElderApp'
 import { SuperAdmin, ADMIN_EMAIL } from './pages/SuperAdmin'
 import { Ask } from './components/Ask'
 import type { UserSettings } from './types'
@@ -34,8 +36,22 @@ const DEFAULT_SETTINGS: UserSettings = {
 // user so two accounts on one device don't bleed into each other.
 const activePatientStorageKey = (uid: string) => `tbp.activePatient.${uid}`
 
+// trackbyphoto.web.app/pair?c=CODE — the link family sends to link a parent's
+// phone (#c=CODE is accepted too).
+function pairCodeFromUrl(): string | null {
+  if (typeof window === 'undefined' || window.location.pathname !== '/pair') return null
+  const fromQuery = new URLSearchParams(window.location.search).get('c')
+  const fromHash = new URLSearchParams(window.location.hash.slice(1)).get('c')
+  return fromQuery || fromHash || ''
+}
+
 function App() {
-  const { user, ready, signInWithGoogle, signOut } = useAuth()
+  const { user: authUser, elder, ready, signInWithGoogle, signOut } = useAuth()
+  // An anonymous session exists only while a phone redeems a pairing code;
+  // everywhere else it counts as signed out.
+  const user = authUser && !authUser.isAnonymous ? authUser : null
+  // Pairing screen: opened by a /pair link, or by "가족에게 받은 코드가 있어요".
+  const [pairCode, setPairCode] = useState<string | null>(pairCodeFromUrl)
   const [tab, setTab] = useState<TabKey>('home')
   const [selectedMemoId, setSelectedMemoId] = useState<string | null>(null)
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS)
@@ -73,8 +89,8 @@ function App() {
   // Stamp our real name onto any memberships where we're the caregiver, so the
   // patient sees a name (not a UID) in 가족 관리. Backfills older rows too.
   useEffect(() => {
-    if (user) syncCaregiverName().catch((e) => console.warn('[caregiver] name sync failed', e))
-  }, [user])
+    if (user && !elder) syncCaregiverName().catch((e) => console.warn('[caregiver] name sync failed', e))
+  }, [user, elder])
 
   // /accept and /accept-invite both jump to the accept screen. The code is
   // also stashed so it survives sign-in even if the query string doesn't;
@@ -104,7 +120,7 @@ function App() {
     const unsub = onSnapshot(sref, (snap) => {
       if (snap.exists()) {
         setSettings({ ...DEFAULT_SETTINGS, ...(snap.data() as Partial<UserSettings>) })
-      } else if (activePatientUid === user.uid) {
+      } else if (activePatientUid === user.uid && !elder) {
         // Only seed defaults for the SELF doc — never overwrite a missing
         // doc for someone we're caregiving (could be a transient consistency
         // gap, and we don't want to plant data we don't own).
@@ -113,7 +129,7 @@ function App() {
       }
     }, (err) => console.error('[settings] subscription', err))
     return () => unsub()
-  }, [user, activePatientUid])
+  }, [user, activePatientUid, elder])
 
   const onSettingsChange = (next: UserSettings) => {
     setSettings(next)
@@ -167,6 +183,22 @@ function App() {
     )
   }
 
+  if (pairCode !== null) {
+    const closePair = () => {
+      setPairCode(null)
+      window.history.replaceState(null, '', '/')
+    }
+    return (
+      <ToastProvider>
+        <div className="app">
+          <main>
+            <PairDevice initialCode={pairCode} onDone={closePair} onCancel={closePair} />
+          </main>
+        </div>
+      </ToastProvider>
+    )
+  }
+
   if (!user) {
     // Family members arriving from an invite link still need to sign in first
     // (acceptInvite requires auth). The redirect returns to the same /accept
@@ -178,6 +210,7 @@ function App() {
             <SignIn
               onGoogle={signInWithGoogle}
               invited={showAcceptInvite}
+              onEnterCode={() => setPairCode('')}
             />
           </main>
         </div>
@@ -207,6 +240,24 @@ function App() {
             )}
           </main>
         </div>
+      </ToastProvider>
+    )
+  }
+
+  // A family-managed elder's linked phone: capture + own records, nothing else.
+  if (elder) {
+    return (
+      <ToastProvider>
+        <ElderApp
+          uid={user.uid}
+          deviceId={elder.deviceId}
+          patientName={settings.patientName}
+          memos={memos}
+          onRelink={async () => {
+            await signOut().catch(() => {})
+            setPairCode('')
+          }}
+        />
       </ToastProvider>
     )
   }
@@ -281,6 +332,7 @@ function App() {
                   memos={memos}
                   activePatientUid={activePatientUid || user.uid}
                   isSelf={isSelf}
+                  onSwitchPatient={(uid) => { onSwitchPatient(uid); setTab('home') }}
                 />
               )}
             </>

@@ -256,3 +256,39 @@ export async function shareInviteToKakao(patientName: string, code: string): Pro
 export function sendInviteSMS(phone: string, patientName: string, code: string): void {
   openSMS(phone, buildInviteMessage(patientName, code))
 }
+
+// ────────────────────────────────────────────────────────────────────────────
+// 부모님 휴대폰 연결 — pairing link delivery
+// ────────────────────────────────────────────────────────────────────────────
+
+export function buildPairMessage(patientName: string, url: string, code: string, hours: number): string {
+  const who = patientName.trim() || '부모님'
+  return [
+    `[오늘하루] ${who}님 휴대폰을 연결해요.`,
+    `아래 링크를 누르고 '연결하기'를 눌러주세요. (${hours}시간 유효)`,
+    url,
+    `앱에서는 코드 ${code.slice(0, 4)} ${code.slice(4)} 를 입력하세요.`,
+  ].join('\n')
+}
+
+/** Send the pairing link through KakaoTalk (same paths as 가족초대). */
+export async function sharePairToKakao(text: string, url: string): Promise<'shared' | 'copied'> {
+  if (!Capacitor.isNativePlatform() && isKakaoConfigured()) {
+    try {
+      await shareToKakao(text, url)
+      return 'shared'
+    } catch (err) {
+      console.warn('[pair] Kakao SDK share failed, using the share sheet', err)
+    }
+  }
+  if ((await Share.canShare()).value) {
+    try {
+      await Share.share({ title: '오늘하루 휴대폰 연결', text, dialogTitle: '카카오톡으로 보내기' })
+    } catch {
+      // Sheet closed without picking an app.
+    }
+    return 'shared'
+  }
+  await navigator.clipboard.writeText(text)
+  return 'copied'
+}

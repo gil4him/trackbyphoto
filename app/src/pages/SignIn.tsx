@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useToast } from '../components/Toast'
 
-export function SignIn({ onGoogle, invited }: { onGoogle: () => Promise<void>; invited?: boolean }) {
+export function SignIn({ onGoogle, invited, onEnterCode }: { onGoogle: () => Promise<void>; invited?: boolean; onEnterCode?: () => void }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const toast = useToast()
@@ -46,6 +46,12 @@ export function SignIn({ onGoogle, invited }: { onGoogle: () => Promise<void>; i
       </button>
 
       {error && <p className="signin-error">{error}</p>}
+
+      {onEnterCode && !invited && (
+        <button className="signin-code-btn" onClick={onEnterCode}>
+          가족에게 받은 연결 코드가 있어요
+        </button>
+      )}
 
       <p className="signin-note">
         {invited

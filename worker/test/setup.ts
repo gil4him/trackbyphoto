@@ -8,6 +8,7 @@ import { getFirestore } from 'firebase-admin/firestore'
 export const PROJECT = 'demo-trackbyphoto'
 process.env.GCLOUD_PROJECT = PROJECT
 process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080'
+process.env.FIREBASE_AUTH_EMULATOR_HOST = process.env.FIREBASE_AUTH_EMULATOR_HOST || '127.0.0.1:9099'
 
 if (!getApps().length) initializeApp({ projectId: PROJECT })
 export const db = getFirestore()

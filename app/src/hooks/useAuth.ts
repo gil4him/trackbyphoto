@@ -5,7 +5,9 @@ import {
   getRedirectResult,
   GoogleAuthProvider,
   onAuthStateChanged,
+  signInAnonymously,
   signInWithCredential,
+  signInWithCustomToken,
   signInWithPopup,
   signInWithRedirect,
   signOut as fbSignOut,
@@ -45,8 +47,36 @@ async function nativeGoogleSignIn() {
   }
 }
 
+/** An elder phone linked by a pairing code: a worker-minted custom token
+ *  carrying { elder: true, deviceId }. */
+export interface ElderSession {
+  deviceId: string
+}
+
+async function readElderSession(u: User): Promise<ElderSession | null> {
+  try {
+    const { claims } = await u.getIdTokenResult()
+    return claims.elder === true ? { deviceId: String(claims.deviceId ?? '') } : null
+  } catch (err) {
+    console.warn('[auth] could not read token claims', err)
+    return null
+  }
+}
+
+/** Anonymous sign-in, used only to redeem a pairing code with the worker. */
+export async function signInForPairing(): Promise<void> {
+  if (auth.currentUser?.isAnonymous) return
+  await signInAnonymously(auth)
+}
+
+/** Switch to the elder session the worker minted. Persists like any sign-in. */
+export async function signInAsElder(customToken: string): Promise<void> {
+  await signInWithCustomToken(auth, customToken)
+}
+
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null)
+  const [elder, setElder] = useState<ElderSession | null>(null)
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
@@ -60,7 +90,9 @@ export function useAuth() {
       )
     }
 
-    const unsub = onAuthStateChanged(auth, (u) => {
+    const unsub = onAuthStateChanged(auth, async (u) => {
+      const session = u && !u.isAnonymous ? await readElderSession(u) : null
+      setElder(session)
       setUser(u)
       setReady(true)
     })
@@ -100,5 +132,5 @@ export function useAuth() {
     await fbSignOut(auth)
   }
 
-  return { user, ready, signInWithGoogle, signOut }
+  return { user, elder, ready, signInWithGoogle, signOut }
 }

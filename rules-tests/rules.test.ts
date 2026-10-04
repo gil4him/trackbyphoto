@@ -688,3 +688,123 @@ describe('notifications', () => {
     await assertSucceeds(deleteDoc(doc(authedDb(PATIENT), 'notifications', 'notif1')))
   })
 })
+
+// ────────────────────────────────────────────────────────────────────────────
+// Family-managed elders: elder phone sessions, anonymous pairing sessions,
+// pairings, devices
+// ────────────────────────────────────────────────────────────────────────────
+describe('managed elder sessions', () => {
+  const ELDER = 'elder_managed'
+  const GUARDIAN = 'cg_guardian'
+
+  // The phone's custom-token session: { elder: true, deviceId }.
+  const elderDb = (deviceId = 'dev1') =>
+    testEnv.authenticatedContext(ELDER, { elder: true, deviceId }).firestore()
+  const anonDb = (uid = 'anon1') =>
+    testEnv.authenticatedContext(uid, { firebase: { sign_in_provider: 'anonymous' } }).firestore()
+
+  beforeEach(async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore()
+      await setDoc(doc(db, 'users', ELDER), { patientName: '엄마', accountType: 'managed', lastModifiedBy: GUARDIAN })
+      await setDoc(doc(db, 'users', ELDER, 'devices', 'dev1'), { name: 'iPhone', status: 'active' })
+      await setDoc(doc(db, 'users', ELDER, 'devices', 'dev2'), { name: 'Old phone', status: 'revoked' })
+      await setDoc(doc(db, 'memberships', membershipId(ELDER, GUARDIAN)), {
+        patientUid: ELDER, caregiverUid: GUARDIAN, role: 'guardian', status: 'active', consentId: 'c1',
+      })
+      await setDoc(doc(db, 'memos', 'elderMemo'), { patientUid: ELDER, photoPath: `photos/${ELDER}/m.jpg`, status: 'ready' })
+      await setDoc(doc(db, 'pairings', 'pair1'), {
+        patientUid: ELDER, codeHash: 'h', status: 'awaiting-approval', claimedBy: 'anon1',
+      })
+      await setDoc(doc(db, 'notifications', 'elderNotice'), {
+        recipientUid: ELDER, patientUid: ELDER, actorUid: GUARDIAN, type: 'x', message: 'x', read: false,
+      })
+    })
+  })
+
+  it('linked phone reads its own settings and memos and can create a memo', async () => {
+    await assertSucceeds(getDoc(doc(elderDb(), 'users', ELDER)))
+    await assertSucceeds(getDoc(doc(elderDb(), 'memos', 'elderMemo')))
+    await assertSucceeds(setDoc(doc(elderDb(), 'memos', 'newMemo'), {
+      patientUid: ELDER, photoPath: `photos/${ELDER}/new.jpg`, status: 'pending', createdAt: serverTimestamp(),
+    }))
+  })
+
+  it('an unlinked (revoked) phone loses all access', async () => {
+    await assertFails(getDoc(doc(elderDb('dev2'), 'users', ELDER)))
+    await assertFails(getDoc(doc(elderDb('dev2'), 'memos', 'elderMemo')))
+    await assertFails(getDoc(doc(elderDb('dev2'), 'notifications', 'elderNotice')))
+    await assertFails(setDoc(doc(elderDb('dev2'), 'memos', 'newMemo'), {
+      patientUid: ELDER, photoPath: `photos/${ELDER}/new.jpg`, status: 'pending', createdAt: serverTimestamp(),
+    }))
+  })
+
+  it('a phone whose device record is missing has no access', async () => {
+    await assertFails(getDoc(doc(elderDb('ghost'), 'users', ELDER)))
+  })
+
+  it('elder phone cannot change settings', async () => {
+    await assertFails(setDoc(doc(elderDb(), 'users', ELDER), { patientName: 'x', lastModifiedBy: ELDER }, { merge: true }))
+  })
+
+  it('guardian can change the elder settings', async () => {
+    await assertSucceeds(setDoc(doc(authedDb(GUARDIAN), 'users', ELDER), { bigText: false, lastModifiedBy: GUARDIAN }, { merge: true }))
+  })
+
+  it('elder phone cannot remove family or create invites', async () => {
+    await assertFails(deleteDoc(doc(elderDb(), 'memberships', membershipId(ELDER, GUARDIAN))))
+    await assertFails(setDoc(doc(elderDb(), 'invites', '123456'), { patientUid: ELDER, used: false }))
+  })
+
+  it('elder phone may record its own one-tap notice acknowledgement', async () => {
+    await assertSucceeds(setDoc(doc(elderDb(), 'consents', 'ack1'), {
+      patientUid: ELDER, type: 'notice_ack', grantedBy: 'self', guardianUid: null,
+      scope: 'x', consentTextVersion: 'managed-v1', timestamp: serverTimestamp(),
+    }))
+  })
+
+  it('elder phone makes no worker requests', async () => {
+    await assertFails(setDoc(doc(elderDb(), 'requests', 'r1'), {
+      type: 'createInvite', uid: ELDER, email: null, name: null, payload: {}, status: 'pending', createdAt: serverTimestamp(),
+    }))
+  })
+
+  it('anonymous session may only redeem a pairing code', async () => {
+    const anonReq = (type: string) => ({
+      type, uid: 'anon1', email: null, name: null, payload: {}, status: 'pending', createdAt: serverTimestamp(),
+    })
+    await assertSucceeds(setDoc(doc(anonDb(), 'requests', 'r1'), anonReq('pairDevice')))
+    await assertSucceeds(setDoc(doc(anonDb(), 'requests', 'r2'), anonReq('completePairing')))
+    await assertFails(setDoc(doc(anonDb(), 'requests', 'r3'), anonReq('createInvite')))
+    await assertFails(setDoc(doc(anonDb(), 'requests', 'r4'), anonReq('createManagedElder')))
+  })
+
+  it('pairings: claimant and family can read; strangers and the elder phone cannot; nobody writes', async () => {
+    await assertSucceeds(getDoc(doc(anonDb('anon1'), 'pairings', 'pair1')))
+    await assertSucceeds(getDoc(doc(authedDb(GUARDIAN), 'pairings', 'pair1')))
+    await assertSucceeds(getDocs(query(collection(authedDb(GUARDIAN), 'pairings'), where('patientUid', '==', ELDER))))
+    await assertFails(getDoc(doc(anonDb('anon2'), 'pairings', 'pair1')))
+    await assertFails(getDoc(doc(authedDb(STRANGER), 'pairings', 'pair1')))
+    await assertFails(getDoc(doc(elderDb(), 'pairings', 'pair1')))
+    await assertFails(getDocs(collection(authedDb(STRANGER), 'pairings')))
+    await assertFails(updateDoc(doc(authedDb(GUARDIAN), 'pairings', 'pair1'), { status: 'approved' }))
+  })
+
+  it('devices: family and the phone read; nobody writes', async () => {
+    await assertSucceeds(getDocs(collection(authedDb(GUARDIAN), 'users', ELDER, 'devices')))
+    await assertSucceeds(getDoc(doc(elderDb(), 'users', ELDER, 'devices', 'dev1')))
+    await assertFails(getDocs(collection(authedDb(STRANGER), 'users', ELDER, 'devices')))
+    await assertFails(updateDoc(doc(authedDb(GUARDIAN), 'users', ELDER, 'devices', 'dev2'), { status: 'active' }))
+    await assertFails(updateDoc(doc(elderDb(), 'users', ELDER, 'devices', 'dev1'), { name: 'x' }))
+  })
+})
+
+describe('notifications feed query', () => {
+  it('a user can list their own unread notices (useNotifications query)', async () => {
+    await assertSucceeds(getDocs(query(
+      collection(authedDb(PATIENT), 'notifications'),
+      where('recipientUid', '==', PATIENT),
+      where('read', '==', false),
+    )))
+  })
+})

@@ -22,7 +22,7 @@ import type { Memo, AppNotification } from '../types'
  * recent upload finishes processing (caregiver sees the result without
  * having to leave the home screen).
  */
-export function Home({ uid, patientName, greetingName, memos, onOpenAsk, onOpen, canCapture = true, notifications = [], onDismissNotification }: { uid: string; patientName: string; greetingName: string; memos: Memo[]; onOpenAsk: () => void; onOpen: (id: string) => void; canCapture?: boolean; notifications?: AppNotification[]; onDismissNotification?: (id: string) => void }) {
+export function Home({ uid, patientName, greetingName, memos, onOpenAsk, onOpen, canCapture = true, notifications = [], onDismissNotification, recordsLabel }: { recordsLabel?: boolean; uid: string; patientName: string; greetingName: string; memos: Memo[]; onOpenAsk: () => void; onOpen: (id: string) => void; canCapture?: boolean; notifications?: AppNotification[]; onDismissNotification?: (id: string) => void }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
   const [busyMsg, setBusyMsg] = useState('사진을 저장하고 있어요…')
@@ -138,12 +138,12 @@ export function Home({ uid, patientName, greetingName, memos, onOpenAsk, onOpen,
             </button>
           )}
 
-          <button className="askbtn" onClick={onOpenAsk} aria-label="지난 기록 물어보기">
+          <button className="askbtn" onClick={onOpenAsk} aria-label={recordsLabel ? '지난 기록 보기' : '지난 기록 물어보기'}>
             <svg className="ask-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <circle cx="11" cy="11" r="7" />
               <path d="M20.5 20.5l-3.6-3.6" />
             </svg>
-            <span className="lab">지난 기록<br />물어보기</span>
+            <span className="lab">지난 기록<br />{recordsLabel ? '보기' : '물어보기'}</span>
           </button>
         </div>
 

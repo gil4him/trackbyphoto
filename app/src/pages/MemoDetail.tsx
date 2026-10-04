@@ -33,7 +33,8 @@ const SOURCE_BADGES: Record<MemoSource, { label: string; tone: 'good' | 'neutral
   'human':             { label: '직접 작성',           tone: 'good' },
 }
 
-export function MemoDetail({ memo, onBack }: { memo: Memo; onBack: () => void }) {
+/** `readOnly` (an elder's linked phone): no delete, no edit. */
+export function MemoDetail({ memo, onBack, readOnly = false }: { memo: Memo; onBack: () => void; readOnly?: boolean }) {
   const toast = useToast()
   const [draft, setDraft] = useState(memo.memo)
   const [editing, setEditing] = useState(false)
@@ -89,7 +90,7 @@ export function MemoDetail({ memo, onBack }: { memo: Memo; onBack: () => void })
     <section className="page detail">
       <div className="detail-topbar">
         <button className="back" onClick={onBack} aria-label="뒤로가기">‹ 뒤로</button>
-        <button className="del-text" onClick={onDelete}>삭제</button>
+        {!readOnly && <button className="del-text" onClick={onDelete}>삭제</button>}
       </div>
 
       {/* Photo header — falls back to a category-tinted gradient if no
@@ -140,6 +141,8 @@ export function MemoDetail({ memo, onBack }: { memo: Memo; onBack: () => void })
               >{saving ? '저장 중…' : '저장'}</button>
             </div>
           </div>
+        ) : readOnly ? (
+          <div className="d-activity"><span>{memo.memo || '메모 작성 중…'}</span></div>
         ) : (
           <button className="d-activity" onClick={() => setEditing(true)} aria-label="활동 메모 편집">
             <span>{memo.memo || '메모 작성 중…'}</span>
