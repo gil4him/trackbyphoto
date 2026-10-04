@@ -17,6 +17,12 @@ const TIMEOUT_MS = 180_000
 // Teleios' image generation (mflux) quickly. Memo volume is low, so the
 // occasional reload is cheap.
 const KEEP_ALIVE = '2m'
+// 0 = the model's single most likely answer, the same every run. At 0.2 the
+// same photo flipped between right and wrong categories from run to run,
+// which also made prompt changes impossible to judge.
+const TEMPERATURE = Number(process.env.OLLAMA_TEMPERATURE ?? 0)
+/** For "AI로 다시 쓰기": some variety, or a re-write would repeat itself. */
+export const REWRITE_TEMPERATURE = 0.5
 
 /** Local models the dashboard picker may select. All free. */
 export const LOCAL_MODELS: Record<string, { label: string }> = {
@@ -95,6 +101,8 @@ export async function generateMemo(args: PromptHints & {
   imageBase64: string
   /** Skip the admin_config lookup (used by scripts/probe.ts). */
   model?: string
+  /** Sampling temperature; defaults to TEMPERATURE. */
+  temperature?: number
 }): Promise<LlmResult> {
   const model = args.model || await resolveModel()
   const started = Date.now()
@@ -105,15 +113,14 @@ export async function generateMemo(args: PromptHints & {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model,
-        prompt: buildPrompt({ timeHint: args.timeHint, placeHint: args.placeHint, homeHint: args.homeHint }),
+        prompt: buildPrompt({ timeHint: args.timeHint, placeHint: args.placeHint, homeHint: args.homeHint, textHint: args.textHint }),
         images: [args.imageBase64],
         format: RESPONSE_SCHEMA,
         stream: false,
         // Thinking burns time and output budget on a one-line caption.
         think: false,
         keep_alive: KEEP_ALIVE,
-        // Low temp = more grounded, less floral (same as the cloud tier).
-        options: { temperature: 0.2, num_predict: 600 },
+        options: { temperature: args.temperature ?? TEMPERATURE, num_predict: 600 },
       }),
       signal: AbortSignal.timeout(TIMEOUT_MS),
     })
