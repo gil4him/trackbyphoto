@@ -21,7 +21,7 @@ import type { Membership } from '../types'
 
 type LiveMembership = Membership & { id: string }
 
-export function useMemberships(uid: string | undefined) {
+export function useMemberships(uid: string | undefined, { withPatients = true }: { withPatients?: boolean } = {}) {
   const [caregivers, setCaregivers] = useState<LiveMembership[]>([])
   const [patients, setPatients] = useState<LiveMembership[]>([])
   const [loading, setLoading] = useState(true)
@@ -55,7 +55,10 @@ export function useMemberships(uid: string | undefined) {
       console.error('[memberships] caregivers subscription error', err)
       cgReady = true; markReady()
     })
-    const unsub2 = onSnapshot(qPatients, (snap) => {
+    // Settings views another patient's family list and has no use for the
+    // patients side — which the rules would deny for anyone but that patient.
+    if (!withPatients) { setPatients([]); ptReady = true }
+    const unsub2 = !withPatients ? () => {} : onSnapshot(qPatients, (snap) => {
       setPatients(snap.docs.map((d) => ({ id: d.id, ...(d.data() as Membership) })))
       ptReady = true; markReady()
     }, (err) => {
@@ -64,7 +67,7 @@ export function useMemberships(uid: string | undefined) {
     })
 
     return () => { unsub1(); unsub2() }
-  }, [uid])
+  }, [uid, withPatients])
 
   return { caregivers, patients, loading }
 }
