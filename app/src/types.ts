@@ -226,7 +226,7 @@ export interface PlanEntitlements {
 /** admin_config/plans — the only place entitlements and rollout flags live. */
 export type Plans = Record<PlanTier, PlanEntitlements> & {
   fairUse: { photosPerDay: number | null }
-  flags: Partial<Record<'reactions' | 'voiceReplies' | 'digest' | 'pushFamily' | 'retentionJob' | 'messengerFree', boolean>>
+  flags: Partial<Record<'reactions' | 'voiceReplies' | 'digest' | 'pushFamily' | 'usageCaps' | 'retentionJob' | 'messengerFree' | 'trailMap', boolean>>
 }
 
 export type ReactionKind = 'heart' | 'comment' | 'voice'
@@ -282,6 +282,8 @@ export interface Digest {
   kind: 'daily' | 'weekly' | 'monthly'
   /** "10월 4일 토요일", "9월 28일~10월 4일", "9월". */
   label: string
+  periodStart?: Timestamp
+  periodEnd?: Timestamp
   summary: string
   memoIds: string[]
   photoCount: number
