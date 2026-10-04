@@ -16,7 +16,7 @@ export interface VisionTags {
 export interface PromptHints {
   /** HH:MM the photo was taken. */
   timeHint?: string
-  /** Reverse-geocoded place label, including city/country when abroad. */
+  /** The area the photo was taken in (see areaOf), not a shop name. */
   placeHint?: string
   /** Where the photo is relative to home (see travel.ts). */
   homeHint?: { km: number; away: boolean }
@@ -32,7 +32,8 @@ export function buildPrompt(hints: PromptHints = {}): string {
   const { timeHint, placeHint, homeHint } = hints
   const context = [
     `- 시간: ${timeHint || '알 수 없음'}`,
-    `- 장소: ${placeHint || '알 수 없음'}`,
+    `- 지역: ${placeHint || '알 수 없음'}`,
+    '  → 지역 이름일 뿐이에요. 사진에 보이지 않는 가게·음식·물건을 지역 이름에서 지어내지 마세요.',
   ]
   if (homeHint?.away) {
     context.push(
@@ -83,8 +84,8 @@ export function buildPrompt(hints: PromptHints = {}): string {
     '예시:',
     '- 식탁 위 찌개와 반찬 → {"activity":"식사","memo":"된장찌개로 점심 식사","scene":"식탁에 찌개와 반찬이 차려져 있어요. 집에서 드시는 점심이에요."}',
     '- 나무가 늘어선 공원길 → {"activity":"산책","memo":"나무가 우거진 공원 산책길","scene":"공원 길을 따라 나무가 늘어서 있어요. 햇살이 좋은 오후예요."}',
-    '- 공항 안 편의점 진열대(집에서 900km, 장소: 도코나메시, 일본) → {"activity":"이동","memo":"나고야 공항 편의점에 들렀어요","scene":"공항 안 편의점이에요. 진열대에 간식이 가득해요. 일본 나고야에 도착하셨어요."}',
-    '- 낯선 도시의 거리(집에서 900km, 장소: 나고야시, 일본) → {"activity":"여행","memo":"나고야 시내 거리 구경","scene":"일본 나고야의 거리예요. 간판이 늘어선 번화가예요."}',
+    '- 공항 안 편의점 진열대(집에서 900km, 지역: 도코나메시, 일본) → {"activity":"이동","memo":"나고야 공항 편의점에 들렀어요","scene":"공항 안 편의점이에요. 진열대에 간식이 가득해요. 일본 나고야에 도착하셨어요."}',
+    '- 낯선 도시의 거리(집에서 900km, 지역: 나고야시, 일본) → {"activity":"여행","memo":"나고야 시내 거리 구경","scene":"일본 나고야의 거리예요. 간판이 늘어선 번화가예요."}',
     '- 사진이 흐려 알 수 없음 → {"activity":"기타","memo":"흐릿하게 찍힌 사진","scene":"사진이 흐려서 잘 보이지 않아요."}',
     '',
     '상황 정보 (참고용, 사진과 어긋나면 사진을 따르세요):',
@@ -93,6 +94,17 @@ export function buildPrompt(hints: PromptHints = {}): string {
     'JSON만 출력하세요. 다른 텍스트 금지:',
     '{"activity":"<카테고리>","memo":"<제목 한 줄>","scene":"<짧은 문장 2~3개>"}',
   ].join('\n')
+}
+
+/**
+ * The part of a place label that is safe to tell the model: the area
+ * ("센트럴시티, 서초구"), without the leading name. That name is whatever shop
+ * or building the map has nearest the coordinates ("리김밥 · …"), and the
+ * model takes it for what the photo shows ("김밥을 드시고 계세요").
+ */
+export function areaOf(place: string): string {
+  const i = place.indexOf(' · ')
+  return i >= 0 ? place.slice(i + 3) : place
 }
 
 const MEMO_MAX = 40

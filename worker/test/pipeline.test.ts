@@ -7,7 +7,7 @@ import { MAX_ATTEMPTS, processMemo, type MemoDeps } from '../src/handlers/memo'
 import { locateMemo } from '../src/handlers/place'
 import { processRequest } from '../src/handlers/requests'
 import { LlmGenerationError, LlmUnavailableError } from '../src/llm/ollama'
-import { buildPrompt, parseModelResponse, type PromptHints } from '../src/llm/prompt'
+import { areaOf, buildPrompt, parseModelResponse, type PromptHints } from '../src/llm/prompt'
 import { distanceKm, inferHome, resetHomeCache, utcOffsetHours } from '../src/travel'
 import { db, clearFirestore, seedMembership, count } from './setup'
 
@@ -101,7 +101,8 @@ describe('processMemo', () => {
     await processMemo('m1', 1, d)
     expect(d.lastHints?.homeHint?.away).toBe(true)
     expect(d.lastHints?.homeHint?.km).toBeGreaterThan(800)
-    expect(d.lastHints?.placeHint).toBe('FamilyMart · 도코나메시, 일본')
+    // The nearest shop's name is kept out of the prompt; the area is enough.
+    expect(d.lastHints?.placeHint).toBe('도코나메시, 일본')
     expect(d.lastHints?.timeHint).toBe('13:18')
   })
 
@@ -304,6 +305,11 @@ describe('travel context', () => {
   it('needs enough agreeing photos to infer a home', () => {
     expect(inferHome([seoul, seoul, seoul])).toBeNull()
     expect(inferHome([seoul, seoul, seoul, seoul, seoul, { lat: 34.86, lng: 136.82 }])?.lat).toBeCloseTo(37.48)
+  })
+  it('gives the model the area, not the nearest shop name', () => {
+    expect(areaOf('리김밥(고터) 김밥 · 센트럴시티, 서초구')).toBe('센트럴시티, 서초구')
+    expect(areaOf('서초동, 서초구')).toBe('서초동, 서초구')
+    expect(areaOf('')).toBe('')
   })
   it('only steers toward 여행/출장 when far from home', () => {
     expect(buildPrompt({ homeHint: { km: 900, away: true } })).toContain('여행이나 출장 중일 가능성')
