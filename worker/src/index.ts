@@ -26,6 +26,7 @@ import { cert, initializeApp } from 'firebase-admin/app'
 import { logger } from './log.js'
 import { ollamaAvailable, resolveModel } from './llm/ollama.js'
 import { MemoScheduler, watchPendingMemos } from './handlers/memo.js'
+import { watchGeocodeRequests } from './handlers/place.js'
 import { purgeStaleRequests, requeueInterruptedRequests, watchRequests } from './handlers/requests.js'
 import { SettingsCache, watchUserSettings } from './handlers/audit.js'
 
@@ -53,6 +54,7 @@ async function main() {
   const scheduler = new MemoScheduler()
   const unsubs = [
     watchPendingMemos(scheduler),
+    watchGeocodeRequests(),
     watchRequests(),
     watchUserSettings(cache),
   ]

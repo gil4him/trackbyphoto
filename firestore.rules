@@ -117,7 +117,7 @@ service cloud.firestore {
                     && request.resource.data.keys().hasOnly([
                          'patientUid', 'photoPath', 'photoUrl', 'takenAt', 'lat', 'lng',
                          'place', 'activity', 'memo', 'scene', 'status', 'createdAt',
-                         'tags', 'deviceMemo', 'deviceMemoSource'
+                         'tags', 'deviceMemo', 'deviceMemoSource', 'tzOffsetMin'
                        ]);
       allow update, delete: if canManage(resource.data.patientUid);
     }

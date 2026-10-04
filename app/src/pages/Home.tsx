@@ -1,13 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { useToast } from '../components/Toast'
 import { Processing } from '../components/Processing'
-import {
-  getGeo,
-  uploadPhoto,
-  captureNativePhoto,
-  analyzePhotoTags,
-  isNativeApp,
-} from '../lib/capture'
+import { savePhoto, captureNativePhoto, isNativeApp } from '../lib/capture'
+import { warmUpLocation } from '../lib/location'
+import { useOutbox } from '../hooks/useOutbox'
 import { fmtDate, fmtTime } from '../util'
 import { MemoThumb } from '../components/MemoThumb'
 import type { Memo, AppNotification } from '../types'
@@ -44,20 +40,26 @@ export function Home({ uid, patientName, greetingName, memos, onOpenAsk, onOpen,
     }
   }, [memos, toast])
 
+  // Start finding the phone's location while the screen is open, so it is
+  // ready by the time a photo is taken.
+  useEffect(() => { if (canCapture) warmUpLocation() }, [canCapture])
+
+  // Photos still on the phone, waiting to be sent.
+  const waiting = useOutbox(canCapture ? uid : undefined)
+  const struggling = waiting.some((i) => i.attempts > 0)
+
   const onPick = async (file: File, nativePath?: string) => {
     setBusy(true)
-    setBusyMsg('기록하는 중이에요…')
+    setBusyMsg('사진을 저장하고 있어요…')
     try {
-      const takenAt = new Date()
-      const [geo, tags] = await Promise.all([getGeo(), analyzePhotoTags(nativePath)])
-      setBusyMsg('업로드 중이에요…')
-      await uploadPhoto({ uid, file, geo, takenAt, tags })
-      setBusyMsg('AI가 활동을 적고 있어요…')
-      // The Mac mini worker does the rest; useEffect above toasts on arrival.
-      setTimeout(() => setBusy(false), 1500)
+      await savePhoto({ uid, file, nativePath })
+      // The outbox sends it and the worker writes the memo; the effect above
+      // toasts when the memo arrives.
+      toast.show('사진을 저장했어요', '가족에게 보내는 중이에요')
     } catch (err) {
       console.error(err)
-      toast.show('업로드에 실패했어요', '잠시 후 다시 시도해주세요')
+      toast.show('사진을 저장하지 못했어요', '다시 한 번 찍어 주세요')
+    } finally {
       setBusy(false)
     }
   }
@@ -108,6 +110,7 @@ export function Home({ uid, patientName, greetingName, memos, onOpenAsk, onOpen,
               className="capbtn"
               aria-label="사진 찍기"
               onClick={async () => {
+                warmUpLocation()
                 if (isNativeApp) {
                   try {
                     const { file, path } = await captureNativePhoto()
@@ -136,6 +139,14 @@ export function Home({ uid, patientName, greetingName, memos, onOpenAsk, onOpen,
             <span className="lab">지난 기록<br />{recordsLabel ? '보기' : '물어보기'}</span>
           </button>
         </div>
+
+        {waiting.length > 0 && (
+          <div className={`outbox-note ${struggling ? 'weak' : ''}`} role="status">
+            {struggling
+              ? <>인터넷이 약해요. 사진 {waiting.length}장은 휴대폰에 안전하게 보관했어요.<br />연결되면 자동으로 보내요.</>
+              : <>사진 {waiting.length}장을 보내는 중이에요…</>}
+          </div>
+        )}
 
         {canCapture && (
           <div className="cap-help">

@@ -1,13 +1,40 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { fmtTime, relativeDateLabel } from '../util'
 import { deleteMemo } from '../lib/capture'
 import { useToast } from '../components/Toast'
 import { MemoThumb } from '../components/MemoThumb'
+import { useOutbox } from '../hooks/useOutbox'
+import type { OutboxItem } from '../lib/outbox'
 import type { Memo } from '../types'
 
-/** `readOnly` (an elder's linked phone) hides the delete buttons. */
-export function Today({ memos, onOpen, readOnly = false }: { memos: Memo[]; onOpen: (id: string) => void; readOnly?: boolean }) {
+/** A photo still on this phone, waiting to be sent. */
+function WaitingPhoto({ item }: { item: OutboxItem }) {
+  const url = useMemo(() => URL.createObjectURL(item.blob), [item.blob])
+  useEffect(() => () => URL.revokeObjectURL(url), [url])
+  return (
+    <div className="tl-item waiting">
+      <div className="tl-thumb"><img src={url} alt="" /></div>
+      <div className="tl-body">
+        <div className="when">{fmtTime(new Date(item.takenAtMs))}</div>
+        <div className="act">보내는 중…</div>
+        <div className="desc">
+          {item.attempts > 0 ? '인터넷이 약해요. 연결되면 자동으로 보내요.' : '곧 기록돼요.'}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * `uid` is whose records are shown; photos of theirs still waiting on this
+ * phone are listed first. `readOnly` (an elder's linked phone) hides the
+ * delete buttons.
+ */
+export function Today({ memos, onOpen, uid, readOnly = false }: { memos: Memo[]; onOpen: (id: string) => void; uid?: string; readOnly?: boolean }) {
   const toast = useToast()
+  // Hide a waiting photo once its memo shows up from the server.
+  const memoIds = useMemo(() => new Set(memos.map((m) => m.id)), [memos])
+  const waiting = useOutbox(uid).filter((i) => !memoIds.has(i.photoId))
 
   // Group recent shots by calendar day, newest day first. `memos` already
   // arrives ordered by takenAt desc (useMemos), so iterating in order keeps
@@ -37,7 +64,14 @@ export function Today({ memos, onOpen, readOnly = false }: { memos: Memo[]; onOp
       <div className="h-eyebrow">최근 기록</div>
       <h2 className="h-title">사진</h2>
 
-      {groups.length === 0 ? (
+      {waiting.length > 0 && (
+        <div>
+          <div className="q-datehdr">보내는 중</div>
+          {waiting.map((i) => <WaitingPhoto key={i.photoId} item={i} />)}
+        </div>
+      )}
+
+      {groups.length === 0 && waiting.length === 0 ? (
         <div className="empty">
           <div className="big">🌤️</div>
           <div>아직 기록이 없어요.</div>

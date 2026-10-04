@@ -60,19 +60,26 @@ const DEFAULT_UTC_OFFSET = Number(process.env.WORKER_DEFAULT_UTC_OFFSET ?? 9)
 
 /**
  * HH:MM on the photographer's clock. The worker's own clock is no guide (the
- * Mac mini runs on US Pacific time), so use the photo's location, else home,
- * else the default (Korea).
+ * Mac mini runs on US Pacific time), so use the phone's reported offset, else
+ * the photo's location, else home, else the default (Korea).
  */
 export async function localTimeHint(
   patientUid: string,
   takenAt: Date | undefined,
   lat: number | null,
   lng: number | null,
+  /** The phone's own UTC offset in minutes, when the app sent one. */
+  tzOffsetMin?: number | null,
 ): Promise<string | undefined> {
   if (!takenAt) return undefined
-  const where = lat != null && lng != null ? { lat, lng } : await resolveHome(patientUid)
-  const offset = where ? utcOffsetHours(where) : DEFAULT_UTC_OFFSET
-  return new Date(takenAt.getTime() + offset * 3600_000).toISOString().slice(11, 16)
+  let offsetMin: number
+  if (typeof tzOffsetMin === 'number' && Math.abs(tzOffsetMin) <= 14 * 60) {
+    offsetMin = tzOffsetMin
+  } else {
+    const where = lat != null && lng != null ? { lat, lng } : await resolveHome(patientUid)
+    offsetMin = (where ? utcOffsetHours(where) : DEFAULT_UTC_OFFSET) * 60
+  }
+  return new Date(takenAt.getTime() + offsetMin * 60_000).toISOString().slice(11, 16)
 }
 
 const inferredCache = new Map<string, { home: LatLng | null; expiresAt: number }>()

@@ -4,6 +4,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { Timestamp } from 'firebase-admin/firestore'
 import { MAX_ATTEMPTS, processMemo, type MemoDeps } from '../src/handlers/memo'
+import { locateMemo } from '../src/handlers/place'
 import { processRequest } from '../src/handlers/requests'
 import { LlmGenerationError, LlmUnavailableError } from '../src/llm/ollama'
 import { buildPrompt, parseModelResponse, type PromptHints } from '../src/llm/prompt'
@@ -198,6 +199,73 @@ describe('processRequest', () => {
     await ref.set({ type: 'createInvite', payload: { patientUid: 'p1' }, uid: 'p1', email: null, name: null, status: 'pending', createdAt: Timestamp.now() })
     await Promise.all([processRequest(ref.id), processRequest(ref.id)])
     expect(await count('auditLogs', 'action', 'invite.create')).toBe(1)
+  })
+})
+
+describe('place lookups that finish later', () => {
+  const NAGOYA = { place: 'FamilyMart · 도코나메시, 일본', address: '' }
+
+  it('leaves place untouched when the photo has no location yet', async () => {
+    await seedPending('m1', { lat: null, lng: null })
+    await processMemo('m1', 1, deps())
+    const m = await memo('m1')
+    expect(m.status).toBe('ready')
+    expect(m.place).toBe('')
+    expect(m.needsGeocode).toBeUndefined()
+  })
+
+  it('flags the memo when the geocoder does not answer, then fills it in', async () => {
+    await seedPending('m1')
+    await processMemo('m1', 1, deps({ geocode: async () => ({ place: '', address: '' }) }))
+    expect((await memo('m1')).needsGeocode).toBe(true)
+
+    expect(await locateMemo('m1', async () => ({ place: '', address: '' }))).toBe('retry')
+    expect(await locateMemo('m1', async () => ({ place: '서초동, 서초구', address: '서초대로 1' }))).toBe('done')
+    const m = await memo('m1')
+    expect(m.place).toBe('서초동, 서초구')
+    expect(m.needsGeocode).toBeUndefined()
+    expect(m.status).toBe('ready')
+  })
+
+  it('re-queues a memo written blind once a late location shows a trip', async () => {
+    await db.doc('users/p1').set({ patientName: '엄마', home: { lat: 37.48, lng: 127.01 } })
+    await seedPending('m1', { lat: null, lng: null })
+    await processMemo('m1', 1, deps())
+    // The phone attaches its fix after the memo was written.
+    await db.doc('memos/m1').update({ lat: 34.86, lng: 136.82, needsGeocode: true })
+    expect(await locateMemo('m1', async () => NAGOYA)).toBe('done')
+    const m = await memo('m1')
+    expect(m.place).toBe(NAGOYA.place)
+    expect(m.status).toBe('pending')
+
+    const d = deps({ geocode: async () => NAGOYA })
+    await processMemo('m1', 1, d)
+    expect(d.lastHints?.homeHint?.away).toBe(true)
+    expect((await memo('m1')).status).toBe('ready')
+    // Re-written, not re-announced.
+    expect(await count('notifications', 'type', 'photo.new')).toBe(0)
+  })
+
+  it('does not re-queue for a late location near home, or a hand-edited memo', async () => {
+    await db.doc('users/p1').set({ patientName: '엄마', home: { lat: 37.48, lng: 127.01 } })
+    await seedPending('near', { lat: null, lng: null })
+    await seedPending('edited', { lat: null, lng: null })
+    await processMemo('near', 1, deps())
+    await processMemo('edited', 1, deps())
+    await db.doc('memos/near').update({ lat: 37.49, lng: 127.02, needsGeocode: true })
+    await db.doc('memos/edited').update({ lat: 34.86, lng: 136.82, needsGeocode: true, humanEdited: true })
+    await locateMemo('near', async () => ({ place: '서초동, 서초구', address: '' }))
+    await locateMemo('edited', async () => NAGOYA)
+    expect((await memo('near')).status).toBe('ready')
+    expect((await memo('edited')).status).toBe('ready')
+    expect((await memo('edited')).place).toBe(NAGOYA.place)
+  })
+
+  it('uses the time zone the phone reported', async () => {
+    await seedPending('m1', { lat: null, lng: null, tzOffsetMin: -420, takenAt: Timestamp.fromDate(new Date('2026-10-04T04:18:00Z')) })
+    const d = deps()
+    await processMemo('m1', 1, d)
+    expect(d.lastHints?.timeHint).toBe('21:18')
   })
 })
 
