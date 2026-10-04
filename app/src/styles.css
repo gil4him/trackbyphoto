@@ -708,3 +708,67 @@ nav.tabbar .tab.on .tab-avatar { box-shadow: 0 0 0 2px var(--coral2); }
 .consent-list { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; line-height: 1.5; }
 .approval-row { border-color: var(--coral2); background: #FFF6F1; flex-wrap: wrap; gap: 10px; }
 .approval-row .linkbtn { margin-top: 0; width: auto; padding: 10px 18px; }
+
+/* ── v2: 가족 소식 on the parent's phone ─────────────────────────────── */
+.news-card {
+  width: 100%; max-width: 360px; margin-top: 4px; padding: 18px 20px;
+  border: 1px solid var(--line); border-radius: 22px; background: #fafafb;
+  font: inherit; font-size: 20px; font-weight: 600; line-height: 1.4; color: var(--ink-3);
+  display: flex; align-items: center; justify-content: center; gap: 12px; text-align: center;
+}
+.news-card.tappable { cursor: pointer; color: var(--ink-2); }
+.news-card.on { background: #FFF1E9; border-color: #FFD3BD; color: var(--ink); font-weight: 700; font-size: 22px; }
+.news-heart { font-size: 30px; line-height: 1; }
+
+.page.news { display: flex; flex-direction: column; gap: 14px; min-height: 80vh; }
+.news-photo { width: 120px; height: 120px; border-radius: 20px; overflow: hidden; align-self: center; }
+.news-photo .tl-thumb, .news-photo img { width: 100%; height: 100%; object-fit: cover; }
+.news-text { font-size: 30px; font-weight: 700; line-height: 1.4; letter-spacing: -.4px; text-align: center; word-break: keep-all; margin-top: 8px; }
+.news-from { font-size: 22px; color: var(--ink-3); text-align: center; }
+.news-speak { align-self: center; background: none; border: none; font: inherit; font-size: 20px; color: var(--ink-2); padding: 8px 12px; cursor: pointer; }
+.news-actions { margin-top: auto; display: flex; flex-direction: column; gap: 14px; padding-bottom: 12px; }
+.news-btn {
+  width: 100%; min-height: 76px; border-radius: 22px; font: inherit; font-size: 26px; font-weight: 700; cursor: pointer;
+  border: 2px solid var(--coral2); background: #fff; color: var(--coral2);
+  touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+}
+.news-btn.primary { background: linear-gradient(135deg, var(--coral1), var(--coral2)); color: #fff; border-color: transparent; }
+.news-btn:active { transform: scale(.98); }
+.news-hint { font-size: 20px; color: var(--ink-2); text-align: center; }
+.news-rec {
+  position: fixed; inset: 0; z-index: 50; background: rgba(255, 255, 255, .96);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px;
+  pointer-events: none; /* the held button underneath still gets the release */
+}
+.news-rec-dot { width: 160px; height: 160px; border-radius: 50%; background: linear-gradient(135deg, var(--coral1), var(--coral2)); animation: news-breathe 1.2s ease-in-out infinite; }
+.news-rec-text { font-size: 28px; font-weight: 700; }
+@keyframes news-breathe { 0%, 100% { transform: scale(.86); opacity: .85; } 50% { transform: scale(1); opacity: 1; } }
+.page.news.sent { align-items: center; justify-content: center; text-align: center; gap: 24px; }
+.news-check { width: 120px; height: 120px; border-radius: 50%; background: var(--green); color: #fff; font-size: 70px; line-height: 120px; }
+.news-sent { font-size: 28px; font-weight: 700; line-height: 1.4; word-break: keep-all; }
+
+/* ── v2: hearts, comments and replies under a photo (family feed) ─────── */
+.tl-wrap { border-bottom: 1px solid var(--line); }
+.tl-wrap .tl-item { border-bottom: none; }
+.rx { padding: 2px 4px 12px; }
+.rx-thread { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.rx-item { background: #f6f6f8; border-radius: 14px; padding: 8px 12px; font-size: 14.5px; }
+.rx-item.elder { background: #FFF1E9; }
+.rx-who { font-weight: 700; margin-right: 6px; }
+.rx-when { color: var(--muted); font-size: 12.5px; }
+.rx-text { margin-top: 2px; line-height: 1.45; word-break: break-word; }
+.rx-del { margin-left: 8px; background: none; border: none; font: inherit; font-size: 12.5px; color: var(--muted); text-decoration: underline; cursor: pointer; padding: 0; }
+.rx-bar { display: flex; align-items: center; gap: 8px; }
+.rx-heart { flex: none; min-width: 44px; height: 40px; border-radius: 999px; border: 1px solid var(--line); background: #fff; font-size: 18px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 4px; padding: 0 10px; }
+.rx-heart.on { border-color: #FFD3BD; background: #FFF1E9; }
+.rx-count { font-size: 13px; font-weight: 700; color: var(--ink-2); }
+.rx-input { flex: 1; min-width: 0; height: 40px; border-radius: 999px; border: 1px solid var(--line); padding: 0 14px; font: inherit; font-size: 15px; background: #fff; }
+.rx-send { flex: none; height: 40px; padding: 0 14px; border-radius: 999px; border: none; background: var(--coral2); color: #fff; font: inherit; font-size: 14.5px; font-weight: 700; cursor: pointer; }
+.rx-send:disabled { opacity: .4; cursor: default; }
+.rx-hearts { font-size: 14px; color: var(--ink-2); }
+.rx-voice { margin-top: 6px; }
+.rx-voice audio { width: 100%; height: 36px; }
+.rx-transcript { margin-top: 4px; line-height: 1.45; }
+.rx-voice.pending { color: var(--muted); }
+.rx-voice.locked { display: flex; align-items: center; gap: 8px; color: var(--ink-2); font-weight: 600; }
+.rx-wave { flex: none; width: 64px; height: 22px; border-radius: 6px; filter: blur(2px); opacity: .6; background: repeating-linear-gradient(90deg, var(--coral1) 0 3px, transparent 3px 7px); }

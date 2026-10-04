@@ -4,24 +4,41 @@ import { db } from '../firebase'
 import { Home } from './Home'
 import { Today } from './Today'
 import { MemoDetail } from './MemoDetail'
-import type { Memo } from '../types'
+import { FamilyNews } from './FamilyNews'
+import { FamilyNewsCard } from '../components/FamilyNewsCard'
+import { elderNews, type ElderNews } from '../lib/reactionsModel'
+import type { Memo, Reaction } from '../types'
 
 /**
- * Everything a family-managed elder's phone shows: the capture screen and
- * their own records. No tabs, no settings, no sign-out — family manages all
- * of that from their own phones. If family disconnects this phone (연결 해제),
+ * Everything a family-managed elder's phone shows: the capture screen, one
+ * 가족 소식 card, and their own records. No tabs, no settings, no sign-out —
+ * family manages all of that from their own phones, and nothing here differs
+ * by plan. If family disconnects this phone (연결 해제),
  * the device record flips to 'revoked' and the screen locks.
  */
-export function ElderApp({ uid, deviceId, patientName, memos, onRelink }: {
+export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn, onRelink }: {
   uid: string
   deviceId: string
   patientName: string
   memos: Memo[]
+  /** This parent's reactions; null while reactions aren't rolled out. */
+  reactions: Reaction[] | null
+  /** Voice replies are rolled out and were agreed to for this parent. */
+  voiceOn: boolean
   onRelink: () => void
 }) {
   const [view, setView] = useState<'home' | 'records'>('home')
   const [openId, setOpenId] = useState<string | null>(null)
   const [revoked, setRevoked] = useState(false)
+  // The news the parent opened, kept as it was when they tapped the card.
+  const [openNews, setOpenNews] = useState<Extract<ElderNews, { state: 'new' | 'seen' }> | null>(null)
+  // "Today" for the card; refreshed now and then so it turns over at midnight.
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 10 * 60_000)
+    return () => clearInterval(t)
+  }, [])
+  const news = reactions ? elderNews(reactions, uid, now) : null
 
   useEffect(() => {
     if (!deviceId) { setRevoked(true); return }
@@ -53,7 +70,17 @@ export function ElderApp({ uid, deviceId, patientName, memos, onRelink }: {
   return (
     <div className="app elder-mode">
       <main>
-        {open ? (
+        {openNews ? (
+          <FamilyNews
+            uid={uid}
+            patientName={patientName}
+            item={openNews.item}
+            unreadIds={openNews.unreadIds}
+            memo={memos.find((m) => m.id === openNews.item.memoId)}
+            voiceOn={voiceOn}
+            onDone={() => setOpenNews(null)}
+          />
+        ) : open ? (
           <MemoDetail memo={open} onBack={() => setOpenId(null)} readOnly />
         ) : view === 'records' ? (
           <>
@@ -70,6 +97,9 @@ export function ElderApp({ uid, deviceId, patientName, memos, onRelink }: {
             onOpen={setOpenId}
             canCapture
             recordsLabel
+            newsCard={news && (
+              <FamilyNewsCard news={news} onOpen={() => { if (news.state !== 'none') setOpenNews(news) }} />
+            )}
           />
         )}
       </main>

@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import type { User } from 'firebase/auth'
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore'
+import { db } from '../firebase'
 import type { UserSettings, Memo } from '../types'
 import { useToast } from '../components/Toast'
 import { useMemberships } from '../hooks/useMemberships'
@@ -15,6 +17,9 @@ import { RegisterElder } from './RegisterElder'
 import { ElderDevices } from '../components/ElderDevices'
 import { deleteManagedElder } from '../lib/pairing'
 import { getGeo } from '../lib/location'
+
+/** Version of the 음성 답장 consent text shown below. */
+const VOICE_CONSENT_VERSION = 'voice-v1'
 
 interface Props {
   settings: UserSettings
@@ -33,9 +38,11 @@ interface Props {
   onSwitchPatient: (patientUid: string) => void
   /** The signed-in user's role on activePatientUid when it isn't self. */
   myRole?: string
+  /** Voice replies are rolled out (admin_config/plans flag). */
+  voiceRollout?: boolean
 }
 
-export function Settings({ settings, onChange, user, onSignOut, memos, activePatientUid, isSelf, onSwitchPatient, myRole }: Props) {
+export function Settings({ settings, onChange, user, onSignOut, memos, activePatientUid, isSelf, onSwitchPatient, myRole, voiceRollout = false }: Props) {
   const toast = useToast()
   // A family-managed elder (부모님 등록하기): family runs 가족 관리 and
   // 기기 관리 for them, since the elder's phone has no settings at all.
@@ -154,6 +161,34 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
   }
 
   const update = <K extends keyof UserSettings>(k: K, v: UserSettings[K]) => onChange({ ...settings, [k]: v })
+
+  // 음성 답장: recording the parent's voice needs its own consent. Turning
+  // it on files a 'voice_reply' consent (by the parent, or by family on a
+  // managed parent's behalf) and only then shows the button on their phone.
+  const [voiceOpen, setVoiceOpen] = useState(false)
+  const [voiceBusy, setVoiceBusy] = useState(false)
+  const agreeToVoice = async () => {
+    setVoiceBusy(true)
+    try {
+      await addDoc(collection(db, 'consents'), {
+        patientUid: activePatientUid,
+        type: 'voice_reply',
+        grantedBy: isSelf ? 'self' : 'guardian',
+        guardianUid: isSelf ? null : user.uid,
+        scope: '음성 답장 녹음과 받아쓴 글을 가족과 공유',
+        consentTextVersion: VOICE_CONSENT_VERSION,
+        timestamp: serverTimestamp(),
+      })
+      update('voiceEnabled', true)
+      setVoiceOpen(false)
+      toast.show('음성 답장을 켰어요')
+    } catch (err) {
+      console.error('[voice] consent failed', err)
+      toast.show('켜지 못했어요', '잠시 후 다시 시도해 주세요')
+    } finally {
+      setVoiceBusy(false)
+    }
+  }
 
   // 집 위치: pick from places recent photos were taken (works for family
   // setting it up remotely), or use this phone's location on one's own account.
@@ -372,6 +407,23 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
         <div className="help">끄면 보내기 전에 가족이 한 번 확인할 수 있어요</div>
       </div>
 
+      {voiceRollout && canManageHere && (
+        <div className="sect">
+          <div className="sect-lab">음성 답장</div>
+          <div className="row">
+            <div className="who"><b>목소리로 답장 받기</b><br /><span>{settings.patientName}님이 버튼을 꾹 누르고 말하면 가족에게 전해져요</span></div>
+            <button
+              className={`switch ${settings.voiceEnabled ? 'on' : ''}`}
+              role="switch"
+              aria-checked={!!settings.voiceEnabled}
+              onClick={() => (settings.voiceEnabled ? update('voiceEnabled', false) : setVoiceOpen(true))}
+              aria-label="음성 답장 전환"
+            ><span className="knob" /></button>
+          </div>
+          <div className="help">처음 말할 때 {settings.patientName}님 휴대폰이 마이크 사용을 한 번 물어봐요.</div>
+        </div>
+      )}
+
       <div className="sect">
         <div className="sect-lab">글자 크기</div>
         <div className="seg">
@@ -423,6 +475,28 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
           </button>
           <div className="help">
             잘못 등록했거나 더 이상 쓰지 않을 때만 사용하세요. 사진과 기록이 모두 지워지고 되돌릴 수 없어요.
+          </div>
+        </div>
+      )}
+      {voiceOpen && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <div className="modal">
+            <div className="modal-title">음성 답장 동의</div>
+            <div className="modal-body">
+              <p>{isSelf ? '아래 내용에 동의합니다.' : `${settings.patientName}님을 대신해 아래 내용에 동의합니다.`}</p>
+              <ul className="consent-list">
+                <li>{settings.patientName}님이 남기는 음성 답장(15초 이내 녹음)을 저장해요.</li>
+                <li>녹음을 글로 받아쓰고, 녹음과 글을 가족에게 보여줘요.</li>
+                <li>받아쓰기는 외부 서비스로 보내지 않고 우리 서버에서만 해요.</li>
+              </ul>
+              <div className="help">동의는 기록으로 남아요. 언제든 다시 끌 수 있어요.</div>
+            </div>
+            <div className="modal-actions">
+              <button className="signin-secondary" disabled={voiceBusy} onClick={() => setVoiceOpen(false)}>취소</button>
+              <button className="linkbtn" disabled={voiceBusy} onClick={agreeToVoice}>
+                <span>{voiceBusy ? '켜는 중…' : '동의하고 켜기'}</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

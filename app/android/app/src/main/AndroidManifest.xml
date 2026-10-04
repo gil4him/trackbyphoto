@@ -42,6 +42,9 @@
     <!-- @capacitor/geolocation: where the photo was taken (shown to family). -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <!-- Voice replies: the WebView's microphone (getUserMedia) for 꾹 누르고 말하기. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-feature android:name="android.hardware.location.gps" android:required="false" />
 
     <!-- @capacitor/camera saveToGallery: Android 10+ saves through MediaStore

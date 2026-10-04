@@ -192,6 +192,16 @@ describe('settings audit', () => {
     expect(await count('auditLogs', 'action', 'settings.update')).toBe(1)
   })
 
+  it('worker-owned fields (plan, day counters) are never reported as a settings change', async () => {
+    await fireSettings(
+      'p1',
+      { cadence: 'daily', lastModifiedBy: 'cg1' },
+      { cadence: 'daily', lastModifiedBy: 'cg1', plan: { tier: 'basic' }, dayCounters: { 20261004: { photos: 3 } } },
+    )
+    expect((await db.collection('auditLogs').get()).size).toBe(0)
+    expect((await db.collection('notifications').get()).size).toBe(0)
+  })
+
   it('the elder editing their own settings is NOT logged (no self-notice)', async () => {
     await fireSettings('p1', { cadence: 'daily', lastModifiedBy: 'p1' }, { cadence: 'weekly', lastModifiedBy: 'p1' })
     expect((await db.collection('auditLogs').get()).size).toBe(0)

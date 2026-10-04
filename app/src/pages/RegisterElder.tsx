@@ -118,6 +118,7 @@ export function RegisterElder({ onClose, onRegistered }: {
               <ul className="consent-list">
                 <li>{name.trim()}님이 찍은 사진과 자동으로 작성된 메모(시간·장소)를 저장하고 처리해요.</li>
                 <li>그 사진·메모·위치를 초대된 가족에게 보여줘요.</li>
+                <li>{name.trim()}님이 가족에게 남기는 음성 답장(녹음과 받아쓴 글)을 저장하고 가족에게 들려줘요.</li>
               </ul>
               <div className="help">
                 동의는 기록으로 남아요. {name.trim()}님 휴대폰을 처음 연결할 때 본인에게도 한 번 안내해요.

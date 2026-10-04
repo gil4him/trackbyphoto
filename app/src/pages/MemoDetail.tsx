@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { doc, updateDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useToast } from '../components/Toast'
@@ -6,6 +6,8 @@ import { deleteMemo } from '../lib/capture'
 import { fmtDate, fmtTime } from '../util'
 import { categoryThumbClass } from '../lib/categoryStyle'
 import { useWorkerStatus } from '../hooks/useWorkerStatus'
+import { Reactions, type ReactionsContext } from '../components/Reactions'
+import { markRead } from '../lib/reactions'
 import type { Memo, MemoSource } from '../types'
 
 const SOURCE_BADGES: Record<MemoSource, { label: string; tone: 'good' | 'neutral' | 'warn' }> = {
@@ -27,12 +29,20 @@ const BODY_MAX = 200
  * worker to write it again from the photo.
  * `readOnly` (an elder's linked phone): no delete, no edit.
  */
-export function MemoDetail({ memo, onBack, readOnly = false }: { memo: Memo; onBack: () => void; readOnly?: boolean }) {
+export function MemoDetail({ memo, onBack, readOnly = false, rx }: { memo: Memo; onBack: () => void; readOnly?: boolean; rx?: ReactionsContext }) {
   const toast = useToast()
   const [draftTitle, setDraftTitle] = useState('')
   const [draftBody, setDraftBody] = useState('')
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
+
+  // Family opening the page has seen the parent's replies on this photo.
+  const unseenReplies = rx?.canReact
+    ? (rx.byMemo.get(memo.id) ?? []).filter((r) => r.actorUid === rx.patientUid && !r.readByFamilyAt && r.status === 'ready').map((r) => r.id).join(',')
+    : ''
+  useEffect(() => {
+    if (unseenReplies) markRead(unseenReplies.split(','), 'family')
+  }, [unseenReplies])
 
   const takenAt = memo.takenAt.toDate()
   const badge = memo.memoSource ? SOURCE_BADGES[memo.memoSource] : null
@@ -179,6 +189,13 @@ export function MemoDetail({ memo, onBack, readOnly = false }: { memo: Memo; onB
           </>
         )}
       </div>
+
+      {rx && (
+        <div className="detail-section">
+          <div className="d-label"><span>가족 이야기</span></div>
+          <Reactions memoId={memo.id} ctx={rx} />
+        </div>
+      )}
 
       <div className="detail-section">
         <div className="d-label"><span>장소</span></div>

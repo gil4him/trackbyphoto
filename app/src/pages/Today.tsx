@@ -6,6 +6,7 @@ import { MemoThumb } from '../components/MemoThumb'
 import { useOutbox } from '../hooks/useOutbox'
 import { useWorkerStatus } from '../hooks/useWorkerStatus'
 import type { OutboxItem } from '../lib/outbox'
+import { Reactions, type ReactionsContext } from '../components/Reactions'
 import type { Memo } from '../types'
 
 /** A photo still on this phone, waiting to be sent. */
@@ -31,7 +32,7 @@ function WaitingPhoto({ item }: { item: OutboxItem }) {
  * phone are listed first. `readOnly` (an elder's linked phone) hides the
  * delete buttons.
  */
-export function Today({ memos, onOpen, uid, readOnly = false }: { memos: Memo[]; onOpen: (id: string) => void; uid?: string; readOnly?: boolean }) {
+export function Today({ memos, onOpen, uid, readOnly = false, rx }: { memos: Memo[]; onOpen: (id: string) => void; uid?: string; readOnly?: boolean; /** Hearts and comments under each photo (family feed). */ rx?: ReactionsContext }) {
   const toast = useToast()
   // Hide a waiting photo once its memo shows up from the server.
   const memoIds = useMemo(() => new Set(memos.map((m) => m.id)), [memos])
@@ -85,10 +86,10 @@ export function Today({ memos, onOpen, uid, readOnly = false }: { memos: Memo[];
           <div key={g.date.toISOString()}>
             <div className="q-datehdr">{relativeDateLabel(g.date)}</div>
             {g.items.map((m) => (
+              <div className="tl-wrap" key={m.id}>
               <button
                 type="button"
                 className="tl-item"
-                key={m.id}
                 onClick={() => onOpen(m.id)}
                 aria-label="자세히 보기"
               >
@@ -112,6 +113,8 @@ export function Today({ memos, onOpen, uid, readOnly = false }: { memos: Memo[];
                   ✕
                 </span>}
               </button>
+              {rx && <Reactions memoId={m.id} ctx={rx} max={3} />}
+              </div>
             ))}
           </div>
         ))

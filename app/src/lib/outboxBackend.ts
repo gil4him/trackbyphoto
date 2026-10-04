@@ -9,14 +9,16 @@ import { memoryStore, Outbox, type OutboxBackend, type OutboxItem, type OutboxSt
 
 const DB_NAME = 'tbp-outbox'
 const STORE = 'photos'
+/** Voice replies wait in their own database (see voiceOutbox.ts). */
+export const VOICE_DB_NAME = 'tbp-voice-outbox'
 /** Give up on a silent network call so the outbox can back off and retry. */
-const CALL_TIMEOUT_MS = 30_000
+export const CALL_TIMEOUT_MS = 30_000
 
 // Fail an upload after 30 s without progress; the SDK's own default keeps
 // retrying for ten minutes, which would hold up every photo behind it.
 storage.maxUploadRetryTime = CALL_TIMEOUT_MS
 
-function withTimeout<T>(p: Promise<T>, what: string): Promise<T> {
+export function withTimeout<T>(p: Promise<T>, what: string): Promise<T> {
   return Promise.race([
     p,
     new Promise<never>((_, reject) => setTimeout(() => reject(new Error(`${what} timed out`)), CALL_TIMEOUT_MS)),
@@ -75,9 +77,9 @@ const firebaseBackend: OutboxBackend = {
   },
 }
 
-function idbStore(): OutboxStore {
+function idbStore(dbName: string): OutboxStore {
   const open = new Promise<IDBDatabase>((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, 1)
+    const req = indexedDB.open(dbName, 1)
     req.onupgradeneeded = () => { req.result.createObjectStore(STORE, { keyPath: 'photoId' }) }
     req.onsuccess = () => resolve(req.result)
     req.onerror = () => reject(req.error)
@@ -100,13 +102,13 @@ function idbStore(): OutboxStore {
 
 // Without IndexedDB (some private-browsing modes) photos are still sent, but
 // only kept for as long as the page stays open.
-function createStore(): OutboxStore {
+export function createStore(dbName: string): OutboxStore {
   try {
-    if (typeof indexedDB !== 'undefined') return idbStore()
+    if (typeof indexedDB !== 'undefined') return idbStore(dbName)
   } catch (err) {
     console.warn('[outbox] IndexedDB unavailable; photos are kept in memory only', err)
   }
   return memoryStore()
 }
 
-export const outbox = new Outbox(createStore(), firebaseBackend)
+export const outbox = new Outbox(createStore(DB_NAME), firebaseBackend)
