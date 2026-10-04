@@ -151,7 +151,11 @@ async function reverseGeocodeNominatim(lat: number, lng: number): Promise<Nomina
   const name = poi || cleanName(a.building || data.name)
   const local = a.neighbourhood || a.quarter || a.suburb || a.village
   const district = a.borough || a.city_district || a.town || a.city || a.county
-  const place = formatPlace(name, local, district) || a.state || ''
+  // Outside Korea a neighbourhood name means little to the family; the city
+  // and country do ("FamilyMart · 도코나메시, 일본").
+  const place = (a.country_code && a.country_code !== 'kr'
+    ? formatPlace(name, a.city || a.town || a.village || a.county || a.state, a.country)
+    : formatPlace(name, local, district)) || a.state || ''
 
   // Street address, most-general first in Korea ("서울특별시 서초구 신반포로 194"),
   // most-specific first elsewhere ("194 Main St, Palo Alto, CA").

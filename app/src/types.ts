@@ -1,6 +1,10 @@
 import type { Timestamp } from 'firebase/firestore'
 
-export type MemoCategory = '식사' | '산책' | '휴식' | '가족' | '꽃' | '기타'
+/** Categories the worker's model picks from (worker/src/llm/prompt.ts), plus
+ *  가족/꽃 from the older six-category schema, still present on old memos. */
+export type MemoCategory =
+  | '식사' | '카페' | '산책' | '여행' | '출장' | '이동' | '쇼핑' | '휴식' | '모임' | '운동' | '자연' | '병원' | '기타'
+  | '가족' | '꽃'
 
 /** On-device Apple Vision tags attached to a memo. */
 export interface MemoVisionTags {
@@ -38,12 +42,11 @@ export interface Memo {
   /** One-word activity category, surfaced as a chip in the UI and as the
    *  byCategory key on the admin dashboard. */
   activity: MemoCategory
-  /** Warm one-sentence caption the family reads. Produced by Foundation
-   *  Models on device, by the Mac mini's local model, or by the stub. ≤25자. */
+  /** The subject line: short but concrete ("공항 편의점에 들렀어요"). Written
+   *  by the worker's vision model from the photo, or by family (humanEdited). */
   memo: string
-  /** Two-sentence "그 순간" scene paragraph for the detail page. Local LLM
-   *  + stub fill this; device tier leaves it empty (Foundation Models only
-   *  writes the headline). The UI hides the section when blank. */
+  /** Two or three short sentences describing the photo, shown in the box on
+   *  the detail page. Empty on older memos and on the stub. */
   scene?: string
   status: 'pending' | 'ready' | 'error'
   createdAt: Timestamp
@@ -66,6 +69,10 @@ export interface UserSettings {
   autoMode: boolean
   bigText: boolean
   retention: '30' | '90' | 'forever'
+  /** Home, set by family in 설정 → 집 위치. The worker compares each photo's
+   *  location with it to tell a trip from everyday life; when unset it infers
+   *  home from where most photos are taken. */
+  home?: { lat: number; lng: number; label: string } | null
   /** 'managed' when a family member registered this elder (부모님 등록하기):
    *  the elder's phone is linked by a pairing code instead of a Google
    *  sign-in, and family owns the settings. Absent for self-managed users. */

@@ -64,11 +64,9 @@ export async function captureNativePhoto(): Promise<{ file: File; path: string }
 }
 
 /**
- * Run Apple Vision on a captured photo. On native iOS calls the real
- * plugin. On web we return null so the upload skips the on-device tier
- * and lets the Mac mini worker's local vision model generate the memo
- * from the actual photo bytes — real AI on the deployed URL, not synthetic
- * tags.
+ * Run Apple Vision on a captured photo (native iOS only; null on web). The
+ * tags ride along on the memo doc as a hint; the memo itself is always
+ * written by the worker's vision model from the actual photo.
  */
 export async function analyzePhotoTags(path: string | undefined): Promise<VisionTags | null> {
   if (isNative && path) {
@@ -81,78 +79,6 @@ export async function analyzePhotoTags(path: string | undefined): Promise<Vision
     }
   }
   return null
-}
-
-/**
- * Pick a coarse activity category from Vision tags. Mirrors the same
- * heuristic the Mac mini worker uses for web uploads so both paths produce
- * consistent UI grouping. Defaults to 기타.
- */
-function categoryFromTags(tags: VisionTags): string {
-  const names = tags.labels.map((l) => l.name.toLowerCase()).join(' ')
-  if (/food|meal|dish|plate|bowl|drink|beverage|cup|fruit|vegetable/.test(names)) return '식사'
-  if (/park|tree|outdoor|street|walk|path|garden|trail|sky|grass/.test(names)) return '산책'
-  if (/flower|blossom|petal|bouquet|rose|tulip/.test(names)) return '꽃'
-  if (/sofa|bed|chair|tv|television|book|tea|home interior|indoor/.test(names)) return '휴식'
-  if (tags.faceCount >= 2) return '가족'
-  return '기타'
-}
-
-/**
- * Tier-2 fallback: turn Vision tags into a warm Korean sentence via templates.
- * Runs on any iPhone (iOS 17+) when Foundation Models isn't available, so
- * older devices still write a real on-device memo instead of leaving the
- * worker to guess from scratch. Deterministic per photo — same tags
- * pick the same sentence on retry. Phrases mirror the warm-caption tone the
- * Foundation-Models prompt asks for.
- */
-const TEMPLATE_PHRASES: Record<string, string[]> = {
-  식사: ['맛있는 식사를 하고 계세요.', '식사 시간이에요.'],
-  산책: ['공원에서 산책 중이세요.', '바깥 공기를 쐬고 계세요.'],
-  휴식: ['거실에서 편안히 쉬고 계세요.', '여유로운 시간을 보내고 계세요.'],
-  가족: ['가족과 즐거운 시간을 보내고 계세요.', '함께하는 시간이에요.'],
-  꽃: ['예쁜 꽃을 보고 계세요.'],
-  기타: ['오늘의 한 순간을 담았어요.'],
-}
-function templateMemo(tags: VisionTags): string {
-  const cat = categoryFromTags(tags)
-  const list = TEMPLATE_PHRASES[cat] || TEMPLATE_PHRASES['기타']
-  // Seed from the tag identity so the same photo always picks the same line.
-  const seed = tags.labels.map((l) => l.name).join('|').length + tags.faceCount
-  return list[seed % list.length]
-}
-
-/**
- * Generate the activity memo on the device. Walks down the on-device ladder:
- *   1. Apple Foundation Models (iPhone 15 Pro+ on iOS 26+) → warm LLM memo
- *   2. Korean sentence template from Vision tags → works on any iPhone
- *   3. (web / no tags / both failed) → empty string; the Mac mini worker
- *      runs its local vision model on the photo bytes itself.
- * Returns the memo + which tier produced it (caller can log this).
- */
-export async function generateActivityMemo(
-  tags: VisionTags | null,
-  hints?: { timeHint?: string; placeHint?: string },
-): Promise<{ memo: string; source: 'foundation-models' | 'template' | 'none' }> {
-  if (!tags) return { memo: '', source: 'none' }
-  if (isNative) {
-    try {
-      const result = await OnDeviceVision.generateMemo({
-        tags,
-        timeHint: hints?.timeHint,
-        placeHint: hints?.placeHint,
-      })
-      if (result.memo) return { memo: result.memo, source: 'foundation-models' }
-    } catch (err) {
-      console.warn('[generateActivityMemo] Foundation Models failed', err)
-    }
-    // Foundation Models unavailable but we have real Vision tags — write a
-    // templated sentence so the device still ships a memo, even when offline.
-    return { memo: templateMemo(tags), source: 'template' }
-  }
-  // Web path: no on-device memo; let the Mac mini worker's local model
-  // produce the real AI memo from the photo bytes.
-  return { memo: '', source: 'none' }
 }
 
 /** True when the app is running inside the Capacitor iOS shell. */
@@ -171,16 +97,8 @@ export async function uploadPhoto(opts: {
   geo: Geo | null
   takenAt: Date
   tags?: VisionTags | null
-  /**
-   * Optional on-device memo sentence from Foundation Models (Layer 2). When
-   * present the worker uses this string verbatim and skips its own
-   * local-LLM call. Pass empty/undefined to let the worker write one.
-   */
-  memo?: string | null
-  /** Which tier produced the memo above. Persisted onto the memo doc. */
-  memoSource?: 'foundation-models' | 'template' | null
 }): Promise<{ path: string; photoId: string }> {
-  const { uid, file, geo, takenAt, tags, memo, memoSource } = opts
+  const { uid, file, geo, takenAt, tags } = opts
   const photoId = `${takenAt.getTime()}_${Math.random().toString(36).slice(2, 8)}`
   const ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
   const path = `photos/${uid}/${photoId}.${ext}`
@@ -215,9 +133,6 @@ export async function uploadPhoto(opts: {
     status: 'pending',
     createdAt: serverTimestamp(),
     ...(tags ? { tags } : {}),
-    // On-device memo + tier. Empty means "worker, please write one."
-    deviceMemo: memo || '',
-    deviceMemoSource: memoSource || '',
   })
 
   return { path, photoId }

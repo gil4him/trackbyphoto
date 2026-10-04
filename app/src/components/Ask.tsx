@@ -13,22 +13,16 @@ const WHEN_OPTIONS: { key: WhenKey; label: string }[] = [
   { key: 'all',       label: '전체 기간' },
 ]
 
-// Mirror the schema in types.ts. We keep "기타" in the picker since real memos
-// fall through there when the AI can't classify.
-const WHAT_OPTIONS: { key: WhatKey; label: string }[] = [
-  { key: 'all',  label: '전체' },
-  { key: '식사', label: '식사' },
-  { key: '산책', label: '산책' },
-  { key: '휴식', label: '휴식' },
-  { key: '가족', label: '가족' },
-  { key: '꽃',   label: '꽃'   },
-  { key: '기타', label: '기타' },
+// Display order for the 무엇을 chips. Only categories that actually appear
+// in the memos are offered, so the row stays short.
+const CATEGORY_ORDER: MemoCategory[] = [
+  '식사', '카페', '산책', '여행', '출장', '이동', '쇼핑', '휴식', '모임', '가족', '운동', '자연', '꽃', '병원', '기타',
 ]
 
 /**
  * Ask page — chip-based filter UI. Two axes:
  *   언제: 오늘 · 어제 · 이번 주 · 전체 기간
- *   무엇을: 전체 · 식사 · 산책 · 휴식 · 가족 · 꽃 · 기타
+ *   무엇을: 전체 · the categories present in the memos
  * In 이번 주 / 전체 기간 modes results group by day. Filtering is in-memory
  * over the live memos snapshot — no backend round-trip.
  */
@@ -37,6 +31,14 @@ export function Ask({ memos, onOpen }: { memos: Memo[]; onOpen: (id: string) => 
   const [askWhat, setAskWhat] = useState<WhatKey>('all')
 
   const ready = useMemo(() => memos.filter((m) => m.status === 'ready'), [memos])
+
+  const whatOptions = useMemo<{ key: WhatKey; label: string }[]>(() => {
+    const present = new Set(ready.map((m) => m.activity))
+    return [
+      { key: 'all', label: '전체' },
+      ...CATEGORY_ORDER.filter((c) => present.has(c)).map((c) => ({ key: c, label: c })),
+    ]
+  }, [ready])
 
   const results = useMemo(() => {
     const today = new Date()
@@ -120,7 +122,7 @@ export function Ask({ memos, onOpen }: { memos: Memo[]; onOpen: (id: string) => 
 
       <div className="q-lab">무엇을</div>
       <div className="qrow">
-        {WHAT_OPTIONS.map((o) => (
+        {whatOptions.map((o) => (
           <button
             key={o.key}
             className={`qchip ${askWhat === o.key ? 'on' : ''}`}

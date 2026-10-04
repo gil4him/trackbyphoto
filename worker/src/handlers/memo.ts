@@ -6,12 +6,14 @@
  * at their own photo folder). The worker watches pending memos and for each:
  *   1. resolves a tokenized download URL for the photo,
  *   2. reverse-geocodes lat/lng,
- *   3. picks the memo text:
- *        a. on-device memo (Apple Foundation Models / template) — verbatim,
- *           category from Vision tags,
- *        b. local vision model on Ollama (memoSource 'local-llm'),
- *        c. deterministic stub after MAX_ATTEMPTS failed generations
+ *   3. writes the memo from the photo itself:
+ *        a. local vision model on Ollama (memoSource 'local-llm'), told the
+ *           time, the place and how far from home the photo was taken,
+ *        b. neutral stub after MAX_ATTEMPTS failed generations
  *           (memoSource 'local-stub') so a bad photo can't stay pending forever,
+ *      Older app builds also send a memo written on the phone. It is ignored:
+ *      the phone's language model only sees a few image labels, never the
+ *      photo, and invented things.
  *   4. marks the memo ready, notifies caregivers once, bumps dashboard counters.
  *
  * There is deliberately no paid cloud fallback. If the Mac mini or Ollama is
@@ -19,7 +21,7 @@
  * listener's initial snapshot picks up everything that queued meanwhile.
  */
 
-import { getFirestore, FieldValue, type DocumentData } from 'firebase-admin/firestore'
+import { getFirestore, FieldValue } from 'firebase-admin/firestore'
 import { getStorage } from 'firebase-admin/storage'
 import { logger } from '../log.js'
 import { bumpAdminCounters } from '../counters.js'
@@ -30,7 +32,8 @@ import {
   LlmUnavailableError,
   type LlmResult,
 } from '../llm/ollama.js'
-import { categoryFromTags, stubActivity, type VisionTags } from '../llm/prompt.js'
+import { stubActivity, type PromptHints, type VisionTags } from '../llm/prompt.js'
+import { homeHintFor, localTimeHint } from '../travel.js'
 
 /** Failed generations on one photo before falling back to the stub. */
 export const MAX_ATTEMPTS = 5
@@ -49,7 +52,7 @@ export interface MemoDeps {
   /** Resolve the photo; null when the object doesn't exist. */
   loadPhoto: (photoPath: string) => Promise<PhotoInfo | null>
   geocode: (lat: number | null, lng: number | null) => Promise<GeoResult>
-  generate: (args: { imageBase64: string; timeHint?: string; placeHint?: string }) => Promise<LlmResult>
+  generate: (args: PromptHints & { imageBase64: string }) => Promise<LlmResult>
 }
 
 export const defaultMemoDeps: MemoDeps = {
@@ -84,12 +87,6 @@ export type MemoOutcome =
   | 'unavailable'   // Ollama unreachable — retry later, doesn't count
   | 'failed'        // generation failed — counts toward MAX_ATTEMPTS
 
-/** HH:MM in the Mac mini's local time zone, passed to the model as a hint. */
-function timeHintFrom(data: DocumentData): string | undefined {
-  const d: Date | undefined = data.takenAt?.toDate?.()
-  return d ? d.toTimeString().slice(0, 5) : undefined
-}
-
 /**
  * Process one pending memo. `attempt` is 1-based; on the final attempt a
  * generation failure writes the stub instead of returning 'failed'.
@@ -106,11 +103,6 @@ export async function processMemo(memoId: string, attempt: number, deps: MemoDep
   const lat = typeof data.lat === 'number' ? data.lat : null
   const lng = typeof data.lng === 'number' ? data.lng : null
   const tags = (data.tags as VisionTags | undefined) ?? null
-  // On-device memo sentence from Apple Foundation Models / template. Empty
-  // means the device couldn't produce one (web client, older iPhone, Apple
-  // Intelligence off) and the local model should write it.
-  const deviceMemo = typeof data.deviceMemo === 'string' ? data.deviceMemo.trim() : ''
-  const deviceMemoSource = typeof data.deviceMemoSource === 'string' ? data.deviceMemoSource.trim() : ''
   const humanEdited = data.humanEdited === true
 
   // Rules already pin photoPath to the creator's folder; re-check so a
@@ -132,48 +124,41 @@ export async function processMemo(memoId: string, attempt: number, deps: MemoDep
 
   let activity: string
   let memo: string
-  // scene is empty when the device tier produced the memo (Foundation Models
-  // only writes the short headline). Local model + stub both fill it.
-  let scene = ''
+  let scene: string
   let memoSource: string
   let llmCost: LlmResult['cost'] | null = null
   let llmModel: string | null = null
 
-  if (deviceMemo) {
-    memo = deviceMemo
-    activity = categoryFromTags(tags)
-    memoSource = deviceMemoSource || 'foundation-models'
-  } else {
-    try {
-      const result = await deps.generate({
-        imageBase64: await photo.base64(),
-        timeHint: timeHintFrom(data),
-        // Only pass when non-empty so the model isn't told 알 수 없음 twice.
-        placeHint: place || undefined,
-      })
-      activity = result.activity
-      memo = result.memo
-      scene = result.scene
-      memoSource = 'local-llm'
-      llmCost = result.cost
-      llmModel = result.model
-    } catch (err) {
-      if (err instanceof LlmUnavailableError) {
-        logger.warn('[memo] ollama unavailable; will retry', { memoId })
-        return 'unavailable'
-      }
-      if (!(err instanceof LlmGenerationError)) throw err
-      if (attempt < MAX_ATTEMPTS) {
-        logger.warn('[memo] generation failed; will retry', { memoId, attempt, err: err.message })
-        return 'failed'
-      }
-      logger.warn('[memo] generation failed on final attempt; writing stub', { memoId, attempt, err: err.message })
-      const stub = stubActivity()
-      activity = stub.activity
-      memo = stub.memo
-      scene = stub.scene
-      memoSource = 'local-stub'
+  try {
+    const result = await deps.generate({
+      imageBase64: await photo.base64(),
+      timeHint: await localTimeHint(patientUid, data.takenAt?.toDate?.(), lat, lng),
+      // Only pass when non-empty so the model isn't told 알 수 없음 twice.
+      placeHint: place || undefined,
+      homeHint: await homeHintFor(patientUid, lat, lng),
+    })
+    activity = result.activity
+    memo = result.memo
+    scene = result.scene
+    memoSource = 'local-llm'
+    llmCost = result.cost
+    llmModel = result.model
+  } catch (err) {
+    if (err instanceof LlmUnavailableError) {
+      logger.warn('[memo] ollama unavailable; will retry', { memoId })
+      return 'unavailable'
     }
+    if (!(err instanceof LlmGenerationError)) throw err
+    if (attempt < MAX_ATTEMPTS) {
+      logger.warn('[memo] generation failed; will retry', { memoId, attempt, err: err.message })
+      return 'failed'
+    }
+    logger.warn('[memo] generation failed on final attempt; writing stub', { memoId, attempt, err: err.message })
+    const stub = stubActivity(tags)
+    activity = stub.activity
+    memo = stub.memo
+    scene = stub.scene
+    memoSource = 'local-stub'
   }
 
   // Skip the interpretive fields when a guardian has already corrected the
@@ -184,7 +169,7 @@ export async function processMemo(memoId: string, attempt: number, deps: MemoDep
     place,
     address,
     status: 'ready',
-    // Device hints have served their purpose; keep the memo schema clean.
+    // Sent by older app builds; never used (see header).
     deviceMemo: FieldValue.delete(),
     deviceMemoSource: FieldValue.delete(),
   }

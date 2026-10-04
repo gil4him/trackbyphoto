@@ -14,6 +14,7 @@ import { sendInviteSMS, shareInviteToKakao } from '../lib/share'
 import { RegisterElder } from './RegisterElder'
 import { ElderDevices } from '../components/ElderDevices'
 import { deleteManagedElder } from '../lib/pairing'
+import { getGeo } from '../lib/capture'
 
 interface Props {
   settings: UserSettings
@@ -34,7 +35,7 @@ interface Props {
   myRole?: string
 }
 
-export function Settings({ settings, onChange, user, onSignOut, activePatientUid, isSelf, onSwitchPatient, myRole }: Props) {
+export function Settings({ settings, onChange, user, onSignOut, memos, activePatientUid, isSelf, onSwitchPatient, myRole }: Props) {
   const toast = useToast()
   // A family-managed elder (부모님 등록하기): family runs 가족 관리 and
   // 기기 관리 for them, since the elder's phone has no settings at all.
@@ -154,6 +155,29 @@ export function Settings({ settings, onChange, user, onSignOut, activePatientUid
 
   const update = <K extends keyof UserSettings>(k: K, v: UserSettings[K]) => onChange({ ...settings, [k]: v })
 
+  // 집 위치: pick from places recent photos were taken (works for family
+  // setting it up remotely), or use this phone's location on one's own account.
+  const recentPlaces = (() => {
+    const seen = new Set<string>()
+    const out: { lat: number; lng: number; label: string }[] = []
+    for (const m of memos) {
+      if (m.lat == null || m.lng == null || !m.place || seen.has(m.place)) continue
+      seen.add(m.place)
+      out.push({ lat: m.lat, lng: m.lng, label: m.place })
+      if (out.length === 4) break
+    }
+    return out
+  })()
+  const [locating, setLocating] = useState(false)
+  const useCurrentAsHome = async () => {
+    setLocating(true)
+    const geo = await getGeo()
+    setLocating(false)
+    if (!geo) { toast.show('위치를 확인하지 못했어요', '위치 권한을 확인해 주세요'); return }
+    update('home', { ...geo, label: '직접 설정한 위치' })
+    toast.show('집 위치를 저장했어요')
+  }
+
   const cadenceHint = settings.cadence === 'realtime'
     ? '사진을 찍을 때마다 바로 보내요'
     : settings.cadence === 'weekly'
@@ -218,6 +242,43 @@ export function Settings({ settings, onChange, user, onSignOut, activePatientUid
           />
         </div>
       </div>
+
+      {canManageHere && (
+        <div className="sect">
+          <div className="sect-lab">집 위치</div>
+          <div className="row">
+            <div className="who">
+              <b>{settings.home ? settings.home.label : '자동으로 추정해요'}</b><br />
+              <span>
+                {settings.home
+                  ? '집에서 멀리 있을 때 찍은 사진은 여행·출장으로 기록해요'
+                  : '사진을 가장 자주 찍는 곳을 집으로 봐요'}
+              </span>
+            </div>
+            {settings.home && <button className="signout-btn" onClick={() => update('home', null)}>지우기</button>}
+          </div>
+          {recentPlaces.length > 0 && (
+            <>
+              <div className="help">최근 사진을 찍은 곳 중에 집이 있으면 골라 주세요.</div>
+              <div className="name-chips">
+                {recentPlaces.map((p) => (
+                  <button
+                    key={p.label}
+                    className={`name-chip ${settings.home?.label === p.label ? 'on' : ''}`}
+                    onClick={() => update('home', p)}
+                  >{p.label}</button>
+                ))}
+              </div>
+            </>
+          )}
+          {isSelf && (
+            <button className="linkbtn" disabled={locating} onClick={useCurrentAsHome}>
+              <span>{locating ? '위치 확인 중…' : '지금 있는 곳을 집으로 설정'}</span>
+              <span aria-hidden="true">→</span>
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Caregiver-share management. Only shown when viewing the SIGNED-IN
           user's own account — caregivers viewing someone else's account
