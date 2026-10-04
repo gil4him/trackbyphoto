@@ -772,3 +772,7 @@ nav.tabbar .tab.on .tab-avatar { box-shadow: 0 0 0 2px var(--coral2); }
 .rx-voice.pending { color: var(--muted); }
 .rx-voice.locked { display: flex; align-items: center; gap: 8px; color: var(--ink-2); font-weight: 600; }
 .rx-wave { flex: none; width: 64px; height: 22px; border-radius: 6px; filter: blur(2px); opacity: .6; background: repeating-linear-gradient(90deg, var(--coral1) 0 3px, transparent 3px 7px); }
+.rx-bar .rx-hearts { flex: 1; min-width: 0; }
+.rx-reply { flex: none; margin-left: auto; height: 40px; padding: 0 16px; border-radius: 999px; border: 1.5px solid var(--coral2); background: #fff; color: var(--coral2); font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; }
+/* 가족 소식 card on the regular app's home sits under the two tiles. */
+.home .news-card { margin-top: 16px; }

@@ -6,7 +6,7 @@ import { Today } from './Today'
 import { MemoDetail } from './MemoDetail'
 import { FamilyNews } from './FamilyNews'
 import { FamilyNewsCard } from '../components/FamilyNewsCard'
-import { elderNews, type ElderNews } from '../lib/reactionsModel'
+import { useElderNews, type OpenNews } from '../hooks/useElderNews'
 import type { Memo, Reaction } from '../types'
 
 /**
@@ -31,14 +31,8 @@ export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn
   const [openId, setOpenId] = useState<string | null>(null)
   const [revoked, setRevoked] = useState(false)
   // The news the parent opened, kept as it was when they tapped the card.
-  const [openNews, setOpenNews] = useState<Extract<ElderNews, { state: 'new' | 'seen' }> | null>(null)
-  // "Today" for the card; refreshed now and then so it turns over at midnight.
-  const [now, setNow] = useState(() => Date.now())
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 10 * 60_000)
-    return () => clearInterval(t)
-  }, [])
-  const news = reactions ? elderNews(reactions, uid, now) : null
+  const [openNews, setOpenNews] = useState<OpenNews | null>(null)
+  const news = useElderNews(reactions, uid)
 
   useEffect(() => {
     if (!deviceId) { setRevoked(true); return }

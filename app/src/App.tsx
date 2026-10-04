@@ -24,6 +24,9 @@ import { SuperAdmin, ADMIN_EMAIL } from './pages/SuperAdmin'
 import { Ask } from './components/Ask'
 import { usePlans } from './hooks/usePlans'
 import { useReactions } from './hooks/useReactions'
+import { useElderNews, type OpenNews } from './hooks/useElderNews'
+import { FamilyNews } from './pages/FamilyNews'
+import { FamilyNewsCard } from './components/FamilyNewsCard'
 import { entitlements, flagOn } from './lib/plans'
 import { byMemo } from './lib/reactionsModel'
 import type { ReactionsContext } from './components/Reactions'
@@ -80,6 +83,10 @@ function App() {
   const reactionsOn = flagOn(plans, 'reactions')
   const reactions = useReactions(reactionsOn && user ? activePatientUid || undefined : undefined)
   const reactionsByMemo = useMemo(() => byMemo(reactions), [reactions])
+  // Looking at one's own records in the regular app: the same 가족 소식 card
+  // and reply screen a parent's linked phone has.
+  const ownNews = useElderNews(reactionsOn && user && activePatientUid === user.uid ? reactions : null, user?.uid)
+  const [openNews, setOpenNews] = useState<OpenNews | null>(null)
   // Keep sending photos that are still on this phone (weak connection).
   useOutboxSync(user?.uid)
   const selectedMemo = selectedMemoId ? memos.find((m) => m.id === selectedMemoId) ?? null : null
@@ -311,12 +318,22 @@ function App() {
   // Switching to ask/today from elsewhere also drops the detail view so the
   // tab feels like the canonical owner of its screen.
   const onTabChange = (k: TabKey) => {
+    setOpenNews(null)
     setSelectedMemoId(null)
     setTab(k)
   }
   // Tapping the askbtn from Home jumps to the Ask tab — that way it has a
   // place in the nav and back-by-tab works naturally.
   const openAsk = () => onTabChange('ask')
+
+  // The card replaces the plain banner lines for family reactions; opening
+  // 가족 소식 clears those notices.
+  const isOwnReactionNotice = (n: { type: string; patientUid: string }) => n.type.startsWith('reaction.') && n.patientUid === user.uid
+  const bannerNotices = ownNews ? notifications.filter((n) => !isOwnReactionNotice(n)) : notifications
+  const openFamilyNews = (news: OpenNews) => {
+    notifications.filter(isOwnReactionNotice).forEach((n) => dismissNotification(n.id))
+    setOpenNews(news)
+  }
 
   const rx: ReactionsContext | undefined = reactionsOn ? {
     byMemo: reactionsByMemo,
@@ -326,6 +343,7 @@ function App() {
     canReact: !isSelf,
     voiceOn: flagOn(plans, 'voiceReplies'),
     voiceAllowed: entitlements(plans, settings.plan?.tier)?.voiceReplies === true,
+    onReply: isSelf ? (item, unreadIds) => openFamilyNews({ state: 'new', item, unreadIds }) : undefined,
   } : undefined
 
   return (
@@ -337,7 +355,7 @@ function App() {
           </button>
         )}
         <main>
-          {patients.length > 0 && !selectedMemo && (
+          {patients.length > 0 && !selectedMemo && !openNews && (
             <PatientSwitcher
               selfUid={user.uid}
               selfLabel={selfLabel}
@@ -346,11 +364,22 @@ function App() {
               onChange={onSwitchPatient}
             />
           )}
-          {selectedMemo ? (
+          {openNews ? (
+            <FamilyNews
+              uid={user.uid}
+              patientName={settings.patientName}
+              item={openNews.item}
+              unreadIds={openNews.unreadIds}
+              memo={memos.find((m) => m.id === openNews.item.memoId)}
+              voiceOn={flagOn(plans, 'voiceReplies') && settings.voiceEnabled === true}
+              backLabel="‹ 뒤로"
+              onDone={() => setOpenNews(null)}
+            />
+          ) : selectedMemo ? (
             <MemoDetail memo={selectedMemo} onBack={() => setSelectedMemoId(null)} rx={rx} />
           ) : (
             <>
-              {tab === 'home'     && <Home uid={activePatientUid || user.uid} patientName={settings.patientName} greetingName={isSelf ? selfLabel : settings.patientName} memos={memos} onOpenAsk={openAsk} onOpen={setSelectedMemoId} canCapture={isSelf} notifications={notifications} onDismissNotification={dismissNotification} />}
+              {tab === 'home'     && <Home uid={activePatientUid || user.uid} patientName={settings.patientName} greetingName={isSelf ? selfLabel : settings.patientName} memos={memos} onOpenAsk={openAsk} onOpen={setSelectedMemoId} canCapture={isSelf} notifications={bannerNotices} onDismissNotification={dismissNotification} newsCard={ownNews && <FamilyNewsCard news={ownNews} onOpen={() => { if (ownNews.state !== 'none') openFamilyNews(ownNews) }} />} />}
               {tab === 'today'    && <Today memos={memos} onOpen={setSelectedMemoId} uid={activePatientUid || user.uid} rx={rx} />}
               {tab === 'ask'      && <Ask memos={memos} onOpen={setSelectedMemoId} />}
               {tab === 'settings' && (

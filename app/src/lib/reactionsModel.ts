@@ -43,6 +43,22 @@ export function elderNews(reactions: Reaction[], patientUid: string, nowMs: numb
   return { state: 'none' }
 }
 
+/**
+ * What the patient answers when they reply under one photo: the newest
+ * family comment on it, else the newest family heart. Null when family
+ * hasn't reacted to that photo.
+ */
+export function replyTarget(items: Reaction[], patientUid: string): { item: Reaction; unreadIds: string[] } | null {
+  const family = items
+    .filter((r) => r.actorUid !== patientUid && (r.kind === 'heart' || r.kind === 'comment'))
+    .sort((a, b) => b.createdAtMs - a.createdAtMs)
+  if (family.length === 0) return null
+  return {
+    item: family.find((r) => r.kind === 'comment') ?? family[0],
+    unreadIds: family.filter((r) => !r.readByElderAt).map((r) => r.id),
+  }
+}
+
 /** A family member's own heart on a memo, if any. */
 export function myHeart(items: Reaction[], uid: string): Reaction | undefined {
   return items.find((r) => r.kind === 'heart' && r.actorUid === uid)

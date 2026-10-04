@@ -66,6 +66,14 @@ describe('Reactions (family feed)', () => {
     expect(out).not.toContain('<audio')
   })
 
+  it('lets the patient answer family from their own feed, only where family reacted', () => {
+    const own = { canReact: false, me: { uid: 'p1', name: '어머니' }, onReply: () => {} }
+    expect(html(ctx([r('c', { kind: 'comment', text: '엄마 날씨 좋네요' })], own))).toContain('답장하기')
+    expect(html(ctx([r('mine', { actorUid: 'p1' })], own))).not.toContain('답장하기')
+    // Family never sees the patient's reply button.
+    expect(html(ctx([r('c', { kind: 'comment', text: '안녕' })]))).not.toContain('답장하기')
+  })
+
   it('is read-only for the patient looking at their own feed', () => {
     const out = html(ctx([r('h'), r('c', { kind: 'comment', text: '엄마 날씨 좋네요' })], { canReact: false, me: { uid: 'p1', name: '어머니' } }))
     expect(out).toContain('엄마 날씨 좋네요')

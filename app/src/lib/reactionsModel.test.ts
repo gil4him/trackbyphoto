@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { byMemo, elderNews, myHeart } from './reactionsModel'
+import { byMemo, elderNews, myHeart, replyTarget } from './reactionsModel'
 import { subject } from './strings'
 import type { Reaction } from '../types'
 
@@ -53,6 +53,22 @@ describe('byMemo / myHeart', () => {
     const items = [r('h1'), r('h2', { actorUid: 'cg2' }), r('c', { kind: 'comment' })]
     expect(myHeart(items, 'cg2')?.id).toBe('h2')
     expect(myHeart(items, 'cg3')).toBeUndefined()
+  })
+})
+
+describe('replyTarget', () => {
+  it('is null until family reacts to the photo', () => {
+    expect(replyTarget([], 'p1')).toBeNull()
+    expect(replyTarget([r('mine', { actorUid: 'p1' })], 'p1')).toBeNull()
+  })
+  it('answers the newest comment, else the newest heart, and lists what is unread', () => {
+    const items = [
+      r('h', { createdAtMs: NOW }),
+      r('c1', { kind: 'comment', createdAtMs: NOW - 2 * HOUR, ...read }),
+      r('c2', { kind: 'comment', createdAtMs: NOW - HOUR }),
+    ]
+    expect(replyTarget(items, 'p1')).toMatchObject({ item: { id: 'c2' }, unreadIds: ['h', 'c2'] })
+    expect(replyTarget([r('h1', { createdAtMs: 1 }), r('h2', { createdAtMs: 2 })], 'p1')?.item.id).toBe('h2')
   })
 })
 
