@@ -30,9 +30,11 @@ interface Props {
   isSelf: boolean
   /** Switch the app to a patient (after 부모님 등록하기). */
   onSwitchPatient: (patientUid: string) => void
+  /** The signed-in user's role on activePatientUid when it isn't self. */
+  myRole?: string
 }
 
-export function Settings({ settings, onChange, user, onSignOut, activePatientUid, isSelf, onSwitchPatient }: Props) {
+export function Settings({ settings, onChange, user, onSignOut, activePatientUid, isSelf, onSwitchPatient, myRole }: Props) {
   const toast = useToast()
   // A family-managed elder (부모님 등록하기): family runs 가족 관리 and
   // 기기 관리 for them, since the elder's phone has no settings at all.
@@ -42,21 +44,30 @@ export function Settings({ settings, onChange, user, onSignOut, activePatientUid
   // ─── caregiver-share state ───────────────────────────────────────────────
   // The owner sees their list of caregivers; revoke buttons call the cloud
   // function so the audit log gets written atomically.
-  const { caregivers } = useMemberships(activePatientUid)
+  // Only subscribe where the rules allow it: our own family list, or a
+  // managed parent's list when we're their guardian/admin. Anything else
+  // would just log permission errors.
+  const canManageHere = isSelf || (isManaged && (myRole === 'guardian' || myRole === 'admin'))
+  const { caregivers } = useMemberships(canManageHere ? activePatientUid : undefined, { withPatients: false })
   // 부모님 삭제 is for the guardian (whoever registered the parent) only.
-  const isGuardian = isManaged && !isSelf && caregivers.some(
-    (m) => m.caregiverUid === user.uid && m.role === 'guardian' && m.status === 'active')
+  const isGuardian = isManaged && !isSelf && myRole === 'guardian'
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleteBusy, setDeleteBusy] = useState(false)
   const onDeleteElder = async () => {
     setDeleteBusy(true)
+    const patientUid = activePatientUid
+    const name = settings.patientName
+    // Leave the parent's screens first: their live views would otherwise
+    // fail with permission errors the moment their data is erased.
+    onSwitchPatient(user.uid)
+    toast.show(`${name}님을 삭제하는 중…`)
     try {
-      await deleteManagedElder(activePatientUid)
+      await deleteManagedElder(patientUid)
       setDeleteOpen(false)
-      onSwitchPatient(user.uid)
-      toast.show(`${settings.patientName}님을 삭제했어요`)
+      toast.show(`${name}님을 삭제했어요`)
     } catch (err) {
       console.error('[elder] delete failed', err)
+      onSwitchPatient(patientUid)
       toast.show('삭제하지 못했어요', isWorkerOffline(err) ? WORKER_OFFLINE_MESSAGE : '잠시 후 다시 시도해 주세요')
     } finally {
       setDeleteBusy(false)
@@ -192,7 +203,7 @@ export function Settings({ settings, onChange, user, onSignOut, activePatientUid
         <RegisterElder onClose={() => setRegistering(false)} onRegistered={onSwitchPatient} />
       )}
 
-      {isManaged && !isSelf && (
+      {isManaged && !isSelf && canManageHere && (
         <ElderDevices patientUid={activePatientUid} patientName={settings.patientName} />
       )}
 
@@ -211,7 +222,7 @@ export function Settings({ settings, onChange, user, onSignOut, activePatientUid
       {/* Caregiver-share management. Only shown when viewing the SIGNED-IN
           user's own account — caregivers viewing someone else's account
           don't get to invite or revoke from the patient's perspective. */}
-      {(isSelf || isManaged) && (
+      {canManageHere && (
         <div className="sect">
           <div className="sect-lab">가족 관리</div>
           {caregivers.length === 0 ? (

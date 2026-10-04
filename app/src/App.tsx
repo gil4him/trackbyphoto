@@ -333,6 +333,7 @@ function App() {
                   activePatientUid={activePatientUid || user.uid}
                   isSelf={isSelf}
                   onSwitchPatient={(uid) => { onSwitchPatient(uid); setTab('home') }}
+                  myRole={patients.find((p) => p.patientUid === activePatientUid)?.role}
                 />
               )}
             </>
