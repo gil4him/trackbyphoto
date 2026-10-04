@@ -13,6 +13,7 @@ import { getStorage } from 'firebase-admin/storage'
 import { logger } from '../log.js'
 import { WorkerError as HttpsError, type Caller } from '../context.js'
 import { generateMemo } from '../llm/ollama.js'
+import { areaOf } from '../llm/prompt.js'
 import { homeHintFor, localTimeHint } from '../travel.js'
 
 export const ADMIN_EMAIL = 'zymer4him@gmail.com'
@@ -60,7 +61,7 @@ export async function regenerateMemo(caller: Caller, data: { memoId?: string }) 
     result = await generateMemo({
       imageBase64: buffer.toString('base64'),
       timeHint: await localTimeHint(patientUid, memo.takenAt?.toDate?.(), lat, lng),
-      placeHint: (memo.place as string | undefined) || undefined,
+      placeHint: areaOf((memo.place as string | undefined) || '') || undefined,
       homeHint: await homeHintFor(patientUid, lat, lng),
     })
   } catch (err) {

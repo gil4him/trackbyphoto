@@ -33,7 +33,7 @@ import {
   LlmUnavailableError,
   type LlmResult,
 } from '../llm/ollama.js'
-import { stubActivity, type PromptHints, type VisionTags } from '../llm/prompt.js'
+import { areaOf, stubActivity, type PromptHints, type VisionTags } from '../llm/prompt.js'
 import { homeHintFor, localTimeHint } from '../travel.js'
 
 /** Failed generations on one photo before falling back to the stub. */
@@ -139,8 +139,7 @@ export async function processMemo(memoId: string, attempt: number, deps: MemoDep
     const result = await deps.generate({
       imageBase64: await photo.base64(),
       timeHint: await localTimeHint(patientUid, data.takenAt?.toDate?.(), lat, lng, data.tzOffsetMin as number | undefined),
-      // Only pass when non-empty so the model isn't told 알 수 없음 twice.
-      placeHint: place || undefined,
+      placeHint: areaOf(place) || undefined,
       homeHint: await homeHintFor(patientUid, lat, lng),
     })
     activity = result.activity
