@@ -59,26 +59,32 @@ export function utcOffsetHours(p: LatLng): number {
 const DEFAULT_UTC_OFFSET = Number(process.env.WORKER_DEFAULT_UTC_OFFSET ?? 9)
 
 /**
- * HH:MM on the photographer's clock. The worker's own clock is no guide (the
- * Mac mini runs on US Pacific time), so use the phone's reported offset, else
- * the photo's location, else home, else the default (Korea).
+ * The photographer's UTC offset in minutes. The worker's own clock is no
+ * guide (the Mac mini runs on US Pacific time), so use the phone's reported
+ * offset, else the photo's location, else home, else the default (Korea).
  */
+export async function localOffsetMin(
+  patientUid: string,
+  lat: number | null,
+  lng: number | null,
+  /** The phone's own UTC offset in minutes, when the app sent one. */
+  tzOffsetMin?: number | null,
+): Promise<number> {
+  if (typeof tzOffsetMin === 'number' && Math.abs(tzOffsetMin) <= 14 * 60) return tzOffsetMin
+  const where = lat != null && lng != null ? { lat, lng } : await resolveHome(patientUid)
+  return (where ? utcOffsetHours(where) : DEFAULT_UTC_OFFSET) * 60
+}
+
+/** HH:MM on the photographer's clock. */
 export async function localTimeHint(
   patientUid: string,
   takenAt: Date | undefined,
   lat: number | null,
   lng: number | null,
-  /** The phone's own UTC offset in minutes, when the app sent one. */
   tzOffsetMin?: number | null,
 ): Promise<string | undefined> {
   if (!takenAt) return undefined
-  let offsetMin: number
-  if (typeof tzOffsetMin === 'number' && Math.abs(tzOffsetMin) <= 14 * 60) {
-    offsetMin = tzOffsetMin
-  } else {
-    const where = lat != null && lng != null ? { lat, lng } : await resolveHome(patientUid)
-    offsetMin = (where ? utcOffsetHours(where) : DEFAULT_UTC_OFFSET) * 60
-  }
+  const offsetMin = await localOffsetMin(patientUid, lat, lng, tzOffsetMin)
   return new Date(takenAt.getTime() + offsetMin * 60_000).toISOString().slice(11, 16)
 }
 

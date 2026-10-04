@@ -7,7 +7,7 @@ import {
   type RulesTestEnvironment,
 } from '@firebase/rules-unit-testing'
 import {
-  doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, serverTimestamp,
+  doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, deleteField, serverTimestamp,
   collection, query, where, orderBy, limit,
 } from 'firebase/firestore'
 import { ref, uploadBytes, getBytes } from 'firebase/storage'
@@ -275,6 +275,19 @@ describe('memos', () => {
     const late = { lat: 34.86, lng: 136.82, needsGeocode: true }
     await assertSucceeds(updateDoc(doc(authedDb(PATIENT), 'memos', 'memo1'), late))
     await assertFails(updateDoc(doc(authedDb(STRANGER), 'memos', 'memo1'), late))
+  })
+
+  it("nobody but the worker sets or changes a memo's usage mark", async () => {
+    await assertFails(updateDoc(doc(authedDb(PATIENT), 'memos', 'memo1'), { usage: { day: '20261004', ai: true } }))
+    await assertFails(updateDoc(doc(authedDb(CAREGIVER_ACTIVE_ADMIN), 'memos', 'memo1'), { usage: { day: '20261004', ai: true } }))
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await updateDoc(doc(ctx.firestore(), 'memos', 'memo1'), { usage: { day: '20261004', ai: false } })
+    })
+    await assertFails(updateDoc(doc(authedDb(CAREGIVER_ACTIVE_ADMIN), 'memos', 'memo1'), { usage: deleteField() }))
+    await assertFails(updateDoc(doc(authedDb(CAREGIVER_ACTIVE_ADMIN), 'memos', 'memo1'), { 'usage.ai': true }))
+    // Other edits still go through with the mark in place.
+    await assertSucceeds(updateDoc(doc(authedDb(CAREGIVER_ACTIVE_ADMIN), 'memos', 'memo1'), { status: 'pending', humanEdited: false }))
+    await assertSucceeds(deleteDoc(doc(authedDb(CAREGIVER_ACTIVE_ADMIN), 'memos', 'memo1')))
   })
 
   it("caregiver cannot create a memo on the patient's behalf", async () => {

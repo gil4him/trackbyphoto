@@ -208,6 +208,14 @@ export function stubActivity(tags?: VisionTags | null): { activity: string; memo
 }
 
 /**
+ * A photo kept without a memo from the model (handlers/usage.ts). It reads as
+ * a normal entry: nothing in it says a step was skipped.
+ */
+export function storedOnlyMemo(tags?: VisionTags | null): { activity: string; memo: string; scene: string } {
+  return { activity: categoryFromTags(tags), memo: '사진을 남겼어요', scene: '' }
+}
+
+/**
  * Pick a coarse category from the phone's Vision tags (English
  * VNClassifyImageRequest names). Only used for the stub. Defaults to 기타.
  */

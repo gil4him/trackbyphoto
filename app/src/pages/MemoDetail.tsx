@@ -10,7 +10,8 @@ import { Reactions, type ReactionsContext } from '../components/Reactions'
 import { markRead } from '../lib/reactions'
 import type { Memo, MemoSource } from '../types'
 
-const SOURCE_BADGES: Record<MemoSource, { label: string; tone: 'good' | 'neutral' | 'warn' }> = {
+// 'stored-only' has no badge on purpose: nothing says a step was skipped.
+const SOURCE_BADGES: Partial<Record<MemoSource, { label: string; tone: 'good' | 'neutral' | 'warn' }>> = {
   'foundation-models': { label: 'Apple Intelligence', tone: 'good' },
   'template':          { label: 'iPhone 분석',         tone: 'neutral' },
   'local-llm':         { label: 'AI 분석',             tone: 'good' },

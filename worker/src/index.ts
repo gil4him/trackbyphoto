@@ -3,7 +3,7 @@
  *
  * Runs under launchd (KeepAlive) on the Mac mini with a service-account key,
  * and talks to Firebase over outbound connections only; nothing listens on
- * a port. Three Firestore listeners:
+ * a port. Firestore listeners:
  *   memos    status == 'pending'  → photo memo pipeline (local Ollama model)
  *   requests status == 'pending'  → former HTTPS callables (invites, roles…)
  *   users    any change           → settings-change audit + elder notices
@@ -30,6 +30,7 @@ import { watchGeocodeRequests } from './handlers/place.js'
 import { purgeStaleRequests, requeueInterruptedRequests, watchRequests } from './handlers/requests.js'
 import { SettingsCache, watchUserSettings } from './handlers/audit.js'
 import { ReactionScheduler, watchReactions } from './handlers/reactions.js'
+import { startRetention } from './handlers/retention.js'
 import { startHeartbeat } from './heartbeat.js'
 import { sttAvailable } from './llm/stt.js'
 
@@ -64,6 +65,7 @@ async function main() {
     watchRequests(),
     watchUserSettings(cache),
     startHeartbeat(() => scheduler.waiting),
+    startRetention(),
   ]
   const purgeTimer = setInterval(() => {
     purgeStaleRequests().catch((err) => logger.warn('[request] purge failed', { err: String(err) }))

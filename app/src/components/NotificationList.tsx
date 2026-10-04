@@ -10,6 +10,7 @@ const ICONS: Array<[prefix: string, icon: string]> = [
   ['caregiver.', '👪'],
   ['recipient.', '👪'],
   ['settings.', '⚙️'],
+  ['retention.', '🗓️'],
 ]
 const iconFor = (type: string) => ICONS.find(([p]) => type.startsWith(p))?.[1] ?? '🔔'
 
