@@ -83,7 +83,7 @@ export function PatientSwitcher({ selfUid, selfLabel, patients, activePatientUid
             role="menuitem"
           >
             <span className="ps-item-name">{names[p.patientUid] || '사용자'}</span>
-            <span className="ps-item-sub">가족 · {p.role === 'admin' ? '관리자' : '뷰어'}</span>
+            <span className="ps-item-sub">가족 · {p.role === 'viewer' ? '뷰어' : '관리자'}</span>
           </button>
         )
       })}

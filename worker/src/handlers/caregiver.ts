@@ -95,11 +95,20 @@ function buildNotification(
   }
 }
 
+// The elder acting on their own account. A family-managed elder's phone runs
+// as the elder's uid, but family owns that account's sharing — the phone may
+// only take photos — so the owner path is closed for managed accounts.
+async function isSelfManagedOwner(callerUid: string, patientUid: string): Promise<boolean> {
+  if (callerUid !== patientUid) return false
+  const snap = await getFirestore().collection('users').doc(patientUid).get()
+  return (snap.data() as { accountType?: string } | undefined)?.accountType !== 'managed'
+}
+
 async function isOwnerOrAdminCaregiver(
   callerUid: string,
   patientUid: string,
 ): Promise<boolean> {
-  if (callerUid === patientUid) return true
+  if (callerUid === patientUid) return isSelfManagedOwner(callerUid, patientUid)
   const db = getFirestore()
   const snap = await db
     .collection('memberships')
@@ -107,7 +116,9 @@ async function isOwnerOrAdminCaregiver(
     .get()
   if (!snap.exists) return false
   const m = snap.data() as { status?: string; role?: string }
-  return m.status === 'active' && m.role === 'admin'
+  // Guardians (e.g. the family member who registered a managed elder) can do
+  // everything an admin can.
+  return m.status === 'active' && (m.role === 'admin' || m.role === 'guardian')
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -389,8 +400,7 @@ export async function revokeMembership(caller: Caller, data: RevokeMembershipReq
   // Authz: caller is patient, an active admin caregiver on the patient, or
   // the caregiver themselves (removing their own access).
   const callerIsCaregiverOnRow = callerUid === caregiverUid
-  const callerCanManage =
-    callerUid === patientUid || (await isOwnerOrAdminCaregiver(callerUid, patientUid))
+  const callerCanManage = await isOwnerOrAdminCaregiver(callerUid, patientUid)
   if (!callerIsCaregiverOnRow && !callerCanManage) {
     throw new HttpsError('permission-denied', 'not authorized to revoke this membership')
   }
@@ -454,8 +464,8 @@ export async function setMembershipRole(caller: Caller, data: SetMembershipRoleR
 
   const db = getFirestore()
   // Authz: owner, or an active guardian on this patient.
-  let allowed = callerUid === patientUid
-  if (!allowed) {
+  let allowed = await isSelfManagedOwner(callerUid, patientUid)
+  if (!allowed && callerUid !== patientUid) {
     const callerSnap = await db.collection('memberships').doc(membershipDocId(patientUid, callerUid)).get()
     const cm = callerSnap.data() as { status?: string; role?: string } | undefined
     allowed = cm?.status === 'active' && cm?.role === 'guardian'

@@ -689,3 +689,30 @@ nav.tabbar .tab.on .tab-avatar { box-shadow: 0 0 0 2px var(--coral2); }
 .signin-error { margin: 10px 0 0; max-width: 320px; font-size: 13px; line-height: 1.4; color: #c0392b; text-align: center; word-break: break-word; user-select: text; -webkit-user-select: text; }
 .signin-secondary { display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: 10px 16px; font: inherit; font-weight: 600; color: var(--ink-2); cursor: pointer; }
 .signin-secondary:hover { border-color: var(--coral2); color: var(--ink); }
+
+/* ── 부모님 휴대폰 연결 (pairing) + elder phone ───────────────────────────── */
+.pair { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 80vh; padding: 32px 24px; text-align: center; gap: 18px; }
+.pair-title { margin: 0; font-size: 30px; line-height: 1.3; letter-spacing: -0.02em; }
+.pair-sub { margin: 0; max-width: 320px; font-size: 18px; line-height: 1.5; color: var(--ink-2); }
+.pair-notice { margin: 0; max-width: 320px; font-size: 22px; line-height: 1.5; font-weight: 600; }
+.pair-btn { width: 100%; max-width: 340px; min-height: 76px; border: none; border-radius: 22px; font: inherit; font-size: 26px; font-weight: 800; color: #fff; background: linear-gradient(135deg, var(--coral1), var(--coral2)); box-shadow: 0 10px 30px rgba(255,107,107,.35); cursor: pointer; }
+.pair-btn:disabled { opacity: .4; box-shadow: none; cursor: default; }
+.pair-link { background: none; border: none; font: inherit; font-size: 15px; color: var(--ink-2); text-decoration: underline; cursor: pointer; }
+.pair-code-input { width: 100%; max-width: 340px; padding: 18px 12px; font-size: 30px; letter-spacing: 0.18em; text-align: center; text-transform: uppercase; font-family: ui-monospace, SFMono-Regular, monospace; border: 2px solid var(--line); border-radius: 16px; background: #fff; }
+.pair-code-input:focus { outline: none; border-color: var(--coral2); }
+.pair-qr { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.pair-qr img { border-radius: 12px; border: 1px solid var(--line); }
+.pair-code-box { border-top: 1px solid var(--line); padding-top: 10px; text-align: center; }
+.pair-code-box .invite-code-display { font-size: 28px; letter-spacing: 0.15em; padding: 4px 0; }
+.invite-qr { background: #fff; color: var(--ink); border: 1px solid var(--line); }
+.signin-code-btn { background: none; border: none; font: inherit; font-size: 16px; font-weight: 600; color: var(--ink-2); text-decoration: underline; cursor: pointer; padding: 8px; }
+.elder-back { background: none; border: none; font: inherit; font-size: 20px; font-weight: 700; color: var(--ink-2); padding: 12px 4px; cursor: pointer; }
+.step-no { float: right; font-size: 14px; font-weight: 600; color: var(--muted); }
+.name-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.name-chip { border: 1px solid var(--line); background: #fff; border-radius: 999px; padding: 10px 16px; font: inherit; font-size: 16px; font-weight: 600; cursor: pointer; }
+.name-chip.on { border-color: var(--coral2); background: #FFF1EA; color: var(--ink); }
+.text-input { width: 100%; padding: 14px 16px; font-size: 18px; border: 1px solid var(--line); border-radius: 14px; background: #fff; font-family: inherit; }
+.text-input:focus { outline: none; border-color: var(--coral2); }
+.consent-list { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; line-height: 1.5; }
+.approval-row { border-color: var(--coral2); background: #FFF6F1; flex-wrap: wrap; gap: 10px; }
+.approval-row .linkbtn { margin-top: 0; width: auto; padding: 10px 18px; }

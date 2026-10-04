@@ -11,6 +11,8 @@ import {
   type InvitableRole,
 } from '../lib/caregiver'
 import { sendInviteSMS, shareInviteToKakao } from '../lib/share'
+import { RegisterElder } from './RegisterElder'
+import { ElderDevices } from '../components/ElderDevices'
 
 interface Props {
   settings: UserSettings
@@ -25,10 +27,16 @@ interface Props {
    *  가족 관리 section (only the patient can invite family to their own
    *  account). */
   isSelf: boolean
+  /** Switch the app to a patient (after 부모님 등록하기). */
+  onSwitchPatient: (patientUid: string) => void
 }
 
-export function Settings({ settings, onChange, user, onSignOut, activePatientUid, isSelf }: Props) {
+export function Settings({ settings, onChange, user, onSignOut, activePatientUid, isSelf, onSwitchPatient }: Props) {
   const toast = useToast()
+  // A family-managed elder (부모님 등록하기): family runs 가족 관리 and
+  // 기기 관리 for them, since the elder's phone has no settings at all.
+  const isManaged = settings.accountType === 'managed'
+  const [registering, setRegistering] = useState(false)
 
   // ─── caregiver-share state ───────────────────────────────────────────────
   // The owner sees their list of caregivers; revoke buttons call the cloud
@@ -148,6 +156,26 @@ export function Settings({ settings, onChange, user, onSignOut, activePatientUid
         </div>
       </div>
 
+      {isSelf && (
+        <div className="sect">
+          <div className="sect-lab">부모님</div>
+          <button className="linkbtn" onClick={() => setRegistering(true)}>
+            <span>부모님 등록하기</span>
+            <span aria-hidden="true">→</span>
+          </button>
+          <div className="help">
+            부모님은 로그인할 필요가 없어요. 여기서 설정을 마치고 링크를 보내면, 부모님은 링크를 눌러 ‘연결하기’만 누르면 돼요.
+          </div>
+        </div>
+      )}
+      {registering && (
+        <RegisterElder onClose={() => setRegistering(false)} onRegistered={onSwitchPatient} />
+      )}
+
+      {isManaged && !isSelf && (
+        <ElderDevices patientUid={activePatientUid} patientName={settings.patientName} />
+      )}
+
       <div className="sect">
         <div className="sect-lab">사용자 이름</div>
         <div className="row">
@@ -163,7 +191,7 @@ export function Settings({ settings, onChange, user, onSignOut, activePatientUid
       {/* Caregiver-share management. Only shown when viewing the SIGNED-IN
           user's own account — caregivers viewing someone else's account
           don't get to invite or revoke from the patient's perspective. */}
-      {isSelf && (
+      {(isSelf || isManaged) && (
         <div className="sect">
           <div className="sect-lab">가족 관리</div>
           {caregivers.length === 0 ? (
@@ -171,18 +199,19 @@ export function Settings({ settings, onChange, user, onSignOut, activePatientUid
               <div className="who"><span>아직 함께하는 가족이 없어요.</span></div>
             </div>
           ) : caregivers.map((m) => {
-            const label = m.caregiverName || (m.caregiverUid.slice(0, 6) + '…')
+            const isMe = m.caregiverUid === user.uid
+            const label = (m.caregiverName || (m.caregiverUid.slice(0, 6) + '…')) + (isMe ? ' (나)' : '')
             const statusLabel = m.status === 'invited' ? '초대됨' : m.status === 'active' ? '활성' : '해제됨'
-            const canSetRole = m.status === 'active' && m.role !== 'guardian'
+            const canSetRole = m.status === 'active' && m.role !== 'guardian' && !isMe
             return (
               <div className="cg-row" key={m.id}>
                 <div className="row recipient-row">
                   <div className="who">
                     <b>{label}</b>
-                    <span> · {m.role === 'guardian' ? '후견인 · ' : ''}{statusLabel}</span>
+                    <span> · {m.role === 'guardian' ? '대표 가족 · ' : ''}{statusLabel}</span>
                   </div>
                   <div className="send-row">
-                    {m.status !== 'revoked' && (
+                    {m.status !== 'revoked' && !isMe && (
                       <button
                         className="send-btn send-del"
                         onClick={() => onRevoke(m.caregiverUid, label)}

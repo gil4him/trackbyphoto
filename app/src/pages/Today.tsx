@@ -5,7 +5,8 @@ import { useToast } from '../components/Toast'
 import { MemoThumb } from '../components/MemoThumb'
 import type { Memo } from '../types'
 
-export function Today({ memos, onOpen }: { memos: Memo[]; onOpen: (id: string) => void }) {
+/** `readOnly` (an elder's linked phone) hides the delete buttons. */
+export function Today({ memos, onOpen, readOnly = false }: { memos: Memo[]; onOpen: (id: string) => void; readOnly?: boolean }) {
   const toast = useToast()
 
   // Group recent shots by calendar day, newest day first. `memos` already
@@ -63,14 +64,14 @@ export function Today({ memos, onOpen }: { memos: Memo[]; onOpen: (id: string) =
                     {m.status === 'pending' ? '메모 작성 중…' : m.memo}
                   </div>
                 </div>
-                <span
+                {!readOnly && <span
                   className="del-btn"
                   role="button"
                   aria-label="사진 삭제"
                   onClick={onDelete(m)}
                 >
                   ✕
-                </span>
+                </span>}
               </button>
             ))}
           </div>

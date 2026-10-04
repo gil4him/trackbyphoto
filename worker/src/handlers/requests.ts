@@ -25,6 +25,14 @@ import {
   syncCaregiverName,
 } from './caregiver.js'
 import { backfillMemoSchema, backfillPatientUid, regenerateMemo } from './admin.js'
+import {
+  approvePairing,
+  completePairing,
+  createManagedElder,
+  createPairingLink,
+  pairDevice,
+  unlinkDevice,
+} from './pairing.js'
 
 type Handler = (caller: Caller, payload: any) => Promise<unknown>
 
@@ -38,6 +46,12 @@ export const HANDLERS: Record<string, Handler> = {
   regenerateMemo,
   backfillMemoSchema,
   backfillPatientUid,
+  createManagedElder,
+  createPairingLink,
+  pairDevice,
+  approvePairing,
+  completePairing,
+  unlinkDevice,
 }
 
 const STALE_AFTER_MS = 24 * 3600 * 1000

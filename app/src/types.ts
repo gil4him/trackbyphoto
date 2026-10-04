@@ -66,6 +66,32 @@ export interface UserSettings {
   autoMode: boolean
   bigText: boolean
   retention: '30' | '90' | 'forever'
+  /** 'managed' when a family member registered this elder (부모님 등록하기):
+   *  the elder's phone is linked by a pairing code instead of a Google
+   *  sign-in, and family owns the settings. Absent for self-managed users. */
+  accountType?: 'managed'
+}
+
+/** users/{patientUid}/devices/{deviceId} — a phone linked to a family-managed
+ *  elder. Written only by the worker (pair / unlink). */
+export interface ElderDevice {
+  id: string
+  name: string
+  platform: string
+  pairedAt: Timestamp | null
+  status: 'active' | 'revoked'
+}
+
+/** pairings/{id} — one-time phone-linking code (only its hash is stored). */
+export interface Pairing {
+  id: string
+  patientUid: string
+  purpose: 'onboard' | 'repair'
+  mode: 'remote' | 'qr'
+  status: 'pending' | 'awaiting-approval' | 'approved' | 'denied' | 'used' | 'expired'
+  claimedBy: string | null
+  deviceInfo: { name: string; platform: string } | null
+  expiresAt: Timestamp
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -111,7 +137,7 @@ export interface Invite {
 /** consents/{consentId} — PIPA evidence record. Two consents must exist before
  *  a caregiver gets active access: one for processing sensitive data, one for
  *  third-party share. Each is its own doc so the legal trail is auditable. */
-export type ConsentType = 'sensitive_data' | 'third_party_share'
+export type ConsentType = 'sensitive_data' | 'third_party_share' | 'notice_ack'
 export interface Consent {
   patientUid: string
   type: ConsentType

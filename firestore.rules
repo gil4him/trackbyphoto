@@ -32,8 +32,27 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // Family-managed elder's phone: a custom token minted by the worker's
+    // pairing handlers, carrying { elder: true, deviceId }. Such a session
+    // can take photos and read its own records, but never change settings
+    // or sharing — family owns those. Every elder-session access also checks
+    // that its device is still linked, so 연결 해제 cuts the phone off at once.
+    function elderSession() {
+      return signedIn() && request.auth.token.get('elder', false) == true;
+    }
+
+    function elderDeviceActive() {
+      return !elderSession()
+        || get(/databases/$(database)/documents/users/$(request.auth.uid)/devices/$(request.auth.token.deviceId)).data.status == 'active';
+    }
+
+    // Short-lived anonymous session a phone uses only to redeem a pairing code.
+    function anonSession() {
+      return signedIn() && request.auth.token.get('firebase', {}).get('sign_in_provider', '') == 'anonymous';
+    }
+
     function isOwner(patientUid) {
-      return signedIn() && request.auth.uid == patientUid;
+      return signedIn() && request.auth.uid == patientUid && elderDeviceActive();
     }
 
     // Deterministic membership doc id keeps the rule fast (no query, just a
@@ -116,7 +135,30 @@ service cloud.firestore {
       // to — without this a caregiver could edit the elder's recipients and
       // frame it as the elder's own edit, dodging the audit log + notice.
       allow write: if (isOwner(patientUid) || canManage(patientUid))
+                   && !elderSession()
                    && request.resource.data.lastModifiedBy == request.auth.uid;
+
+      // users/{patientUid}/devices/{deviceId} — phones linked to a family-
+      // managed elder. Written only by the worker (pair / unlink); family and
+      // the elder's own phone may read them.
+      match /devices/{deviceId} {
+        allow read:  if isAdmin() || canRead(patientUid);
+        allow write: if false;
+      }
+    }
+
+    // ────────────────────────────────────────────────────────────────────
+    // pairings/{id}
+    //
+    // One-time codes that link an elder's phone (only a hash is stored).
+    // Written only by the worker. Family managers read them to see pending
+    // re-link requests; the phone that claimed one may read it while it
+    // waits for approval.
+    // ────────────────────────────────────────────────────────────────────
+    match /pairings/{pairingId} {
+      allow read: if (canManage(resource.data.patientUid) && !elderSession())
+                  || (signedIn() && request.auth.uid == resource.data.claimedBy);
+      allow write: if false;
     }
 
     // ────────────────────────────────────────────────────────────────────
@@ -136,15 +178,18 @@ service cloud.firestore {
     // for instant self-removal / revocation without a round-trip to the worker.
     // ────────────────────────────────────────────────────────────────────
     match /memberships/{membershipId} {
+      // Family who manage the elder also see the elder's other family rows,
+      // so a guardian of a family-managed elder can run 가족 관리.
       allow read: if isAdmin()
                   || (signedIn() && (
                        request.auth.uid == resource.data.patientUid
-                    || request.auth.uid == resource.data.caregiverUid));
+                    || request.auth.uid == resource.data.caregiverUid))
+                  || (canManage(resource.data.patientUid) && !elderSession());
 
       allow create: if false;
       allow update: if false;
 
-      allow delete: if isOwner(resource.data.patientUid)
+      allow delete: if (isOwner(resource.data.patientUid) && !elderSession())
                     || hasRole(resource.data.patientUid, 'guardian')
                     || (signedIn() && request.auth.uid == resource.data.caregiverUid);
     }
@@ -163,12 +208,13 @@ service cloud.firestore {
       allow get:    if signedIn();
       allow list:   if false;
       allow create: if signedIn()
+                    && !elderSession()
                     && request.resource.data.used == false
                     && (
                          request.auth.uid == request.resource.data.patientUid
                       || hasRole(request.resource.data.patientUid, 'admin')
                        );
-      allow update, delete: if isOwner(resource.data.patientUid)
+      allow update, delete: if (isOwner(resource.data.patientUid) && !elderSession())
                             || hasRole(resource.data.patientUid, 'admin');
     }
 
@@ -239,7 +285,7 @@ service cloud.firestore {
     // ────────────────────────────────────────────────────────────────────
     match /notifications/{id} {
       allow read:   if isAdmin()
-                    || (signedIn() && request.auth.uid == resource.data.recipientUid);
+                    || (signedIn() && request.auth.uid == resource.data.recipientUid && elderDeviceActive());
       allow create: if false;
       allow update: if signedIn() && request.auth.uid == resource.data.recipientUid
                     && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
@@ -267,8 +313,14 @@ service cloud.firestore {
                     // Must match HANDLERS in worker/src/handlers/requests.ts.
                     && request.resource.data.type in [
                          'createInvite', 'acceptInvite', 'revokeMembership', 'setMembershipRole',
-                         'syncCaregiverName', 'regenerateMemo', 'backfillMemoSchema', 'backfillPatientUid'
-                       ];
+                         'syncCaregiverName', 'regenerateMemo', 'backfillMemoSchema', 'backfillPatientUid',
+                         'createManagedElder', 'createPairingLink', 'approvePairing', 'unlinkDevice',
+                         'pairDevice', 'completePairing'
+                       ]
+                    // An elder's phone makes no requests; an anonymous
+                    // session may only redeem a pairing code.
+                    && !elderSession()
+                    && (!anonSession() || request.resource.data.type in ['pairDevice', 'completePairing']);
       allow read, delete: if signedIn() && request.auth.uid == resource.data.uid;
       allow update: if false;
     }
