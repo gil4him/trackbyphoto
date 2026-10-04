@@ -7,19 +7,21 @@ import { MAX_ATTEMPTS, processMemo, type MemoDeps } from '../src/handlers/memo'
 import { locateMemo } from '../src/handlers/place'
 import { processRequest } from '../src/handlers/requests'
 import { LlmGenerationError, LlmUnavailableError } from '../src/llm/ollama'
-import { areaOf, buildPrompt, parseModelResponse, type PromptHints } from '../src/llm/prompt'
+import { areaOf, buildPrompt, parseModelResponse, readableText, type PromptHints } from '../src/llm/prompt'
 import { distanceKm, inferHome, resetHomeCache, utcOffsetHours } from '../src/travel'
 import { db, clearFirestore, seedMembership, count } from './setup'
 
 const PHOTO_URL = 'https://example.test/photo.jpg?token=t'
 
-function deps(overrides: Partial<MemoDeps> = {}): MemoDeps & { generateCalls: number; lastHints: PromptHints | null } {
+type Hints = PromptHints & { temperature?: number }
+
+function deps(overrides: Partial<MemoDeps> = {}): MemoDeps & { generateCalls: number; lastHints: Hints | null } {
   const d = {
     generateCalls: 0,
-    lastHints: null as PromptHints | null,
+    lastHints: null as Hints | null,
     loadPhoto: async () => ({ photoUrl: PHOTO_URL, base64: async () => 'aGk=' }),
     geocode: async () => ({ place: '서초동, 서초구', address: '서울특별시 서초구 서초대로 1' }),
-    generate: async (args: PromptHints) => {
+    generate: async (args: Hints) => {
       d.generateCalls++
       d.lastHints = args
       return {
@@ -91,6 +93,25 @@ describe('processMemo', () => {
     expect(m.memo).toBe('공원에서 산책 중이세요.')
     expect(m.memoSource).toBe('local-llm')
     expect(m.deviceMemo).toBeUndefined()
+  })
+
+  it('passes on the text the phone read, minus the noise', async () => {
+    await seedPending('m1', {
+      tags: { labels: [], text: ['Aichi-', 'Nagoya', '2026', '페CCC#아!!', 'The biggest', '2p'], faceCount: 1 },
+    })
+    const d = deps()
+    await processMemo('m1', 1, d)
+    expect(d.lastHints?.textHint).toEqual(['Aichi-', 'Nagoya', 'The biggest'])
+    expect(d.lastHints?.temperature).toBeUndefined()
+  })
+
+  it('asks for a different take when a memo is being re-written', async () => {
+    await seedPending('m1')
+    const d = deps()
+    await processMemo('m1', 1, d)
+    await db.doc('memos/m1').update({ status: 'pending' })
+    await processMemo('m1', 1, d)
+    expect(d.lastHints?.temperature).toBeGreaterThan(0)
   })
 
   it('tells the model the photo is far from the home the family set', async () => {
@@ -292,6 +313,32 @@ describe('memo text clean-up', () => {
     }))!
     expect(out.memo).toBe('공항에 도착했어요.')
     expect(out.scene).toBe('하나예요. 둘이에요. 셋이에요.')
+  })
+})
+
+describe('text in the photo', () => {
+  it('keeps readable Korean and English lines only', () => {
+    expect(readableText(['Higashi Betsuin Sta.', 'SUBWAY', '비상시 누르세요', '1ㄷ$', '0019-=+1', 'T1', 'SUBWAY']))
+      .toEqual(['Higashi Betsuin Sta.', 'SUBWAY', '비상시 누르세요'])
+    expect(readableText(undefined)).toEqual([])
+  })
+  it('shows the model the text as a hint', () => {
+    expect(buildPrompt({ textHint: ['Aichi-Nagoya 2026'] })).toContain('"Aichi-Nagoya 2026"')
+    expect(buildPrompt()).not.toContain('휴대폰이 사진에서 읽은 글자')
+  })
+  it('does not split a description at a full stop inside a quoted sign', () => {
+    const out = parseModelResponse(JSON.stringify({
+      activity: '이동', memo: 'Higashi Betsuin 역 입구',
+      scene: "'Higashi Betsuin Sta.'라고 쓰인 간판이 보여요. 지하철 입구예요.",
+    }))!
+    expect(out.scene).toBe("'Higashi Betsuin Sta.'라고 쓰인 간판이 보여요. 지하철 입구예요.")
+  })
+  it('drops copied Japanese text from the description and rejects it in the title', () => {
+    const out = parseModelResponse(JSON.stringify({
+      activity: '기타', memo: '광고판 앞에서', scene: "'また話したく'라고 적혀 있어요. 실내예요.",
+    }))!
+    expect(out.scene).toBe('실내예요.')
+    expect(parseModelResponse('{"activity":"기타","memo":"精神科医 광고 앞","scene":"실내예요."}')).toBeNull()
   })
 })
 

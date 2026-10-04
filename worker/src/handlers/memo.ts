@@ -31,9 +31,10 @@ import {
   generateMemo,
   LlmGenerationError,
   LlmUnavailableError,
+  REWRITE_TEMPERATURE,
   type LlmResult,
 } from '../llm/ollama.js'
-import { areaOf, stubActivity, type PromptHints, type VisionTags } from '../llm/prompt.js'
+import { areaOf, readableText, stubActivity, type PromptHints, type VisionTags } from '../llm/prompt.js'
 import { homeHintFor, localTimeHint } from '../travel.js'
 
 /** Failed generations on one photo before falling back to the stub. */
@@ -53,7 +54,7 @@ export interface MemoDeps {
   /** Resolve the photo; null when the object doesn't exist. */
   loadPhoto: (photoPath: string) => Promise<PhotoInfo | null>
   geocode: (lat: number | null, lng: number | null) => Promise<GeoResult>
-  generate: (args: PromptHints & { imageBase64: string }) => Promise<LlmResult>
+  generate: (args: PromptHints & { imageBase64: string; temperature?: number }) => Promise<LlmResult>
 }
 
 export const defaultMemoDeps: MemoDeps = {
@@ -141,6 +142,9 @@ export async function processMemo(memoId: string, attempt: number, deps: MemoDep
       timeHint: await localTimeHint(patientUid, data.takenAt?.toDate?.(), lat, lng, data.tzOffsetMin as number | undefined),
       placeHint: areaOf(place) || undefined,
       homeHint: await homeHintFor(patientUid, lat, lng),
+      textHint: readableText(tags?.text),
+      // Text already there means someone asked for another take.
+      temperature: data.memo ? REWRITE_TEMPERATURE : undefined,
     })
     activity = result.activity
     memo = result.memo

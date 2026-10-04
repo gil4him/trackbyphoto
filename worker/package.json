@@ -13,6 +13,7 @@
     "start": "node dist/index.js",
     "dev": "npm run build && node dist/index.js",
     "probe": "npm run build && node dist/scripts/probe.js",
+    "eval": "npm run build && node dist/scripts/eval.js",
     "test": "firebase emulators:exec --only firestore,auth --project demo-trackbyphoto 'vitest run'",
     "test:watch": "firebase emulators:exec --only firestore,auth --project demo-trackbyphoto 'vitest'"
   },
