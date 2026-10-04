@@ -7,7 +7,7 @@ import { useToast } from '../components/Toast'
 import { useNotificationFeed } from '../hooks/useNotificationFeed'
 import { enablePush, pushState, type PushState } from '../lib/push'
 import { callWorker, isWorkerOffline, WORKER_OFFLINE_MESSAGE } from '../lib/worker'
-import type { AppNotification } from '../types'
+import type { AppNotification, Channels } from '../types'
 
 const PUSH_HELP: Record<PushState, string> = {
   on: '새 사진이나 음성 답장이 오면 이 기기로 알려드려요.',
@@ -21,18 +21,57 @@ const PUSH_HELP: Record<PushState, string> = {
  * 알림: every notice addressed to the signed-in person, and how they want to
  * be told. Family only; a parent's linked phone never shows this.
  */
-export function Notifications({ uid, onOpen }: { uid: string; onOpen: (n: AppNotification) => void }) {
+export function Notifications({ uid, onOpen, digestOn = false, messengerIncluded = false }: {
+  uid: string
+  onOpen: (n: AppNotification) => void
+  /** The digest is rolled out: 이메일 요약 and 카카오톡 요약 can be switched. */
+  digestOn?: boolean
+  /** The plan of the parent being viewed includes messenger delivery. */
+  messengerIncluded?: boolean
+}) {
   const toast = useToast()
   const items = useNotificationFeed(uid)
   const [push, setPush] = useState<PushState | null>(null)
-  const [channelPush, setChannelPush] = useState(true)
+  const [channels, setChannelsState] = useState<Channels>({})
   const [busy, setBusy] = useState(false)
+  // Asking for the number 카카오톡 요약 goes to (first time, or to change it).
+  const [phoneOpen, setPhoneOpen] = useState(false)
+  const [phone, setPhone] = useState('')
 
   useEffect(() => { pushState().then(setPush) }, [])
   // The account-wide switch (users/{me}.channels.push, written by the worker).
   useEffect(() => onSnapshot(doc(db, 'users', uid), (snap) => {
-    setChannelPush((snap.data()?.channels as { push?: boolean } | undefined)?.push !== false)
+    setChannelsState((snap.data()?.channels as Channels | undefined) ?? {})
   }, () => {}), [uid])
+  const channelPush = channels.push !== false
+  const emailOn = channels.email !== false
+  const messengerOn = messengerIncluded && channels.messenger === true
+
+  const change = async (changes: Record<string, unknown>): Promise<boolean> => {
+    setBusy(true)
+    try {
+      await callWorker('setChannels', changes)
+      return true
+    } catch (err) {
+      console.error('[channels] change failed', err)
+      const badNumber = err instanceof Error && err.message.includes('phone number not recognised')
+      toast.show('바꾸지 못했어요', badNumber ? '전화번호를 다시 확인해 주세요' : isWorkerOffline(err) ? WORKER_OFFLINE_MESSAGE : '잠시 후 다시 시도해 주세요')
+      return false
+    } finally {
+      setBusy(false)
+    }
+  }
+  const toggleMessenger = () => {
+    if (messengerOn) void change({ messenger: false })
+    else if (channels.messengerTo) void change({ messenger: true })
+    else setPhoneOpen(true)
+  }
+  const savePhone = async () => {
+    if (await change({ messenger: true, phone })) {
+      setPhoneOpen(false)
+      setPhone('')
+    }
+  }
 
   const pushOn = push === 'on' && channelPush
   const canToggle = push === 'on' || push === 'off'
@@ -84,13 +123,49 @@ export function Notifications({ uid, onOpen }: { uid: string; onOpen: (n: AppNot
           ><span className="knob" /></button>
         </div>
         <div className="row">
-          <div className="who"><b>이메일 요약</b><br /><span>하루 요약을 이메일로 받아요. 곧 제공돼요.</span></div>
-          <button className="switch" role="switch" aria-checked={false} disabled aria-label="이메일 요약 전환"><span className="knob" /></button>
+          <div className="who"><b>이메일 요약</b><br /><span>{digestOn ? '하루 요약을 로그인한 이메일로 받아요.' : '하루 요약을 이메일로 받아요. 곧 제공돼요.'}</span></div>
+          <button
+            className={`switch ${digestOn && emailOn ? 'on' : ''}`}
+            role="switch"
+            aria-checked={digestOn && emailOn}
+            disabled={!digestOn || busy}
+            onClick={() => void change({ email: !emailOn })}
+            aria-label="이메일 요약 전환"
+          ><span className="knob" /></button>
         </div>
         <div className="row">
-          <div className="who"><b>카카오톡 요약</b> <span className="plan-chip">Basic 이상</span><br /><span>매일 저녁 카카오톡으로 요약을 받아요. 곧 제공돼요.</span></div>
-          <button className="switch" role="switch" aria-checked={false} disabled aria-label="카카오톡 요약 전환"><span className="knob" /></button>
+          <div className="who">
+            <b>카카오톡 요약</b>{!messengerIncluded && <> <span className="plan-chip">Basic 이상</span></>}<br />
+            <span>
+              {!digestOn ? '매일 저녁 카카오톡으로 요약을 받아요. 곧 제공돼요.'
+                : messengerOn ? `매일 저녁 ${channels.messengerTo ?? ''} 번호로 요약 링크를 보내요.`
+                : '매일 저녁 카카오톡(또는 문자)으로 요약 링크를 받아요.'}
+              {digestOn && messengerIncluded && channels.messengerTo && !phoneOpen && <> <button type="button" className="linklike" onClick={() => setPhoneOpen(true)}>번호 바꾸기</button></>}
+            </span>
+          </div>
+          <button
+            className={`switch ${digestOn && messengerOn ? 'on' : ''}`}
+            role="switch"
+            aria-checked={digestOn && messengerOn}
+            disabled={!digestOn || !messengerIncluded || busy}
+            onClick={toggleMessenger}
+            aria-label="카카오톡 요약 전환"
+          ><span className="knob" /></button>
         </div>
+        {digestOn && messengerIncluded && phoneOpen && (
+          <form className="dg-phone" onSubmit={(e) => { e.preventDefault(); void savePhone() }}>
+            <input
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel"
+              placeholder="받을 휴대폰 번호 (010-1234-5678)"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              aria-label="요약을 받을 휴대폰 번호"
+            />
+            <button type="submit" disabled={busy || phone.trim().length < 8}>저장</button>
+          </form>
+        )}
       </div>
 
       <div className="sect">

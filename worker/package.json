@@ -19,10 +19,12 @@
     "test:watch": "firebase emulators:exec --only firestore,auth --project demo-trackbyphoto 'vitest'"
   },
   "dependencies": {
-    "firebase-admin": "^13.10.0"
+    "firebase-admin": "^13.10.0",
+    "nodemailer": "^6.10.1"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
+    "@types/nodemailer": "^8.0.2",
     "typescript": "^5.6.0",
     "vitest": "^3.0.5"
   }

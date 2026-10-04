@@ -233,3 +233,70 @@ export function categoryFromTags(
   if (tags.faceCount >= 2) return '모임'
   return '기타'
 }
+
+// ────────────────────────────────────────────────────────────────────────────
+// Digest: a few sentences about a day, a week or a month, from its memos.
+// ────────────────────────────────────────────────────────────────────────────
+
+export type DigestSpan = 'daily' | 'weekly' | 'monthly'
+
+export interface DigestPromptArgs {
+  span: DigestSpan
+  /** One line per photo, oldest first: "09:40 산책 · 나무가 우거진 공원 산책길 · 서초동". */
+  lines: string[]
+}
+
+/** Lines sent to the model; a long week or month is thinned evenly. */
+export const DIGEST_MAX_LINES = 60
+
+const SPAN_WORDS: Record<DigestSpan, { when: string; what: string }> = {
+  daily: { when: '오늘', what: '하루' },
+  weekly: { when: '이번 주에', what: '한 주' },
+  monthly: { when: '지난달에', what: '한 달' },
+}
+
+function thin(lines: string[], max: number): string[] {
+  if (lines.length <= max) return lines
+  return Array.from({ length: max }, (_, i) => lines[Math.floor((i * lines.length) / max)])
+}
+
+export function buildDigestPrompt({ span, lines }: DigestPromptArgs): string {
+  const { when, what } = SPAN_WORDS[span]
+  return [
+    `아래는 부모님이 ${when} 찍은 사진마다 적어 둔 기록이에요. 이 기록만 보고, 가족에게 전할 ${what} 요약을 써 주세요.`,
+    '',
+    '규칙:',
+    '- 2~3문장으로 쓰세요. 한 문장은 40자 이내.',
+    '- 기록에 적힌 내용만 쓰세요. 적혀 있지 않은 일, 기분, 이유는 지어내지 마세요.',
+    '- 쉬운 한국어 존댓말(~요)로, 부모님을 높여서 쓰세요 ("산책하셨어요", "드셨어요").',
+    '- 사람 이름, 관계(딸·친구 등), 건강·약·진단명은 추측하지 마세요.',
+    '- 시간 순서대로 쓰고, 비슷한 기록은 하나로 묶으세요.',
+    '- 사진이 몇 장인지, "기록"이나 "사진"이라는 말은 쓰지 마세요.',
+    '',
+    '예시:',
+    '{"summary":"오전에 공원을 산책하고 시장에 다녀오셨어요. 점심은 집에서 된장찌개를 드셨어요. 오후에는 카페에서 커피를 드시며 쉬셨어요."}',
+    '',
+    '기록:',
+    ...thin(lines, DIGEST_MAX_LINES).map((l) => `- ${l}`),
+    '',
+    'JSON 형식 {"summary": "..."} 으로만 답하세요.',
+  ].join('\n')
+}
+
+const SUMMARY_MAX = 300
+
+/** The summary out of the model's JSON: one paragraph, at most three sentences. */
+export function parseSummary(raw: string): string | null {
+  let text: unknown
+  try {
+    text = (JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)) as { summary?: unknown }).summary
+  } catch {
+    return null
+  }
+  if (typeof text !== 'string') return null
+  const flat = text.replace(/\s+/g, ' ').trim()
+  if (!flat) return null
+  const sentences = flat.match(/[^.!?]+[.!?]+/g)?.map((s) => s.trim()) ?? [flat]
+  const kept = sentences.slice(0, 3).join(' ')
+  return kept.length > SUMMARY_MAX ? `${kept.slice(0, SUMMARY_MAX - 1)}…` : kept
+}

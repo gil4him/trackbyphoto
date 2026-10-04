@@ -104,7 +104,7 @@ async function isSelfManagedOwner(callerUid: string, patientUid: string): Promis
   return (snap.data() as { accountType?: string } | undefined)?.accountType !== 'managed'
 }
 
-async function isOwnerOrAdminCaregiver(
+export async function isOwnerOrAdminCaregiver(
   callerUid: string,
   patientUid: string,
 ): Promise<boolean> {

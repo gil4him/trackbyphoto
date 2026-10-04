@@ -1036,3 +1036,46 @@ describe('push tokens and the notification centre', () => {
     )))
   })
 })
+
+// ════════════════════════════════════════════════════════════════════════════
+// digests (v2 phase 4)
+// ════════════════════════════════════════════════════════════════════════════
+describe('digests', () => {
+  beforeEach(async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'digests', 'd1'), { patientUid: PATIENT, kind: 'daily', summary: '산책하셨어요.', memoIds: ['memo1'] })
+      await setDoc(doc(ctx.firestore(), 'users', CAREGIVER_ACTIVE_ADMIN, 'private', 'contact'), { phone: '+821012345678' })
+    })
+  })
+
+  it('whoever may see the parent\'s memos may read the digest; nobody else', async () => {
+    await assertSucceeds(getDoc(doc(authedDb(PATIENT), 'digests', 'd1')))
+    await assertSucceeds(getDoc(doc(authedDb(CAREGIVER_ACTIVE_ADMIN), 'digests', 'd1')))
+    await assertSucceeds(getDoc(doc(authedDb(CAREGIVER_ACTIVE_VIEWER), 'digests', 'd1')))
+    await assertFails(getDoc(doc(authedDb(CAREGIVER_REVOKED), 'digests', 'd1')))
+    await assertFails(getDoc(doc(authedDb(STRANGER), 'digests', 'd1')))
+    await assertFails(getDoc(doc(testEnv.unauthenticatedContext().firestore(), 'digests', 'd1')))
+  })
+
+  it('only the worker writes a digest', async () => {
+    await assertFails(updateDoc(doc(authedDb(CAREGIVER_ACTIVE_ADMIN), 'digests', 'd1'), { summary: 'edited' }))
+    await assertFails(deleteDoc(doc(authedDb(PATIENT), 'digests', 'd1')))
+    await assertFails(setDoc(doc(authedDb(PATIENT), 'digests', 'mine'), { patientUid: PATIENT, summary: 'x' }))
+  })
+
+  it('a family account may ask the worker to change when the digest goes out', async () => {
+    const db = authedDb(CAREGIVER_ACTIVE_ADMIN, { email: 'cg@example.com' })
+    await assertSucceeds(setDoc(doc(db, 'requests', 'r1'), {
+      type: 'setDigest', uid: CAREGIVER_ACTIVE_ADMIN, email: 'cg@example.com', name: null, payload: { patientUid: PATIENT, hourLocal: 19 }, status: 'pending', createdAt: serverTimestamp(),
+    }))
+  })
+
+  it('the digest schedule on a users doc is the worker\'s to write', async () => {
+    await assertFails(setDoc(doc(authedDb(PATIENT), 'users', PATIENT), { digest: { hourLocal: 3 }, lastModifiedBy: PATIENT }, { merge: true }))
+  })
+
+  it('the phone number a digest is sent to can\'t be read by any app, its owner\'s included', async () => {
+    await assertFails(getDoc(doc(authedDb(CAREGIVER_ACTIVE_ADMIN), 'users', CAREGIVER_ACTIVE_ADMIN, 'private', 'contact')))
+    await assertFails(getDoc(doc(authedDb(PATIENT), 'users', CAREGIVER_ACTIVE_ADMIN, 'private', 'contact')))
+  })
+})

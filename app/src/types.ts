@@ -79,6 +79,8 @@ export interface UserSettings {
   voiceEnabled?: boolean
   /** The patient's plan. Written only by the worker; missing means free. */
   plan?: { tier: PlanTier; status?: string }
+  /** When the digest of this person's day goes out (worker-owned; setDigest). */
+  digest?: DigestSettings
   /** 'managed' when a family member registered this elder (부모님 등록하기):
    *  the elder's phone is linked by a pairing code instead of a Google
    *  sign-in, and family owns the settings. Absent for self-managed users. */
@@ -183,6 +185,8 @@ export interface AppNotification {
   memoId?: string
   /** Present on 'reaction.*'. */
   reactionId?: string
+  /** Present on 'digest.ready' — the digest the notice opens. */
+  digestId?: string
   read: boolean
   createdAt: Timestamp
 }
@@ -248,4 +252,40 @@ export interface Reaction {
   createdAtMs: number
   readByElderAt?: Timestamp
   readByFamilyAt?: Timestamp
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// v2: digest
+// ────────────────────────────────────────────────────────────────────────────
+
+export interface DigestSettings {
+  cadence: 'daily' | 'weekly'
+  /** Hour of the parent's day the digest goes out (0-23). */
+  hourLocal: number
+  tz: string
+}
+
+/** users/{me}.channels — how a family member wants to be told (worker-owned; setChannels). */
+export interface Channels {
+  push?: boolean
+  email?: boolean
+  messenger?: boolean
+  /** Masked copy of the number 카카오톡 요약 goes to ("010-****-5678"). */
+  messengerTo?: string
+}
+
+/** digests/{id} — the summary of a parent's day, week or month. Written only by the worker. */
+export interface Digest {
+  id: string
+  patientUid: string
+  patientName: string
+  kind: 'daily' | 'weekly' | 'monthly'
+  /** "10월 4일 토요일", "9월 28일~10월 4일", "9월". */
+  label: string
+  summary: string
+  memoIds: string[]
+  photoCount: number
+  /** The parent's own replies in the period; transcripts only on plans with voice replies. */
+  replies: { hearts: number; voices: number; transcripts: string[] }
+  createdAt?: Timestamp
 }
