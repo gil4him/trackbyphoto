@@ -12,6 +12,9 @@
  *           time, the place and how far from home the photo was taken,
  *        b. neutral stub after MAX_ATTEMPTS failed generations
  *           (memoSource 'local-stub') so a bad photo can't stay pending forever,
+ *        c. no model at all past the day's allowance (memoSource
+ *           'stored-only', see handlers/usage.ts): the photo is kept, placed
+ *           and sent to the family like any other,
  *      Older app builds also send a memo written on the phone. It is ignored:
  *      the phone's language model only sees a few image labels, never the
  *      photo, and invented things.
@@ -39,9 +42,10 @@ import {
   type LlmResult,
 } from '../llm/ollama.js'
 import { withModelLock } from '../llm/lock.js'
-import { areaOf, readableText, stubActivity, type PromptHints, type VisionTags } from '../llm/prompt.js'
+import { areaOf, readableText, storedOnlyMemo, stubActivity, type PromptHints, type VisionTags } from '../llm/prompt.js'
 import { homeHintFor, localTimeHint } from '../travel.js'
 import { pushToUsers, type PushMessage } from './push.js'
+import { accountPhotoSafely } from './usage.js'
 
 /** Failed generations on one photo before falling back to the stub. */
 export const MAX_ATTEMPTS = 5
@@ -186,15 +190,31 @@ export async function processMemo(memoId: string, attempt: number, deps: MemoDep
   let llmCost: LlmResult['cost'] | null = null
   let llmModel: string | null = null
 
-  try {
+  const usage = await accountPhotoSafely({
+    memoId,
+    patientUid,
+    takenAt: data.takenAt?.toDate?.(),
+    lat,
+    lng,
+    tzOffsetMin: data.tzOffsetMin as number | undefined,
+    rewrite: !!data.notifiedAt,
+  })
+
+  if (!usage.ai) {
+    const kept = storedOnlyMemo(tags)
+    activity = kept.activity
+    memo = kept.memo
+    scene = kept.scene
+    memoSource = 'stored-only'
+  } else try {
     const result = await deps.generate({
       imageBase64: await photo.base64(),
       timeHint: await localTimeHint(patientUid, data.takenAt?.toDate?.(), lat, lng, data.tzOffsetMin as number | undefined),
       placeHint: areaOf(place) || undefined,
       homeHint: await homeHintFor(patientUid, lat, lng),
       textHint: readableText(tags?.text),
-      // Text already there means someone asked for another take.
-      temperature: data.memo ? REWRITE_TEMPERATURE : undefined,
+      // Text the model wrote before means someone asked for another take.
+      temperature: data.memo && data.memoSource !== 'stored-only' ? REWRITE_TEMPERATURE : undefined,
     })
     activity = result.activity
     memo = result.memo

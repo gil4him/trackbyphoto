@@ -253,7 +253,7 @@ describe('MemoScheduler', () => {
     const s = new MemoScheduler(d)
     s.enqueue('a')
     s.enqueue('b')
-    await until(async () => !!(await memo('b')).photoUrl)
+    await until(async () => order.length > 0 && !!(await memo('b')).photoUrl)
     expect(order).toEqual(['a']) // b is still in line for the model
     expect(await memo('b')).toMatchObject({ status: 'pending', photoUrl: PHOTO_URL, place: '서초동, 서초구' })
     expect(s.waiting).toBe(2)

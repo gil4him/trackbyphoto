@@ -19,6 +19,7 @@ export type MemoSource =
   | 'template'          // pre-iOS-26: Korean sentence template over Vision tags
   | 'local-llm'         // Mac mini worker's local vision model (Ollama)
   | 'local-stub'        // fallback after the local model failed repeatedly
+  | 'stored-only'       // kept without an AI memo (past the day's allowance)
   | 'cloud-vision'      // legacy: Gemini/OpenAI Cloud Function (older memos)
   | 'cloud-stub'        // legacy: Cloud Function fallback (older memos)
   | 'human'             // guardian hand-edited the activity

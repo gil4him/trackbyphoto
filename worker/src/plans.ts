@@ -29,7 +29,7 @@ export interface PlanEntitlements {
 }
 
 /** Rollout switches. Everything ships off and is turned on per feature. */
-export const PLAN_FLAGS = ['reactions', 'voiceReplies', 'digest', 'pushFamily', 'retentionJob', 'messengerFree'] as const
+export const PLAN_FLAGS = ['reactions', 'voiceReplies', 'digest', 'pushFamily', 'usageCaps', 'retentionJob', 'messengerFree'] as const
 export type PlanFlag = (typeof PLAN_FLAGS)[number]
 
 export interface PlansDoc extends Record<PlanTier, PlanEntitlements> {
@@ -56,6 +56,17 @@ export async function getPlans(): Promise<PlansDoc | null> {
 
 export async function flagOn(flag: PlanFlag): Promise<boolean> {
   return (await getPlans())?.flags?.[flag] === true
+}
+
+/** The tier a patient was put on, or null when nobody has set one. */
+export function explicitTier(user: FirebaseFirestore.DocumentData | undefined): PlanTier | null {
+  const tier = user?.plan?.tier
+  return PLAN_TIERS.includes(tier) ? (tier as PlanTier) : null
+}
+
+/** A patient without a plan is on Free. */
+export function tierOf(user: FirebaseFirestore.DocumentData | undefined): PlanTier {
+  return explicitTier(user) ?? 'free'
 }
 
 /** Tests change the doc between cases. */

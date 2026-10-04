@@ -111,7 +111,8 @@ service cloud.firestore {
     // at the creator's own photo folder and carry only the placeholder shape,
     // so a client can't pre-mark a memo ready or claim someone else's photo.
     // Update/delete: patient or admin/guardian caregiver. Plain viewers
-    // cannot edit memos.
+    // cannot edit memos. `usage` is the worker's note of how the photo was
+    // counted against the day's allowance; no client may set or change it.
     // ────────────────────────────────────────────────────────────────────
     match /memos/{memoId} {
       allow read:   if isAdmin() || canRead(resource.data.patientUid);
@@ -125,7 +126,9 @@ service cloud.firestore {
                          'place', 'activity', 'memo', 'scene', 'status', 'createdAt',
                          'tags', 'deviceMemo', 'deviceMemoSource', 'tzOffsetMin'
                        ]);
-      allow update, delete: if canManage(resource.data.patientUid);
+      allow update: if canManage(resource.data.patientUid)
+                    && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['usage']);
+      allow delete: if canManage(resource.data.patientUid);
     }
 
     // ────────────────────────────────────────────────────────────────────
