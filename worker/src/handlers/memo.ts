@@ -17,6 +17,10 @@
  *      photo, and invented things.
  *   4. marks the memo ready, notifies caregivers once, bumps dashboard counters.
  *
+ * Steps 1 and 2 need no model, so prepareMemo also runs them the moment a
+ * memo arrives: the photo and its place show at once, however long the line
+ * for the model is. New photos go ahead of memos that are being re-written.
+ *
  * There is deliberately no paid cloud fallback. If the Mac mini or Ollama is
  * down the memo simply stays pending ("메모 작성 중…") until it's back; the
  * listener's initial snapshot picks up everything that queued meanwhile.
@@ -90,6 +94,43 @@ export type MemoOutcome =
   | 'failed'        // generation failed — counts toward MAX_ATTEMPTS
 
 /**
+ * The quick half of a memo: photo link and place, no model. Only fills what
+ * is missing, and never fails the memo: processMemo repeats whatever this
+ * couldn't do.
+ */
+export async function prepareMemo(memoId: string, deps: MemoDeps = defaultMemoDeps): Promise<void> {
+  const memoRef = getFirestore().collection('memos').doc(memoId)
+  const data = (await memoRef.get()).data()
+  if (!data || data.status !== 'pending') return
+
+  const patientUid = data.patientUid as string
+  const photoPath = data.photoPath as string
+  if (!patientUid || !photoPath?.startsWith(`photos/${patientUid}/`)) return
+  const lat = typeof data.lat === 'number' ? data.lat : null
+  const lng = typeof data.lng === 'number' ? data.lng : null
+
+  const update: Record<string, unknown> = {}
+  if (!data.photoUrl) {
+    const photo = await deps.loadPhoto(photoPath)
+    if (photo) update.photoUrl = photo.photoUrl
+  }
+  if (lat != null && lng != null && !placeKnown(data)) {
+    const { place, address } = await deps.geocode(lat, lng)
+    if (place || address) {
+      update.place = place
+      update.address = address
+      update.needsGeocode = FieldValue.delete()
+    }
+  }
+  if (Object.keys(update).length) await memoRef.update(update)
+}
+
+/** The memo already carries the place for its coordinates. */
+function placeKnown(data: FirebaseFirestore.DocumentData): boolean {
+  return !!(data.place || data.address) && data.needsGeocode !== true
+}
+
+/**
  * Process one pending memo. `attempt` is 1-based; on the final attempt a
  * generation failure writes the stub instead of returning 'failed'.
  */
@@ -126,7 +167,11 @@ export async function processMemo(memoId: string, attempt: number, deps: MemoDep
   // a fix after the upload), so leave place alone rather than writing ''.
   // Coordinates but no answer from the geocoder: flag it for a retry.
   const hasCoords = lat != null && lng != null
-  const { place, address } = hasCoords ? await deps.geocode(lat, lng) : { place: '', address: '' }
+  const { place, address }: GeoResult = !hasCoords
+    ? { place: '', address: '' }
+    : placeKnown(data)
+      ? { place: (data.place as string) || '', address: (data.address as string) || '' }
+      : await deps.geocode(lat, lng)
   const located = !!(place || address)
 
   let activity: string
@@ -241,25 +286,39 @@ export async function processMemo(memoId: string, attempt: number, deps: MemoDep
 }
 
 /**
- * Serial queue over pending memos. Concurrency 1: the Mac mini runs one
- * generation at a time (Ollama would serialize anyway, and Teleios shares the
- * model RAM). Failed memos are re-queued with backoff instead of blocking the
- * line, so one bad photo never holds up the others.
+ * Queue over pending memos. The model runs one generation at a time (Ollama
+ * would serialize anyway, and Teleios shares the model RAM), new photos
+ * before memos that are being re-written. The quick photo + place step runs
+ * for every memo as it arrives, ahead of the line for the model. Failed memos
+ * are re-queued with backoff instead of blocking the line, so one bad photo
+ * never holds up the others.
  */
 export class MemoScheduler {
-  private queue: string[] = []
+  private fresh: string[] = []
+  private rewrites: string[] = []
   private queued = new Set<string>()
+  /** Memos that already had text: they wait behind new photos. */
+  private low = new Set<string>()
   private running: string | null = null
   private attempts = new Map<string, number>()
   private timers = new Map<string, NodeJS.Timeout>()
+  private preparing = new Map<string, Promise<void>>()
+  private prepChain: Promise<void> = Promise.resolve()
   private stopped = false
 
   constructor(private deps: MemoDeps = defaultMemoDeps) {}
 
-  enqueue(memoId: string) {
+  /** `rewrite`: the memo was written before and is being written again. */
+  enqueue(memoId: string, rewrite = false) {
     if (this.stopped || this.queued.has(memoId) || this.running === memoId || this.timers.has(memoId)) return
     this.queued.add(memoId)
-    this.queue.push(memoId)
+    if (rewrite) {
+      this.low.add(memoId)
+      this.rewrites.push(memoId)
+    } else {
+      this.fresh.push(memoId)
+      this.prepare(memoId)
+    }
     void this.pump()
   }
 
@@ -269,7 +328,11 @@ export class MemoScheduler {
     if (t) clearTimeout(t)
     this.timers.delete(memoId)
     this.attempts.delete(memoId)
-    if (this.queued.delete(memoId)) this.queue = this.queue.filter((id) => id !== memoId)
+    this.low.delete(memoId)
+    if (this.queued.delete(memoId)) {
+      this.fresh = this.fresh.filter((id) => id !== memoId)
+      this.rewrites = this.rewrites.filter((id) => id !== memoId)
+    }
   }
 
   stop() {
@@ -278,30 +341,56 @@ export class MemoScheduler {
     this.timers.clear()
   }
 
+  /** Memos waiting for the model, including the one being written. */
+  get waiting(): number {
+    return this.fresh.length + this.rewrites.length + this.timers.size + (this.running ? 1 : 0)
+  }
+
   /** Resolves once nothing is queued or running (timers excluded). */
   async idle(): Promise<void> {
-    while (this.running || this.queue.length) await new Promise((r) => setTimeout(r, 50))
+    while (this.running || this.fresh.length || this.rewrites.length || this.preparing.size) {
+      await new Promise((r) => setTimeout(r, 50))
+    }
+  }
+
+  /** One at a time: the geocoder allows a request a second. */
+  private prepare(memoId: string) {
+    if (this.preparing.has(memoId)) return
+    const run = this.prepChain.then(async () => {
+      if (this.stopped) return
+      try {
+        await prepareMemo(memoId, this.deps)
+      } catch (err) {
+        logger.warn('[memo] quick photo + place step failed', { memoId, err: String(err) })
+      }
+    })
+    this.prepChain = run
+    this.preparing.set(memoId, run)
+    void run.then(() => this.preparing.delete(memoId))
   }
 
   private retryLater(memoId: string, delayMs: number) {
     if (this.stopped) return
     this.timers.set(memoId, setTimeout(() => {
       this.timers.delete(memoId)
-      this.enqueue(memoId)
+      this.enqueue(memoId, this.low.has(memoId))
     }, delayMs))
   }
 
   private async pump() {
     if (this.running || this.stopped) return
-    const memoId = this.queue.shift()
+    const memoId = this.fresh.shift() ?? this.rewrites.shift()
     if (!memoId) return
     this.queued.delete(memoId)
     this.running = memoId
     const attempt = (this.attempts.get(memoId) ?? 0) + 1
     try {
+      // Let the quick step finish so the place isn't looked up twice.
+      await this.preparing.get(memoId)
       const outcome = await processMemo(memoId, attempt, this.deps)
       if (outcome === 'done') {
         this.attempts.delete(memoId)
+        this.low.delete(memoId)
       } else if (outcome === 'unavailable') {
         this.retryLater(memoId, UNAVAILABLE_RETRY_MS)
       } else {
@@ -315,6 +404,7 @@ export class MemoScheduler {
       if (attempt >= MAX_ATTEMPTS) {
         await getFirestore().collection('memos').doc(memoId).update({ status: 'error' }).catch(() => {})
         this.attempts.delete(memoId)
+        this.low.delete(memoId)
       } else {
         this.attempts.set(memoId, attempt)
         this.retryLater(memoId, RETRY_DELAYS_MS[Math.min(attempt - 1, RETRY_DELAYS_MS.length - 1)])
@@ -336,7 +426,9 @@ export function watchPendingMemos(scheduler: MemoScheduler): () => void {
       (snap) => {
         for (const change of snap.docChanges()) {
           if (change.type === 'removed') scheduler.forget(change.doc.id)
-          else scheduler.enqueue(change.doc.id)
+          // notifiedAt is stamped the first time a memo is finished, so a
+          // pending memo that has it is being written again.
+          else scheduler.enqueue(change.doc.id, !!change.doc.get('notifiedAt'))
         }
       },
       (err) => {

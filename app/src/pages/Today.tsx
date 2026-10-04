@@ -4,6 +4,7 @@ import { deleteMemo } from '../lib/capture'
 import { useToast } from '../components/Toast'
 import { MemoThumb } from '../components/MemoThumb'
 import { useOutbox } from '../hooks/useOutbox'
+import { useWorkerStatus } from '../hooks/useWorkerStatus'
 import type { OutboxItem } from '../lib/outbox'
 import type { Memo } from '../types'
 
@@ -35,6 +36,8 @@ export function Today({ memos, onOpen, uid, readOnly = false }: { memos: Memo[];
   // Hide a waiting photo once its memo shows up from the server.
   const memoIds = useMemo(() => new Set(memos.map((m) => m.id)), [memos])
   const waiting = useOutbox(uid).filter((i) => !memoIds.has(i.photoId))
+  // While a memo is waiting, check the memo server is actually up.
+  const serverDown = useWorkerStatus(memos.some((m) => m.status === 'pending')) === 'down'
 
   // Group recent shots by calendar day, newest day first. `memos` already
   // arrives ordered by takenAt desc (useMemos), so iterating in order keeps
@@ -95,7 +98,9 @@ export function Today({ memos, onOpen, uid, readOnly = false }: { memos: Memo[];
                   <div className="act">{m.activity || '기록'}</div>
                   <div className="desc">
                     {m.place ? `${m.place} · ` : ''}
-                    {m.status === 'pending' ? '메모 작성 중…' : m.memo}
+                    {m.status !== 'pending' ? m.memo
+                      : serverDown ? '메모 서버가 쉬는 중이에요. 켜지면 써 드려요.'
+                      : '메모 작성 중…'}
                   </div>
                 </div>
                 {!readOnly && <span

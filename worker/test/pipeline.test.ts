@@ -3,7 +3,8 @@
 
 import { describe, it, expect, beforeEach } from 'vitest'
 import { Timestamp } from 'firebase-admin/firestore'
-import { MAX_ATTEMPTS, processMemo, type MemoDeps } from '../src/handlers/memo'
+import { MAX_ATTEMPTS, MemoScheduler, prepareMemo, processMemo, type MemoDeps } from '../src/handlers/memo'
+import { beat } from '../src/heartbeat'
 import { locateMemo } from '../src/handlers/place'
 import { processRequest } from '../src/handlers/requests'
 import { LlmGenerationError, LlmUnavailableError } from '../src/llm/ollama'
@@ -183,6 +184,110 @@ describe('processMemo', () => {
     await seedPending('m2', { photoPath: 'photos/someone_else/x.jpg' })
     await processMemo('m2', 1, deps())
     expect((await memo('m2')).status).toBe('error')
+  })
+})
+
+describe('photo and place ahead of the memo', () => {
+  it('fills in the photo link and place without the model', async () => {
+    await seedPending('m1')
+    const d = deps()
+    await prepareMemo('m1', d)
+    expect(await memo('m1')).toMatchObject({ status: 'pending', photoUrl: PHOTO_URL, place: '서초동, 서초구', memo: '' })
+    expect(d.generateCalls).toBe(0)
+  })
+
+  it('does not look the place up a second time when the memo is written', async () => {
+    await seedPending('m1')
+    let lookups = 0
+    const d = deps({ geocode: async () => { lookups++; return { place: '서초동, 서초구', address: '서울특별시 서초구 서초대로 1' } } })
+    await prepareMemo('m1', d)
+    expect(await processMemo('m1', 1, d)).toBe('done')
+    expect(lookups).toBe(1)
+    expect(d.lastHints?.placeHint).toBe('서초동, 서초구')
+    expect(await memo('m1')).toMatchObject({ status: 'ready', place: '서초동, 서초구' })
+  })
+
+  it('leaves a failed lookup for the memo step to flag', async () => {
+    await seedPending('m1')
+    const d = deps({ geocode: async () => ({ place: '', address: '' }) })
+    await prepareMemo('m1', d)
+    expect((await memo('m1')).needsGeocode).toBeUndefined()
+    await processMemo('m1', 1, d)
+    expect((await memo('m1')).needsGeocode).toBe(true)
+  })
+
+  it('touches nothing on a finished memo or one pointing outside the owner folder', async () => {
+    await seedPending('done', { status: 'ready', photoUrl: '' })
+    await seedPending('bad', { photoPath: 'photos/someone-else/x.jpg' })
+    const d = deps()
+    await prepareMemo('done', d)
+    await prepareMemo('bad', d)
+    expect((await memo('done')).photoUrl).toBe('')
+    expect((await memo('bad')).photoUrl).toBe('')
+  })
+})
+
+describe('MemoScheduler', () => {
+  /** A model that only answers when the test lets it. */
+  function gatedDeps() {
+    const order: string[] = []
+    const release: Array<() => void> = []
+    const d = deps({
+      loadPhoto: async (photoPath) => ({ photoUrl: PHOTO_URL, base64: async () => photoPath }),
+      generate: async (args) => {
+        order.push((args as { imageBase64: string }).imageBase64.replace(/^photos\/p1\/|\.jpg$/g, ''))
+        await new Promise<void>((r) => release.push(r))
+        return { activity: '산책', memo: '공원 산책', scene: '', model: 'gemma4:e4b', cost: { promptTokens: 1, outputTokens: 1, totalUSD: 0 } }
+      },
+    })
+    const until = async (cond: () => boolean | Promise<boolean>) => {
+      for (let i = 0; i < 100 && !(await cond()); i++) await new Promise((r) => setTimeout(r, 20))
+    }
+    return { d, order, release, until }
+  }
+
+  it('shows photo and place for every waiting memo while the model is busy', async () => {
+    await seedPending('a')
+    await seedPending('b')
+    const { d, order, release, until } = gatedDeps()
+    const s = new MemoScheduler(d)
+    s.enqueue('a')
+    s.enqueue('b')
+    await until(async () => !!(await memo('b')).photoUrl)
+    expect(order).toEqual(['a']) // b is still in line for the model
+    expect(await memo('b')).toMatchObject({ status: 'pending', photoUrl: PHOTO_URL, place: '서초동, 서초구' })
+    expect(s.waiting).toBe(2)
+    release[0]()
+    await until(() => release.length === 2)
+    release[1]()
+    await s.idle()
+    expect((await memo('b')).status).toBe('ready')
+    expect(s.waiting).toBe(0)
+  })
+
+  it('writes new photos before memos that are being re-written', async () => {
+    for (const id of ['first', 'old1', 'old2', 'new']) await seedPending(id)
+    const { d, order, release, until } = gatedDeps()
+    const s = new MemoScheduler(d)
+    s.enqueue('first')
+    s.enqueue('old1', true)
+    s.enqueue('old2', true)
+    s.enqueue('new')
+    for (let i = 0; i < 4; i++) {
+      await until(() => release.length === i + 1)
+      release[i]()
+    }
+    await s.idle()
+    expect(order).toEqual(['first', 'new', 'old1', 'old2'])
+  })
+})
+
+describe('heartbeat', () => {
+  it('records when the worker was last alive and whether the model answers', async () => {
+    await beat({ modelUp: async () => false, waiting: () => 3 })
+    const hb = (await db.doc('system/worker').get()).data()!
+    expect(hb).toMatchObject({ modelUp: false, waiting: 3 })
+    expect(hb.lastSeen.toMillis()).toBeGreaterThan(Date.now() - 60_000)
   })
 })
 
