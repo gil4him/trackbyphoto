@@ -834,3 +834,7 @@ nav.tabbar .tab.on .tab-avatar { box-shadow: 0 0 0 2px var(--coral2); }
 .trail-link { float: right; border: 0; background: none; padding: 0; color: var(--accent-ink); font-size: 14px; font-weight: 700; }
 .dg-trail { display: block; width: 100%; padding: 0; border: 1px solid var(--line); border-radius: 14px; background: #fff; overflow: hidden; text-align: left; }
 .dg-trail .dg-places { border: 0; border-top: 1px solid var(--line); border-radius: 0; }
+a.pair-btn { display: flex; align-items: center; justify-content: center; text-decoration: none; }
+.pair-steps { margin: 0; padding-left: 26px; max-width: 330px; text-align: left; font-size: 19px; line-height: 1.55; color: var(--ink); }
+.pair-steps li { margin-bottom: 8px; }
+.elder-install { display: block; width: 100%; margin-top: 14px; min-height: 64px; border: 2px solid var(--coral2); border-radius: 20px; background: #fff; color: var(--accent-ink); font: inherit; font-size: 21px; font-weight: 800; cursor: pointer; }

@@ -5,6 +5,14 @@ import { auth, db } from '../firebase'
 import { signInAsElder, signInForPairing } from '../hooks/useAuth'
 import { WorkerError, WORKER_OFFLINE_MESSAGE } from '../lib/worker'
 import {
+  afterConnect,
+  currentInstallPath,
+  externalBrowserUrl,
+  keepThisPageForHomeScreen,
+  pairStart,
+  promptInstall,
+} from '../lib/install'
+import {
   completePairing,
   MANAGED_CONSENT_VERSION,
   normalizePairCode,
@@ -18,9 +26,21 @@ import {
  * the link), then one 확인 on a plain-language notice. When the app is opened
  * without a link, the elder (or whoever is helping) types the 8-character
  * code from the family's message instead.
+ *
+ * The parent should also end up with an icon on the home screen, so the
+ * link flow includes putting it there, as far as each phone allows (see
+ * lib/install.ts): in KakaoTalk's built-in browser the link is first handed
+ * to the phone's real browser, on Android the browser's own install dialog
+ * follows 확인, and on an iPhone the icon is added first and the connection
+ * is finished from it. None of this touches the code: it is still used once,
+ * by the phone that ends up connected.
  */
 
-type Step = 'confirm' | 'enter' | 'family-warning' | 'connecting' | 'waiting' | 'notice' | 'error'
+type Step =
+  | 'open-browser' | 'add-ios'
+  | 'confirm' | 'enter' | 'family-warning' | 'connecting' | 'waiting' | 'notice'
+  | 'installed' | 'install-manual'
+  | 'error'
 
 const NOTICE_TEXT = '가족이 내 사진과 기록(시간·장소)을 함께 볼 수 있어요.'
 
@@ -38,17 +58,34 @@ function errorMessage(err: unknown): string {
   }
 }
 
-export function PairDevice({ initialCode, onDone, onCancel }: {
+export function PairDevice({ initialCode, alreadyLinked = false, onDone, onCancel }: {
   initialCode: string
+  /** This phone is already connected as a parent's phone. */
+  alreadyLinked?: boolean
   onDone: () => void
   onCancel: () => void
 }) {
   const [code, setCode] = useState(normalizePairCode(initialCode))
+  // An iPhone's home-screen icon keeps the link it was added from, so it
+  // opens here every time: once connected, go straight on to the app.
+  const [linkedAtOpen] = useState(alreadyLinked)
+  useEffect(() => {
+    if (linkedAtOpen) onDone()
+    // Only on opening.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const [step, setStep] = useState<Step>(() => {
     const u = auth.currentUser
-    if (u && !u.isAnonymous) return 'family-warning'
-    return normalizePairCode(initialCode).length === PAIR_CODE_LEN ? 'confirm' : 'enter'
+    return pairStart({
+      familySignedIn: !!u && !u.isAnonymous,
+      hasCode: normalizePairCode(initialCode).length === PAIR_CODE_LEN,
+      path: currentInstallPath(),
+    })
   })
+  const externalUrl = step === 'open-browser' ? externalBrowserUrl(window.location.href, navigator.userAgent) : null
+  useEffect(() => {
+    if (step === 'add-ios') keepThisPageForHomeScreen()
+  }, [step])
   const [error, setError] = useState('')
   const [pairingId, setPairingId] = useState<string | null>(null)
 
@@ -101,6 +138,10 @@ export function PairDevice({ initialCode, onDone, onCancel }: {
   }, [step, pairingId])
 
   const acknowledge = async () => {
+    // The install dialog must be asked for straight from the tap, so it goes
+    // first; the acknowledgement is written while the dialog is up.
+    const next = afterConnect(currentInstallPath())
+    const installing = next === 'prompt' ? promptInstall().catch(() => false) : null
     const uid = auth.currentUser?.uid
     if (uid) {
       // The elder's own one-tap acknowledgement, kept next to the family's
@@ -115,7 +156,14 @@ export function PairDevice({ initialCode, onDone, onCancel }: {
         timestamp: serverTimestamp(),
       }).catch((e) => console.warn('[pair] notice ack failed', e))
     }
-    onDone()
+    if (installing) {
+      if (await installing) setStep('installed')
+      else onDone()
+    } else if (next === 'manual') {
+      setStep('install-manual')
+    } else {
+      onDone()
+    }
   }
 
   const cancel = async () => {
@@ -123,9 +171,43 @@ export function PairDevice({ initialCode, onDone, onCancel }: {
     onCancel()
   }
 
+  if (linkedAtOpen) return null
+
   return (
     <section className="pair">
       <div className="signin-dot" />
+      {step === 'open-browser' && (
+        <>
+          <h1 className="pair-title">인터넷 앱에서<br />열어 주세요</h1>
+          {externalUrl ? (
+            <>
+              <p className="pair-sub">아래 버튼을 누르면 인터넷 앱으로 넘어가요. 거기서 연결하면 홈 화면에 오늘하루 아이콘을 만들 수 있어요.</p>
+              <a className="pair-btn" href={externalUrl}>계속하기</a>
+            </>
+          ) : (
+            <ol className="pair-steps">
+              <li>화면 아래(또는 위)의 ⋯ 또는 공유 버튼을 눌러요.</li>
+              <li>“Safari로 열기” 또는 “다른 브라우저로 열기”를 눌러요.</li>
+              <li>열린 화면에서 연결을 계속해요.</li>
+            </ol>
+          )}
+          <button className="pair-link" onClick={() => setStep('confirm')}>아이콘 없이 여기서 연결하기</button>
+        </>
+      )}
+
+      {step === 'add-ios' && (
+        <>
+          <h1 className="pair-title">먼저 홈 화면에<br />추가해 주세요</h1>
+          <ol className="pair-steps">
+            <li>아래쪽의 공유 버튼(네모에서 화살표가 올라가는 모양)을 눌러요.</li>
+            <li>목록을 내려 “홈 화면에 추가”를 눌러요.</li>
+            <li>오른쪽 위 “추가”를 눌러요.</li>
+            <li>홈 화면에 생긴 <b>오늘하루</b> 아이콘을 누르면 연결이 이어져요.</li>
+          </ol>
+          <button className="pair-link" onClick={() => setStep('confirm')}>아이콘 없이 여기서 연결하기</button>
+        </>
+      )}
+
       {step === 'confirm' && (
         <>
           <h1 className="pair-title">휴대폰을 가족과<br />연결할까요?</h1>
@@ -195,6 +277,26 @@ export function PairDevice({ initialCode, onDone, onCancel }: {
           <h1 className="pair-title">연결되었어요</h1>
           <p className="pair-notice">{NOTICE_TEXT}</p>
           <button className="pair-btn" onClick={acknowledge}>확인</button>
+        </>
+      )}
+
+      {step === 'installed' && (
+        <>
+          <h1 className="pair-title">홈 화면에<br />아이콘이 생겨요</h1>
+          <p className="pair-notice">다음부터는 홈 화면의 오늘하루 아이콘을 눌러 주세요.</p>
+          <button className="pair-btn" onClick={onDone}>확인</button>
+        </>
+      )}
+
+      {step === 'install-manual' && (
+        <>
+          <h1 className="pair-title">홈 화면에<br />아이콘을 만들어요</h1>
+          <ol className="pair-steps">
+            <li>화면 오른쪽 위(또는 아래)의 ⋮ 메뉴를 눌러요.</li>
+            <li>“홈 화면에 추가” 또는 “앱 설치”를 눌러요.</li>
+            <li>다음부터는 홈 화면의 <b>오늘하루</b> 아이콘을 눌러 주세요.</li>
+          </ol>
+          <button className="pair-btn" onClick={onDone}>확인</button>
         </>
       )}
 

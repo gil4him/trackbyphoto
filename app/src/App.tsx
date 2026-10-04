@@ -241,7 +241,7 @@ function App() {
       <ToastProvider>
         <div className="app">
           <main>
-            <PairDevice initialCode={pairCode} onDone={closePair} onCancel={closePair} />
+            <PairDevice initialCode={pairCode} alreadyLinked={!!elder} onDone={closePair} onCancel={closePair} />
           </main>
         </div>
       </ToastProvider>
