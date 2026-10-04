@@ -1,19 +1,25 @@
 import { useEffect, useState } from 'react'
 import { DIGEST_TILES, loadDigest, loadDigestMemos, placesVisited, repliesSummary } from '../lib/digest'
+import { TrailSketch } from '../components/TrailSketch'
+import { trailStops } from '../lib/trail'
 import type { Digest, Memo } from '../types'
 
 const TITLE: Record<Digest['kind'], string> = { daily: '오늘 하루', weekly: '이번 주 하이라이트', monthly: '지난달 앨범' }
 
 /** What the page shows once the digest is loaded (kept apart so it can be rendered in tests). */
-export function DigestView({ digest, memos, onOpenMemo, onMore }: {
+export function DigestView({ digest, memos, onOpenMemo, onMore, onOpenTrail }: {
   digest: Digest
   memos: Memo[]
   onOpenMemo: (memoId: string) => void
   onMore: () => void
+  /** Opens 다녀온 곳 for the digest's period; without it the places are only listed. */
+  onOpenTrail?: () => void
 }) {
   const more = digest.photoCount - memos.length
   const replies = repliesSummary(digest.replies)
   const places = placesVisited(memos)
+  // A sketch of the route, never a map: opening a digest makes no map request.
+  const stops = onOpenTrail ? trailStops(memos, null) : []
   return (
     <>
       <div className="h-eyebrow">{digest.label} · 사진 {digest.photoCount}장</div>
@@ -42,10 +48,17 @@ export function DigestView({ digest, memos, onOpenMemo, onMore }: {
         </div>
       )}
 
-      {places.length > 0 && (
+      {(places.length > 0 || stops.length > 0) && (
         <div className="sect">
           <div className="sect-lab">다녀온 곳</div>
-          <div className="dg-places">{places.join(' → ')}</div>
+          {onOpenTrail && stops.length > 0 ? (
+            <button type="button" className="dg-trail" onClick={onOpenTrail} aria-label="다녀온 곳 지도 보기">
+              <TrailSketch stops={stops} />
+              {places.length > 0 && <div className="dg-places">{places.join(' → ')}</div>}
+            </button>
+          ) : (
+            <div className="dg-places">{places.join(' → ')}</div>
+          )}
         </div>
       )}
 
@@ -58,13 +71,14 @@ export function DigestView({ digest, memos, onOpenMemo, onMore }: {
  * The page a digest link opens (push, e-mail, message, or the 알림 list):
  * the summary, the first photos, and what the parent answered.
  */
-export function DigestPage({ digestId, knownMemos, onBack, onOpenMemo, onMore }: {
+export function DigestPage({ digestId, knownMemos, onBack, onOpenMemo, onMore, onOpenTrail }: {
   digestId: string
   /** Memos already loaded in the app; the rest are fetched. */
   knownMemos: Memo[]
   onBack: () => void
   onOpenMemo: (digest: Digest, memoId: string) => void
   onMore: (digest: Digest) => void
+  onOpenTrail?: (digest: Digest) => void
 }) {
   const [state, setState] = useState<{ id: string; digest: Digest | null; memos: Memo[] } | null>(null)
 
@@ -96,6 +110,7 @@ export function DigestPage({ digestId, knownMemos, onBack, onOpenMemo, onMore }:
           memos={loaded.memos}
           onOpenMemo={(memoId) => onOpenMemo(loaded.digest!, memoId)}
           onMore={() => onMore(loaded.digest!)}
+          onOpenTrail={onOpenTrail ? () => onOpenTrail(loaded.digest!) : undefined}
         />
       )}
     </section>

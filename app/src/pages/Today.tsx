@@ -32,7 +32,7 @@ function WaitingPhoto({ item }: { item: OutboxItem }) {
  * phone are listed first. `readOnly` (an elder's linked phone) hides the
  * delete buttons.
  */
-export function Today({ memos, onOpen, uid, readOnly = false, rx }: { memos: Memo[]; onOpen: (id: string) => void; uid?: string; readOnly?: boolean; /** Hearts and comments under each photo (family feed). */ rx?: ReactionsContext }) {
+export function Today({ memos, onOpen, uid, readOnly = false, rx, onOpenTrail }: { memos: Memo[]; onOpen: (id: string) => void; uid?: string; readOnly?: boolean; /** Hearts and comments under each photo (family feed). */ rx?: ReactionsContext; /** 다녀온 곳 for one day (shown on days that have a located photo). */ onOpenTrail?: (day: Date) => void }) {
   const toast = useToast()
   // Hide a waiting photo once its memo shows up from the server.
   const memoIds = useMemo(() => new Set(memos.map((m) => m.id)), [memos])
@@ -84,7 +84,12 @@ export function Today({ memos, onOpen, uid, readOnly = false, rx }: { memos: Mem
       ) : (
         groups.map((g) => (
           <div key={g.date.toISOString()}>
-            <div className="q-datehdr">{relativeDateLabel(g.date)}</div>
+            <div className="q-datehdr">
+              {relativeDateLabel(g.date)}
+              {onOpenTrail && g.items.some((m) => typeof m.lat === 'number' && typeof m.lng === 'number') && (
+                <button type="button" className="trail-link" onClick={() => onOpenTrail(g.date)}>다녀온 곳 ›</button>
+              )}
+            </div>
             {g.items.map((m) => (
               <div className="tl-wrap" key={m.id}>
               <button

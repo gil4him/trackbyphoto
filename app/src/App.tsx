@@ -31,6 +31,9 @@ import { InstallHint } from './components/InstallHint'
 import { Notifications } from './pages/Notifications'
 import { DigestPage } from './pages/DigestPage'
 import { digestIdFromPath } from './lib/digest'
+import { Trail } from './pages/Trail'
+import { homeFor } from './lib/trail'
+import { relativeDateLabel } from './util'
 import { disablePush, refreshPush } from './lib/push'
 import type { AppNotification } from './types'
 import { entitlements, flagOn } from './lib/plans'
@@ -101,6 +104,9 @@ function App() {
   // parent's linked phone never registers for pushes.
   const pushOn = flagOn(plans, 'pushFamily')
   const digestOn = flagOn(plans, 'digest')
+  // 다녀온 곳: one day's (or one digest's) photos as a route.
+  const trailOn = flagOn(plans, 'trailMap')
+  const [trail, setTrail] = useState<{ start: number; end: number; title: string } | null>(null)
   const familyUid = user && !elder ? user.uid : undefined
   useEffect(() => {
     if (pushOn && familyUid) void refreshPush()
@@ -338,6 +344,7 @@ function App() {
   const onTabChange = (k: TabKey) => {
     setOpenNews(null)
     setSelectedMemoId(null)
+    setTrail(null)
     if (digestId) closeDigest()
     setTab(k)
   }
@@ -356,6 +363,11 @@ function App() {
 
   // Opening a notice from 알림: go to whose records it is about, and to the
   // photo when it is already loaded.
+  const openDayTrail = (day: Date) => {
+    const start = new Date(day.getFullYear(), day.getMonth(), day.getDate())
+    const end = new Date(day.getFullYear(), day.getMonth(), day.getDate() + 1)
+    setTrail({ start: start.getTime(), end: end.getTime(), title: `${relativeDateLabel(day)} 다녀온 곳` })
+  }
   const closeDigest = () => {
     setDigestId(null)
     if (digestIdFromPath(window.location.pathname)) window.history.replaceState(null, '', '/')
@@ -399,7 +411,7 @@ function App() {
           </button>
         )}
         <main>
-          {patients.length > 0 && !selectedMemo && !openNews && !digestId && (
+          {patients.length > 0 && !selectedMemo && !openNews && !digestId && !trail && (
             <PatientSwitcher
               selfUid={user.uid}
               selfLabel={selfLabel}
@@ -421,6 +433,14 @@ function App() {
             />
           ) : selectedMemo ? (
             <MemoDetail memo={selectedMemo} onBack={() => setSelectedMemoId(null)} rx={rx} />
+          ) : trail ? (
+            <Trail
+              title={trail.title}
+              memos={memos.filter((m) => { const t = m.takenAt.toMillis(); return t >= trail.start && t < trail.end })}
+              home={homeFor(settings.home, memos)}
+              onBack={() => setTrail(null)}
+              onOpenMemo={setSelectedMemoId}
+            />
           ) : digestId ? (
             <DigestPage
               digestId={digestId}
@@ -442,13 +462,18 @@ function App() {
                 closeDigest()
                 setTab('today')
               }}
+              onOpenTrail={trailOn ? (d) => {
+                // Opens over the digest; 뒤로 comes back to it.
+                if (d.patientUid !== (activePatientUid || user.uid)) onSwitchPatient(d.patientUid)
+                setTrail({ start: d.periodStart?.toMillis() ?? 0, end: d.periodEnd?.toMillis() ?? Date.now(), title: `${d.label} 다녀온 곳` })
+              } : undefined}
             />
           ) : (
             <>
               {tab === 'home'     && pushOn && <InstallHint />}
               {tab === 'alerts'   && <Notifications uid={user.uid} onOpen={openNotice} digestOn={digestOn} messengerIncluded={flagOn(plans, 'messengerFree') || entitlements(plans, settings.plan?.tier)?.messenger === true} />}
               {tab === 'home'     && <Home uid={activePatientUid || user.uid} patientName={settings.patientName} greetingName={isSelf ? selfLabel : settings.patientName} memos={memos} onOpenAsk={openAsk} onOpen={setSelectedMemoId} canCapture={isSelf} notifications={bannerNotices} onDismissNotification={dismissNotification} newsCard={ownNews && <FamilyNewsCard news={ownNews} onOpen={() => { if (ownNews.state !== 'none') openFamilyNews(ownNews) }} />} />}
-              {tab === 'today'    && <Today memos={memos} onOpen={setSelectedMemoId} uid={activePatientUid || user.uid} rx={rx} />}
+              {tab === 'today'    && <Today memos={memos} onOpen={setSelectedMemoId} uid={activePatientUid || user.uid} rx={rx} onOpenTrail={trailOn ? openDayTrail : undefined} />}
               {tab === 'ask'      && <Ask memos={memos} onOpen={setSelectedMemoId} />}
               {tab === 'settings' && (
                 <Settings
