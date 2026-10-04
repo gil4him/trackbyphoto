@@ -6,12 +6,14 @@ import { Today } from './Today'
 import { MemoDetail } from './MemoDetail'
 import { FamilyNews } from './FamilyNews'
 import { FamilyNewsCard } from '../components/FamilyNewsCard'
+import { ElderInstallButton } from '../components/ElderInstallButton'
 import { useElderNews, type OpenNews } from '../hooks/useElderNews'
 import type { Memo, Reaction } from '../types'
 
 /**
  * Everything a family-managed elder's phone shows: the capture screen, one
- * 가족 소식 card, and their own records. No tabs, no settings, no sign-out —
+ * 가족 소식 card, and their own records (plus, until it is done, one button
+ * to put the icon on the home screen). No tabs, no settings, no sign-out —
  * family manages all of that from their own phones, and nothing here differs
  * by plan. If family disconnects this phone (연결 해제),
  * the device record flips to 'revoked' and the screen locks.
@@ -91,8 +93,11 @@ export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn
             onOpen={setOpenId}
             canCapture
             recordsLabel
-            newsCard={news && (
-              <FamilyNewsCard news={news} onOpen={() => { if (news.state !== 'none') setOpenNews(news) }} />
+            newsCard={(
+              <>
+                {news && <FamilyNewsCard news={news} onOpen={() => { if (news.state !== 'none') setOpenNews(news) }} />}
+                <ElderInstallButton />
+              </>
             )}
           />
         )}

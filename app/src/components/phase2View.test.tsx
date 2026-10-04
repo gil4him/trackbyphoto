@@ -55,3 +55,14 @@ describe('InstallHint', () => {
     expect(renderToString(<InstallHint path="desktop" />)).toBe('')
   })
 })
+
+import { ElderInstallButton } from './ElderInstallButton'
+
+describe('ElderInstallButton', () => {
+  it('is one button, only where the browser can install with one tap', () => {
+    expect(renderToString(<ElderInstallButton path="prompt" />)).toContain('홈 화면에 아이콘 만들기')
+    for (const path of ['none', 'ios', 'android', 'in-app', 'desktop'] as const) {
+      expect(renderToString(<ElderInstallButton path={path} />)).toBe('')
+    }
+  })
+})

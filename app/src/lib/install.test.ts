@@ -30,3 +30,48 @@ describe('installPath', () => {
     expect(installPath(env({ userAgent: MAC }))).toBe('desktop')
   })
 })
+
+// ── a parent's phone accepting the family's link ───────────────────────────
+import { afterConnect, externalBrowserUrl, inAppBrowser, pairStart } from './install'
+
+const UA = {
+  kakaoAndroid: 'Mozilla/5.0 (Linux; Android 14; SM-A546S) AppleWebKit/537.36 Chrome/126.0 Mobile Safari/537.36 KAKAOTALK 10.8.5',
+  kakaoIphone: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 KAKAOTALK 10.8.5',
+  instaIphone: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Instagram 330.0',
+  naverAndroid: 'Mozilla/5.0 (Linux; Android 14; SM-A546S) AppleWebKit/537.36 Chrome/126.0 Mobile Safari/537.36 NAVER(inapp; search; 2000; 12.6.3)',
+  chromeAndroid: 'Mozilla/5.0 (Linux; Android 14; SM-A546S) AppleWebKit/537.36 Chrome/126.0 Mobile Safari/537.36',
+}
+const LINK = 'https://trackbyphoto.web.app/pair?c=ABCD1234'
+
+describe('link flow on a parent\'s phone', () => {
+  it('starts by leaving an in-app browser, or by adding the icon on an iPhone', () => {
+    const start = (path: Parameters<typeof pairStart>[0]['path'], extra = {}) => pairStart({ familySignedIn: false, hasCode: true, path, ...extra })
+    expect(start('in-app')).toBe('open-browser')
+    expect(start('ios')).toBe('add-ios')
+    expect(start('prompt')).toBe('confirm')
+    expect(start('android')).toBe('confirm')
+    // From the home-screen icon or the installed app: just connect.
+    expect(start('none')).toBe('confirm')
+    expect(start('in-app', { hasCode: false })).toBe('enter')
+    expect(start('ios', { familySignedIn: true })).toBe('family-warning')
+  })
+
+  it('after connecting, offers the install dialog where the browser has one', () => {
+    expect(afterConnect('prompt')).toBe('prompt')
+    expect(afterConnect('android')).toBe('manual')
+    expect(afterConnect('none')).toBe('done')
+    expect(afterConnect('ios')).toBe('done')
+    expect(afterConnect('desktop')).toBe('done')
+  })
+
+  it('hands the link to the phone\'s own browser unchanged', () => {
+    expect(inAppBrowser(UA.kakaoAndroid)).toBe('kakaotalk')
+    expect(inAppBrowser(UA.chromeAndroid)).toBeNull()
+    expect(externalBrowserUrl(LINK, UA.kakaoAndroid)).toBe(`kakaotalk://web/openExternal?url=${encodeURIComponent(LINK)}`)
+    expect(externalBrowserUrl(LINK, UA.kakaoIphone)).toBe(`kakaotalk://web/openExternal?url=${encodeURIComponent(LINK)}`)
+    expect(externalBrowserUrl(LINK, UA.naverAndroid)).toBe(`intent://trackbyphoto.web.app/pair?c=ABCD1234#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=${encodeURIComponent(LINK)};end`)
+    // No dependable way out of other iPhone in-app browsers: the steps are shown instead.
+    expect(externalBrowserUrl(LINK, UA.instaIphone)).toBeNull()
+    expect(externalBrowserUrl(LINK, UA.chromeAndroid)).toBeNull()
+  })
+})
