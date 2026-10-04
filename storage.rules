@@ -12,5 +12,19 @@ service firebase.storage {
                             && request.resource.contentType.matches('image/.*');
       allow delete:         if request.auth != null && request.auth.uid == uid;
     }
+
+    // The parent's voice replies: voice/{uid}/{memoId}/{reactionId}.{webm|m4a}
+    // Only that parent's phone uploads them (a reply is at most 15 s). Nobody
+    // reads them here: the worker hands the family a tokenized link, the same
+    // way photos are shown.
+    match /voice/{uid}/{memoId}/{clip} {
+      allow read:   if false;
+      allow create: if request.auth != null
+                    && request.auth.uid == uid
+                    && request.resource.size < 2 * 1024 * 1024
+                    && request.resource.contentType.matches('audio/.*');
+      allow update: if false;
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
   }
 }

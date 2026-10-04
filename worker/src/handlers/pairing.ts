@@ -203,10 +203,15 @@ function scheduleAnonCleanup(uid: string) {
 // createManagedElder
 // ────────────────────────────────────────────────────────────────────────────
 
+/** What a voice_reply consent covers (also written by the app's 음성 답장 switch). */
+const VOICE_CONSENT_SCOPE = '음성 답장 녹음과 받아쓴 글을 가족과 공유'
+
 interface CreateManagedElderRequest {
   patientName: string
   settings?: Settings
   consentTextVersion?: string
+  /** The consent screen the guardian accepted included voice replies. */
+  voiceConsent?: boolean
 }
 
 export async function createManagedElder(caller: Caller, data: CreateManagedElderRequest): Promise<{ patientUid: string }> {
@@ -224,6 +229,7 @@ export async function createManagedElder(caller: Caller, data: CreateManagedElde
 
   const sensitiveRef = db.collection('consents').doc()
   const thirdPartyRef = db.collection('consents').doc()
+  const voiceRef = data.voiceConsent === true ? db.collection('consents').doc() : null
   const consentBase = {
     patientUid,
     grantedBy: 'guardian' as const,
@@ -241,12 +247,14 @@ export async function createManagedElder(caller: Caller, data: CreateManagedElde
     bigText: s.bigText !== false,
     retention: '90',
     accountType: 'managed',
+    voiceEnabled: !!voiceRef,
     createdBy: callerUid,
     lastModifiedBy: callerUid,
     lastModifiedAt: FieldValue.serverTimestamp(),
   })
   batch.set(sensitiveRef, { ...consentBase, type: 'sensitive_data', scope: '메모 텍스트와 사진' })
   batch.set(thirdPartyRef, { ...consentBase, type: 'third_party_share', scope: '메모 + 위치 + 사진을 가족과 공유' })
+  if (voiceRef) batch.set(voiceRef, { ...consentBase, type: 'voice_reply', scope: VOICE_CONSENT_SCOPE })
   batch.set(db.collection('memberships').doc(`${patientUid}_${callerUid}`), {
     patientUid,
     caregiverUid: callerUid,
@@ -263,7 +271,7 @@ export async function createManagedElder(caller: Caller, data: CreateManagedElde
     patientUid,
     actorUid: callerUid,
     action: 'elder.create',
-    details: { sensitiveConsentId: sensitiveRef.id, thirdPartyConsentId: thirdPartyRef.id, consentTextVersion },
+    details: { sensitiveConsentId: sensitiveRef.id, thirdPartyConsentId: thirdPartyRef.id, voiceConsentId: voiceRef?.id ?? null, consentTextVersion },
     timestamp: FieldValue.serverTimestamp(),
   })
   try {
@@ -558,7 +566,7 @@ export async function unlinkDevice(caller: Caller, data: { patientUid?: string; 
 }
 
 // Every top-level collection whose docs belong to one patient (by patientUid).
-const PATIENT_COLLECTIONS = ['memos', 'consents', 'memberships', 'pairings', 'invites', 'auditLogs', 'notifications']
+const PATIENT_COLLECTIONS = ['memos', 'reactions', 'consents', 'memberships', 'pairings', 'invites', 'auditLogs', 'notifications']
 
 /**
  * 부모님 삭제: the guardian (the family member who registered the parent)
@@ -599,8 +607,11 @@ export async function deleteManagedElder(caller: Caller, data: { patientUid?: st
 
   // Tests run without a storage emulator; skip rather than reach real GCS.
   if (!process.env.FIRESTORE_EMULATOR_HOST || process.env.FIREBASE_STORAGE_EMULATOR_HOST) {
-    await getStorage().bucket().deleteFiles({ prefix: `photos/${patientUid}/` }).catch((err) =>
-      logger.warn('[pairing] photo cleanup failed', { patientUid, err: String(err) }))
+    // Photos and the parent's voice replies.
+    for (const prefix of [`photos/${patientUid}/`, `voice/${patientUid}/`]) {
+      await getStorage().bucket().deleteFiles({ prefix }).catch((err) =>
+        logger.warn('[pairing] file cleanup failed', { patientUid, prefix, err: String(err) }))
+    }
   }
 
   logger.info('[pairing] managed elder deleted', { patientUid, callerUid })

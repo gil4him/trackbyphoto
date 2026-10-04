@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { outbox } from '../lib/outboxBackend'
+import { voiceOutbox } from '../lib/voiceOutbox'
 import type { OutboxItem } from '../lib/outbox'
 
 /** Photos of this user still waiting on the phone, newest first. */
@@ -10,13 +11,13 @@ export function useOutbox(uid: string | undefined): OutboxItem[] {
 }
 
 /**
- * Keep sending this user's waiting photos: now, whenever the connection
+ * Keep sending this user's waiting photos and voice replies: now, whenever the connection
  * returns, and whenever the app comes back to the foreground. Mount once.
  */
 export function useOutboxSync(uid: string | undefined) {
   useEffect(() => {
     if (!uid) return
-    const retry = () => { void outbox.retryNow(uid) }
+    const retry = () => { void outbox.retryNow(uid); void voiceOutbox.retryNow(uid) }
     const onVisible = () => { if (document.visibilityState === 'visible') retry() }
     retry()
     window.addEventListener('online', retry)

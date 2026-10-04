@@ -38,6 +38,7 @@ import {
   REWRITE_TEMPERATURE,
   type LlmResult,
 } from '../llm/ollama.js'
+import { withModelLock } from '../llm/lock.js'
 import { areaOf, readableText, stubActivity, type PromptHints, type VisionTags } from '../llm/prompt.js'
 import { homeHintFor, localTimeHint } from '../travel.js'
 
@@ -85,7 +86,8 @@ export const defaultMemoDeps: MemoDeps = {
     }
   },
   geocode: reverseGeocode,
-  generate: generateMemo,
+  // Shares the Mac mini with speech-to-text: one model at a time.
+  generate: (args) => withModelLock(() => generateMemo(args)),
 }
 
 export type MemoOutcome =

@@ -1,5 +1,5 @@
 import { ref, deleteObject } from 'firebase/storage'
-import { deleteDoc, doc } from 'firebase/firestore'
+import { collection, deleteDoc, doc, getDocs, query, where } from 'firebase/firestore'
 import { Capacitor } from '@capacitor/core'
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera'
 import { OnDeviceVision, type VisionTags } from 'on-device-vision'
@@ -95,7 +95,8 @@ export async function savePhoto(opts: { uid: string; file: File; nativePath?: st
 /**
  * Deletes a memo: removes the Firestore doc first (so it disappears from the
  * UI immediately) then the underlying Storage object. A missing Storage
- * object is treated as success since the doc is what the user sees.
+ * object is treated as success since the doc is what the user sees. Reactions
+ * on the memo are removed too.
  */
 export async function deleteMemo(opts: { memoId: string; photoPath: string }) {
   await deleteDoc(doc(db, 'memos', opts.memoId))
@@ -104,5 +105,18 @@ export async function deleteMemo(opts: { memoId: string; photoPath: string }) {
   } catch (err) {
     // Already gone or never uploaded — don't surface this to the user.
     console.warn('[deleteMemo] storage object delete failed', err)
+  }
+  // Hearts, comments and voice replies on the photo go with it. Best effort:
+  // a voice clip can only be removed from Storage by the parent's own account.
+  try {
+    const patientUid = opts.photoPath.split('/')[1]
+    const left = await getDocs(query(collection(db, 'reactions'), where('patientUid', '==', patientUid), where('memoId', '==', opts.memoId)))
+    await Promise.all(left.docs.map(async (d) => {
+      const audioPath = d.data().audioPath as string | undefined
+      await deleteDoc(d.ref)
+      if (audioPath) await deleteObject(ref(storage, audioPath)).catch(() => {})
+    }))
+  } catch (err) {
+    console.warn('[deleteMemo] reactions not removed', err)
   }
 }

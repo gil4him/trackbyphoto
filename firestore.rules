@@ -95,6 +95,12 @@ service cloud.firestore {
       return isOwner(patientUid) || isActive(patientUid);
     }
 
+    function workerFieldsUntouched() {
+      return resource == null
+        ? !request.resource.data.keys().hasAny(['plan', 'dayCounters', 'channels', 'digest'])
+        : !request.resource.data.diff(resource.data).affectedKeys().hasAny(['plan', 'dayCounters', 'channels', 'digest']);
+    }
+
     // ────────────────────────────────────────────────────────────────────
     // memos/{memoId}
     //
@@ -134,9 +140,13 @@ service cloud.firestore {
       // trusted actor the worker's settings audit attributes the change
       // to — without this a caregiver could edit the elder's recipients and
       // frame it as the elder's own edit, dodging the audit log + notice.
+      // plan / dayCounters / channels / digest belong to the worker: a client
+      // may carry them along unchanged but never set or alter them, so nobody
+      // can put themselves on a paid tier.
       allow write: if (isOwner(patientUid) || canManage(patientUid))
                    && !elderSession()
-                   && request.resource.data.lastModifiedBy == request.auth.uid;
+                   && request.resource.data.lastModifiedBy == request.auth.uid
+                   && workerFieldsUntouched();
 
       // users/{patientUid}/devices/{deviceId} — phones linked to a family-
       // managed elder. Written only by the worker (pair / unlink); family and
@@ -293,6 +303,84 @@ service cloud.firestore {
     }
 
     // ────────────────────────────────────────────────────────────────────
+    // reactions/{id}
+    //
+    // Hearts and comments from family; hearts and voice replies from the
+    // parent. Written straight from the apps so they work while the Mac mini
+    // is off; the worker (admin SDK) announces each one and transcribes voice.
+    //   - parent (owner of the records): 'heart', or 'voice' pointing at a
+    //     clip in their own voice/ folder, and only once voice replies were
+    //     consented to (users.voiceEnabled). Never a comment: parents don't type.
+    //   - family (active membership, any role): 'heart' (one per memo, id
+    //     memoId_uid) or a 'comment' of 1-60 characters. Never voice.
+    // After that a reaction only gains a read stamp; text, transcript and
+    // status are the worker's.
+    // ────────────────────────────────────────────────────────────────────
+    match /reactions/{id} {
+      function r() { return request.resource.data; }
+      function baseKeys() {
+        return ['memoId', 'patientUid', 'actorUid', 'actorName', 'kind', 'status', 'notified', 'createdAt'];
+      }
+
+      allow read: if isAdmin() || canRead(resource.data.patientUid);
+
+      allow create: if signedIn()
+                    && r().actorUid == request.auth.uid
+                    && r().createdAt == request.time
+                    && r().notified == false
+                    && r().actorName is string && r().actorName.size() <= 40
+                    && r().memoId is string
+                    && get(/databases/$(database)/documents/memos/$(r().memoId)).data.patientUid == r().patientUid
+                    && (
+                         (
+                           isOwner(r().patientUid)
+                           && (
+                                (r().kind == 'heart' && r().status == 'ready' && r().keys().hasOnly(baseKeys()))
+                             || (
+                                  r().kind == 'voice' && r().status == 'pending'
+                                  && r().audioPath is string
+                                  && r().audioPath.matches('voice/' + request.auth.uid + '/[^/]+/[^/]+')
+                                  && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('voiceEnabled', false) == true
+                                  && r().keys().hasOnly(baseKeys().concat(['audioPath']))
+                                )
+                              )
+                         )
+                      || (
+                           request.auth.uid != r().patientUid
+                           && isActive(r().patientUid)
+                           && !elderSession()
+                           && r().status == 'ready'
+                           && r().actorName == request.auth.token.get('name', r().actorName)
+                           && (
+                                (r().kind == 'heart' && id == r().memoId + '_' + request.auth.uid && r().keys().hasOnly(baseKeys()))
+                             || (
+                                  r().kind == 'comment'
+                                  && r().text is string && r().text.size() >= 1 && r().text.size() <= 60
+                                  && r().keys().hasOnly(baseKeys().concat(['text']))
+                                )
+                              )
+                         )
+                       );
+
+      allow update: if (
+                         isOwner(resource.data.patientUid)
+                         && r().diff(resource.data).affectedKeys().hasOnly(['readByElderAt'])
+                         && r().readByElderAt == request.time
+                       )
+                    || (
+                         isActive(resource.data.patientUid) && !elderSession()
+                         && r().diff(resource.data).affectedKeys().hasOnly(['readByFamilyAt'])
+                         && r().readByFamilyAt == request.time
+                       );
+
+      // Take back your own heart or comment; whoever manages the records may
+      // remove anything.
+      allow delete: if (signedIn() && resource.data.actorUid == request.auth.uid
+                        && resource.data.kind != 'voice' && !elderSession())
+                    || (canManage(resource.data.patientUid) && !elderSession());
+    }
+
+    // ────────────────────────────────────────────────────────────────────
     // requests/{id}
     //
     // Work queue for the Mac mini worker — the replacement for HTTPS
@@ -336,8 +424,11 @@ service cloud.firestore {
       allow read:  if isAdmin();
       allow write: if false;
     }
+    // admin_config/plans is the entitlement table and rollout flags; every
+    // signed-in app reads it once at start. Everything else stays admin-only.
     match /admin_config/{doc} {
-      allow read, write: if isAdmin();
+      allow read:  if isAdmin() || (doc == 'plans' && signedIn() && !anonSession());
+      allow write: if isAdmin();
     }
 
     // Worker heartbeat (system/worker): when the Mac mini was last alive and

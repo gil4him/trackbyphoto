@@ -43,6 +43,10 @@ type Settings = Record<string, unknown>
 // are bookkeeping and must never count as a change on their own.
 const META_KEYS = new Set(['lastModifiedBy', 'lastModifiedAt'])
 const RECIPIENTS_KEY = 'recipients'
+// Written only by the worker (rules stop clients from touching them), and
+// audited by the request that changes them. A plan change or a day counter
+// must never reach the elder as "가족이 설정을 바꿨어요".
+const WORKER_KEYS = new Set(['plan', 'dayCounters', 'channels', 'digest'])
 
 function recipientKey(r: Recipient): string {
   return `${r.name} ${r.phone}`
@@ -63,7 +67,7 @@ function changedSettingKeys(before: Settings, after: Settings): string[] {
   const keys = new Set([...Object.keys(before), ...Object.keys(after)])
   const changed: string[] = []
   for (const k of keys) {
-    if (META_KEYS.has(k) || k === RECIPIENTS_KEY) continue
+    if (META_KEYS.has(k) || WORKER_KEYS.has(k) || k === RECIPIENTS_KEY) continue
     if (JSON.stringify(before[k]) !== JSON.stringify(after[k])) changed.push(k)
   }
   return changed

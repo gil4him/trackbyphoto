@@ -16,7 +16,7 @@ import type { UserSettings } from '../types'
 const PAIR_TIMEOUT_MS = 60_000
 
 export const PAIR_CODE_LEN = 8
-export const MANAGED_CONSENT_VERSION = 'managed-v1'
+export const MANAGED_CONSENT_VERSION = 'managed-v2'
 
 /** Uppercase, strip spaces/dashes, cap at the code length. */
 export function normalizePairCode(input: string): string {
@@ -44,7 +44,8 @@ export async function createManagedElder(args: {
   patientName: string
   settings: Pick<UserSettings, 'cadence' | 'autoMode' | 'bigText'>
 }): Promise<{ patientUid: string }> {
-  return callWorker('createManagedElder', { ...args, consentTextVersion: MANAGED_CONSENT_VERSION }, { timeoutMs: PAIR_TIMEOUT_MS })
+  // The consent screen (RegisterElder) includes voice replies since managed-v2.
+  return callWorker('createManagedElder', { ...args, consentTextVersion: MANAGED_CONSENT_VERSION, voiceConsent: true }, { timeoutMs: PAIR_TIMEOUT_MS })
 }
 
 export interface PairingLink {

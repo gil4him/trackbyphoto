@@ -10,6 +10,7 @@ import {
   doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, serverTimestamp,
   collection, query, where,
 } from 'firebase/firestore'
+import { ref, uploadBytes, getBytes } from 'firebase/storage'
 import { describe, it, beforeAll, beforeEach, afterAll } from 'vitest'
 
 // demo- prefix = fully offline project, so the Firebase CLI never asks for
@@ -37,6 +38,11 @@ beforeAll(async () => {
       rules: readFileSync(resolve(__dirname, '../firestore.rules'), 'utf8'),
       host: '127.0.0.1',
       port: 8080,
+    },
+    storage: {
+      rules: readFileSync(resolve(__dirname, '../storage.rules'), 'utf8'),
+      host: '127.0.0.1',
+      port: 9199,
     },
   })
 })
@@ -839,5 +845,146 @@ describe('worker heartbeat', () => {
     await assertSucceeds(getDoc(doc(authedDb(STRANGER), 'system', 'worker')))
     await assertFails(setDoc(doc(authedDb(PATIENT), 'system', 'worker'), { lastSeen: new Date() }))
     await assertFails(getDoc(doc(testEnv.unauthenticatedContext().firestore(), 'system', 'worker')))
+  })
+})
+
+// ────────────────────────────────────────────────────────────────────────────
+// v2: reactions, voice clips, plans
+// ────────────────────────────────────────────────────────────────────────────
+describe('reactions', () => {
+  const base = (actorUid: string, kind: string, extra: Record<string, unknown> = {}) => ({
+    memoId: 'memo1', patientUid: PATIENT, actorUid, actorName: '민수', kind,
+    status: 'ready', notified: false, createdAt: serverTimestamp(), ...extra,
+  })
+  const heartId = (uid: string) => `memo1_${uid}`
+  const familyDb = (uid = CAREGIVER_ACTIVE_VIEWER) => authedDb(uid, { name: '민수' })
+  const voice = (extra: Record<string, unknown> = {}) =>
+    base(PATIENT, 'voice', { status: 'pending', audioPath: `voice/${PATIENT}/memo1/r1.webm`, ...extra })
+
+  const enableVoice = () => testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await updateDoc(doc(ctx.firestore(), 'users', PATIENT), { voiceEnabled: true })
+  })
+  const seedReaction = (id: string, data: Record<string, unknown>) => testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'reactions', id), { ...data, createdAt: new Date() })
+  })
+
+  it('family (even a viewer) sends a heart or a short comment', async () => {
+    await assertSucceeds(setDoc(doc(familyDb(), 'reactions', heartId(CAREGIVER_ACTIVE_VIEWER)), base(CAREGIVER_ACTIVE_VIEWER, 'heart')))
+    await assertSucceeds(setDoc(doc(familyDb(), 'reactions', 'c1'), base(CAREGIVER_ACTIVE_VIEWER, 'comment', { text: '엄마 날씨 좋네요' })))
+  })
+
+  it('a family heart is one per person per memo', async () => {
+    await assertFails(setDoc(doc(familyDb(), 'reactions', 'anyOtherId'), base(CAREGIVER_ACTIVE_VIEWER, 'heart')))
+  })
+
+  it('family cannot send voice, an empty or long comment, or a pre-announced reaction', async () => {
+    const db = familyDb()
+    await assertFails(setDoc(doc(db, 'reactions', 'v'), base(CAREGIVER_ACTIVE_VIEWER, 'voice', { status: 'pending', audioPath: `voice/${PATIENT}/memo1/x.webm` })))
+    await assertFails(setDoc(doc(db, 'reactions', 'c0'), base(CAREGIVER_ACTIVE_VIEWER, 'comment', { text: '' })))
+    await assertFails(setDoc(doc(db, 'reactions', 'c61'), base(CAREGIVER_ACTIVE_VIEWER, 'comment', { text: '가'.repeat(61) })))
+    await assertFails(setDoc(doc(db, 'reactions', 'c2'), base(CAREGIVER_ACTIVE_VIEWER, 'comment', { text: '안녕', notified: true })))
+    await assertFails(setDoc(doc(db, 'reactions', 'c3'), base(CAREGIVER_ACTIVE_VIEWER, 'comment', { text: '안녕', transcript: 'x' })))
+  })
+
+  it('family cannot react under another name or as someone else', async () => {
+    await assertFails(setDoc(doc(familyDb(), 'reactions', 'c1'), base(CAREGIVER_ACTIVE_VIEWER, 'comment', { text: '안녕', actorName: '지은' })))
+    await assertFails(setDoc(doc(familyDb(), 'reactions', 'c2'), base(CAREGIVER_ACTIVE_ADMIN, 'comment', { text: '안녕' })))
+  })
+
+  it('strangers, invited and revoked caregivers cannot react', async () => {
+    for (const uid of [STRANGER, CAREGIVER_INVITED, CAREGIVER_REVOKED]) {
+      await assertFails(setDoc(doc(authedDb(uid, { name: '민수' }), 'reactions', heartId(uid)), base(uid, 'heart')))
+    }
+  })
+
+  it('a reaction must belong to one of the patient\'s memos', async () => {
+    await assertFails(setDoc(doc(familyDb(), 'reactions', 'c1'), base(CAREGIVER_ACTIVE_VIEWER, 'comment', { text: '안녕', memoId: 'no-such-memo' })))
+  })
+
+  it('the parent sends a heart, never a comment', async () => {
+    await assertSucceeds(setDoc(doc(authedDb(PATIENT), 'reactions', 'h1'), base(PATIENT, 'heart', { actorName: 'Alice' })))
+    await assertFails(setDoc(doc(authedDb(PATIENT), 'reactions', 'c1'), base(PATIENT, 'comment', { actorName: 'Alice', text: '고마워' })))
+  })
+
+  it('the parent sends a voice reply only after voice replies were agreed to', async () => {
+    await assertFails(setDoc(doc(authedDb(PATIENT), 'reactions', 'v1'), voice()))
+    await enableVoice()
+    await assertSucceeds(setDoc(doc(authedDb(PATIENT), 'reactions', 'v1'), voice()))
+  })
+
+  it('a voice reply must point at the parent\'s own clip and start pending', async () => {
+    await enableVoice()
+    await assertFails(setDoc(doc(authedDb(PATIENT), 'reactions', 'v1'), voice({ audioPath: `voice/${STRANGER}/memo1/r1.webm` })))
+    await assertFails(setDoc(doc(authedDb(PATIENT), 'reactions', 'v2'), voice({ status: 'ready' })))
+    await assertFails(setDoc(doc(authedDb(PATIENT), 'reactions', 'v3'), voice({ transcript: '내가 쓴 글' })))
+  })
+
+  it('everyone who can see the records can read reactions; strangers cannot', async () => {
+    await seedReaction('c1', base(CAREGIVER_ACTIVE_ADMIN, 'comment', { text: '안녕' }))
+    await assertSucceeds(getDoc(doc(authedDb(PATIENT), 'reactions', 'c1')))
+    await assertSucceeds(getDocs(query(collection(familyDb(), 'reactions'), where('patientUid', '==', PATIENT))))
+    await assertFails(getDoc(doc(authedDb(STRANGER), 'reactions', 'c1')))
+  })
+
+  it('after it is sent a reaction only gains a read stamp', async () => {
+    await seedReaction('c1', base(CAREGIVER_ACTIVE_ADMIN, 'comment', { text: '안녕' }))
+    await seedReaction('v1', voice({ status: 'ready', transcript: '괜찮아' }))
+    await assertSucceeds(updateDoc(doc(authedDb(PATIENT), 'reactions', 'c1'), { readByElderAt: serverTimestamp() }))
+    await assertSucceeds(updateDoc(doc(familyDb(), 'reactions', 'v1'), { readByFamilyAt: serverTimestamp() }))
+    await assertFails(updateDoc(doc(authedDb(CAREGIVER_ACTIVE_ADMIN, { name: '민수' }), 'reactions', 'c1'), { text: '바꾼 글' }))
+    await assertFails(updateDoc(doc(authedDb(PATIENT), 'reactions', 'v1'), { transcript: '바꾼 글' }))
+    await assertFails(updateDoc(doc(familyDb(), 'reactions', 'c1'), { readByElderAt: serverTimestamp() }))
+  })
+
+  it('you can take back your own heart or comment, not someone else\'s', async () => {
+    await seedReaction('c1', base(CAREGIVER_ACTIVE_VIEWER, 'comment', { text: '안녕' }))
+    await seedReaction('c2', base(CAREGIVER_ACTIVE_ADMIN, 'comment', { text: '안녕' }))
+    await assertFails(deleteDoc(doc(familyDb(), 'reactions', 'c2')))
+    await assertSucceeds(deleteDoc(doc(familyDb(), 'reactions', 'c1')))
+    // An admin caregiver manages the records and may remove any reaction.
+    await seedReaction('c3', base(CAREGIVER_ACTIVE_VIEWER, 'comment', { text: '안녕' }))
+    await assertSucceeds(deleteDoc(doc(authedDb(CAREGIVER_ACTIVE_ADMIN), 'reactions', 'c3')))
+  })
+})
+
+describe('voice clips (storage)', () => {
+  const audio = new Uint8Array([1, 2, 3])
+  const storageOf = (uid: string) => testEnv.authenticatedContext(uid).storage()
+
+  it('only the parent uploads to their own voice folder, audio only', async () => {
+    await assertSucceeds(uploadBytes(ref(storageOf(PATIENT), `voice/${PATIENT}/memo1/r1.webm`), audio, { contentType: 'audio/webm' }))
+    await assertSucceeds(uploadBytes(ref(storageOf(PATIENT), `voice/${PATIENT}/memo1/r2.m4a`), audio, { contentType: 'audio/mp4' }))
+    await assertFails(uploadBytes(ref(storageOf(PATIENT), `voice/${PATIENT}/memo1/r3.jpg`), audio, { contentType: 'image/jpeg' }))
+    await assertFails(uploadBytes(ref(storageOf(CAREGIVER_ACTIVE_ADMIN), `voice/${PATIENT}/memo1/r4.webm`), audio, { contentType: 'audio/webm' }))
+  })
+
+  it('nobody reads a clip straight from storage', async () => {
+    await assertSucceeds(uploadBytes(ref(storageOf(PATIENT), `voice/${PATIENT}/memo1/r1.webm`), audio, { contentType: 'audio/webm' }))
+    await assertFails(getBytes(ref(storageOf(CAREGIVER_ACTIVE_ADMIN), `voice/${PATIENT}/memo1/r1.webm`)))
+    await assertFails(getBytes(ref(storageOf(PATIENT), `voice/${PATIENT}/memo1/r1.webm`)))
+  })
+})
+
+describe('plans', () => {
+  it('any signed-in app reads the plan table; a pairing-only session and the rest of admin_config stay closed', async () => {
+    await assertSucceeds(getDoc(doc(authedDb(STRANGER), 'admin_config', 'plans')))
+    await assertFails(getDoc(doc(authedDb(STRANGER), 'admin_config', 'global')))
+    const anon = testEnv.authenticatedContext('anon9', { firebase: { sign_in_provider: 'anonymous' } }).firestore()
+    await assertFails(getDoc(doc(anon, 'admin_config', 'plans')))
+    await assertFails(setDoc(doc(authedDb(STRANGER), 'admin_config', 'plans'), { flags: {} }))
+  })
+
+  it('nobody can put a patient on a tier from the app', async () => {
+    await assertFails(setDoc(doc(authedDb(PATIENT), 'users', PATIENT), { plan: { tier: 'family' }, lastModifiedBy: PATIENT }, { merge: true }))
+    await assertFails(setDoc(doc(authedDb(CAREGIVER_ACTIVE_ADMIN), 'users', PATIENT), { dayCounters: {}, lastModifiedBy: CAREGIVER_ACTIVE_ADMIN }, { merge: true }))
+    await assertFails(setDoc(doc(authedDb(STRANGER), 'users', STRANGER), { patientName: 'x', plan: { tier: 'family' }, lastModifiedBy: STRANGER }))
+  })
+
+  it('ordinary settings still save, also when a plan is already on the doc', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await updateDoc(doc(ctx.firestore(), 'users', PATIENT), { plan: { tier: 'basic' } })
+    })
+    await assertSucceeds(setDoc(doc(authedDb(PATIENT), 'users', PATIENT), { bigText: false, plan: { tier: 'basic' }, lastModifiedBy: PATIENT }, { merge: true }))
+    await assertSucceeds(setDoc(doc(authedDb(STRANGER), 'users', STRANGER), { patientName: 'x', lastModifiedBy: STRANGER }))
   })
 })

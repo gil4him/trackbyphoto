@@ -63,6 +63,17 @@ describe('createManagedElder', () => {
   it('requires a name', async () => {
     await expect(createManagedElder(FAMILY, { patientName: '  ' })).rejects.toThrow(/patientName/)
   })
+
+  it('records a voice-reply consent only when the guardian agreed to it', async () => {
+    const plain = await registerElder()
+    expect((await db.doc(`users/${plain}`).get()).data()?.voiceEnabled).toBe(false)
+    expect((await db.collection('consents').where('patientUid', '==', plain).where('type', '==', 'voice_reply').get()).size).toBe(0)
+
+    const { patientUid } = await createManagedElder(FAMILY, { patientName: '아버지', voiceConsent: true, consentTextVersion: 'managed-v2' })
+    expect((await db.doc(`users/${patientUid}`).get()).data()?.voiceEnabled).toBe(true)
+    const consent = (await db.collection('consents').where('patientUid', '==', patientUid).where('type', '==', 'voice_reply').get()).docs[0].data()
+    expect(consent).toMatchObject({ grantedBy: 'guardian', guardianUid: FAMILY.uid, consentTextVersion: 'managed-v2' })
+  })
 })
 
 describe('first-time pairing', () => {
@@ -239,13 +250,14 @@ describe('deleteManagedElder', () => {
     await pairDevice(ANON('anon1'), { code: link.code, device: DEVICE })
     await seedMembership(patientUid, 'fam2', { role: 'viewer' })
     await db.collection('memos').add({ patientUid, status: 'ready' })
+    await db.collection('reactions').add({ patientUid, actorUid: patientUid, kind: 'voice', status: 'ready', notified: true })
 
     await deleteManagedElder(FAMILY, { patientUid })
 
     await expect(getAuth().getUser(patientUid)).rejects.toThrow()
     expect((await db.doc(`users/${patientUid}`).get()).exists).toBe(false)
     expect((await db.collection(`users/${patientUid}/devices`).get()).size).toBe(0)
-    for (const c of ['memos', 'consents', 'memberships', 'pairings', 'auditLogs', 'notifications']) {
+    for (const c of ['memos', 'reactions', 'consents', 'memberships', 'pairings', 'auditLogs', 'notifications']) {
       expect((await db.collection(c).where('patientUid', '==', patientUid).get()).size, c).toBe(0)
     }
   })

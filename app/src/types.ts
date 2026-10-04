@@ -73,6 +73,11 @@ export interface UserSettings {
    *  location with it to tell a trip from everyday life; when unset it infers
    *  home from where most photos are taken. */
   home?: { lat: number; lng: number; label: string } | null
+  /** Voice replies were agreed to (a 'voice_reply' consent is on file) and
+   *  are switched on: the parent's phone shows 꾹 누르고 말하기. */
+  voiceEnabled?: boolean
+  /** The patient's plan. Written only by the worker; missing means free. */
+  plan?: { tier: PlanTier; status?: string }
   /** 'managed' when a family member registered this elder (부모님 등록하기):
    *  the elder's phone is linked by a pairing code instead of a Google
    *  sign-in, and family owns the settings. Absent for self-managed users. */
@@ -144,7 +149,7 @@ export interface Invite {
 /** consents/{consentId} — PIPA evidence record. Two consents must exist before
  *  a caregiver gets active access: one for processing sensitive data, one for
  *  third-party share. Each is its own doc so the legal trail is auditable. */
-export type ConsentType = 'sensitive_data' | 'third_party_share' | 'notice_ack'
+export type ConsentType = 'sensitive_data' | 'third_party_share' | 'notice_ack' | 'voice_reply'
 export interface Consent {
   patientUid: string
   type: ConsentType
@@ -189,4 +194,55 @@ export interface AuditLog {
   action: string
   details: Record<string, unknown>
   timestamp: Timestamp
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// v2: plans and reactions
+// ────────────────────────────────────────────────────────────────────────────
+
+export type PlanTier = 'free' | 'basic' | 'plus' | 'family'
+
+/** What one tier includes. Photos are unlimited on every tier. */
+export interface PlanEntitlements {
+  familyMembers: number
+  retentionDays: number | null
+  messenger: boolean
+  weekly: boolean
+  checkin: boolean
+  recap: boolean
+  voiceReplies: boolean
+  voiceAlbum: boolean
+  aiPhotosPerDay: number | null
+  seniors: number
+}
+
+/** admin_config/plans — the only place entitlements and rollout flags live. */
+export type Plans = Record<PlanTier, PlanEntitlements> & {
+  fairUse: { photosPerDay: number | null }
+  flags: Partial<Record<'reactions' | 'voiceReplies' | 'digest' | 'pushFamily' | 'retentionJob' | 'messengerFree', boolean>>
+}
+
+export type ReactionKind = 'heart' | 'comment' | 'voice'
+
+/** reactions/{id} — a heart or comment from family, or a heart or voice reply
+ *  from the parent, on one memo. Shape is enforced by firestore.rules. */
+export interface Reaction {
+  id: string
+  memoId: string
+  patientUid: string
+  actorUid: string
+  actorName: string
+  kind: ReactionKind
+  /** Family comment, at most 60 characters. */
+  text?: string
+  /** Parent's voice clip in Storage; the worker adds a playable `audioUrl`
+   *  and a `transcript`, then flips `status` to ready. */
+  audioPath?: string
+  audioUrl?: string
+  transcript?: string
+  status: 'ready' | 'pending' | 'error'
+  /** Milliseconds; estimated locally until the server stamps it. */
+  createdAtMs: number
+  readByElderAt?: Timestamp
+  readByFamilyAt?: Timestamp
 }

@@ -29,7 +29,9 @@ import { MemoScheduler, watchPendingMemos } from './handlers/memo.js'
 import { watchGeocodeRequests } from './handlers/place.js'
 import { purgeStaleRequests, requeueInterruptedRequests, watchRequests } from './handlers/requests.js'
 import { SettingsCache, watchUserSettings } from './handlers/audit.js'
+import { ReactionScheduler, watchReactions } from './handlers/reactions.js'
 import { startHeartbeat } from './heartbeat.js'
+import { sttAvailable } from './llm/stt.js'
 
 const STORAGE_BUCKET = process.env.FIREBASE_STORAGE_BUCKET || 'trackbyphoto-app.firebasestorage.app'
 const STATE_DIR = process.env.WORKER_STATE_DIR || join(homedir(), '.trackbyphoto', 'state')
@@ -46,6 +48,7 @@ async function main() {
     emulator: process.env.FIRESTORE_EMULATOR_HOST || null,
     model: await resolveModel(),
     ollama: (await ollamaAvailable()) ? 'up' : 'DOWN (memos will wait)',
+    stt: (await sttAvailable()) ? 'up' : 'DOWN (voice replies will wait)',
   })
 
   await requeueInterruptedRequests()
@@ -53,9 +56,11 @@ async function main() {
 
   const cache = new SettingsCache(join(STATE_DIR, 'users-cache.json'))
   const scheduler = new MemoScheduler()
+  const reactions = new ReactionScheduler()
   const unsubs = [
     watchPendingMemos(scheduler),
     watchGeocodeRequests(),
+    watchReactions(reactions),
     watchRequests(),
     watchUserSettings(cache),
     startHeartbeat(() => scheduler.waiting),
@@ -68,6 +73,7 @@ async function main() {
     logger.info('[worker] shutting down', { signal })
     clearInterval(purgeTimer)
     scheduler.stop()
+    reactions.stop()
     unsubs.forEach((u) => u())
     cache.flush()
     process.exit(0)

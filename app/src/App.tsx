@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { doc, onSnapshot, setDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from './firebase'
 import { useAuth } from './hooks/useAuth'
@@ -22,6 +22,11 @@ import { PairDevice } from './pages/PairDevice'
 import { ElderApp } from './pages/ElderApp'
 import { SuperAdmin, ADMIN_EMAIL } from './pages/SuperAdmin'
 import { Ask } from './components/Ask'
+import { usePlans } from './hooks/usePlans'
+import { useReactions } from './hooks/useReactions'
+import { entitlements, flagOn } from './lib/plans'
+import { byMemo } from './lib/reactionsModel'
+import type { ReactionsContext } from './components/Reactions'
 import type { UserSettings } from './types'
 
 const DEFAULT_SETTINGS: UserSettings = {
@@ -69,6 +74,12 @@ function App() {
   // True once a newer build has been deployed than the one we're running.
   const updateReady = useAppUpdate()
   const { memos } = useMemos(activePatientUid || undefined)
+
+  // v2 reactions: off until the rollout flag in admin_config/plans is on.
+  const plans = usePlans(!!user)
+  const reactionsOn = flagOn(plans, 'reactions')
+  const reactions = useReactions(reactionsOn && user ? activePatientUid || undefined : undefined)
+  const reactionsByMemo = useMemo(() => byMemo(reactions), [reactions])
   // Keep sending photos that are still on this phone (weak connection).
   useOutboxSync(user?.uid)
   const selectedMemo = selectedMemoId ? memos.find((m) => m.id === selectedMemoId) ?? null : null
@@ -139,9 +150,13 @@ function App() {
     if (user && activePatientUid) {
       // Stamp the actor so the audit trigger can attribute the change. Rules
       // require lastModifiedBy == auth.uid, so this can't be forged.
+      // plan / dayCounters / channels / digest are the worker's; the rules
+      // reject a save that touches them, so never send our copy back.
+      const own: Record<string, unknown> = { ...next }
+      for (const k of ['plan', 'dayCounters', 'channels', 'digest']) delete own[k]
       setDoc(
         doc(db, 'users', activePatientUid),
-        { ...next, lastModifiedBy: user.uid, lastModifiedAt: serverTimestamp() },
+        { ...own, lastModifiedBy: user.uid, lastModifiedAt: serverTimestamp() },
         { merge: true },
       ).catch((e) => console.error('[settings] save', e))
     }
@@ -256,6 +271,8 @@ function App() {
           deviceId={elder.deviceId}
           patientName={settings.patientName}
           memos={memos}
+          reactions={reactionsOn ? reactions : null}
+          voiceOn={flagOn(plans, 'voiceReplies') && settings.voiceEnabled === true}
           onRelink={async () => {
             await signOut().catch(() => {})
             setPairCode('')
@@ -301,6 +318,16 @@ function App() {
   // place in the nav and back-by-tab works naturally.
   const openAsk = () => onTabChange('ask')
 
+  const rx: ReactionsContext | undefined = reactionsOn ? {
+    byMemo: reactionsByMemo,
+    me: { uid: user.uid, name: user.displayName || selfLabel },
+    patientUid: activePatientUid || user.uid,
+    patientName: settings.patientName,
+    canReact: !isSelf,
+    voiceOn: flagOn(plans, 'voiceReplies'),
+    voiceAllowed: entitlements(plans, settings.plan?.tier)?.voiceReplies === true,
+  } : undefined
+
   return (
     <ToastProvider>
       <div className={`app${isSelf ? '' : ' caregiver-mode'}`}>
@@ -320,11 +347,11 @@ function App() {
             />
           )}
           {selectedMemo ? (
-            <MemoDetail memo={selectedMemo} onBack={() => setSelectedMemoId(null)} />
+            <MemoDetail memo={selectedMemo} onBack={() => setSelectedMemoId(null)} rx={rx} />
           ) : (
             <>
               {tab === 'home'     && <Home uid={activePatientUid || user.uid} patientName={settings.patientName} greetingName={isSelf ? selfLabel : settings.patientName} memos={memos} onOpenAsk={openAsk} onOpen={setSelectedMemoId} canCapture={isSelf} notifications={notifications} onDismissNotification={dismissNotification} />}
-              {tab === 'today'    && <Today memos={memos} onOpen={setSelectedMemoId} uid={activePatientUid || user.uid} />}
+              {tab === 'today'    && <Today memos={memos} onOpen={setSelectedMemoId} uid={activePatientUid || user.uid} rx={rx} />}
               {tab === 'ask'      && <Ask memos={memos} onOpen={setSelectedMemoId} />}
               {tab === 'settings' && (
                 <Settings
@@ -337,6 +364,7 @@ function App() {
                   isSelf={isSelf}
                   onSwitchPatient={(uid) => { onSwitchPatient(uid); setTab('home') }}
                   myRole={patients.find((p) => p.patientUid === activePatientUid)?.role}
+                  voiceRollout={flagOn(plans, 'voiceReplies')}
                 />
               )}
             </>
