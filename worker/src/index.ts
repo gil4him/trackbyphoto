@@ -22,7 +22,7 @@
 
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { initializeApp } from 'firebase-admin/app'
+import { cert, initializeApp } from 'firebase-admin/app'
 import { logger } from './log.js'
 import { ollamaAvailable, resolveModel } from './llm/ollama.js'
 import { MemoScheduler, watchPendingMemos } from './handlers/memo.js'
@@ -33,7 +33,11 @@ const STORAGE_BUCKET = process.env.FIREBASE_STORAGE_BUCKET || 'trackbyphoto-app.
 const STATE_DIR = process.env.WORKER_STATE_DIR || join(homedir(), '.trackbyphoto', 'state')
 
 async function main() {
-  initializeApp({ storageBucket: STORAGE_BUCKET })
+  // Load the key file as an explicit credential so custom tokens (phone
+  // pairing) are signed locally; application-default credentials would sign
+  // through the IAM signBlob API, which this service account isn't granted.
+  const keyFile = process.env.GOOGLE_APPLICATION_CREDENTIALS
+  initializeApp({ storageBucket: STORAGE_BUCKET, ...(keyFile ? { credential: cert(keyFile) } : {}) })
 
   logger.info('[worker] starting', {
     bucket: STORAGE_BUCKET,
