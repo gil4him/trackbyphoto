@@ -50,6 +50,8 @@ interface Props {
   digestRollout?: boolean
   /** This parent's plan includes the weekly highlight. */
   weeklyIncluded?: boolean
+  /** The lowest plan that includes it ("Plus"), for the chip. */
+  weeklyFrom?: string | null
   /** Set while the plan sheet is rolled out: opens 부모님께 드리는 선물. */
   onOpenPlans?: (reason: PlanReason) => void
   /** "Free", "Basic" …: the plan this person is on. */
@@ -58,7 +60,7 @@ interface Props {
   familyLimit?: number | null
 }
 
-export function Settings({ settings, onChange, user, onSignOut, memos, activePatientUid, isSelf, onSwitchPatient, myRole, voiceRollout = false, reactionsRollout = false, digestRollout = false, weeklyIncluded = false, onOpenPlans, planName, familyLimit = null }: Props) {
+export function Settings({ settings, onChange, user, onSignOut, memos, activePatientUid, isSelf, onSwitchPatient, myRole, voiceRollout = false, reactionsRollout = false, digestRollout = false, weeklyIncluded = false, weeklyFrom = null, onOpenPlans, planName, familyLimit = null }: Props) {
   const toast = useToast()
   // A family-managed elder (부모님 등록하기): family runs 가족 관리 and
   // 기기 관리 for them, since the elder's phone has no settings at all.
@@ -438,7 +440,7 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
           <div className="seg">
             <button className={digest.cadence === 'daily' ? 'on' : ''} disabled={digestBusy} onClick={() => changeDigest({ cadence: 'daily' })}>매일 저녁</button>
             <button className={digest.cadence === 'weekly' ? 'on' : ''} disabled={digestBusy || !weeklyIncluded} onClick={() => changeDigest({ cadence: 'weekly' })}>
-              매주 일요일{!weeklyIncluded && <> <span className="plan-chip">Plus 이상</span></>}
+              매주 일요일{!weeklyIncluded && weeklyFrom && <> <span className="plan-chip">{weeklyFrom} 이상</span></>}
             </button>
           </div>
           <div className="row">

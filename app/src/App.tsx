@@ -34,7 +34,7 @@ import { digestIdFromPath } from './lib/digest'
 import { Trail } from './pages/Trail'
 import { VoiceAlbum } from './pages/VoiceAlbum'
 import { PlanSheet } from './components/PlanSheet'
-import { TIER_NAME, type PlanReason } from './lib/plan'
+import { TIER_NAME, fromTier, type PlanReason } from './lib/plan'
 import { homeFor } from './lib/trail'
 import { relativeDateLabel } from './util'
 import { disablePush, onPushOpened, refreshPush, type PushOpened } from './lib/push'
@@ -535,7 +535,7 @@ function App() {
           ) : (
             <>
               {tab === 'home'     && pushOn && <InstallHint />}
-              {tab === 'alerts'   && <Notifications uid={user.uid} onOpen={openNotice} digestOn={digestOn} messengerIncluded={flagOn(plans, 'messengerFree') || ent?.messenger === true} />}
+              {tab === 'alerts'   && <Notifications uid={user.uid} onOpen={openNotice} digestOn={digestOn} messengerIncluded={flagOn(plans, 'messengerFree') || ent?.messenger === true} messengerFrom={fromTier(plans, 'messenger')} />}
               {tab === 'home'     && <Home uid={activePatientUid || user.uid} patientName={settings.patientName} greetingName={isSelf ? selfLabel : settings.patientName} memos={memos} onOpenAsk={openAsk} onOpen={setSelectedMemoId} canCapture={isSelf} notifications={bannerNotices} onDismissNotification={dismissNotification} topCard={pushOn && patients.length > 0 ? <PushNudge /> : undefined} newsCard={ownNews && <FamilyNewsCard news={ownNews} onOpen={() => { if (ownNews.state !== 'none') openFamilyNews(ownNews) }} />} />}
               {tab === 'today'    && <Today memos={memos} onOpen={setSelectedMemoId} uid={activePatientUid || user.uid} rx={rx} onOpenTrail={trailOn ? openDayTrail : undefined} onOpenVoiceAlbum={voiceAlbumOn ? () => setVoiceAlbum(true) : undefined} />}
               {tab === 'ask'      && <Ask memos={memos} onOpen={setSelectedMemoId} />}
@@ -554,6 +554,7 @@ function App() {
                   reactionsRollout={reactionsOn}
                   digestRollout={digestOn}
                   weeklyIncluded={ent?.weekly === true}
+                  weeklyFrom={fromTier(plans, 'weekly')}
                   onOpenPlans={planOn && plans ? setPlanSheet : undefined}
                   planName={TIER_NAME[settings.plan?.tier ?? 'free']}
                   familyLimit={ent?.familyMembers ?? null}

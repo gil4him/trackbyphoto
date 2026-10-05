@@ -36,6 +36,14 @@ describe('plan cards', () => {
   const cards = (over: Partial<Parameters<typeof PlanCards>[0]> = {}) =>
     renderToString(<PlanCards plans={PLANS} current="free" patientName="어머니" canChange onChoose={noop} {...over} />)
 
+  it('show three cards when the table offers three plans', () => {
+    const { basic: _gone, ...three } = PLANS
+    void _gone
+    const out = text(cards({ plans: three as Plans }))
+    expect(out.filter((l) => ['Free', 'Basic', 'Plus', 'Family'].includes(l))).toEqual(['Free', 'Plus', 'Family'])
+    expect(out.join(' ')).not.toContain('Basic')
+  })
+
   it('show four cards from the plans table and never a photo count', () => {
     const out = cards()
     expect(text(out)).toMatchInlineSnapshot(`

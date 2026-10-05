@@ -229,8 +229,9 @@ export interface PlanEntitlements {
   priceLabel?: string
 }
 
-/** admin_config/plans — the only place entitlements and rollout flags live. */
-export type Plans = Record<PlanTier, PlanEntitlements> & {
+/** admin_config/plans — the only place entitlements and rollout flags live.
+ *  A tier the doc leaves out is not offered. */
+export type Plans = Partial<Record<PlanTier, PlanEntitlements>> & {
   fairUse: { photosPerDay: number | null }
   flags: Partial<Record<'reactions' | 'voiceReplies' | 'digest' | 'pushFamily' | 'usageCaps' | 'retentionJob' | 'messengerFree' | 'trailMap' | 'planSheet', boolean>>
 }

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useToast } from './Toast'
 import { PAYMENTS_LIVE } from '../lib/payments'
 import {
-  TIERS, TIER_NAME, daysUntilOldestGoes, keptFor, planLines, reasonLine, shortensKeeping, suggestedTier,
+  TIERS, TIER_NAME, daysUntilOldestGoes, keptFor, offered, planLines, reasonLine, shortensKeeping, suggestedTier,
   type Memory, type PlanReason,
 } from '../lib/plan'
 import { changePlan, countPhotosBefore, loadMemory } from '../lib/planApi'
@@ -15,8 +15,8 @@ const TIER_TOPIC: Record<PlanTier, string> = { free: 'Free는', basic: 'Basic은
 const DAY_MS = 24 * 3600 * 1000
 
 /**
- * The four plan cards, built from admin_config/plans. They say what a plan
- * gives the family; nothing here counts photos.
+ * One card for each plan in admin_config/plans. They say what a plan gives
+ * the family; nothing here counts photos.
  */
 export function PlanCards({ plans, current, patientName, suggested, canChange, busy, onChoose }: {
   plans: Plans
@@ -32,8 +32,8 @@ export function PlanCards({ plans, current, patientName, suggested, canChange, b
 }) {
   return (
     <div className="plan-cards">
-      {TIERS.filter((t) => plans[t]).map((t) => {
-        const ent = plans[t]
+      {offered(plans).map((t) => {
+        const ent = plans[t]!
         const isCurrent = t === current
         const up = TIERS.indexOf(t) > TIERS.indexOf(current)
         return (
@@ -101,7 +101,7 @@ export function PlanSheetView({ plans, patientName, current, hasPlanSinceMs, rea
           <>
             <div className="modal-body">
               <p>
-                {TIER_TOPIC[confirm.tier]} 사진을 {keptFor(plans[confirm.tier].retentionDays)} 동안 보관해요.{' '}
+                {TIER_TOPIC[confirm.tier]} 사진을 {keptFor(plans[confirm.tier]?.retentionDays ?? null)} 동안 보관해요.{' '}
                 {confirm.count != null ? `그보다 오래된 사진 ${confirm.count}장은` : '그보다 오래된 사진은'} 일주일 뒤부터 지워져요.
               </p>
               <div className="help">지워진 사진은 되돌릴 수 없어요. 하트와 답장은 그대로 남아요.</div>
@@ -174,7 +174,7 @@ export function PlanSheet({ plans, patientUid, patientName, plan, reason, canCha
   const choose = async (tier: PlanTier) => {
     if (!shortensKeeping(plans, !!plan, current, tier)) return change(tier)
     setBusy(tier)
-    const count = await countPhotosBefore(patientUid, nowMs - plans[tier].retentionDays! * DAY_MS).catch(() => null)
+    const count = await countPhotosBefore(patientUid, nowMs - plans[tier]!.retentionDays! * DAY_MS).catch(() => null)
     setBusy(null)
     if (count === 0) return change(tier)
     setConfirm({ tier, count })

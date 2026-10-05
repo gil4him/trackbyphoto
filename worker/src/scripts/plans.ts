@@ -3,8 +3,10 @@
  *
  *   npm run plans                      create the doc from the private seed file if missing, then print it
  *   npm run plans -- reactions=on      switch a rollout flag (on/off)
- *   npm run plans -- tier=<uid>:basic  put one patient on a tier (families do this themselves on the plan sheet)
- *   npm run plans -- price=basic:₩0,000/월   the price shown on a plan's card (price=basic: removes it)
+ *   npm run plans -- table             rewrite the plans from the private seed file (flags and prices are kept;
+ *                                      a plan the file leaves out is no longer offered)
+ *   npm run plans -- tier=<uid>:plus   put one patient on a tier (families do this themselves on the plan sheet)
+ *   npm run plans -- price=plus:₩0,000/월    the price shown on a plan's card (price=plus: removes it)
  *
  * The tier table is kept out of this public repository: the seed is read
  * from ~/.trackbyphoto/plans.seed.json (or PLANS_SEED).
@@ -28,10 +30,19 @@ initializeApp(emulator
 const db = getFirestore()
 const ref = db.doc('admin_config/plans')
 
-if (!(await ref.get()).exists) {
-  const seedFile = process.env.PLANS_SEED || join(homedir(), '.trackbyphoto', 'plans.seed.json')
+const seedFile = process.env.PLANS_SEED || join(homedir(), '.trackbyphoto', 'plans.seed.json')
+/** The private table. Free must be there (an account without a plan is on it);
+ *  any other plan the file leaves out is not offered. */
+function readSeed(): PlansDoc {
   const seed = JSON.parse(readFileSync(seedFile, 'utf8')) as PlansDoc
-  for (const tier of PLAN_TIERS) if (!seed[tier]) throw new Error(`${seedFile}: missing tier ${tier}`)
+  if (!seed.free) throw new Error(`${seedFile}: missing tier free`)
+  const unknown = Object.keys(seed).filter((k) => !['fairUse', 'flags', ...PLAN_TIERS].includes(k))
+  if (unknown.length) throw new Error(`${seedFile}: unknown entries ${unknown.join(', ')}`)
+  return seed
+}
+
+if (!(await ref.get()).exists) {
+  const seed = readSeed()
   // Whatever the file says, a new doc starts with every feature switched off.
   seed.flags = Object.fromEntries(PLAN_FLAGS.map((f) => [f, false])) as Record<PlanFlag, boolean>
   await ref.set(seed)
@@ -40,9 +51,22 @@ if (!(await ref.get()).exists) {
 
 for (const arg of process.argv.slice(2)) {
   const [key, value] = arg.split('=')
-  if (key === 'tier') {
+  if (arg === 'table') {
+    const seed = readSeed()
+    const current = (await ref.get()).data() as PlansDoc
+    const update: Record<string, unknown> = { fairUse: seed.fairUse ?? current.fairUse }
+    for (const tier of PLAN_TIERS) {
+      const next = seed[tier]
+      // A price set with price= stays unless the file names its own.
+      const priceLabel = next?.priceLabel ?? current[tier]?.priceLabel
+      update[tier] = next ? { ...next, ...(priceLabel ? { priceLabel } : {}) } : FieldValue.delete()
+    }
+    await ref.update(update)
+    console.log('plans rewritten from', seedFile, '→', PLAN_TIERS.filter((t) => seed[t]).join(', '))
+  } else if (key === 'tier') {
     const [uid, tier] = (value || '').split(':')
     if (!uid || !PLAN_TIERS.includes(tier as PlanTier)) throw new Error(`tier=<uid>:<${PLAN_TIERS.join('|')}>`)
+    if (!((await ref.get()).data() as PlansDoc)[tier as PlanTier]) throw new Error(`${tier} is not in the plans table`)
     await db.doc(`users/${uid}`).update({ plan: { tier, status: 'active', since: FieldValue.serverTimestamp() } })
     console.log(`users/${uid} → ${tier}`)
   } else if (key === 'price') {

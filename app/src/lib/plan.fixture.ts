@@ -1,11 +1,11 @@
 // A made-up plans table for tests. The real one is not in this repository.
-import type { PlanEntitlements, Plans } from '../types'
+import type { PlanEntitlements, Plans, PlanTier } from '../types'
 
 const tier = (o: Partial<PlanEntitlements> = {}): PlanEntitlements => ({
   familyMembers: 1, retentionDays: 9, messenger: false, weekly: false, checkin: false, recap: false,
   voiceReplies: false, voiceAlbum: false, aiPhotosPerDay: 37, seniors: 1, ...o,
 })
-export const PLANS: Plans = {
+export const PLANS: Plans & Record<PlanTier, PlanEntitlements> = {
   free: tier(),
   basic: tier({ familyMembers: 2, retentionDays: 45, messenger: true, voiceReplies: true, aiPhotosPerDay: null }),
   plus: tier({ familyMembers: 2, retentionDays: 730, messenger: true, voiceReplies: true, weekly: true, checkin: true, aiPhotosPerDay: null }),

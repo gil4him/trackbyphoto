@@ -7,11 +7,17 @@
  * Photos are unlimited on every tier. Tiers differ by how the family
  * receives the day, how many family members join, how long memories are
  * kept, and hearing the parent's voice.
+ *
+ * Which plans are offered is also the table's to say: a tier named below
+ * but absent from the doc is simply not offered (see offeredTiers). An
+ * account still on such a tier is never treated worse for it: nothing of
+ * theirs is deleted and nobody is removed.
  */
 
 import { getFirestore } from 'firebase-admin/firestore'
 import { logger } from './log.js'
 
+/** Every plan the code knows by name, lowest first. */
 export const PLAN_TIERS = ['free', 'basic', 'plus', 'family'] as const
 export type PlanTier = (typeof PLAN_TIERS)[number]
 
@@ -34,7 +40,7 @@ export interface PlanEntitlements {
 export const PLAN_FLAGS = ['reactions', 'voiceReplies', 'digest', 'pushFamily', 'usageCaps', 'retentionJob', 'messengerFree', 'trailMap', 'planSheet'] as const
 export type PlanFlag = (typeof PLAN_FLAGS)[number]
 
-export interface PlansDoc extends Record<PlanTier, PlanEntitlements> {
+export interface PlansDoc extends Partial<Record<PlanTier, PlanEntitlements>> {
   fairUse: { photosPerDay: number | null }
   flags: Record<PlanFlag, boolean>
 }
@@ -54,6 +60,11 @@ export async function getPlans(): Promise<PlansDoc | null> {
   }
   cache = { value, expiresAt: now + 60_000 }
   return value
+}
+
+/** The plans in the table, lowest first. */
+export function offeredTiers(plans: PlansDoc): PlanTier[] {
+  return PLAN_TIERS.filter((t) => !!plans[t])
 }
 
 export async function flagOn(flag: PlanFlag): Promise<boolean> {

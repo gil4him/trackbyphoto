@@ -27,8 +27,6 @@ const DAY_MS = 24 * 3600 * 1000
 /** How far ahead the family is told, and the grace before the first delete. */
 export const NOTICE_DAYS = 7
 const MIN_RETENTION_DAYS = 7
-/** Tiers whose family is told about photos about to go. */
-const NOTICE_TIERS: PlanTier[] = ['free', 'basic']
 const PAGE = 300
 /** The job was off this long: start the grace period again. */
 const PAUSED_MS = NOTICE_DAYS * DAY_MS
@@ -62,12 +60,12 @@ function keptFor(days: number | null): string {
 /** How many photos go this week, and what the next plan up would keep. */
 export function expiringMessage(plans: PlansDoc, tier: PlanTier, count: number): string {
   const head = `이번 주에 사진 ${count}장이 지워져요.`
-  const mine = plans[tier].retentionDays
+  const mine = plans[tier]?.retentionDays
   const next = PLAN_TIERS.slice(PLAN_TIERS.indexOf(tier) + 1).find((t) => {
     const days = plans[t]?.retentionDays
     return days === null || (validDays(days) && typeof mine === 'number' && days > mine)
   })
-  return next ? `${head} ${TIER_LABEL[next]} 바꾸면 ${keptFor(plans[next].retentionDays)} 보관해요.` : head
+  return next ? `${head} ${TIER_LABEL[next]} 바꾸면 ${keptFor(plans[next]?.retentionDays ?? null)} 보관해요.` : head
 }
 
 /**
@@ -174,7 +172,8 @@ async function sweepPatient(
   }
 
   let notices = 0
-  if (expiring > 0 && NOTICE_TIERS.includes(tier)) {
+  // On whatever plan: a family is always told before kept photos go.
+  if (expiring > 0) {
     notices = await tellFamily(patientUid, expiringMessage(plans, tier, expiring), now)
   }
   return { deleted, notices }
