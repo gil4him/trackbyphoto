@@ -8,6 +8,7 @@ import { useOutboxSync } from './hooks/useOutbox'
 import { useNotifications } from './hooks/useNotifications'
 import { useAppUpdate, useReloadOnReturn } from './hooks/useAppUpdate'
 import { reloadToLatest } from './lib/sw'
+import { recallSettings, rememberSettings } from './lib/settingsCache'
 import { normalizeInviteCode, syncCaregiverName } from './lib/caregiver'
 import { setFaviconBadge } from './lib/favicon'
 import { Tabs, type TabKey } from './components/Tabs'
@@ -179,10 +180,21 @@ function App() {
   useEffect(() => {
     if (!user || !activePatientUid) return
     const sref = doc(db, 'users', activePatientUid)
-    const unsub = onSnapshot(sref, (snap) => {
+    // Metadata changes too: that is how "the server confirms there is no
+    // such doc" arrives after a first answer from the phone's empty cache.
+    const unsub = onSnapshot(sref, { includeMetadataChanges: true }, (snap) => {
       if (snap.exists()) {
-        setSettings({ ...DEFAULT_SETTINGS, ...(snap.data() as Partial<UserSettings>) })
+        const loaded = { ...DEFAULT_SETTINGS, ...(snap.data() as Partial<UserSettings>) }
+        setSettings(loaded)
         setSettingsUid(activePatientUid)
+        rememberSettings(activePatientUid, loaded)
+      } else if (snap.metadata.fromCache) {
+        // No connection, or a slow one: "no such doc" is only the phone's own
+        // empty cache talking. Never seed defaults on that (it would replace
+        // the real settings once the connection is back); show what this
+        // phone last knew until the server answers.
+        const known = recallSettings(activePatientUid)
+        if (known) setSettings({ ...DEFAULT_SETTINGS, ...known })
       } else if (activePatientUid === user.uid && !elder) {
         // Only seed defaults for the SELF doc — never overwrite a missing
         // doc for someone we're caregiving (could be a transient consistency
