@@ -21,6 +21,7 @@ them the dead-upload step.
 | `E2E_REAL_LLM=1` | write memos with the local Ollama model instead of the stand-in |
 | `E2E_HEADFUL=1` | watch it in a visible browser |
 | `E2E_SITE_DIR=<dir>` | check an already-built site (for example an older commit) |
+| `E2E_SNAP=1` | keep pictures of a few screens in `e2e/.tmp/shots` |
 
 ## What it covers
 
@@ -37,8 +38,13 @@ them the dead-upload step.
 7. 알림 offers only what is switched on.
 8. The daily summary is written, announced and opens from 알림.
 9. 설정 shows what is switched on and nothing that is not.
-10. The parent's phone opens with no connection and still knows whose it is.
-11. A slow connection never replaces someone's settings with defaults.
+10. Registering a second parent under a name already in use is stopped.
+11. A registration can be cancelled on the link step, leaving nothing behind.
+12. 설정 → 함께 보는 가족 lists the same people as the switcher.
+13. An account removed outside the app drops out of the lists, and the
+    worker withdraws the link to it.
+14. The parent's phone opens with no connection and still knows whose it is.
+15. A slow connection never replaces someone's settings with defaults.
 
 ## What it cannot cover
 

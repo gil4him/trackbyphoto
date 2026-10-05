@@ -9,6 +9,8 @@ import { useNotifications } from './hooks/useNotifications'
 import { useAppUpdate, useReloadOnReturn } from './hooks/useAppUpdate'
 import { reloadToLatest } from './lib/sw'
 import { recallSettings, rememberSettings } from './lib/settingsCache'
+import { usePatientNames } from './hooks/usePatientNames'
+import { listedPeople } from './lib/people'
 import { normalizeInviteCode, syncCaregiverName } from './lib/caregiver'
 import { setFaviconBadge } from './lib/favicon'
 import { Tabs, type TabKey } from './components/Tabs'
@@ -92,6 +94,10 @@ function App() {
   // is trackbyphoto.web.app/accept?code=123456.
   const [showAcceptInvite, setShowAcceptInvite] = useState(false)
   const { memberships: { patients }, loading: membershipsLoading } = useMembershipsWrapped(user?.uid)
+  // The people this user looks after, as every list shows them (the switcher,
+  // 설정 → 함께 보는 가족, the name check in 부모님 등록하기).
+  const patientNames = usePatientNames(useMemo(() => patients.map((p) => p.patientUid), [patients]))
+  const people = useMemo(() => listedPeople(patients, patientNames), [patients, patientNames])
   // Elder safeguard notices live on the signed-in user's own account (§8).
   const { unread: notifications, dismiss: dismissNotification } = useNotifications(user?.uid)
   // True once a newer build has been deployed than the one we're running.
@@ -140,14 +146,15 @@ function App() {
   useEffect(() => {
     if (!user) { setActivePatientUid(null); return }
     const stored = localStorage.getItem(activePatientStorageKey(user.uid))
-    if (stored && (stored === user.uid || patients.some((p) => p.patientUid === stored))) {
+    // An account the server says is gone can't be looked at either.
+    if (stored && (stored === user.uid || (patients.some((p) => p.patientUid === stored) && patientNames[stored] !== null))) {
       setActivePatientUid(stored)
     } else {
       setActivePatientUid(user.uid)
     }
     // Re-evaluate when the patients list arrives — a revoked membership
     // should bounce us back to self automatically.
-  }, [user, patients])
+  }, [user, patients, patientNames])
 
   // Stamp our real name onto any memberships where we're the caregiver, so the
   // patient sees a name (not a UID) in 가족 관리. Backfills older rows too.
@@ -479,11 +486,11 @@ function App() {
           </button>
         )}
         <main>
-          {patients.length > 0 && !selectedMemo && !openNews && !digestId && !trail && !voiceAlbum && (
+          {people.length > 0 && !selectedMemo && !openNews && !digestId && !trail && !voiceAlbum && (
             <PatientSwitcher
               selfUid={user.uid}
               selfLabel={selfLabel}
-              patients={patients}
+              people={people}
               activePatientUid={activePatientUid || user.uid}
               onChange={onSwitchPatient}
             />
@@ -563,6 +570,7 @@ function App() {
                   isSelf={isSelf}
                   onSwitchPatient={(uid) => { onSwitchPatient(uid); setTab('home') }}
                   myRole={myRole}
+                  people={people}
                   voiceRollout={flagOn(plans, 'voiceReplies')}
                   reactionsRollout={reactionsOn}
                   digestRollout={digestOn}

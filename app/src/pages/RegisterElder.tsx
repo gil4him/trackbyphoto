@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import QRCode from 'qrcode'
 import { useToast } from '../components/Toast'
-import { isWorkerOffline, WORKER_OFFLINE_MESSAGE } from '../lib/worker'
-import { createManagedElder, createPairingLink, formatPairCode, type PairingLink } from '../lib/pairing'
+import { isWorkerOffline, WorkerError, WORKER_OFFLINE_MESSAGE } from '../lib/worker'
+import { createManagedElder, createPairingLink, deleteManagedElder, formatPairCode, type PairingLink } from '../lib/pairing'
+import { nameTaken } from '../lib/people'
 import { buildPairMessage, openSMS, sharePairToKakao } from '../lib/share'
 import type { UserSettings } from '../types'
 
@@ -16,7 +17,10 @@ const NAME_CHOICES = ['엄마', '아빠', '어머니', '아버지', '할머니',
 
 type Step = 'name' | 'settings' | 'consent' | 'send'
 
-export function RegisterElder({ onClose, onRegistered }: {
+export function RegisterElder({ onClose, onRegistered, takenNames = [] }: {
+  /** Names of the people this family member already looks after: a second
+   *  person under the same name couldn't be told apart anywhere. */
+  takenNames?: string[]
   onClose: () => void
   /** Called once the elder exists, so the app can switch to their records. */
   onRegistered: (patientUid: string) => void
@@ -38,11 +42,27 @@ export function RegisterElder({ onClose, onRegistered }: {
       setStep('send')
     } catch (err) {
       console.error('[register] failed', err)
-      toast.show('등록하지 못했어요', isWorkerOffline(err) ? WORKER_OFFLINE_MESSAGE : '잠시 후 다시 시도해 주세요')
+      if (err instanceof WorkerError && err.code === 'already-exists') {
+        // The worker's own check (this screen's list can be a moment behind).
+        toast.show('이미 같은 이름으로 등록되어 있어요', '다른 이름으로 등록해 주세요')
+        setStep('name')
+      } else {
+        toast.show('등록하지 못했어요', isWorkerOffline(err) ? WORKER_OFFLINE_MESSAGE : '잠시 후 다시 시도해 주세요')
+      }
     } finally {
       setBusy(false)
     }
   }
+
+  // 등록 취소 on the link step: the parent was created a moment ago (the link
+  // needs someone to belong to); take them out again, with everything of theirs.
+  const cancelRegistration = async () => {
+    if (!patientUid) return
+    await deleteManagedElder(patientUid)
+    toast.show('등록을 취소했어요', `${name.trim()}님은 등록되지 않았어요`)
+    onClose()
+  }
+  const clash = nameTaken(name, takenNames)
 
   const close = () => {
     if (patientUid) onRegistered(patientUid)
@@ -69,10 +89,16 @@ export function RegisterElder({ onClose, onRegistered }: {
                 placeholder="직접 입력"
                 aria-label="부모님 이름"
               />
+              {clash && (
+                <div className="name-clash" role="alert">
+                  <b>이미 ‘{clash}’님이 등록되어 있어요.</b>
+                  <span>다른 분이라면 구분되는 이름으로 등록해 주세요 (예: 외{clash}). 같은 분의 새 휴대폰을 연결하려면 {clash}님 설정의 ‘기기 관리’에서 ‘새 휴대폰 연결’을 눌러 주세요.</span>
+                </div>
+              )}
             </div>
             <div className="modal-actions">
               <button className="signin-secondary" onClick={onClose}>취소</button>
-              <button className="linkbtn" disabled={!name.trim()} onClick={() => setStep('settings')}>
+              <button className="linkbtn" disabled={!name.trim() || !!clash} onClick={() => setStep('settings')}>
                 <span>다음</span><span aria-hidden="true">→</span>
               </button>
             </div>
@@ -134,7 +160,7 @@ export function RegisterElder({ onClose, onRegistered }: {
         )}
 
         {step === 'send' && patientUid && (
-          <PairingSender patientUid={patientUid} patientName={name.trim()} onClose={close} />
+          <PairingSender patientUid={patientUid} patientName={name.trim()} onClose={close} onCancelRegistration={cancelRegistration} />
         )}
       </div>
     </div>
@@ -146,10 +172,12 @@ export function RegisterElder({ onClose, onRegistered }: {
  * the elder scans while sitting next to you. Used right after registering
  * and again from 기기 관리 → 새 휴대폰 연결.
  */
-export function PairingSender({ patientUid, patientName, onClose }: {
+export function PairingSender({ patientUid, patientName, onClose, onCancelRegistration }: {
   patientUid: string
   patientName: string
   onClose: () => void
+  /** Only right after registering: undo the registration instead of finishing. */
+  onCancelRegistration?: () => Promise<void>
 }) {
   const toast = useToast()
   const [link, setLink] = useState<(PairingLink & { mode: 'remote' | 'qr' }) | null>(null)
@@ -260,7 +288,24 @@ export function PairingSender({ patientUid, patientName, onClose }: {
         )}
       </div>
       <div className="modal-actions">
-        <button className="signin-secondary" onClick={onClose}>완료</button>
+        {onCancelRegistration && (
+          <button
+            className="signin-secondary danger-text"
+            disabled={busy}
+            onClick={async () => {
+              if (!confirm(`${patientName}님 등록을 취소할까요?\n방금 만든 ${patientName}님 계정과 연결 링크가 지워져요.`)) return
+              setBusy(true)
+              try {
+                await onCancelRegistration()
+              } catch (err) {
+                console.error('[register] cancel failed', err)
+                toast.show('취소하지 못했어요', isWorkerOffline(err) ? WORKER_OFFLINE_MESSAGE : '설정 아래쪽 ‘부모님 삭제’에서 지울 수 있어요')
+                setBusy(false)
+              }
+            }}
+          >등록 취소</button>
+        )}
+        <button className="signin-secondary" disabled={busy} onClick={onClose}>완료</button>
       </div>
     </>
   )
