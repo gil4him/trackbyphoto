@@ -5,7 +5,7 @@ import { db } from '../firebase'
 import type { DigestSettings, UserSettings, Memo } from '../types'
 import { useToast } from '../components/Toast'
 import { useMemberships } from '../hooks/useMemberships'
-import { isWorkerOffline, WORKER_OFFLINE_MESSAGE } from '../lib/worker'
+import { isWorkerOffline, WorkerError, WORKER_OFFLINE_MESSAGE } from '../lib/worker'
 import {
   createInvite,
   revokeMembership,
@@ -18,6 +18,9 @@ import { ElderDevices } from '../components/ElderDevices'
 import { deleteManagedElder } from '../lib/pairing'
 import { getGeo } from '../lib/location'
 import { DEFAULT_DIGEST, DIGEST_HOURS, saveDigestSettings } from '../lib/digest'
+import type { PlanReason } from '../lib/plan'
+import { S } from '../lib/strings'
+import type { PlanTier } from '../types'
 
 /** Version of the 음성 답장 consent text shown below. */
 const VOICE_CONSENT_VERSION = 'voice-v1'
@@ -47,9 +50,15 @@ interface Props {
   digestRollout?: boolean
   /** This parent's plan includes the weekly highlight. */
   weeklyIncluded?: boolean
+  /** Set while the plan sheet is rolled out: opens 부모님께 드리는 선물. */
+  onOpenPlans?: (reason: PlanReason) => void
+  /** "Free", "Basic" …: the plan this person is on. */
+  planName?: string
+  /** How many family members the plan shares with; null when it isn't known. */
+  familyLimit?: number | null
 }
 
-export function Settings({ settings, onChange, user, onSignOut, memos, activePatientUid, isSelf, onSwitchPatient, myRole, voiceRollout = false, reactionsRollout = false, digestRollout = false, weeklyIncluded = false }: Props) {
+export function Settings({ settings, onChange, user, onSignOut, memos, activePatientUid, isSelf, onSwitchPatient, myRole, voiceRollout = false, reactionsRollout = false, digestRollout = false, weeklyIncluded = false, onOpenPlans, planName, familyLimit = null }: Props) {
   const toast = useToast()
   // A family-managed elder (부모님 등록하기): family runs 가족 관리 and
   // 기기 관리 for them, since the elder's phone has no settings at all.
@@ -98,7 +107,13 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
   const [showPhoneField, setShowPhoneField] = useState(false)
   const [invitePhone, setInvitePhone] = useState('')
 
+  const activeFamily = caregivers.filter((m) => m.status === 'active' && m.caregiverUid !== activePatientUid).length
   const openInvite = () => {
+    // 가족초대 at the plan's count: the plan sheet instead of the invite.
+    if (onOpenPlans && familyLimit != null && activeFamily >= familyLimit) {
+      onOpenPlans({ kind: 'family', limit: familyLimit })
+      return
+    }
     setInviteStep('confirm')
     setInviteCode('')
     setShowPhoneField(false)
@@ -123,6 +138,13 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
       setInviteCode(res.code)
       setInviteStep('send')
     } catch (err) {
+      // The worker has the last word on the plan's count (the list here can lag).
+      if (onOpenPlans && err instanceof WorkerError && err.code === 'plan-limit') {
+        closeInvite()
+        const d = err.details as { limit?: number; nextTier?: PlanTier | null } | undefined
+        onOpenPlans({ kind: 'family', limit: d?.limit ?? familyLimit ?? activeFamily, nextTier: d?.nextTier })
+        return
+      }
       console.error('[invite] create failed', err)
       toast.show('초대 만들기에 실패했어요', isWorkerOffline(err) ? WORKER_OFFLINE_MESSAGE : '잠시 후 다시 시도해주세요')
     } finally {
@@ -396,6 +418,20 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
         </div>
       )}
 
+      {onOpenPlans && (
+        <div className="sect">
+          <div className="sect-lab">요금제</div>
+          <div className="row">
+            <div className="who"><b>{S.planCurrent}</b><br /><span>{planName ?? ''}</span></div>
+          </div>
+          <button className="linkbtn" onClick={() => onOpenPlans({ kind: 'settings' })}>
+            <span>{S.planTitle}</span>
+            <span aria-hidden="true">→</span>
+          </button>
+          <div className="help">가족이 함께 보는 방법과 사진을 보관하는 기간이 요금제마다 달라요.</div>
+        </div>
+      )}
+
       {digestRollout && canManageHere && (
         <div className="sect">
           <div className="sect-lab">하루 요약</div>
@@ -512,7 +548,7 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
         </div>
       </div>
 
-      <div className="sect">
+      {!onOpenPlans && <div className="sect">
         <div className="sect-lab">사진 보관</div>
         <div className="seg">
           <button
@@ -529,7 +565,7 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
           >계속</button>
         </div>
         <div className="help">기간이 지난 사진은 자동 삭제됩니다.</div>
-      </div>
+      </div>}
 
       <div className="proto-note">
         <b>Phase 1 안내.</b> 사진은 Firebase Cloud Storage에 저장되고, 메모는 Firestore에 기록됩니다.

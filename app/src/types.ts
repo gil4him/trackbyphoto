@@ -81,8 +81,8 @@ export interface UserSettings {
    *  'quick' (ready-made phrases; the default), 'full' (phrases and typing),
    *  or 'off'. Set by family in 설정. */
   textReplies?: TextReplies
-  /** The patient's plan. Written only by the worker; missing means free. */
-  plan?: { tier: PlanTier; status?: string }
+  /** The patient's plan. Written only by the worker (changePlan); missing means free. */
+  plan?: { tier: PlanTier; status?: string; since?: Timestamp }
   /** When the digest of this person's day goes out (worker-owned; setDigest). */
   digest?: DigestSettings
   /** 'managed' when a family member registered this elder (부모님 등록하기):
@@ -225,12 +225,14 @@ export interface PlanEntitlements {
   voiceAlbum: boolean
   aiPhotosPerDay: number | null
   seniors: number
+  /** Shown on the plan sheet as written ("₩0,000/월"); no price is shown without it. */
+  priceLabel?: string
 }
 
 /** admin_config/plans — the only place entitlements and rollout flags live. */
 export type Plans = Record<PlanTier, PlanEntitlements> & {
   fairUse: { photosPerDay: number | null }
-  flags: Partial<Record<'reactions' | 'voiceReplies' | 'digest' | 'pushFamily' | 'usageCaps' | 'retentionJob' | 'messengerFree' | 'trailMap', boolean>>
+  flags: Partial<Record<'reactions' | 'voiceReplies' | 'digest' | 'pushFamily' | 'usageCaps' | 'retentionJob' | 'messengerFree' | 'trailMap' | 'planSheet', boolean>>
 }
 
 export type ReactionKind = 'heart' | 'comment' | 'voice'

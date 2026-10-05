@@ -35,6 +35,7 @@ import { getPlans, tierOf, type PlansDoc } from '../plans.js'
 import { localClock, localDayStart, tzOffsetMin, validTz, type LocalClock } from '../zoned.js'
 import { isOwnerOrAdminCaregiver } from './caregiver.js'
 import { checkIn } from './checkin.js'
+import { invitePrompt } from './family.js'
 import { appLink, contactDoc, pushToUsers, type PushMessage } from './push.js'
 
 export interface DigestSettings {
@@ -151,7 +152,7 @@ export function repliesLine(name: string, hearts: number, voices: number, texts 
   return parts.length ? `${name}님이 ${parts.join(', ')}를 남기셨어요` : ''
 }
 
-export interface DigestRun { digests: number; deliveries: number; checkins: number }
+export interface DigestRun { digests: number; deliveries: number; checkins: number; prompts: number }
 
 const summaryAttempts = new Map<string, number>()
 
@@ -175,7 +176,7 @@ export async function runDigests(now: Date = new Date(), deps: DigestDeps = defa
     family.set(patientUid, [...(family.get(patientUid) ?? []), caregiverUid])
   }
 
-  const run: DigestRun = { digests: 0, deliveries: 0, checkins: 0 }
+  const run: DigestRun = { digests: 0, deliveries: 0, checkins: 0, prompts: 0 }
   for (const [patientUid, recipients] of family) {
     try {
       const user = (await db.doc(`users/${patientUid}`).get()).data()
@@ -186,12 +187,16 @@ export async function runDigests(now: Date = new Date(), deps: DigestDeps = defa
       const tier = tierOf(user)
       const name = (user.patientName as string) || '부모님'
 
+      let digested = false
       for (const period of periods(clock, s.tz, now, s, plans, tier)) {
         const waitForModel = clock.hour < Math.min(23, s.hourLocal + WAIT_FOR_MODEL_HOURS)
         const one = await ensureDigest({ patientUid, name, period, recipients, plans, tier, waitForModel, tz: s.tz }, deps)
         run.digests += one.created ? 1 : 0
         run.deliveries += one.deliveries
+        digested ||= one.exists
       }
+      // Two weeks after the first digest: suggest sharing it with a sibling.
+      if (digested) run.prompts += await invitePrompt({ patientUid, plans, tier, now })
       if (plans[tier]?.checkin === true) {
         const told = await checkIn({
           patientUid,
@@ -208,7 +213,7 @@ export async function runDigests(now: Date = new Date(), deps: DigestDeps = defa
       logger.error('[digest] patient failed; continuing with the rest', { patientUid, err: String(err) })
     }
   }
-  if (run.digests || run.deliveries || run.checkins) logger.info('[digest] done', { ...run })
+  if (run.digests || run.deliveries || run.checkins || run.prompts) logger.info('[digest] done', { ...run })
   return run
 }
 
@@ -223,7 +228,7 @@ interface EnsureArgs {
   tz: string
 }
 
-async function ensureDigest(a: EnsureArgs, deps: DigestDeps): Promise<{ created: boolean; deliveries: number }> {
+async function ensureDigest(a: EnsureArgs, deps: DigestDeps): Promise<{ created: boolean; deliveries: number; exists: boolean }> {
   const db = getFirestore()
   const id = `${a.patientUid}_${a.period.kind}_${a.period.key}`
   const ref = db.doc(`digests/${id}`)
@@ -232,7 +237,7 @@ async function ensureDigest(a: EnsureArgs, deps: DigestDeps): Promise<{ created:
 
   if (!snap.exists) {
     const built = await buildDigest(a, deps)
-    if (!built) return { created: false, deliveries: 0 }
+    if (!built) return { created: false, deliveries: 0, exists: false }
     try {
       await ref.create(built)
       created = true
@@ -245,7 +250,7 @@ async function ensureDigest(a: EnsureArgs, deps: DigestDeps): Promise<{ created:
   }
 
   const deliveries = await deliver(ref, snap.data()!, a, deps)
-  return { created, deliveries }
+  return { created, deliveries, exists: true }
 }
 
 /** The digest's content, or null when there is nothing to send yet. */

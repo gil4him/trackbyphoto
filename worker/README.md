@@ -42,6 +42,9 @@ The worker only makes outbound connections. Ollama stays on `localhost`. When th
    # KAKAO_ALIMTALK_SENDER=...  KAKAO_ALIMTALK_TEMPLATE_DIGEST=...   # 알림톡 (Solapi), Korean numbers
    # WHATSAPP_TOKEN=... WHATSAPP_PHONE_ID=... WHATSAPP_TEMPLATE_DIGEST=...   # other countries
    # TWILIO_ACCOUNT_SID=... TWILIO_AUTH_TOKEN=... TWILIO_FROM=...           # SMS fallback
+
+   # Plan changes charge nothing: the payment provider is a stand-in (src/payments).
+   # PAYMENT_PROVIDER=stub      # any other name refuses plan changes until that provider is built
    ```
 
 3. **Install** the worker as a launchd agent. It starts at login and restarts automatically if it exits:

@@ -7,7 +7,7 @@
  * forbid client updates, so the identity on the doc is trustworthy. The worker
  * claims the doc (pending → processing, in a transaction so a restart can't
  * double-run it), runs the handler, and writes back either
- *   { status: 'done', result }  or  { status: 'error', code, message }.
+ *   { status: 'done', result }  or  { status: 'error', code, message, details? }.
  * The client awaits that via onSnapshot and then deletes the doc.
  *
  * Requests orphaned by a client that gave up (timeout, closed tab) are purged
@@ -37,6 +37,7 @@ import {
 
 import { registerFcmToken, setChannels } from './push.js'
 import { setDigest } from './digest.js'
+import { changePlan } from './plan.js'
 
 type Handler = (caller: Caller, payload: any) => Promise<unknown>
 
@@ -60,6 +61,7 @@ export const HANDLERS: Record<string, Handler> = {
   registerFcmToken,
   setChannels,
   setDigest,
+  changePlan,
 }
 
 const STALE_AFTER_MS = 24 * 3600 * 1000
@@ -95,7 +97,8 @@ export async function processRequest(requestId: string): Promise<void> {
     const code = err instanceof WorkerError ? err.code : 'internal'
     const message = err instanceof Error ? err.message : String(err)
     if (code === 'internal') logger.error('[request] handler threw', { requestId, type, err: message })
-    outcome = { status: 'error', code, message }
+    const details = err instanceof WorkerError ? err.details : undefined
+    outcome = { status: 'error', code, message, ...(details ? { details } : {}) }
   }
 
   try {

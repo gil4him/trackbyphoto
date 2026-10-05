@@ -844,3 +844,30 @@ a.pair-btn { display: flex; align-items: center; justify-content: center; text-d
 .news-type input:focus { outline: none; border-color: var(--coral2); }
 .news-type button { flex: none; min-height: 64px; padding: 0 20px; border: 0; border-radius: 18px; background: linear-gradient(135deg, var(--coral1), var(--coral2)); color: #fff; font: inherit; font-size: 22px; font-weight: 800; }
 .news-type button:disabled { opacity: .4; }
+
+/* ── v2 phase 6: plan sheet, locked voice card, 목소리 앨범 ──────────── */
+button.rx-voice.locked { width: 100%; padding: 10px 12px; border: 1px solid #FFD3BD; border-radius: 14px; background: #FFF6F0; font: inherit; font-weight: 600; text-align: left; cursor: pointer; }
+.plan-sheet { max-width: 460px; }
+.plan-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.plan-close { flex: none; border: 0; background: none; padding: 4px 2px; font: inherit; font-size: 15px; font-weight: 700; color: var(--ink-2); cursor: pointer; }
+.plan-reason { padding: 12px 14px; border-radius: 14px; background: #FFF1E9; border: 1px solid #FFD3BD; font-size: 16px; font-weight: 700; line-height: 1.45; word-break: keep-all; }
+.plan-memory { font-size: 14px; color: var(--ink-2); font-weight: 600; }
+.plan-cards { display: flex; flex-direction: column; gap: 10px; }
+.plan-card { border: 1px solid var(--line); border-radius: 16px; padding: 14px; background: #fff; }
+.plan-card.current { background: #fafafb; }
+.plan-card.suggested { border: 2px solid var(--coral2); }
+.plan-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.plan-name { font-size: 18px; font-weight: 800; }
+.plan-price { font-size: 15px; font-weight: 700; color: var(--ink-2); }
+.plan-head .plan-chip { margin-left: auto; }
+.plan-chip.rec { background: var(--coral2); color: #fff; }
+.plan-lines { margin-top: 6px; font-size: 15px; line-height: 1.55; color: var(--ink-2); word-break: keep-all; }
+.plan-go { display: block; width: 100%; margin-top: 12px; min-height: 46px; border: 1.5px solid var(--coral2); border-radius: 999px; background: #fff; color: var(--accent-ink); font: inherit; font-size: 15.5px; font-weight: 800; cursor: pointer; }
+.plan-card.suggested .plan-go { border: 0; background: linear-gradient(135deg, var(--coral1), var(--coral2)); color: #fff; }
+.plan-go:disabled { opacity: .5; cursor: default; }
+.va-link { display: inline-block; margin: -6px 0 10px; border: 0; background: none; padding: 4px 0; color: var(--accent-ink); font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; }
+.va-item { display: flex; gap: 12px; align-items: flex-start; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.va-photo { flex: none; padding: 0; border: 0; background: none; }
+.va-body { flex: 1; min-width: 0; }
+.va-when { font-size: 14px; font-weight: 700; color: var(--ink-2); margin-bottom: 6px; }
+.va-body audio { width: 100%; height: 36px; }

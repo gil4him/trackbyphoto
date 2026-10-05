@@ -130,9 +130,26 @@ describe('daily digest', () => {
     await seedMembership('p1', 'cg1')
     await saturday()
     const { deps } = fakes()
-    expect(await runDigests(KST('2026-10-03T19:55:00'), deps)).toEqual({ digests: 0, deliveries: 0, checkins: 0 })
+    expect(await runDigests(KST('2026-10-03T19:55:00'), deps)).toEqual({ digests: 0, deliveries: 0, checkins: 0, prompts: 0 })
     await db.doc('users/p1').update({ digest: { cadence: 'daily', hourLocal: 19, tz: 'Asia/Seoul' } })
     expect((await runDigests(KST('2026-10-03T19:55:00'), deps))!.digests).toBe(1)
+  })
+
+  it('two weeks after the first digest, suggests a sibling to the only family member on the starting plan', async () => {
+    await plans({ digest: true, planSheet: true })
+    await patient()
+    await seedMembership('p1', 'cg1', { role: 'guardian' })
+    await saturday()
+    const { deps } = fakes()
+    expect((await runDigests(SAT_EVENING, deps))!.prompts).toBe(0)
+    expect((await db.doc('users/p1/private/family').get()).data()!.firstDigestAt.toDate()).toEqual(SAT_EVENING)
+
+    // No photos, no digest, no prompt; it comes with the next digest.
+    expect((await runDigests(KST('2026-10-17T20:05:00'), deps))!.prompts).toBe(0)
+    await photo('later', KST('2026-10-18T10:00:00'))
+    expect((await runDigests(KST('2026-10-18T20:05:00'), deps))!.prompts).toBe(1)
+    expect((await runDigests(KST('2026-10-18T20:15:00'), deps))!.prompts).toBe(0)
+    expect(await notices('cg1', 'family.invite_prompt')).toEqual([expect.objectContaining({ message: '언니·오빠도 함께 받아보세요', patientUid: 'p1' })])
   })
 
   it('summarises the day from its memos and includes the parent\'s replies', async () => {
@@ -141,7 +158,7 @@ describe('daily digest', () => {
     await seedMembership('p1', 'cg1')
     await saturday()
     const { f, deps } = fakes()
-    expect(await runDigests(SAT_EVENING, deps)).toEqual({ digests: 1, deliveries: 1, checkins: 0 })
+    expect(await runDigests(SAT_EVENING, deps)).toEqual({ digests: 1, deliveries: 1, checkins: 0, prompts: 0 })
 
     expect(f.prompts).toEqual([{
       span: 'daily',
@@ -205,12 +222,12 @@ describe('daily digest', () => {
     await saturday()
     const { f, deps } = fakes()
     await runDigests(SAT_EVENING, deps)
-    expect(await runDigests(KST('2026-10-03T20:15:00'), deps)).toEqual({ digests: 0, deliveries: 0, checkins: 0 })
+    expect(await runDigests(KST('2026-10-03T20:15:00'), deps)).toEqual({ digests: 0, deliveries: 0, checkins: 0, prompts: 0 })
     expect(f.mails).toHaveLength(1)
     expect(await notices('cg1', 'digest.ready')).toHaveLength(1)
 
     await seedMembership('p1', 'late')
-    expect(await runDigests(KST('2026-10-03T20:25:00'), deps)).toEqual({ digests: 0, deliveries: 1, checkins: 0 })
+    expect(await runDigests(KST('2026-10-03T20:25:00'), deps)).toEqual({ digests: 0, deliveries: 1, checkins: 0, prompts: 0 })
     expect(f.prompts).toHaveLength(1)
     expect(await notices('late', 'digest.ready')).toHaveLength(1)
     expect((await db.collection('digests').get()).size).toBe(1)
@@ -244,7 +261,7 @@ describe('daily digest', () => {
     await seedMembership('p1', 'cg1')
     await photo('yesterday', KST('2026-10-02T15:00:00'))
     const { f, deps } = fakes()
-    expect(await runDigests(SAT_EVENING, deps)).toEqual({ digests: 0, deliveries: 0, checkins: 0 })
+    expect(await runDigests(SAT_EVENING, deps)).toEqual({ digests: 0, deliveries: 0, checkins: 0, prompts: 0 })
     expect(f.prompts).toEqual([])
     expect((await db.collection('notifications').get()).size).toBe(0)
   })
@@ -341,8 +358,8 @@ describe('weekly highlight, monthly recap, check-in', () => {
     await seedMembership('p1', 'cg2')
     await photo('yesterday', KST('2026-10-02T15:00:00'))
     const { f, deps } = fakes()
-    expect(await runDigests(SAT_EVENING, deps)).toEqual({ digests: 0, deliveries: 0, checkins: 1 })
-    expect(await runDigests(KST('2026-10-03T20:15:00'), deps)).toEqual({ digests: 0, deliveries: 0, checkins: 0 })
+    expect(await runDigests(SAT_EVENING, deps)).toEqual({ digests: 0, deliveries: 0, checkins: 1, prompts: 0 })
+    expect(await runDigests(KST('2026-10-03T20:15:00'), deps)).toEqual({ digests: 0, deliveries: 0, checkins: 0, prompts: 0 })
     for (const uid of ['cg1', 'cg2']) {
       expect((await notices(uid, 'checkin.no_photo')).map((n) => n.message)).toEqual(['오늘 아직 어머니님의 사진이 없어요'])
     }

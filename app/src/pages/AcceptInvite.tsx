@@ -52,6 +52,8 @@ function friendlyError(err: unknown): string {
       if (e.message?.includes('used')) return '이미 사용된 초대예요. 새로 받아주세요.'
       if (e.message?.includes('own invite')) return '내가 보낸 초대는 수락할 수 없어요.'
       return '초대를 사용할 수 없어요. 새로 받아주세요.'
+    case 'plan-limit':
+      return '지금은 이 가족에 더 참여할 수 없어요. 초대한 가족에게 알려 주세요.'
     case 'already-exists':
       return '이미 이 가족의 기록에 참여하고 있어요.'
     case 'unauthenticated':

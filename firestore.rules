@@ -433,7 +433,7 @@ service cloud.firestore {
                          'syncCaregiverName', 'regenerateMemo', 'backfillMemoSchema', 'backfillPatientUid',
                          'createManagedElder', 'createPairingLink', 'approvePairing', 'unlinkDevice', 'deleteManagedElder',
                          'pairDevice', 'completePairing',
-                         'registerFcmToken', 'setChannels', 'setDigest'
+                         'registerFcmToken', 'setChannels', 'setDigest', 'changePlan'
                        ]
                     // An elder's phone makes no requests; an anonymous
                     // session may only redeem a pairing code.

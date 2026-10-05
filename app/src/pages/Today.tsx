@@ -7,6 +7,7 @@ import { useOutbox } from '../hooks/useOutbox'
 import { useWorkerStatus } from '../hooks/useWorkerStatus'
 import type { OutboxItem } from '../lib/outbox'
 import { Reactions, type ReactionsContext } from '../components/Reactions'
+import { S } from '../lib/strings'
 import type { Memo } from '../types'
 
 /** A photo still on this phone, waiting to be sent. */
@@ -32,7 +33,7 @@ function WaitingPhoto({ item }: { item: OutboxItem }) {
  * phone are listed first. `readOnly` (an elder's linked phone) hides the
  * delete buttons.
  */
-export function Today({ memos, onOpen, uid, readOnly = false, rx, onOpenTrail }: { memos: Memo[]; onOpen: (id: string) => void; uid?: string; readOnly?: boolean; /** Hearts and comments under each photo (family feed). */ rx?: ReactionsContext; /** 다녀온 곳 for one day (shown on days that have a located photo). */ onOpenTrail?: (day: Date) => void }) {
+export function Today({ memos, onOpen, uid, readOnly = false, rx, onOpenTrail, onOpenVoiceAlbum }: { memos: Memo[]; onOpen: (id: string) => void; uid?: string; readOnly?: boolean; /** Hearts and comments under each photo (family feed). */ rx?: ReactionsContext; /** 다녀온 곳 for one day (shown on days that have a located photo). */ onOpenTrail?: (day: Date) => void; /** 목소리 앨범, on a plan that includes it (family only). */ onOpenVoiceAlbum?: () => void }) {
   const toast = useToast()
   // Hide a waiting photo once its memo shows up from the server.
   const memoIds = useMemo(() => new Set(memos.map((m) => m.id)), [memos])
@@ -67,6 +68,9 @@ export function Today({ memos, onOpen, uid, readOnly = false, rx, onOpenTrail }:
     <section className="page">
       <div className="h-eyebrow">최근 기록</div>
       <h2 className="h-title">사진</h2>
+      {onOpenVoiceAlbum && (
+        <button type="button" className="va-link" onClick={onOpenVoiceAlbum}>🎙️ {S.voiceAlbum} ›</button>
+      )}
 
       {waiting.length > 0 && (
         <div>

@@ -3,7 +3,8 @@
  *
  *   npm run plans                      create the doc from the private seed file if missing, then print it
  *   npm run plans -- reactions=on      switch a rollout flag (on/off)
- *   npm run plans -- tier=<uid>:basic  put one patient on a tier (until changePlan exists, Phase 6)
+ *   npm run plans -- tier=<uid>:basic  put one patient on a tier (families do this themselves on the plan sheet)
+ *   npm run plans -- price=basic:₩0,000/월   the price shown on a plan's card (price=basic: removes it)
  *
  * The tier table is kept out of this public repository: the seed is read
  * from ~/.trackbyphoto/plans.seed.json (or PLANS_SEED).
@@ -44,6 +45,13 @@ for (const arg of process.argv.slice(2)) {
     if (!uid || !PLAN_TIERS.includes(tier as PlanTier)) throw new Error(`tier=<uid>:<${PLAN_TIERS.join('|')}>`)
     await db.doc(`users/${uid}`).update({ plan: { tier, status: 'active', since: FieldValue.serverTimestamp() } })
     console.log(`users/${uid} → ${tier}`)
+  } else if (key === 'price') {
+    // Prices are not in this repository either; the sheet shows what is set here.
+    const [tier, ...label] = (value || '').split(':')
+    if (!PLAN_TIERS.includes(tier as PlanTier)) throw new Error(`price=<${PLAN_TIERS.join('|')}>:<label>`)
+    const priceLabel = label.join(':').trim()
+    await ref.update({ [`${tier}.priceLabel`]: priceLabel || FieldValue.delete() })
+    console.log(`price ${tier} → ${priceLabel || '(none)'}`)
   } else if (PLAN_FLAGS.includes(key as PlanFlag) && (value === 'on' || value === 'off')) {
     await ref.update({ [`flags.${key}`]: value === 'on' })
     console.log(`flag ${key} → ${value}`)
