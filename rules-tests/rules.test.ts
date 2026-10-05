@@ -914,9 +914,27 @@ describe('reactions', () => {
     await assertFails(setDoc(doc(familyDb(), 'reactions', 'c1'), base(CAREGIVER_ACTIVE_VIEWER, 'comment', { text: '안녕', memoId: 'no-such-memo' })))
   })
 
-  it('the parent sends a heart, never a comment', async () => {
+  it('the parent sends a heart or a short written reply', async () => {
     await assertSucceeds(setDoc(doc(authedDb(PATIENT), 'reactions', 'h1'), base(PATIENT, 'heart', { actorName: 'Alice' })))
+    await assertSucceeds(setDoc(doc(authedDb(PATIENT), 'reactions', 'c1'), base(PATIENT, 'comment', { actorName: 'Alice', text: '고마워' })))
+    await assertFails(setDoc(doc(authedDb(PATIENT), 'reactions', 'c0'), base(PATIENT, 'comment', { actorName: 'Alice', text: '' })))
+    await assertFails(setDoc(doc(authedDb(PATIENT), 'reactions', 'c61'), base(PATIENT, 'comment', { actorName: 'Alice', text: '가'.repeat(61) })))
+    await assertFails(setDoc(doc(authedDb(PATIENT), 'reactions', 'c2'), base(PATIENT, 'comment', { actorName: 'Alice', text: '고마워', transcript: 'x' })))
+    await assertFails(setDoc(doc(authedDb(PATIENT), 'reactions', 'c3'), base(PATIENT, 'comment', { actorName: 'Alice', text: '고마워', notified: true })))
+    // Not on someone else's records.
+    await assertFails(setDoc(doc(authedDb(STRANGER), 'reactions', 'c4'), base(STRANGER, 'comment', { text: '고마워' })))
+  })
+
+  it('family can switch the parent\'s written replies off', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await updateDoc(doc(ctx.firestore(), 'users', PATIENT), { textReplies: 'off' })
+    })
     await assertFails(setDoc(doc(authedDb(PATIENT), 'reactions', 'c1'), base(PATIENT, 'comment', { actorName: 'Alice', text: '고마워' })))
+    await assertSucceeds(setDoc(doc(authedDb(PATIENT), 'reactions', 'h1'), base(PATIENT, 'heart', { actorName: 'Alice' })))
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await updateDoc(doc(ctx.firestore(), 'users', PATIENT), { textReplies: 'full' })
+    })
+    await assertSucceeds(setDoc(doc(authedDb(PATIENT), 'reactions', 'c2'), base(PATIENT, 'comment', { actorName: 'Alice', text: '오늘 병원 다녀왔어' })))
   })
 
   it('the parent sends a voice reply only after voice replies were agreed to', async () => {

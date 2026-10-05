@@ -76,6 +76,19 @@ describe('family reactions', () => {
 })
 
 describe('the parent\'s reactions', () => {
+  it('a written reply reaches every active family member, with a push', async () => {
+    await seed('t1', { actorUid: 'p1', actorName: '어머니', kind: 'comment', text: '밥 먹었어' })
+    const pushes: Array<{ uids: string[]; type?: string }> = []
+    await processReaction('t1', 1, deps({ push: async (uids, message) => { pushes.push({ uids, type: message.data?.type }) } }))
+    expect(await reaction('t1')).toMatchObject({ notified: true, status: 'ready', text: '밥 먹었어' })
+    for (const uid of ['cg1', 'cg2']) {
+      expect((await notices(uid))[0]).toMatchObject({ type: 'reaction.comment', message: '어머니님이 답장을 남기셨어요', reactionId: 't1' })
+    }
+    expect(await notices('gone')).toHaveLength(0)
+    expect(await notices('p1')).toHaveLength(0)
+    expect(pushes).toEqual([{ uids: ['cg1', 'cg2'], type: 'reaction.comment' }])
+  })
+
   it('a heart reaches every active family member', async () => {
     await seed('h1', { actorUid: 'p1', actorName: '어머니', kind: 'heart' })
     await processReaction('h1', 1, deps())

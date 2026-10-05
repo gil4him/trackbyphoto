@@ -41,13 +41,15 @@ interface Props {
   myRole?: string
   /** Voice replies are rolled out (admin_config/plans flag). */
   voiceRollout?: boolean
+  /** Hearts and replies are rolled out: show how this person may answer in writing. */
+  reactionsRollout?: boolean
   /** The digest is rolled out: 하루 요약 replaces the old 전송 시점 choice. */
   digestRollout?: boolean
   /** This parent's plan includes the weekly highlight. */
   weeklyIncluded?: boolean
 }
 
-export function Settings({ settings, onChange, user, onSignOut, memos, activePatientUid, isSelf, onSwitchPatient, myRole, voiceRollout = false, digestRollout = false, weeklyIncluded = false }: Props) {
+export function Settings({ settings, onChange, user, onSignOut, memos, activePatientUid, isSelf, onSwitchPatient, myRole, voiceRollout = false, reactionsRollout = false, digestRollout = false, weeklyIncluded = false }: Props) {
   const toast = useToast()
   // A family-managed elder (부모님 등록하기): family runs 가족 관리 and
   // 기기 관리 for them, since the elder's phone has no settings at all.
@@ -462,6 +464,22 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
         </div>
         <div className="help">끄면 보내기 전에 가족이 한 번 확인할 수 있어요</div>
       </div>
+
+      {reactionsRollout && canManageHere && (
+        <div className="sect">
+          <div className="sect-lab">글로 답장</div>
+          <div className="seg">
+            <button className={(settings.textReplies ?? 'quick') === 'off' ? 'on' : ''} onClick={() => update('textReplies', 'off')}>끄기</button>
+            <button className={(settings.textReplies ?? 'quick') === 'quick' ? 'on' : ''} onClick={() => update('textReplies', 'quick')}>짧은 답장</button>
+            <button className={settings.textReplies === 'full' ? 'on' : ''} onClick={() => update('textReplies', 'full')}>직접 쓰기도</button>
+          </div>
+          <div className="help">
+            {settings.textReplies === 'off' ? `${settings.patientName}님은 하트${settings.voiceEnabled ? '와 목소리' : ''}로만 답해요.`
+              : settings.textReplies === 'full' ? `${settings.patientName}님이 “고마워” 같은 짧은 답장을 누르거나, 직접 써서 답할 수 있어요.`
+              : `${settings.patientName}님이 “고마워”, “밥 먹었어” 같은 짧은 답장을 한 번 눌러 보낼 수 있어요. 자판은 나오지 않아요.`}
+          </div>
+        </div>
+      )}
 
       {voiceRollout && canManageHere && (
         <div className="sect">

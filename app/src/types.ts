@@ -77,6 +77,10 @@ export interface UserSettings {
   /** Voice replies were agreed to (a 'voice_reply' consent is on file) and
    *  are switched on: the parent's phone shows 꾹 누르고 말하기. */
   voiceEnabled?: boolean
+  /** How this person may answer family in writing on the 가족 소식 screen:
+   *  'quick' (ready-made phrases; the default), 'full' (phrases and typing),
+   *  or 'off'. Set by family in 설정. */
+  textReplies?: TextReplies
   /** The patient's plan. Written only by the worker; missing means free. */
   plan?: { tier: PlanTier; status?: string }
   /** When the digest of this person's day goes out (worker-owned; setDigest). */
@@ -258,6 +262,8 @@ export interface Reaction {
 // v2: digest
 // ────────────────────────────────────────────────────────────────────────────
 
+export type TextReplies = 'off' | 'quick' | 'full'
+
 export interface DigestSettings {
   cadence: 'daily' | 'weekly'
   /** Hour of the parent's day the digest goes out (0-23). */
@@ -288,6 +294,6 @@ export interface Digest {
   memoIds: string[]
   photoCount: number
   /** The parent's own replies in the period; transcripts only on plans with voice replies. */
-  replies: { hearts: number; voices: number; transcripts: string[] }
+  replies: { hearts: number; voices: number; transcripts: string[]; /** What the parent wrote back. */ texts?: string[] }
   createdAt?: Timestamp
 }

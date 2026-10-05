@@ -69,6 +69,13 @@ export async function sendElderHeart(memoId: string, actor: Actor): Promise<void
   await addDoc(collection(db, 'reactions'), { ...base(memoId, actor.uid, actor), kind: 'heart' })
 }
 
+/** The parent's written answer: a ready-made phrase or a few typed words. */
+export async function sendElderComment(memoId: string, actor: Actor, text: string): Promise<void> {
+  const clean = text.trim().slice(0, COMMENT_MAX)
+  if (!clean) return
+  await addDoc(collection(db, 'reactions'), { ...base(memoId, actor.uid, actor), kind: 'comment', text: clean })
+}
+
 export function removeReaction(id: string): Promise<void> {
   return deleteDoc(doc(db, 'reactions', id))
 }

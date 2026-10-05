@@ -146,8 +146,8 @@ const PLAIN: Record<DigestSpan, (n: number) => string> = {
 }
 
 /** "어머니가 하트 1개, 음성 답장 1개를 남기셨어요" (empty when there were none). */
-export function repliesLine(name: string, hearts: number, voices: number): string {
-  const parts = [hearts ? `하트 ${hearts}개` : '', voices ? `음성 답장 ${voices}개` : ''].filter(Boolean)
+export function repliesLine(name: string, hearts: number, voices: number, texts = 0): string {
+  const parts = [hearts ? `하트 ${hearts}개` : '', texts ? `글 답장 ${texts}개` : '', voices ? `음성 답장 ${voices}개` : ''].filter(Boolean)
   return parts.length ? `${name}님이 ${parts.join(', ')}를 남기셨어요` : ''
 }
 
@@ -271,6 +271,8 @@ async function buildDigest(a: EnsureArgs, deps: DigestDeps): Promise<Record<stri
   const own = replySnap.docs.filter((r) => r.get('actorUid') === patientUid && (r.get('createdAt') as Timestamp).toMillis() < period.end.getTime())
   const hearts = own.filter((r) => r.get('kind') === 'heart').length
   const voices = own.filter((r) => r.get('kind') === 'voice' && r.get('status') === 'ready')
+  // What the parent wrote back (a phrase or typed); free on every plan.
+  const texts = own.filter((r) => r.get('kind') === 'comment').map((r) => r.get('text') as string | undefined).filter((t): t is string => !!t).reverse()
   // Hearing the parent's voice is part of the plan; so is reading what they said.
   const transcripts = a.plans[a.tier]?.voiceReplies === true
     ? voices.map((r) => r.get('transcript') as string | undefined).filter((t): t is string => !!t).reverse()
@@ -316,7 +318,7 @@ async function buildDigest(a: EnsureArgs, deps: DigestDeps): Promise<Record<stri
     photoCount: memos.length,
     summary,
     summarySource,
-    replies: { hearts, voices: voices.length, transcripts },
+    replies: { hearts, voices: voices.length, texts, transcripts },
     status: 'ready',
     sentVia: [],
     delivered: {},
@@ -346,7 +348,7 @@ async function deliver(ref: FirebaseFirestore.DocumentReference, digest: Firebas
   const path = `digest/${ref.id}`
   const link = appLink(path)
   const messengerIncluded = a.plans[a.tier]?.messenger === true || a.plans.flags?.messengerFree === true
-  const replies = digest.replies as { hearts: number; voices: number }
+  const replies = digest.replies as { hearts: number; voices: number; texts?: string[] }
 
   for (const uid of pending) {
     const via: string[] = []
@@ -376,7 +378,7 @@ async function deliver(ref: FirebaseFirestore.DocumentReference, digest: Firebas
         text: [
           digest.summary as string,
           '',
-          [`사진 ${digest.photoCount}장`, repliesLine(a.name, replies.hearts, replies.voices)].filter(Boolean).join(' · '),
+          [`사진 ${digest.photoCount}장`, repliesLine(a.name, replies.hearts, replies.voices, replies.texts?.length ?? 0)].filter(Boolean).join(' · '),
           '',
           `자세히 보기: ${link}`,
           '',

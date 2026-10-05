@@ -329,9 +329,11 @@ service cloud.firestore {
     // Hearts and comments from family; hearts and voice replies from the
     // parent. Written straight from the apps so they work while the Mac mini
     // is off; the worker (admin SDK) announces each one and transcribes voice.
-    //   - parent (owner of the records): 'heart', or 'voice' pointing at a
-    //     clip in their own voice/ folder, and only once voice replies were
-    //     consented to (users.voiceEnabled). Never a comment: parents don't type.
+    //   - parent (owner of the records): 'heart'; a 'comment' of 1-60
+    //     characters (a ready-made phrase or typed), unless family switched
+    //     text replies off (users.textReplies == 'off'); or 'voice' pointing
+    //     at a clip in their own voice/ folder, and only once voice replies
+    //     were consented to (users.voiceEnabled).
     //   - family (active membership, any role): 'heart' (one per memo, id
     //     memoId_uid) or a 'comment' of 1-60 characters. Never voice.
     // After that a reaction only gains a read stamp; text, transcript and
@@ -357,6 +359,12 @@ service cloud.firestore {
                            isOwner(r().patientUid)
                            && (
                                 (r().kind == 'heart' && r().status == 'ready' && r().keys().hasOnly(baseKeys()))
+                             || (
+                                  r().kind == 'comment' && r().status == 'ready'
+                                  && r().text is string && r().text.size() >= 1 && r().text.size() <= 60
+                                  && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('textReplies', 'quick') != 'off'
+                                  && r().keys().hasOnly(baseKeys().concat(['text']))
+                                )
                              || (
                                   r().kind == 'voice' && r().status == 'pending'
                                   && r().audioPath is string
