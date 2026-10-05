@@ -472,6 +472,30 @@ await step('설정 → 함께 보는 가족 shows the same people as the switche
   expect(await has(family, '내가 등록한 부모님'), 'the registered parent is not marked as such')
 })
 
+await step('a parent I registered can be deleted from 함께 보는 가족, with everything of theirs', async () => {
+  await openRegister()
+  await family.type('.modal input', '이모')
+  await click(family, '다음', { selector: '.modal button' })
+  await click(family, '다음', { selector: '.modal button' })
+  await click(family, '동의하고 등록하기', { selector: '.modal button' })
+  await waitText(family, '휴대폰 연결', 70_000)
+  await click(family, '완료', { selector: '.modal button' })
+  const added = (await db.collection('users').where('patientName', '==', '이모').get()).docs[0]?.id
+  expect(added, '이모 was not registered')
+  if (await family.$('.acct-return')) await family.click('.acct-return')
+  await tab(family, '설정')
+  await waitText(family, '함께 보는 가족')
+  await click(family, '이모님 삭제')
+  await waitText(family, '이모님을 삭제할까요?')
+  await click(family, '삭제하기', { selector: '.modal button' })
+  await waitText(family, '이모님을 삭제했어요', 70_000)
+  const end = Date.now() + 20_000
+  while ((await db.doc(`users/${added}`).get()).exists && Date.now() < end) await sleep(500)
+  expect(!(await db.doc(`users/${added}`).get()).exists, 'the account still exists')
+  expect((await linksOf()).length === 1, 'the link is still there')
+  expect(!(await switcherNames()).includes('이모'), '이모 is still in the switcher')
+})
+
 await step('an account removed outside the app disappears from the lists, and its link is withdrawn', async () => {
   // Someone the family follows whose account is then deleted straight from
   // the console: no settings, no sign-in account, but the link is left behind.

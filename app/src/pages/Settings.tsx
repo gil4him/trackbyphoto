@@ -81,23 +81,25 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
   const { caregivers } = useMemberships(canManageHere ? activePatientUid : undefined, { withPatients: false })
   // 부모님 삭제 is for the guardian (whoever registered the parent) only.
   const isGuardian = isManaged && !isSelf && myRole === 'guardian'
-  const [deleteOpen, setDeleteOpen] = useState(false)
+  // Who is about to be deleted: the parent being viewed (부모님 삭제 at the
+  // bottom) or one picked from 함께 보는 가족.
+  const [deleteTarget, setDeleteTarget] = useState<{ patientUid: string; name: string } | null>(null)
   const [deleteBusy, setDeleteBusy] = useState(false)
   const onDeleteElder = async () => {
+    if (!deleteTarget) return
     setDeleteBusy(true)
-    const patientUid = activePatientUid
-    const name = settings.patientName
+    const { patientUid, name } = deleteTarget
     // Leave the parent's screens first: their live views would otherwise
     // fail with permission errors the moment their data is erased.
-    onSwitchPatient(user.uid)
+    if (activePatientUid === patientUid) onSwitchPatient(user.uid)
     toast.show(`${name}님을 삭제하는 중…`)
     try {
       await deleteManagedElder(patientUid)
-      setDeleteOpen(false)
+      setDeleteTarget(null)
       toast.show(`${name}님을 삭제했어요`)
     } catch (err) {
       console.error('[elder] delete failed', err)
-      onSwitchPatient(patientUid)
+      if (activePatientUid === patientUid) onSwitchPatient(patientUid)
       toast.show('삭제하지 못했어요', isWorkerOffline(err) ? WORKER_OFFLINE_MESSAGE : '잠시 후 다시 시도해 주세요')
     } finally {
       setDeleteBusy(false)
@@ -338,15 +340,15 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
                 </div>
                 <div className="send-row">
                   <button className="send-btn" onClick={() => onSwitchPatient(p.patientUid)}>보기</button>
-                  {!mine && (
-                    <button className="send-btn send-del" onClick={() => onLeave(p.patientUid, p.name)} aria-label={`${p.name}님 목록에서 빼기`} title="빼기">✕</button>
-                  )}
+                  {mine
+                    ? <button className="send-btn send-del" onClick={() => setDeleteTarget({ patientUid: p.patientUid, name: p.name })} aria-label={`${p.name}님 삭제`} title="삭제">삭제</button>
+                    : <button className="send-btn send-del" onClick={() => onLeave(p.patientUid, p.name)} aria-label={`${p.name}님 목록에서 빼기`} title="빼기">✕</button>}
                 </div>
               </div>
             )
           })}
           <div className="help">
-            화면 위쪽에서 고르는 이름 목록과 같아요. 내가 등록한 부모님은 ‘보기’를 누른 뒤 설정 아래쪽 ‘부모님 삭제’에서 지울 수 있어요.
+            화면 위쪽에서 고르는 이름 목록과 같아요. ‘삭제’는 내가 등록한 부모님의 계정과 사진·기록을 모두 지워요. ‘✕’는 다른 가족이 등록한 분을 내 목록에서만 빼요.
           </div>
         </div>
       )}
@@ -624,7 +626,7 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
       {isGuardian && (
         <div className="sect">
           <div className="sect-lab">부모님 삭제</div>
-          <button className="linkbtn danger-btn" onClick={() => setDeleteOpen(true)}>
+          <button className="linkbtn danger-btn" onClick={() => setDeleteTarget({ patientUid: activePatientUid, name: settings.patientName })}>
             <span>{settings.patientName}님 삭제하기</span>
           </button>
           <div className="help">
@@ -654,15 +656,15 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
           </div>
         </div>
       )}
-      {deleteOpen && (
+      {deleteTarget && (
         <div className="modal-backdrop" role="dialog" aria-modal="true">
           <div className="modal">
-            <div className="modal-title">{settings.patientName}님을 삭제할까요?</div>
+            <div className="modal-title">{deleteTarget.name}님을 삭제할까요?</div>
             <div className="modal-body">
-              <p>{settings.patientName}님의 사진·기록·설정이 모두 지워지고, 연결된 휴대폰과 가족 모두 더 이상 볼 수 없어요. 되돌릴 수 없어요.</p>
+              <p>{deleteTarget.name}님의 사진·기록·설정이 모두 지워지고, 연결된 휴대폰과 가족 모두 더 이상 볼 수 없어요. 되돌릴 수 없어요.</p>
             </div>
             <div className="modal-actions">
-              <button className="signin-secondary" disabled={deleteBusy} onClick={() => setDeleteOpen(false)}>취소</button>
+              <button className="signin-secondary" disabled={deleteBusy} onClick={() => setDeleteTarget(null)}>취소</button>
               <button className="linkbtn danger-btn" disabled={deleteBusy} onClick={onDeleteElder}>
                 <span>{deleteBusy ? '삭제하는 중…' : '삭제하기'}</span>
               </button>
