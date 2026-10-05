@@ -152,6 +152,12 @@ describe('a table that offers three plans', () => {
     expect(fromTier(null, 'weekly')).toBeNull()
   })
 
+  it('promises e-mail only while e-mail delivery is switched on', () => {
+    expect(planLines(THREE.free!, '어머니', { digest: true, emailDigest: true })[0]).toBe('앱 알림 + 이메일 요약')
+    expect(planLines(THREE.free!, '어머니', { digest: true })[0]).toBe('매일 하루 요약')
+    expect(planLines(THREE.free!, '어머니', {})[0]).toBe('앱 알림')
+  })
+
   it('never promises KakaoTalk when no plan includes it', () => {
     const flags = { ...PLANS.flags, digest: true }
     for (const t of offered(THREE)) expect(planLines(THREE[t]!, '어머니', flags).join(' ')).not.toContain('카카오톡')

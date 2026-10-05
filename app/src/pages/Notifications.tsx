@@ -27,11 +27,13 @@ const PUSH_HELP: Record<PushState, string> = {
  * 알림: every notice addressed to the signed-in person, and how they want to
  * be told. Family only; a parent's linked phone never shows this.
  */
-export function Notifications({ uid, onOpen, digestOn = false, messengerIncluded = false, messengerFrom = null }: {
+export function Notifications({ uid, onOpen, digestOn = false, emailOffered = false, messengerIncluded = false, messengerFrom = null }: {
   uid: string
   onOpen: (n: AppNotification) => void
   /** The digest is rolled out: 이메일 요약 and 카카오톡 요약 can be switched. */
   digestOn?: boolean
+  /** E-mail delivery is set up and switched on; otherwise 이메일 요약 isn't shown. */
+  emailOffered?: boolean
   /** The plan of the parent being viewed includes messenger delivery. */
   messengerIncluded?: boolean
   /** The lowest plan that includes it ("Plus"); null when no plan does, and
@@ -131,7 +133,7 @@ export function Notifications({ uid, onOpen, digestOn = false, messengerIncluded
             aria-label="앱 알림 전환"
           ><span className="knob" /></button>
         </div>
-        <div className="row">
+        {emailOffered && <div className="row">
           <div className="who"><b>이메일 요약</b><br /><span>{digestOn ? '하루 요약을 로그인한 이메일로 받아요.' : '하루 요약을 이메일로 받아요. 곧 제공돼요.'}</span></div>
           <button
             className={`switch ${digestOn && emailOn ? 'on' : ''}`}
@@ -141,7 +143,7 @@ export function Notifications({ uid, onOpen, digestOn = false, messengerIncluded
             onClick={() => void change({ email: !emailOn })}
             aria-label="이메일 요약 전환"
           ><span className="knob" /></button>
-        </div>
+        </div>}
         {(messengerIncluded || messengerFrom) && <div className="row">
           <div className="who">
             <b>카카오톡 요약</b>{!messengerIncluded && <> <span className="plan-chip">{messengerFrom} 이상</span></>}<br />

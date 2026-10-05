@@ -535,7 +535,7 @@ function App() {
           ) : (
             <>
               {tab === 'home'     && pushOn && <InstallHint />}
-              {tab === 'alerts'   && <Notifications uid={user.uid} onOpen={openNotice} digestOn={digestOn} messengerIncluded={flagOn(plans, 'messengerFree') || ent?.messenger === true} messengerFrom={fromTier(plans, 'messenger')} />}
+              {tab === 'alerts'   && <Notifications uid={user.uid} onOpen={openNotice} digestOn={digestOn} emailOffered={flagOn(plans, 'emailDigest')} messengerIncluded={flagOn(plans, 'messengerFree') || ent?.messenger === true} messengerFrom={fromTier(plans, 'messenger')} />}
               {tab === 'home'     && <Home uid={activePatientUid || user.uid} patientName={settings.patientName} greetingName={isSelf ? selfLabel : settings.patientName} memos={memos} onOpenAsk={openAsk} onOpen={setSelectedMemoId} canCapture={isSelf} notifications={bannerNotices} onDismissNotification={dismissNotification} topCard={pushOn && patients.length > 0 ? <PushNudge /> : undefined} newsCard={ownNews && <FamilyNewsCard news={ownNews} onOpen={() => { if (ownNews.state !== 'none') openFamilyNews(ownNews) }} />} />}
               {tab === 'today'    && <Today memos={memos} onOpen={setSelectedMemoId} uid={activePatientUid || user.uid} rx={rx} onOpenTrail={trailOn ? openDayTrail : undefined} onOpenVoiceAlbum={voiceAlbumOn ? () => setVoiceAlbum(true) : undefined} />}
               {tab === 'ask'      && <Ask memos={memos} onOpen={setSelectedMemoId} />}

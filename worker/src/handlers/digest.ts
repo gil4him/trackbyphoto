@@ -375,7 +375,9 @@ async function deliver(ref: FirebaseFirestore.DocumentReference, digest: Firebas
     if (await deps.push([uid], { title: '오늘하루', body: notice, data: { type: 'digest.ready', patientUid: a.patientUid, digestId: ref.id }, path })) via.push('push')
 
     const channels = ((await db.doc(`users/${uid}`).get()).data()?.channels ?? {}) as { email?: boolean; messenger?: boolean }
-    if (deps.mail && channels.email !== false) {
+    // E-mail has its own switch: until a mail account is set up and
+    // `emailDigest` is on, the app doesn't offer it and nothing is sent.
+    if (deps.mail && a.plans.flags?.emailDigest === true && channels.email !== false) {
       const to = await deps.emailOf(uid)
       const sent = to && await deps.mail.send({
         to,
