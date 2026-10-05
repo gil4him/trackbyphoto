@@ -41,10 +41,11 @@ them the dead-upload step.
 10. Registering a second parent under a name already in use is stopped.
 11. A registration can be cancelled on the link step, leaving nothing behind.
 12. 설정 → 함께 보는 가족 lists the same people as the switcher.
-13. An account removed outside the app drops out of the lists, and the
+13. A parent one registered can be deleted from that list.
+14. An account removed outside the app drops out of the lists, and the
     worker withdraws the link to it.
-14. The parent's phone opens with no connection and still knows whose it is.
-15. A slow connection never replaces someone's settings with defaults.
+15. The parent's phone opens with no connection and still knows whose it is.
+16. A slow connection never replaces someone's settings with defaults.
 
 ## What it cannot cover
 
