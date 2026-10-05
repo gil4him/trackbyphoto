@@ -1,0 +1,13 @@
+{
+  "name": "e2e",
+  "private": true,
+  "type": "module",
+  "description": "End-to-end check of the website: a family member and a parent's phone in a real browser, against local emulators and the real worker code.",
+  "scripts": {
+    "test": "bash run.sh"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.10.0",
+    "puppeteer-core": "^24.0.0"
+  }
+}

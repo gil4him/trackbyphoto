@@ -73,6 +73,53 @@ jobs:
         working-directory: worker
         run: npm test
 
+  # ── End-to-end check of the website (PRs): a family member and a parent's
+  # phone in a real browser, against the emulators and the real worker code.
+  # Does not gate the store uploads. See e2e/README.md.
+  e2e:
+    name: Website end-to-end
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            app/package-lock.json
+            worker/package-lock.json
+            e2e/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Install dependencies
+        run: |
+          npm ci --prefix app
+          npm ci --prefix worker
+          npm ci --prefix e2e
+          npm install -g firebase-tools
+
+      - name: Run the check
+        working-directory: e2e
+        env:
+          CHROME_PATH: /usr/bin/google-chrome
+        run: npm test
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: e2e-failure
+          path: |
+            e2e/.tmp/shots
+            e2e/.tmp/worker.log
+          retention-days: 7
+
   # ── Android build check (PRs and main): unsigned debug APK, no secrets ──
   # Catches manifest/Gradle/plugin breakage before the Play deploy is set up.
   android-build:

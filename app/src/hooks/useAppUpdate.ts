@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react'
+import { reloadToLatest } from '../lib/sw'
 
-// "A new version is live" detector — service-worker-independent.
+// "A new version is live" detector — independent of the service worker.
 //
-// The app ships a self-destroying SW (vite.config.ts) so there's no precache to
-// hang an update event off of. Instead we compare the hashed entry bundle we
-// loaded against the one the server is currently serving: poll index.html
-// (bypassing the HTTP cache) and diff the `assets/index-<hash>.js` filename.
-// When it changes, a new build was deployed → prompt the user to reload.
+// The website keeps its files on the phone (vite.config.ts), so the page a
+// person is looking at may be older than what is deployed. We compare the
+// hashed entry bundle we loaded against the one the server is serving now:
+// poll index.html and diff the `assets/index-<hash>.js` filename. The request
+// carries a query the service worker has no cached answer for and bypasses
+// the HTTP cache, so it always reaches the server. When the name changes, a
+// new build was deployed → prompt the user to reload (see reloadToLatest).
 
 function entryBundle(html?: string): string {
   if (html === undefined) {
@@ -17,8 +20,11 @@ function entryBundle(html?: string): string {
   return m ? m[0] : ''
 }
 
+/** Where to ask what is deployed; unique each time so no cache can answer. */
+export const freshIndexUrl = (now = Date.now()) => `/index.html?fresh=${now}`
+
 async function latestBundle(): Promise<string> {
-  const res = await fetch('/', { cache: 'no-store' })
+  const res = await fetch(freshIndexUrl(), { cache: 'no-store' })
   if (!res.ok) return ''
   return entryBundle(await res.text())
 }
@@ -83,7 +89,7 @@ export function useReloadOnReturn(active: boolean) {
   useEffect(() => {
     if (!active) return
     const onVisible = () => {
-      if (document.visibilityState === 'visible' && !mayBeReturningFromCamera()) window.location.reload()
+      if (document.visibilityState === 'visible' && !mayBeReturningFromCamera()) void reloadToLatest()
     }
     document.addEventListener('visibilitychange', onVisible)
     return () => document.removeEventListener('visibilitychange', onVisible)

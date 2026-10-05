@@ -6,14 +6,31 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      // The deployed web URL is now a dev/preview surface (the patient-facing
-      // path is the native iOS app), and the precache layer was masking each
-      // deploy from us — users kept seeing stale builds until they hard-
-      // reloaded. `selfDestroying: true` ships a service worker whose only
-      // job is to uninstall itself + drop its caches on next visit, so
-      // existing installs get cleaned up automatically.
-      selfDestroying: true,
+      // Parents use the website from a home-screen icon, so the app's own
+      // files are kept on the phone: it opens at once, on a weak connection
+      // or none. A new deploy is picked up in the background; the page moves
+      // to it through the app's own update check (hooks/useAppUpdate.ts),
+      // which asks the server directly and never this cache. That check is
+      // what was missing when an earlier precache kept phones on stale builds.
       registerType: 'autoUpdate',
+      // Registered by src/lib/sw.ts: on the website only, and without the
+      // plugin's reload-the-page-whenever-a-new-version-lands behaviour.
+      injectRegister: false,
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,svg,png,woff2,webmanifest}'],
+        // The push worker is its own registration (scope /push/).
+        globIgnores: ['push-sw.js'],
+        navigateFallback: '/index.html',
+        // Firebase's sign-in helper pages live under /__/ and must come from
+        // the server.
+        navigateFallbackDenylist: [/^\/__\//],
+        cleanupOutdatedCaches: true,
+        // A new version takes over as soon as it has arrived instead of
+        // waiting for every tab to close; reloadToLatest (src/lib/sw.ts)
+        // relies on this. Taking over never reloads a page by itself.
+        skipWaiting: true,
+        clientsClaim: true,
+      },
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       manifest: {
         name: '오늘하루 · TrackByPhoto',

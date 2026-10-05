@@ -8,6 +8,7 @@ import { FamilyNews } from './FamilyNews'
 import { FamilyNewsCard } from '../components/FamilyNewsCard'
 import { ElderInstallButton } from '../components/ElderInstallButton'
 import { useElderNews, type OpenNews } from '../hooks/useElderNews'
+import { unlinkedFrom } from '../lib/device'
 import type { Memo, Reaction, TextReplies } from '../types'
 
 /**
@@ -42,7 +43,13 @@ export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn
     if (!deviceId) { setRevoked(true); return }
     return onSnapshot(
       doc(db, 'users', uid, 'devices', deviceId),
-      (snap) => setRevoked(!snap.exists() || snap.data()?.status !== 'active'),
+      // Metadata changes too: that is how "the server confirms there is no
+      // such device" arrives after a first answer from the empty cache.
+      { includeMetadataChanges: true },
+      (snap) => {
+        const unlinked = unlinkedFrom(snap)
+        if (unlinked !== null) setRevoked(unlinked)
+      },
       // Rules deny every read once the device is revoked.
       (err) => { if (err.code === 'permission-denied') setRevoked(true) },
     )
