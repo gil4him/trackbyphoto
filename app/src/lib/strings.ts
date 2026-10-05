@@ -15,6 +15,9 @@ export const S = {
   elderCardComment: (name: string) => `${subject(name)} 글을 남겼어요`,
   elderReplyHeart: '❤️ 고마워요',
   elderReplyVoice: '🎙️ 꾹 누르고 말하기',
+  elderReplyText: '글로 답장하기',
+  elderReplyTextTitle: '무엇이라고 답할까요?',
+  elderReplyTextPlaceholder: '직접 써도 돼요',
   elderReplyRecording: '손을 떼면 보내요',
   elderReplySent: (name: string) => `보냈어요 ✓ ${name}에게 전해드릴게요`,
   elderReading: '읽어 주는 중…',
@@ -23,3 +26,6 @@ export const S = {
   voicePending: '음성 답장을 받아쓰는 중…',
   voiceNoTranscript: '받아쓴 글이 없어요. 눌러서 들어 보세요.',
 }
+
+/** One-tap answers on the parent's 글로 답장하기 screen, in a parent's own voice. */
+export const QUICK_REPLIES = ['잘 지내', '고마워', '밥 먹었어', '나중에 전화할게', '사랑해']

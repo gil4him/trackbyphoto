@@ -78,6 +78,8 @@ async function saturday() {
   await reply('h1', { kind: 'heart' })
   await reply('v1', { kind: 'voice', transcript: '괜찮아, 오늘 많이 걸었어' })
   await reply('fromFamily', { kind: 'heart', actorUid: 'cg1' })
+  await reply('t1', { kind: 'comment', text: '밥 먹었어' })
+  await reply('familyComment', { kind: 'comment', actorUid: 'cg1', text: '엄마 날씨 좋네요' })
 }
 const digest = async (id = 'p1_daily_20261003') => (await db.doc(`digests/${id}`).get()).data()
 const notices = async (recipientUid: string, type: string) =>
@@ -149,11 +151,12 @@ describe('daily digest', () => {
     expect(d).toMatchObject({
       patientUid: 'p1', kind: 'daily', label: '10월 3일 토요일', summary: SUMMARY, summarySource: 'local-llm',
       memoIds: ['m1', 'm2', 'm3'], photoCount: 3, status: 'ready',
-      replies: { hearts: 1, voices: 1, transcripts: ['괜찮아, 오늘 많이 걸었어'] },
+      replies: { hearts: 1, voices: 1, texts: ['밥 먹었어'], transcripts: ['괜찮아, 오늘 많이 걸었어'] },
     })
     expect(d.periodStart.toDate().toISOString()).toBe('2026-10-02T15:00:00.000Z')
     expect(repliesLine('어머니', 1, 1)).toBe('어머니님이 하트 1개, 음성 답장 1개를 남기셨어요')
     expect(repliesLine('어머니', 0, 0)).toBe('')
+    expect(repliesLine('어머니', 1, 0, 2)).toBe('어머니님이 하트 1개, 글 답장 2개를 남기셨어요')
   })
 
   it('reaches each family member by in-app notice and push, e-mail unless switched off, messenger only when switched on', async () => {
@@ -181,7 +184,7 @@ describe('daily digest', () => {
     expect(f.mails).toHaveLength(1)
     expect(f.mails[0]).toMatchObject({ to: 'cg1@example.com', subject: '[오늘하루] 어머니님의 10월 3일 토요일' })
     expect(f.mails[0].text).toContain(SUMMARY)
-    expect(f.mails[0].text).toContain('사진 3장 · 어머니님이 하트 1개, 음성 답장 1개를 남기셨어요')
+    expect(f.mails[0].text).toContain('사진 3장 · 어머니님이 하트 1개, 글 답장 1개, 음성 답장 1개를 남기셨어요')
     expect(f.mails[0].text).toContain('/digest/p1_daily_20261003')
     // One line and a link; never a photo.
     expect(f.mails[0].text).not.toContain('photos/')
@@ -224,7 +227,8 @@ describe('daily digest', () => {
     await runDigests(SAT_EVENING, deps)
     expect(f.texts).toEqual([])
     expect(f.mails).toHaveLength(1)
-    expect((await digest())!.replies).toEqual({ hearts: 1, voices: 1, transcripts: [] })
+    // What the parent wrote is free on every plan; what they said is not.
+    expect((await digest())!.replies).toEqual({ hearts: 1, voices: 1, texts: ['밥 먹었어'], transcripts: [] })
 
     // The rollout switch that opens messenger to everyone.
     await db.doc('digests/p1_daily_20261003').delete()

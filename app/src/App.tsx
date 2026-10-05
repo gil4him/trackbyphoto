@@ -306,6 +306,7 @@ function App() {
           memos={memos}
           reactions={reactionsOn ? reactions : null}
           voiceOn={flagOn(plans, 'voiceReplies') && settings.voiceEnabled === true}
+          textMode={settings.textReplies}
           onRelink={async () => {
             await signOut().catch(() => {})
             setPairCode('')
@@ -430,6 +431,7 @@ function App() {
               unreadIds={openNews.unreadIds}
               memo={memos.find((m) => m.id === openNews.item.memoId)}
               voiceOn={flagOn(plans, 'voiceReplies') && settings.voiceEnabled === true}
+              textMode={settings.textReplies}
               backLabel="‹ 뒤로"
               onDone={() => setOpenNews(null)}
             />
@@ -489,6 +491,7 @@ function App() {
                   onSwitchPatient={(uid) => { onSwitchPatient(uid); setTab('home') }}
                   myRole={patients.find((p) => p.patientUid === activePatientUid)?.role}
                   voiceRollout={flagOn(plans, 'voiceReplies')}
+                  reactionsRollout={reactionsOn}
                   digestRollout={digestOn}
                   weeklyIncluded={entitlements(plans, settings.plan?.tier)?.weekly === true}
                 />

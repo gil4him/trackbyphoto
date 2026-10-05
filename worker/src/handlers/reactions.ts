@@ -1,12 +1,13 @@
 /**
- * Reactions: hearts and comments from family, hearts and voice replies from
- * the parent.
+ * Reactions: hearts and comments from family; hearts, written replies and
+ * voice replies from the parent.
  *
  * Clients write reactions/{id} directly (rules decide who may write what) and
  * always with `notified: false`. The worker watches for those and, once per
  * reaction:
  *   - family heart / comment → one notice for the parent (never a push),
  *   - parent heart          → a notice for every active family member,
+ *   - parent written reply  → the same notice, and a push,
  *   - parent voice          → transcribe the clip locally, add a playable
  *                             link, mark it ready, then notify the family.
  *
@@ -76,7 +77,7 @@ export type ReactionOutcome =
   | 'failed'        // transcription failed — counts toward MAX_ATTEMPTS
 
 const FAMILY_KINDS = ['heart', 'comment']
-const ELDER_KINDS = ['heart', 'voice']
+const ELDER_KINDS = ['heart', 'comment', 'voice']
 
 /** Process one reaction that hasn't been announced yet. `attempt` is 1-based. */
 export async function processReaction(reactionId: string, attempt: number, deps: ReactionDeps = defaultReactionDeps): Promise<ReactionOutcome> {
@@ -138,7 +139,9 @@ export async function processReaction(reactionId: string, attempt: number, deps:
       .get()
     recipients = family.docs.map((d) => d.data().caregiverUid as string)
     const patientName = (await db.collection('users').doc(patientUid).get()).data()?.patientName as string || '사용자'
-    message = kind === 'voice' ? `${patientName}님이 음성 답장을 남기셨어요` : `${patientName}님이 하트를 보내셨어요`
+    message = kind === 'voice' ? `${patientName}님이 음성 답장을 남기셨어요`
+      : kind === 'comment' ? `${patientName}님이 답장을 남기셨어요`
+      : `${patientName}님이 하트를 보내셨어요`
   } else {
     recipients = [patientUid]
     const actorName = (data.actorName as string) || '가족'
@@ -165,12 +168,13 @@ export async function processReaction(reactionId: string, attempt: number, deps:
     return true
   })
   if (finished) logger.info('[reaction] handled', { reactionId, kind, fromElder, notified: recipients.length })
-  // A voice reply is worth a push; hearts and comments stay in the app.
-  if (finished && fromElder && kind === 'voice') {
+  // The parent's own words (spoken or written) are worth a push; hearts and
+  // family comments stay in the app.
+  if (finished && fromElder && (kind === 'voice' || kind === 'comment')) {
     await (deps.push ?? pushToUsers)(recipients, {
       title: '오늘하루',
       body: message,
-      data: { type: 'reaction.voice', patientUid, memoId: String(data.memoId ?? ''), reactionId },
+      data: { type: `reaction.${kind}`, patientUid, memoId: String(data.memoId ?? ''), reactionId },
     })
   }
   return 'done'

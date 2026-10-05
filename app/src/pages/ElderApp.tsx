@@ -8,7 +8,7 @@ import { FamilyNews } from './FamilyNews'
 import { FamilyNewsCard } from '../components/FamilyNewsCard'
 import { ElderInstallButton } from '../components/ElderInstallButton'
 import { useElderNews, type OpenNews } from '../hooks/useElderNews'
-import type { Memo, Reaction } from '../types'
+import type { Memo, Reaction, TextReplies } from '../types'
 
 /**
  * Everything a family-managed elder's phone shows: the capture screen, one
@@ -18,7 +18,7 @@ import type { Memo, Reaction } from '../types'
  * by plan. If family disconnects this phone (연결 해제),
  * the device record flips to 'revoked' and the screen locks.
  */
-export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn, onRelink }: {
+export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn, textMode, onRelink }: {
   uid: string
   deviceId: string
   patientName: string
@@ -27,6 +27,8 @@ export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn
   reactions: Reaction[] | null
   /** Voice replies are rolled out and were agreed to for this parent. */
   voiceOn: boolean
+  /** Written replies family allows for this parent. */
+  textMode?: TextReplies
   onRelink: () => void
 }) {
   const [view, setView] = useState<'home' | 'records'>('home')
@@ -74,6 +76,7 @@ export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn
             unreadIds={openNews.unreadIds}
             memo={memos.find((m) => m.id === openNews.item.memoId)}
             voiceOn={voiceOn}
+            textMode={textMode}
             onDone={() => setOpenNews(null)}
           />
         ) : open ? (

@@ -1,22 +1,23 @@
 import { useEffect, useRef, useState } from 'react'
 import { MemoThumb } from '../components/MemoThumb'
 import { useToast } from '../components/Toast'
-import { markRead, sendElderHeart } from '../lib/reactions'
+import { COMMENT_MAX, markRead, sendElderComment, sendElderHeart } from '../lib/reactions'
 import { canRecord, Mic } from '../lib/recorder'
 import { sendVoice } from '../lib/voiceOutbox'
-import { S } from '../lib/strings'
+import { QUICK_REPLIES, S } from '../lib/strings'
 import { fmtTime } from '../util'
-import type { Memo, Reaction } from '../types'
+import type { Memo, Reaction, TextReplies } from '../types'
 
 const canSpeak = typeof window !== 'undefined' && 'speechSynthesis' in window
 
 /**
  * 가족 소식: the newest message from family in large type, read aloud, and
- * two ways to answer without typing: a heart, or holding a button and
- * talking. The same screen on a parent's linked phone and in the regular app
+ * ways to answer: a heart, holding a button and talking, or a written reply
+ * (ready-made phrases to tap; typing only when family switched it on for this
+ * parent). The same screen on a parent's linked phone and in the regular app
  * (someone looking at their own records), and identical on every plan.
  */
-export function FamilyNews({ uid, patientName, item, unreadIds, memo, voiceOn, backLabel = '‹ 처음으로', onDone }: {
+export function FamilyNews({ uid, patientName, item, unreadIds, memo, voiceOn, textMode = 'quick', backLabel = '‹ 처음으로', onDone }: {
   uid: string
   patientName: string
   item: Reaction
@@ -25,11 +26,14 @@ export function FamilyNews({ uid, patientName, item, unreadIds, memo, voiceOn, b
   memo?: Memo
   /** Voice replies are switched on for this parent. */
   voiceOn: boolean
+  /** Written replies: phrases only, phrases and typing, or none. */
+  textMode?: TextReplies
   backLabel?: string
   onDone: () => void
 }) {
   const toast = useToast()
-  const [phase, setPhase] = useState<'view' | 'recording' | 'sent'>('view')
+  const [phase, setPhase] = useState<'view' | 'recording' | 'text' | 'sent'>('view')
+  const [draft, setDraft] = useState('')
   const [reading, setReading] = useState(canSpeak)
   const [hint, setHint] = useState('')
   const mic = useRef<Mic | null>(null)
@@ -79,6 +83,17 @@ export function FamilyNews({ uid, patientName, item, unreadIds, memo, voiceOn, b
     setPhase('sent')
   }
 
+  const sendText = (text: string) => {
+    if (!text.trim()) return
+    sendElderComment(item.memoId, { uid, name: patientName }, text).catch((err) => console.warn('[news] written reply failed', err))
+    setPhase('sent')
+  }
+  const openText = () => {
+    if (canSpeak) window.speechSynthesis.cancel()
+    setReading(false)
+    setPhase('text')
+  }
+
   const finishVoice = async () => {
     const clip = await mic.current?.stop()
     if (!clip) { setPhase('view'); return }
@@ -122,6 +137,34 @@ export function FamilyNews({ uid, patientName, item, unreadIds, memo, voiceOn, b
     )
   }
 
+  if (phase === 'text') {
+    return (
+      <section className="page news">
+        <button className="elder-back" onClick={() => setPhase('view')}>‹ 뒤로</button>
+        <div className="news-from">{item.actorName}에게</div>
+        <div className="news-text small">{S.elderReplyTextTitle}</div>
+        <div className="news-actions">
+          {QUICK_REPLIES.map((q) => (
+            <button key={q} className="news-btn" onClick={() => sendText(q)}>{q}</button>
+          ))}
+          {textMode === 'full' && (
+            <form className="news-type" onSubmit={(e) => { e.preventDefault(); sendText(draft) }}>
+              <input
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                maxLength={COMMENT_MAX}
+                placeholder={S.elderReplyTextPlaceholder}
+                aria-label="답장 직접 쓰기"
+                enterKeyHint="send"
+              />
+              <button type="submit" disabled={!draft.trim()}>보내기</button>
+            </form>
+          )}
+        </div>
+      </section>
+    )
+  }
+
   return (
     <section className="page news">
       <button className="elder-back" onClick={onDone}>{backLabel}</button>
@@ -148,6 +191,7 @@ export function FamilyNews({ uid, patientName, item, unreadIds, memo, voiceOn, b
             onContextMenu={(e) => e.preventDefault()}
           >{S.elderReplyVoice}</button>
         )}
+        {textMode !== 'off' && <button className="news-btn" onClick={openText}>{S.elderReplyText}</button>}
         {hint && <div className="news-hint" role="status">{hint}</div>}
       </div>
 

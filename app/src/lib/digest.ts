@@ -58,7 +58,8 @@ export function placesVisited(memos: Memo[]): string[] {
 
 /** "어머니님이 하트 1개, 음성 답장 1개를 남기셨어요" → the short form on the page. */
 export function repliesSummary(replies: Digest['replies']): string {
-  return [replies.hearts ? `하트 ${replies.hearts}개` : '', replies.voices ? `음성 답장 ${replies.voices}개` : ''].filter(Boolean).join(' · ')
+  const texts = replies.texts?.length ?? 0
+  return [replies.hearts ? `하트 ${replies.hearts}개` : '', texts ? `글 답장 ${texts}개` : '', replies.voices ? `음성 답장 ${replies.voices}개` : ''].filter(Boolean).join(' · ')
 }
 
 export function saveDigestSettings(patientUid: string, changes: Partial<DigestSettings>): Promise<{ digest: DigestSettings }> {

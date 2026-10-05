@@ -43,7 +43,7 @@ export function DigestView({ digest, memos, onOpenMemo, onMore, onOpenTrail }: {
           <div className="sect-lab">{digest.patientName}님의 답장</div>
           <div className="dg-replies">
             <div><b>{replies}</b></div>
-            {digest.replies.transcripts.map((t, i) => <div key={i} className="dg-quote">“{t}”</div>)}
+            {[...(digest.replies.texts ?? []), ...digest.replies.transcripts].map((t, i) => <div key={i} className="dg-quote">“{t}”</div>)}
           </div>
         </div>
       )}
