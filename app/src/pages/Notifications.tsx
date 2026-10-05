@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Capacitor } from '@capacitor/core'
 import { doc, onSnapshot, updateDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 import { InstallHint } from '../components/InstallHint'
@@ -9,12 +10,17 @@ import { enablePush, pushState, type PushState } from '../lib/push'
 import { callWorker, isWorkerOffline, WORKER_OFFLINE_MESSAGE } from '../lib/worker'
 import type { AppNotification, Channels } from '../types'
 
+const inApp = Capacitor.isNativePlatform()
 const PUSH_HELP: Record<PushState, string> = {
-  on: '새 사진이나 음성 답장이 오면 이 기기로 알려드려요.',
-  off: '켜면 새 사진이나 음성 답장이 오면 바로 알려드려요.',
+  on: '새 사진이나 답장이 오면 이 기기로 알려드려요.',
+  off: '켜면 새 사진이나 답장이 오면 바로 알려드려요.',
   'needs-install': '먼저 홈 화면에 추가해 주세요. 그 아이콘으로 열면 알림을 켤 수 있어요.',
-  blocked: '이 브라우저에서 알림이 차단되어 있어요. 브라우저 설정에서 알림을 허용해 주세요.',
-  unsupported: '이 앱에서는 아직 알림을 보낼 수 없어요. 웹(trackbyphoto.web.app)을 홈 화면에 추가하면 받을 수 있어요.',
+  blocked: inApp
+    ? '휴대폰에서 알림이 꺼져 있어요. 휴대폰 설정 → 오늘하루 → 알림에서 허용해 주세요.'
+    : '이 브라우저에서 알림이 차단되어 있어요. 브라우저 설정에서 알림을 허용해 주세요.',
+  unsupported: inApp
+    ? '이 앱에서는 아직 알림을 보낼 수 없어요. 곧 제공돼요.'
+    : '이 브라우저에서는 알림을 보낼 수 없어요.',
 }
 
 /**
@@ -85,7 +91,7 @@ export function Notifications({ uid, onOpen, digestOn = false, messengerIncluded
         const next = await enablePush()
         setPush(next)
         if (next === 'on' && !channelPush) await callWorker('setChannels', { push: true })
-        if (next === 'blocked') toast.show('알림이 차단되어 있어요', '브라우저 설정에서 허용해 주세요')
+        if (next === 'blocked') toast.show('알림이 차단되어 있어요', inApp ? '휴대폰 설정에서 허용해 주세요' : '브라우저 설정에서 허용해 주세요')
       }
     } catch (err) {
       console.error('[push] toggle failed', err)

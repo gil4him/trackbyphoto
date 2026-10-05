@@ -24,6 +24,13 @@
 
         </activity>
 
+        <!-- Family push notifications (@capacitor-firebase/messaging).
+             No token is made until a family member switches 앱 알림 on, so a
+             parent's linked phone never registers for pushes. -->
+        <meta-data android:name="firebase_messaging_auto_init_enabled" android:value="false" />
+        <meta-data android:name="com.google.firebase.messaging.default_notification_icon" android:resource="@drawable/ic_stat_daylie" />
+        <meta-data android:name="com.google.firebase.messaging.default_notification_color" android:resource="@color/notification_accent" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
@@ -46,6 +53,9 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-feature android:name="android.hardware.location.gps" android:required="false" />
+    <!-- Push notifications for family (Android 13+ asks; only after a family
+         member taps 알림 켜기, never on a parent's linked phone). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <!-- @capacitor/camera saveToGallery: Android 10+ saves through MediaStore
          with no permission; only Android 9 and older need storage access.

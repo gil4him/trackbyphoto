@@ -1,7 +1,7 @@
 /**
  * Push notifications to family (Firebase Cloud Messaging).
  *
- * A family member's browser or phone registers its FCM token through the
+ * A family member's browser or installed app registers its FCM token through the
  * `registerFcmToken` request; tokens are kept in users/{uid}/private/push,
  * which no client can read. When a new photo or a voice reply is announced,
  * the worker also pushes it to each recipient who has tokens and hasn't
@@ -17,7 +17,7 @@
  */
 
 import { getFirestore, FieldValue } from 'firebase-admin/firestore'
-import { getMessaging } from 'firebase-admin/messaging'
+import { getMessaging, type MulticastMessage } from 'firebase-admin/messaging'
 import { logger } from '../log.js'
 import { WorkerError as HttpsError, type Caller } from '../context.js'
 import { flagOn } from '../plans.js'
@@ -46,14 +46,25 @@ export interface PushDeps {
   send: (tokens: string[], message: PushMessage) => Promise<{ dead: string[] }>
 }
 
+/**
+ * One message for all of a person's devices. A browser opens `link` when the
+ * notice is tapped; the installed apps read `data` and open the right place
+ * themselves.
+ */
+export function fcmMessage(tokens: string[], message: PushMessage): MulticastMessage {
+  return {
+    tokens,
+    notification: { title: message.title, body: message.body },
+    data: message.data ?? {},
+    webpush: { fcmOptions: { link: appLink(message.path) } },
+    // iPhone app: without this the banner arrives silently.
+    apns: { payload: { aps: { sound: 'default' } } },
+  }
+}
+
 export const defaultPushDeps: PushDeps = {
   send: async (tokens, message) => {
-    const res = await getMessaging().sendEachForMulticast({
-      tokens,
-      notification: { title: message.title, body: message.body },
-      data: message.data ?? {},
-      webpush: { fcmOptions: { link: appLink(message.path) } },
-    })
+    const res = await getMessaging().sendEachForMulticast(fcmMessage(tokens, message))
     return { dead: deadTokens(tokens, res.responses) }
   },
 }
