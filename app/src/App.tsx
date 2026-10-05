@@ -7,6 +7,7 @@ import { useMemberships } from './hooks/useMemberships'
 import { useOutboxSync } from './hooks/useOutbox'
 import { useNotifications } from './hooks/useNotifications'
 import { useAppUpdate, useReloadOnReturn } from './hooks/useAppUpdate'
+import { reloadToLatest } from './lib/sw'
 import { normalizeInviteCode, syncCaregiverName } from './lib/caregiver'
 import { setFaviconBadge } from './lib/favicon'
 import { Tabs, type TabKey } from './components/Tabs'
@@ -461,7 +462,7 @@ function App() {
       <PushOpener pushed={pushed} ready={!membershipsLoading} onOpen={openPush} />
       <div className={`app${isSelf ? '' : ' caregiver-mode'}`}>
         {updateReady && (
-          <button className="update-prompt" onClick={() => window.location.reload()}>
+          <button className="update-prompt" onClick={() => { void reloadToLatest() }}>
             새 버전이 있어요 <span className="update-go">새로고침</span>
           </button>
         )}
