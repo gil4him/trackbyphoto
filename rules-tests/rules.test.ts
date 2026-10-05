@@ -11,7 +11,7 @@ import {
   collection, query, where, orderBy, limit,
   getCountFromServer,
 } from 'firebase/firestore'
-import { ref, uploadBytes, getBytes } from 'firebase/storage'
+import { ref, uploadBytes, uploadBytesResumable, getBytes } from 'firebase/storage'
 import { describe, it, beforeAll, beforeEach, afterAll } from 'vitest'
 
 // demo- prefix = fully offline project, so the Firebase CLI never asks for
@@ -979,6 +979,24 @@ describe('reactions', () => {
   })
 })
 
+describe('photos (storage)', () => {
+  const storageOf = (uid: string) => testEnv.authenticatedContext(uid).storage()
+  // Larger than one 256 KB piece, so the upload really goes up in pieces.
+  const big = new Uint8Array(600 * 1024)
+  const meta = { contentType: 'image/jpeg', customMetadata: { uid: PATIENT, photoId: 'p1' } }
+
+  it('a photo goes up in pieces, and can be sent again to the same place', async () => {
+    const photo = ref(storageOf(PATIENT), `photos/${PATIENT}/p1.jpg`)
+    await assertSucceeds(uploadBytesResumable(photo, big, meta).then(() => {}))
+    await assertSucceeds(uploadBytesResumable(photo, big, meta).then(() => {}))
+    expect((await getBytes(photo)).byteLength).toBe(big.byteLength)
+  })
+
+  it("nobody uploads into someone else's photos", async () => {
+    await assertFails(uploadBytesResumable(ref(storageOf(STRANGER), `photos/${PATIENT}/p2.jpg`), big, meta).then(() => {}))
+  })
+})
+
 describe('voice clips (storage)', () => {
   const audio = new Uint8Array([1, 2, 3])
   const storageOf = (uid: string) => testEnv.authenticatedContext(uid).storage()
@@ -988,6 +1006,14 @@ describe('voice clips (storage)', () => {
     await assertSucceeds(uploadBytes(ref(storageOf(PATIENT), `voice/${PATIENT}/memo1/r2.m4a`), audio, { contentType: 'audio/mp4' }))
     await assertFails(uploadBytes(ref(storageOf(PATIENT), `voice/${PATIENT}/memo1/r3.jpg`), audio, { contentType: 'image/jpeg' }))
     await assertFails(uploadBytes(ref(storageOf(CAREGIVER_ACTIVE_ADMIN), `voice/${PATIENT}/memo1/r4.webm`), audio, { contentType: 'audio/webm' }))
+  })
+
+  it('the parent can send the same clip again when the first answer was lost', async () => {
+    const clip = ref(storageOf(PATIENT), `voice/${PATIENT}/memo1/again.webm`)
+    await assertSucceeds(uploadBytes(clip, audio, { contentType: 'audio/webm' }))
+    await assertSucceeds(uploadBytes(clip, audio, { contentType: 'audio/webm' }))
+    await assertFails(uploadBytes(ref(storageOf(CAREGIVER_ACTIVE_ADMIN), `voice/${PATIENT}/memo1/again.webm`), audio, { contentType: 'audio/webm' }))
+    await assertFails(uploadBytes(clip, audio, { contentType: 'image/jpeg' }))
   })
 
   it('nobody reads a clip straight from storage', async () => {
