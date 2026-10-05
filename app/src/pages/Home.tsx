@@ -4,6 +4,7 @@ import { Processing } from '../components/Processing'
 import { savePhoto, captureNativePhoto, isNativeApp } from '../lib/capture'
 import { warmUpLocation } from '../lib/location'
 import { useOutbox } from '../hooks/useOutbox'
+import { noteCaptureStarted } from '../hooks/useAppUpdate'
 import { fmtDate, fmtTime } from '../util'
 import { MemoThumb } from '../components/MemoThumb'
 import type { Memo, AppNotification } from '../types'
@@ -111,6 +112,7 @@ export function Home({ uid, patientName, greetingName, memos, onOpenAsk, onOpen,
               aria-label="사진 찍기"
               onClick={async () => {
                 warmUpLocation()
+                noteCaptureStarted()
                 if (isNativeApp) {
                   try {
                     const { file, path } = await captureNativePhoto()

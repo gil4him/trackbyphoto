@@ -6,7 +6,7 @@ import { useMemos } from './hooks/useMemos'
 import { useMemberships } from './hooks/useMemberships'
 import { useOutboxSync } from './hooks/useOutbox'
 import { useNotifications } from './hooks/useNotifications'
-import { useAppUpdate } from './hooks/useAppUpdate'
+import { useAppUpdate, useReloadOnReturn } from './hooks/useAppUpdate'
 import { normalizeInviteCode, syncCaregiverName } from './lib/caregiver'
 import { setFaviconBadge } from './lib/favicon'
 import { Tabs, type TabKey } from './components/Tabs'
@@ -88,6 +88,8 @@ function App() {
   const { unread: notifications, dismiss: dismissNotification } = useNotifications(user?.uid)
   // True once a newer build has been deployed than the one we're running.
   const updateReady = useAppUpdate()
+  // A parent's linked phone updates itself; family gets the prompt below.
+  useReloadOnReturn(updateReady && !!elder)
   const { memos } = useMemos(activePatientUid || undefined)
 
   // v2 reactions: off until the rollout flag in admin_config/plans is on.
