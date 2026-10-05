@@ -15,6 +15,7 @@ import {
   unlinkDevice,
 } from '../src/handlers/pairing'
 import { createInvite, setMembershipRole } from '../src/handlers/caregiver'
+import { revokeLinksToDeletedAccounts } from '../src/handlers/housekeeping'
 import { db, clearFirestore, seedMembership, count } from './setup'
 
 const FAMILY = { uid: 'fam1', email: 'kid@example.com', name: '딸' }
@@ -275,5 +276,58 @@ describe('deleteManagedElder', () => {
     await db.doc('users/self1').set({ patientName: '본인' })
     await seedMembership('self1', 'fam1', { role: 'guardian' })
     await expect(deleteManagedElder(FAMILY, { patientUid: 'self1' })).rejects.toThrow(/family-managed/)
+  })
+})
+
+describe('one name, one person', () => {
+  it('refuses a second parent under a name the family member already looks after', async () => {
+    await createManagedElder(FAMILY, { patientName: '할아버지' })
+    for (const again of ['할아버지', ' 할아버지 ', '할 아버지']) {
+      await expect(createManagedElder(FAMILY, { patientName: again })).rejects.toMatchObject({ code: 'already-exists', details: { name: '할아버지' } })
+    }
+    // Nothing half-made is left behind by a refusal.
+    expect((await db.collection('users').get()).size).toBe(1)
+    expect((await db.collection('memberships').get()).size).toBe(1)
+  })
+
+  it('also counts someone they follow who registered themselves', async () => {
+    await db.doc('users/own1').set({ patientName: '엄마' })
+    await seedMembership('own1', FAMILY.uid, { role: 'viewer' })
+    await expect(createManagedElder(FAMILY, { patientName: '엄마' })).rejects.toMatchObject({ code: 'already-exists' })
+  })
+
+  it('allows the name again once that person is gone, and for another family', async () => {
+    const first = await createManagedElder(FAMILY, { patientName: '할아버지' })
+    await createManagedElder({ uid: 'fam2', email: 'other@example.com', name: '아들' }, { patientName: '할아버지' })
+    await deleteManagedElder(FAMILY, { patientUid: first.patientUid })
+    await expect(createManagedElder(FAMILY, { patientName: '할아버지' })).resolves.toMatchObject({ patientUid: expect.any(String) })
+  })
+})
+
+describe('family links to accounts that no longer exist', () => {
+  it('are withdrawn when both the settings and the sign-in account are gone, and only then', async () => {
+    // Removed outside the app: no settings doc, no sign-in account.
+    const gone = await registerElder()
+    await getAuth().deleteUser(gone)
+    await db.doc(`users/${gone}`).delete()
+    await seedMembership(gone, 'sibling', { role: 'viewer' })
+    // Still has its sign-in account (settings doc missing).
+    const noDoc = (await createManagedElder(FAMILY, { patientName: '아버지' })).patientUid
+    await db.doc(`users/${noDoc}`).delete()
+    // Entirely fine.
+    const fine = (await createManagedElder(FAMILY, { patientName: '이모' })).patientUid
+
+    expect(await revokeLinksToDeletedAccounts()).toBe(2)
+    const status = async (patientUid: string, caregiverUid: string) => (await db.doc(`memberships/${patientUid}_${caregiverUid}`).get()).get('status')
+    expect(await status(gone, FAMILY.uid)).toBe('revoked')
+    expect(await status(gone, 'sibling')).toBe('revoked')
+    expect(await status(noDoc, FAMILY.uid)).toBe('active')
+    expect(await status(fine, FAMILY.uid)).toBe('active')
+    const log = (await db.collection('auditLogs').where('patientUid', '==', gone).get()).docs.map((d) => d.data()).filter((a) => a.action === 'membership.revoke')
+    expect(log).toHaveLength(2)
+    expect(log[0]).toMatchObject({ actorUid: 'worker', details: { reason: 'account-deleted' } })
+
+    // A second pass finds nothing more to do.
+    expect(await revokeLinksToDeletedAccounts()).toBe(0)
   })
 })

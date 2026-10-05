@@ -4,7 +4,8 @@ import { addDoc, collection, serverTimestamp } from 'firebase/firestore'
 import { db } from '../firebase'
 import type { DigestSettings, UserSettings, Memo } from '../types'
 import { useToast } from '../components/Toast'
-import { useMemberships } from '../hooks/useMemberships'
+import { useMemberships, type LiveMembership } from '../hooks/useMemberships'
+import type { Person } from '../lib/people'
 import { isWorkerOffline, WorkerError, WORKER_OFFLINE_MESSAGE } from '../lib/worker'
 import {
   createInvite,
@@ -50,6 +51,9 @@ interface Props {
   digestRollout?: boolean
   /** This parent's plan includes the weekly highlight. */
   weeklyIncluded?: boolean
+  /** The people the signed-in user looks after: the same list as the
+   *  switcher at the top of the app. */
+  people?: Person<LiveMembership>[]
   /** The lowest plan that includes it ("Plus"), for the chip. */
   weeklyFrom?: string | null
   /** Set while the plan sheet is rolled out: opens 부모님께 드리는 선물. */
@@ -60,7 +64,7 @@ interface Props {
   familyLimit?: number | null
 }
 
-export function Settings({ settings, onChange, user, onSignOut, memos, activePatientUid, isSelf, onSwitchPatient, myRole, voiceRollout = false, reactionsRollout = false, digestRollout = false, weeklyIncluded = false, weeklyFrom = null, onOpenPlans, planName, familyLimit = null }: Props) {
+export function Settings({ settings, onChange, user, onSignOut, memos, activePatientUid, isSelf, onSwitchPatient, myRole, voiceRollout = false, reactionsRollout = false, digestRollout = false, weeklyIncluded = false, weeklyFrom = null, people = [], onOpenPlans, planName, familyLimit = null }: Props) {
   const toast = useToast()
   // A family-managed elder (부모님 등록하기): family runs 가족 관리 and
   // 기기 관리 for them, since the elder's phone has no settings at all.
@@ -178,6 +182,18 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
     } catch (err) {
       console.error('[revoke] failed', err)
       toast.show('해제에 실패했어요', isWorkerOffline(err) ? WORKER_OFFLINE_MESSAGE : undefined)
+    }
+  }
+
+  // 함께 보는 가족 → 빼기: stop following someone (my own access only).
+  const onLeave = async (patientUid: string, name: string) => {
+    if (!confirm(`${name}님을 내 목록에서 뺄까요?\n${name}님의 사진과 기록은 그대로 남고, 나만 더 이상 볼 수 없게 돼요.`)) return
+    try {
+      await revokeMembership({ patientUid, caregiverUid: user.uid })
+      toast.show(`${name}님을 목록에서 뺐어요`)
+    } catch (err) {
+      console.error('[leave] failed', err)
+      toast.show('빼지 못했어요', isWorkerOffline(err) ? WORKER_OFFLINE_MESSAGE : '잠시 후 다시 시도해 주세요')
     }
   }
 
@@ -306,7 +322,33 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
         </div>
       )}
       {registering && (
-        <RegisterElder onClose={() => setRegistering(false)} onRegistered={onSwitchPatient} />
+        <RegisterElder onClose={() => setRegistering(false)} onRegistered={onSwitchPatient} takenNames={people.map((p) => p.name)} />
+      )}
+
+      {isSelf && people.length > 0 && (
+        <div className="sect">
+          <div className="sect-lab">함께 보는 가족</div>
+          {people.map((p) => {
+            const mine = p.membership.role === 'guardian'
+            return (
+              <div className="row recipient-row" key={p.patientUid}>
+                <div className="who">
+                  <b>{p.name}</b>
+                  <span> · {mine ? '내가 등록한 부모님' : p.membership.role === 'viewer' ? '뷰어' : '관리자'}</span>
+                </div>
+                <div className="send-row">
+                  <button className="send-btn" onClick={() => onSwitchPatient(p.patientUid)}>보기</button>
+                  {!mine && (
+                    <button className="send-btn send-del" onClick={() => onLeave(p.patientUid, p.name)} aria-label={`${p.name}님 목록에서 빼기`} title="빼기">✕</button>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+          <div className="help">
+            화면 위쪽에서 고르는 이름 목록과 같아요. 내가 등록한 부모님은 ‘보기’를 누른 뒤 설정 아래쪽 ‘부모님 삭제’에서 지울 수 있어요.
+          </div>
+        </div>
       )}
 
       {isManaged && !isSelf && canManageHere && (

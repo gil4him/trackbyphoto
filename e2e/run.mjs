@@ -82,6 +82,8 @@ async function click(page, label, { selector = 'button, a', timeout = 20_000 } =
   await handle.asElement().click()
 }
 const tab = (page, label) => click(page, label, { selector: 'nav.tabbar button.tab' })
+/** With E2E_SNAP=1, keep a picture of a screen worth looking at. */
+const snap = async (page, name) => { if (process.env.E2E_SNAP === '1') await page.screenshot({ path: join(SHOTS, `snap-${name}.png`) }).catch(() => {}) }
 
 // ── Setup ──────────────────────────────────────────────────────────────────
 await rm(SHOTS, { recursive: true, force: true })
@@ -405,6 +407,103 @@ await step('family 설정: reply and summary settings are there; voice and plans
   expect(t.includes('짧은 답장'), 'no 짧은 답장 option')
   expect(!t.includes('음성 답장'), '음성 답장 is shown')
   expect(!t.includes('요금제'), '요금제 is shown')
+})
+
+// ── Who is in the lists ────────────────────────────────────────────────────
+family.on('dialog', (d) => { d.accept().catch(() => {}) })
+/** The names in the switcher at the top of the family's screen. */
+async function switcherNames() {
+  await family.click('.acct-chip')
+  await family.waitForSelector('.ps-menu', { timeout: 10_000 })
+  const names = await family.$$eval('.ps-menu .ps-item-name', (els) => els.map((e) => e.textContent.trim()))
+  await family.click('.acct-chip')
+  return names
+}
+const linksOf = async () => (await db.collection('memberships').where('caregiverUid', '==', familyUid).where('status', '==', 'active').get()).docs.map((d) => d.get('patientUid'))
+const openRegister = async () => {
+  if (await family.$('.acct-return')) await family.click('.acct-return') // back to my own account
+  await tab(family, '설정')
+  await click(family, '부모님 등록하기')
+  await family.waitForSelector('.modal input', { timeout: 10_000 })
+}
+
+await step('registering a second parent under the same name is stopped with an explanation', async () => {
+  await openRegister()
+  await family.type('.modal input', PARENT)
+  await waitText(family, `이미 ‘${PARENT}’님이 등록되어 있어요`, 10_000)
+  await snap(family, 'name-clash')
+  const nextDisabled = await family.$$eval('.modal button.linkbtn', (els) => els.some((e) => e.textContent.includes('다음') && e.disabled))
+  expect(nextDisabled, '다음 can still be tapped')
+  await click(family, '취소', { selector: '.modal button' })
+  expect((await linksOf()).length === 1, 'something was created anyway')
+})
+
+await step('a registration can be cancelled on the link step, leaving nothing behind', async () => {
+  await openRegister()
+  await family.type('.modal input', `외${PARENT}`)
+  await click(family, '다음', { selector: '.modal button' })
+  await click(family, '다음', { selector: '.modal button' })
+  await click(family, '동의하고 등록하기', { selector: '.modal button' })
+  await waitText(family, '휴대폰 연결', 70_000)
+  expect((await linksOf()).length === 2, 'the second parent was not created')
+  await snap(family, 'link-step')
+  await click(family, '등록 취소', { selector: '.modal button' })
+  await waitText(family, '등록을 취소했어요', 70_000)
+  const end = Date.now() + 20_000
+  while ((await linksOf()).length !== 1 && Date.now() < end) await sleep(500)
+  expect((await linksOf()).length === 1, 'the cancelled parent is still linked')
+  const left = await db.collection('users').where('patientName', '==', `외${PARENT}`).get()
+  expect(left.empty, 'the cancelled parent\'s account still exists')
+  const names = await switcherNames()
+  expect(names.length === 2 && names.includes(PARENT) && !names.includes(`외${PARENT}`), `switcher shows ${JSON.stringify(names)}`)
+})
+
+await step('설정 → 함께 보는 가족 shows the same people as the switcher', async () => {
+  await tab(family, '설정')
+  await waitText(family, '함께 보는 가족')
+  await family.evaluate(() => [...document.querySelectorAll('.sect-lab')].find((e) => e.textContent.includes('함께 보는 가족'))?.scrollIntoView({ block: 'center' }))
+  await snap(family, 'settings-list')
+  const rows = await family.$$eval('.sect', (sects) => {
+    const sect = sects.find((s) => s.querySelector('.sect-lab')?.textContent.includes('함께 보는 가족'))
+    return sect ? [...sect.querySelectorAll('.who b')].map((b) => b.textContent.trim()) : []
+  })
+  const names = (await switcherNames()).slice(1) // without the "my account" row
+  expect(JSON.stringify(rows) === JSON.stringify(names), `설정 lists ${JSON.stringify(rows)}, the switcher ${JSON.stringify(names)}`)
+  expect(await has(family, '내가 등록한 부모님'), 'the registered parent is not marked as such')
+})
+
+await step('an account removed outside the app disappears from the lists, and its link is withdrawn', async () => {
+  // Someone the family follows whose account is then deleted straight from
+  // the console: no settings, no sign-in account, but the link is left behind.
+  const { getAuth } = await import('firebase-admin/auth')
+  const ghost = (await getAuth().createUser({ displayName: '삭제될 분' })).uid
+  await db.doc(`users/${ghost}`).set({ patientName: '삭제될 분', accountType: 'managed', createdBy: familyUid })
+  await db.doc(`memberships/${ghost}_${familyUid}`).set({ patientUid: ghost, caregiverUid: familyUid, role: 'guardian', status: 'active', consentId: 'c', createdAt: FieldValue.serverTimestamp() })
+  const until = async (check, what) => {
+    const end = Date.now() + 20_000
+    let names = []
+    while (Date.now() < end) { names = await switcherNames(); if (check(names)) return names; await sleep(700) }
+    throw new Error(`${what}: switcher shows ${JSON.stringify(names)}`)
+  }
+  await until((n) => n.includes('삭제될 분'), 'the new person never appeared')
+  await getAuth().deleteUser(ghost)
+  await db.doc(`users/${ghost}`).delete()
+  const names = await until((n) => !n.includes('삭제될 분'), 'the deleted account is still listed')
+  expect(!names.includes('사용자') && names.length === 2, `a nameless entry is listed: ${JSON.stringify(names)}`)
+  // The worker's daily pass, asked for now.
+  const run = spawn(process.execPath, ['--input-type=module', '-e', `
+    import { initializeApp } from 'firebase-admin/app'
+    initializeApp({ projectId: '${PROJECT}' })
+    const { revokeLinksToDeletedAccounts } = await import('${join(HERE, '..', 'worker', 'dist', 'handlers', 'housekeeping.js')}')
+    console.log(await revokeLinksToDeletedAccounts())
+    process.exit(0)
+  `], { env: workerEnv, cwd: join(HERE, '..', 'worker'), stdio: ['ignore', 'pipe', 'pipe'] })
+  let out = ''
+  run.stdout.on('data', (c) => { out += c })
+  run.stderr.on('data', (c) => { out += c })
+  await new Promise((resolve) => run.on('exit', resolve))
+  expect((await db.doc(`memberships/${ghost}_${familyUid}`).get()).get('status') === 'revoked', `the link was not withdrawn: ${out.slice(-200)}`)
+  expect((await linksOf()).length === 1, 'the family\'s real link was touched')
 })
 
 await step('parent: the app opens with no connection', async () => {

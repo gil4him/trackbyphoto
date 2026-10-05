@@ -6,44 +6,29 @@
 // patient). For pure self-managed accounts it returns null so the layout
 // matches the original single-user UI.
 //
-// The displayed name for each patient comes from users/{patientUid}.patientName
-// — same field the Settings screen edits. We subscribe per patient rather
-// than fetch-once because the patient's name may change while we're open.
+// Who is listed, and under what name, is decided in one place for every list
+// in the app (lib/people.ts, hooks/usePatientNames.ts): a person appears once
+// their settings are known to exist, under users/{patientUid}.patientName.
 
 import { useEffect, useRef, useState } from 'react'
-import { doc, onSnapshot } from 'firebase/firestore'
-import { db } from '../firebase'
 import type { LiveMembership } from '../hooks/useMemberships'
+import type { Person } from '../lib/people'
 
 interface Props {
   /** Signed-in user's uid — the "self" entry. */
   selfUid: string
   /** What the user wants to call themselves on the self row. */
   selfLabel: string
-  /** Active patient memberships where caregiverUid == selfUid. */
-  patients: LiveMembership[]
+  /** The people this user looks after, already named (see lib/people.ts). */
+  people: Person<LiveMembership>[]
   /** Currently selected patientUid. */
   activePatientUid: string
   onChange: (patientUid: string) => void
 }
 
-export function PatientSwitcher({ selfUid, selfLabel, patients, activePatientUid, onChange }: Props) {
+export function PatientSwitcher({ selfUid, selfLabel, people, activePatientUid, onChange }: Props) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
-
-  // Subscribe to each patient's display name. Keyed map keeps it stable as
-  // patients come and go.
-  const [names, setNames] = useState<Record<string, string>>({})
-  useEffect(() => {
-    if (patients.length === 0) return
-    const unsubs = patients.map((p) =>
-      onSnapshot(doc(db, 'users', p.patientUid), (snap) => {
-        const name = (snap.data()?.patientName as string | undefined) || '사용자'
-        setNames((prev) => ({ ...prev, [p.patientUid]: name }))
-      }, (err) => console.warn('[switcher] name subscription error', err)),
-    )
-    return () => { unsubs.forEach((u) => u()) }
-  }, [patients])
 
   // Outside-click closes the dropdown.
   useEffect(() => {
@@ -56,12 +41,12 @@ export function PatientSwitcher({ selfUid, selfLabel, patients, activePatientUid
   }, [open])
 
   // No options beyond self → don't render.
-  if (patients.length === 0) return null
+  if (people.length === 0) return null
 
   const isSelf = activePatientUid === selfUid
   const activeLabel = isSelf
     ? selfLabel
-    : names[activePatientUid] || '사용자'
+    : people.find((p) => p.patientUid === activePatientUid)?.name || '사용자'
   // Switch menu (self + every patient).
   const menu = open && (
     <div className="ps-menu" role="menu">
@@ -73,7 +58,7 @@ export function PatientSwitcher({ selfUid, selfLabel, patients, activePatientUid
         <span className="ps-item-name">{selfLabel}</span>
         <span className="ps-item-sub">내 계정</span>
       </button>
-      {patients.map((p) => {
+      {people.map((p) => {
         const selected = activePatientUid === p.patientUid
         return (
           <button
@@ -82,8 +67,8 @@ export function PatientSwitcher({ selfUid, selfLabel, patients, activePatientUid
             onClick={() => { onChange(p.patientUid); setOpen(false) }}
             role="menuitem"
           >
-            <span className="ps-item-name">{names[p.patientUid] || '사용자'}</span>
-            <span className="ps-item-sub">가족 · {p.role === 'viewer' ? '뷰어' : '관리자'}</span>
+            <span className="ps-item-name">{p.name}</span>
+            <span className="ps-item-sub">가족 · {p.membership.role === 'viewer' ? '뷰어' : '관리자'}</span>
           </button>
         )
       })}

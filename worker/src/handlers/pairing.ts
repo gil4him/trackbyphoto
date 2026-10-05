@@ -214,10 +214,30 @@ interface CreateManagedElderRequest {
   voiceConsent?: boolean
 }
 
+/** Names compare without regard to spacing or letter case ("할아버지 " = "할아버지"). */
+export const sameName = (a: string, b: string) => {
+  const tidy = (s: string) => s.normalize('NFC').replace(/\s+/g, '').toLowerCase()
+  return tidy(a) === tidy(b)
+}
+
 export async function createManagedElder(caller: Caller, data: CreateManagedElderRequest): Promise<{ patientUid: string }> {
   const callerUid = requireFamilyAccount(caller)
   const patientName = typeof data?.patientName === 'string' ? data.patientName.trim().slice(0, 20) : ''
   if (!patientName) throw new HttpsError('invalid-argument', 'patientName required')
+
+  // One name, one person: someone the caller already looks after under this
+  // name would be indistinguishable from the new one in every list. (To put
+  // an existing parent on a new phone there is 기기 관리 → 새 휴대폰 연결.)
+  const looksAfter = await getFirestore().collection('memberships')
+    .where('caregiverUid', '==', callerUid)
+    .where('status', '==', 'active')
+    .get()
+  for (const m of looksAfter.docs) {
+    const existing = (await getFirestore().doc(`users/${m.get('patientUid')}`).get()).get('patientName') as string | undefined
+    if (existing && sameName(existing, patientName)) {
+      throw new HttpsError('already-exists', `already looking after someone called ${existing}`, { name: existing })
+    }
+  }
 
   const s = data.settings ?? {}
   const cadence = s.cadence === 'realtime' || s.cadence === 'weekly' ? s.cadence : 'daily'
