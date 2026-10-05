@@ -9,6 +9,7 @@ import {
 import {
   doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, deleteField, serverTimestamp,
   collection, query, where, orderBy, limit,
+  getCountFromServer,
 } from 'firebase/firestore'
 import { ref, uploadBytes, getBytes } from 'firebase/storage'
 import { describe, it, beforeAll, beforeEach, afterAll } from 'vitest'
@@ -1009,6 +1010,33 @@ describe('plans', () => {
     await assertFails(setDoc(doc(authedDb(PATIENT), 'users', PATIENT), { plan: { tier: 'family' }, lastModifiedBy: PATIENT }, { merge: true }))
     await assertFails(setDoc(doc(authedDb(CAREGIVER_ACTIVE_ADMIN), 'users', PATIENT), { dayCounters: {}, lastModifiedBy: CAREGIVER_ACTIVE_ADMIN }, { merge: true }))
     await assertFails(setDoc(doc(authedDb(STRANGER), 'users', STRANGER), { patientName: 'x', plan: { tier: 'family' }, lastModifiedBy: STRANGER }))
+  })
+
+  it('family asks the worker to change the plan; the parent\'s linked phone can\'t ask for anything', async () => {
+    const req = (uid: string) => ({
+      type: 'changePlan', uid, email: null, name: null, payload: { patientUid: PATIENT, tier: 'basic' }, status: 'pending', createdAt: serverTimestamp(),
+    })
+    await assertSucceeds(setDoc(doc(authedDb(CAREGIVER_ACTIVE_ADMIN), 'requests', 'r1'), req(CAREGIVER_ACTIVE_ADMIN)))
+    await assertFails(setDoc(doc(testEnv.authenticatedContext(PATIENT, { elder: true, deviceId: 'd1' }).firestore(), 'requests', 'r2'), req(PATIENT)))
+    // Asking is all a client can do: the plan itself stays the worker's.
+    await assertFails(setDoc(doc(authedDb(CAREGIVER_ACTIVE_ADMIN), 'users', PATIENT), { plan: { tier: 'basic' }, lastModifiedBy: CAREGIVER_ACTIVE_ADMIN }, { merge: true }))
+  })
+
+  it('the plan sheet\'s questions (how many photos are kept, the oldest, every voice reply) are open to family only', async () => {
+    const memos = (uid: string) => [collection(authedDb(uid), 'memos'), where('patientUid', '==', PATIENT)] as const
+    const voices = (uid: string) => query(collection(authedDb(uid), 'reactions'), where('patientUid', '==', PATIENT), where('kind', '==', 'voice'), orderBy('createdAt', 'desc'), limit(500))
+    for (const uid of [CAREGIVER_ACTIVE_ADMIN, CAREGIVER_ACTIVE_VIEWER]) {
+      const [base, mine] = memos(uid)
+      await assertSucceeds(getCountFromServer(query(base, mine)))
+      await assertSucceeds(getCountFromServer(query(base, mine, where('takenAt', '<', new Date()))))
+      await assertSucceeds(getDocs(query(base, mine, orderBy('takenAt', 'asc'), limit(1))))
+      await assertSucceeds(getDocs(voices(uid)))
+    }
+    for (const uid of [STRANGER, CAREGIVER_REVOKED]) {
+      const [base, mine] = memos(uid)
+      await assertFails(getCountFromServer(query(base, mine)))
+      await assertFails(getDocs(voices(uid)))
+    }
   })
 
   it('ordinary settings still save, also when a plan is already on the doc', async () => {

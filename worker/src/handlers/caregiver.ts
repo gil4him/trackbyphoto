@@ -44,6 +44,7 @@ import { randomInt } from 'node:crypto'
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { logger } from '../log.js'
 import { WorkerError as HttpsError, type Caller } from '../context.js'
+import { assertFamilyRoom } from './family.js'
 
 // Invite codes are 6-digit numeric (000000–999999). 10^6 is plenty for a code
 // that lives 24 hours and is one-shot; collisions are handled by retry below.
@@ -178,6 +179,8 @@ export async function createInvite(caller: Caller, data: CreateInviteRequest): P
   if (!(await isOwnerOrAdminCaregiver(callerUid, patientUid))) {
     throw new HttpsError('permission-denied', 'only the patient or an admin caregiver can invite')
   }
+  // The plan decides how many family members share the day ('plan-limit').
+  await assertFamilyRoom(patientUid)
 
   const db = getFirestore()
   const now = Date.now()
@@ -328,6 +331,8 @@ export async function acceptInvite(caller: Caller, data: AcceptInviteRequest): P
     // invited / revoked rows are overwritten by the accept — the new code
     // is fresh consent.
   }
+  // Two invites can be out at once; the plan's count is checked again here.
+  await assertFamilyRoom(inv.patientUid)
 
   const logRef = db.collection('auditLogs').doc()
   const batch = db.batch()

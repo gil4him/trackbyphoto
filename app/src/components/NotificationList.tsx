@@ -6,6 +6,8 @@ const ICONS: Array<[prefix: string, icon: string]> = [
   ['reaction.voice', '🎙️'],
   ['reaction.comment', '💬'],
   ['reaction.', '❤️'],
+  ['voice.', '🔓'],
+  ['family.', '👪'],
   ['device.', '📱'],
   ['caregiver.', '👪'],
   ['recipient.', '👪'],

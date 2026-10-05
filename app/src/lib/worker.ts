@@ -11,9 +11,12 @@ import { auth, db } from '../firebase'
 
 export class WorkerError extends Error {
   code: string
-  constructor(code: string, message: string) {
+  /** Extra facts the worker sent with the error (e.g. which plan would fit). */
+  details?: Record<string, unknown>
+  constructor(code: string, message: string, details?: Record<string, unknown>) {
     super(message)
     this.code = code
+    this.details = details
     this.name = 'WorkerError'
   }
 }
@@ -57,7 +60,7 @@ export async function callWorker<T>(
         clearTimeout(timer)
         unsub()
         if (data.status === 'done') resolve(data.result as T)
-        else reject(new WorkerError(data.code || 'internal', data.message || 'request failed'))
+        else reject(new WorkerError(data.code || 'internal', data.message || 'request failed', data.details))
       }, (err) => {
         clearTimeout(timer)
         reject(err)

@@ -15,7 +15,8 @@ export interface Caller {
 /** Replacement for firebase-functions' HttpsError. The code strings keep the
  *  same vocabulary so the client can branch on them exactly as before. */
 export class WorkerError extends Error {
-  constructor(public code: string, message: string) {
+  /** `details` travels back to the app with the error (e.g. which plan would fit). */
+  constructor(public code: string, message: string, public details?: Record<string, unknown>) {
     super(message)
     this.name = 'WorkerError'
   }

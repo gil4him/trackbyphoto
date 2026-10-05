@@ -26,10 +26,12 @@ export interface PlanEntitlements {
   voiceAlbum: boolean
   aiPhotosPerDay: number | null
   seniors: number
+  /** Shown on the plan sheet as written ("₩0,000/월"); no price is shown without it. */
+  priceLabel?: string
 }
 
 /** Rollout switches. Everything ships off and is turned on per feature. */
-export const PLAN_FLAGS = ['reactions', 'voiceReplies', 'digest', 'pushFamily', 'usageCaps', 'retentionJob', 'messengerFree', 'trailMap'] as const
+export const PLAN_FLAGS = ['reactions', 'voiceReplies', 'digest', 'pushFamily', 'usageCaps', 'retentionJob', 'messengerFree', 'trailMap', 'planSheet'] as const
 export type PlanFlag = (typeof PLAN_FLAGS)[number]
 
 export interface PlansDoc extends Record<PlanTier, PlanEntitlements> {

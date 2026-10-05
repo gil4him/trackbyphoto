@@ -32,6 +32,9 @@ import { Notifications } from './pages/Notifications'
 import { DigestPage } from './pages/DigestPage'
 import { digestIdFromPath } from './lib/digest'
 import { Trail } from './pages/Trail'
+import { VoiceAlbum } from './pages/VoiceAlbum'
+import { PlanSheet } from './components/PlanSheet'
+import { TIER_NAME, type PlanReason } from './lib/plan'
 import { homeFor } from './lib/trail'
 import { relativeDateLabel } from './util'
 import { disablePush, refreshPush } from './lib/push'
@@ -76,6 +79,8 @@ function App() {
   const [tab, setTab] = useState<TabKey>('home')
   const [selectedMemoId, setSelectedMemoId] = useState<string | null>(null)
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS)
+  // Whose settings those are: they lag a moment behind a switch of patient.
+  const [settingsUid, setSettingsUid] = useState<string | null>(null)
   // Caregiver-share: the user can be looking at their own data (self) or at
   // a patient they're an active caregiver on. `activePatientUid` is the
   // patientUid we're currently rendering — defaults to the signed-in user.
@@ -109,6 +114,10 @@ function App() {
   // 다녀온 곳: one day's (or one digest's) photos as a route.
   const trailOn = flagOn(plans, 'trailMap')
   const [trail, setTrail] = useState<{ start: number; end: number; title: string } | null>(null)
+  // v2 plans: 부모님께 드리는 선물 (opened from four places only) and 목소리 앨범.
+  const planOn = flagOn(plans, 'planSheet')
+  const [planSheet, setPlanSheet] = useState<PlanReason | null>(null)
+  const [voiceAlbum, setVoiceAlbum] = useState(false)
   const familyUid = user && !elder ? user.uid : undefined
   useEffect(() => {
     if (pushOn && familyUid) void refreshPush()
@@ -167,6 +176,7 @@ function App() {
     const unsub = onSnapshot(sref, (snap) => {
       if (snap.exists()) {
         setSettings({ ...DEFAULT_SETTINGS, ...(snap.data() as Partial<UserSettings>) })
+        setSettingsUid(activePatientUid)
       } else if (activePatientUid === user.uid && !elder) {
         // Only seed defaults for the SELF doc — never overwrite a missing
         // doc for someone we're caregiving (could be a transient consistency
@@ -202,6 +212,7 @@ function App() {
     // Drop any open detail view when switching contexts so we don't stare
     // at a memo that just disappeared from the active list.
     setSelectedMemoId(null)
+    setVoiceAlbum(false)
   }
 
   // Apply big text preference (slightly larger root font when on).
@@ -348,6 +359,7 @@ function App() {
     setOpenNews(null)
     setSelectedMemoId(null)
     setTrail(null)
+    setVoiceAlbum(false)
     if (digestId) closeDigest()
     setTab(k)
   }
@@ -379,6 +391,19 @@ function App() {
     if (n.digestId) { setDigestId(n.digestId); return }
     const reachable = n.patientUid === user.uid || patients.some((p) => p.patientUid === n.patientUid)
     if (!reachable) return
+    const here = n.patientUid === (activePatientUid || user.uid)
+    // "사진이 지워져요" is one of the plan sheet's four doors.
+    if (n.type === 'retention.expiring' && planOn) {
+      if (!here) onSwitchPatient(n.patientUid)
+      setPlanSheet({ kind: 'retention', message: n.message })
+      return
+    }
+    // "언니·오빠도 함께 받아보세요" leads to 가족초대.
+    if (n.type === 'family.invite_prompt') {
+      if (!here) onSwitchPatient(n.patientUid)
+      setTab('settings')
+      return
+    }
     if (n.patientUid !== (activePatientUid || user.uid)) {
       onSwitchPatient(n.patientUid)
       setTab('today')
@@ -394,6 +419,13 @@ function App() {
     await signOut()
   }
 
+  const ent = entitlements(plans, settings.plan?.tier)
+  // Whoever manages these records may change the plan; other family only look.
+  const myRole = patients.find((p) => p.patientUid === activePatientUid)?.role
+  const canChangePlan = isSelf ? settings.accountType !== 'managed' : myRole === 'admin' || myRole === 'guardian'
+  // 목소리 앨범: family only, on a plan that includes it.
+  const voiceAlbumOn = planOn && !isSelf && flagOn(plans, 'voiceReplies') && ent?.voiceAlbum === true
+
   const rx: ReactionsContext | undefined = reactionsOn ? {
     byMemo: reactionsByMemo,
     me: { uid: user.uid, name: user.displayName || selfLabel },
@@ -401,7 +433,13 @@ function App() {
     patientName: settings.patientName,
     canReact: !isSelf,
     voiceOn: flagOn(plans, 'voiceReplies'),
-    voiceAllowed: entitlements(plans, settings.plan?.tier)?.voiceReplies === true,
+    // Someone looking at their own records always hears their own replies;
+    // what the plan decides is whether the family does.
+    voiceAllowed: isSelf || ent?.voiceReplies === true,
+    onVoiceLocked: planOn && !isSelf ? () => setPlanSheet({
+      kind: 'voice',
+      count: reactions.filter((r) => r.kind === 'voice' && r.actorUid === (activePatientUid || user.uid) && r.status === 'ready').length,
+    }) : undefined,
     onReply: isSelf ? (item, unreadIds) => openFamilyNews({ state: 'new', item, unreadIds }) : undefined,
   } : undefined
 
@@ -414,7 +452,7 @@ function App() {
           </button>
         )}
         <main>
-          {patients.length > 0 && !selectedMemo && !openNews && !digestId && !trail && (
+          {patients.length > 0 && !selectedMemo && !openNews && !digestId && !trail && !voiceAlbum && (
             <PatientSwitcher
               selfUid={user.uid}
               selfLabel={selfLabel}
@@ -443,6 +481,14 @@ function App() {
               memos={memos.filter((m) => { const t = m.takenAt.toMillis(); return t >= trail.start && t < trail.end })}
               home={homeFor(settings.home, memos)}
               onBack={() => setTrail(null)}
+              onOpenMemo={setSelectedMemoId}
+            />
+          ) : voiceAlbum && voiceAlbumOn ? (
+            <VoiceAlbum
+              patientUid={activePatientUid || user.uid}
+              patientName={settings.patientName}
+              knownMemos={memos}
+              onBack={() => setVoiceAlbum(false)}
               onOpenMemo={setSelectedMemoId}
             />
           ) : digestId ? (
@@ -475,9 +521,9 @@ function App() {
           ) : (
             <>
               {tab === 'home'     && pushOn && <InstallHint />}
-              {tab === 'alerts'   && <Notifications uid={user.uid} onOpen={openNotice} digestOn={digestOn} messengerIncluded={flagOn(plans, 'messengerFree') || entitlements(plans, settings.plan?.tier)?.messenger === true} />}
+              {tab === 'alerts'   && <Notifications uid={user.uid} onOpen={openNotice} digestOn={digestOn} messengerIncluded={flagOn(plans, 'messengerFree') || ent?.messenger === true} />}
               {tab === 'home'     && <Home uid={activePatientUid || user.uid} patientName={settings.patientName} greetingName={isSelf ? selfLabel : settings.patientName} memos={memos} onOpenAsk={openAsk} onOpen={setSelectedMemoId} canCapture={isSelf} notifications={bannerNotices} onDismissNotification={dismissNotification} newsCard={ownNews && <FamilyNewsCard news={ownNews} onOpen={() => { if (ownNews.state !== 'none') openFamilyNews(ownNews) }} />} />}
-              {tab === 'today'    && <Today memos={memos} onOpen={setSelectedMemoId} uid={activePatientUid || user.uid} rx={rx} onOpenTrail={trailOn ? openDayTrail : undefined} />}
+              {tab === 'today'    && <Today memos={memos} onOpen={setSelectedMemoId} uid={activePatientUid || user.uid} rx={rx} onOpenTrail={trailOn ? openDayTrail : undefined} onOpenVoiceAlbum={voiceAlbumOn ? () => setVoiceAlbum(true) : undefined} />}
               {tab === 'ask'      && <Ask memos={memos} onOpen={setSelectedMemoId} />}
               {tab === 'settings' && (
                 <Settings
@@ -489,16 +535,31 @@ function App() {
                   activePatientUid={activePatientUid || user.uid}
                   isSelf={isSelf}
                   onSwitchPatient={(uid) => { onSwitchPatient(uid); setTab('home') }}
-                  myRole={patients.find((p) => p.patientUid === activePatientUid)?.role}
+                  myRole={myRole}
                   voiceRollout={flagOn(plans, 'voiceReplies')}
                   reactionsRollout={reactionsOn}
                   digestRollout={digestOn}
-                  weeklyIncluded={entitlements(plans, settings.plan?.tier)?.weekly === true}
+                  weeklyIncluded={ent?.weekly === true}
+                  onOpenPlans={planOn && plans ? setPlanSheet : undefined}
+                  planName={TIER_NAME[settings.plan?.tier ?? 'free']}
+                  familyLimit={ent?.familyMembers ?? null}
                 />
               )}
             </>
           )}
         </main>
+
+        {planSheet && planOn && plans && settingsUid === (activePatientUid || user.uid) && (
+          <PlanSheet
+            plans={plans}
+            patientUid={activePatientUid || user.uid}
+            patientName={settings.patientName}
+            plan={settings.plan}
+            reason={planSheet}
+            canChange={canChangePlan}
+            onClose={() => setPlanSheet(null)}
+          />
+        )}
 
         <Tabs active={tab} onChange={onTabChange} avatarUrl={user.photoURL ?? undefined} unreadCount={notifications.length} showAlerts={pushOn || digestOn} />
       </div>

@@ -22,20 +22,25 @@ export interface ReactionsContext {
   /** Set when the viewer is the patient: open 가족 소식 to answer a photo's
    *  newest family message with a heart or their voice. */
   onReply?: (item: Reaction, unreadIds: string[]) => void
+  /** Set when the plan sheet is available: the locked voice card opens it. */
+  onVoiceLocked?: () => void
 }
 
 /** The parent's voice reply: playable with its transcript, or the locked
  *  card when the plan doesn't include voice replies. */
 function VoiceBubble({ r, ctx }: { r: Reaction; ctx: ReactionsContext }) {
   if (!ctx.voiceAllowed) {
-    // Placeholder; the plan sheet opens from here in Phase 6.
-    return (
-      <div className="rx-voice locked">
+    // Never the clip or its words; one of the plan sheet's four doors.
+    const card = (
+      <>
         <span className="rx-wave" aria-hidden="true" />
         <span className="rx-lock" aria-hidden="true">🔒</span>
         <span>{S.voiceLocked(ctx.patientName)}</span>
-      </div>
+      </>
     )
+    return ctx.onVoiceLocked
+      ? <button type="button" className="rx-voice locked" onClick={ctx.onVoiceLocked}>{card}</button>
+      : <div className="rx-voice locked">{card}</div>
   }
   if (r.status === 'pending') return <div className="rx-voice pending">{S.voicePending}</div>
   if (r.status !== 'ready' || !r.audioUrl) return null
