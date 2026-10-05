@@ -19,11 +19,12 @@ service firebase.storage {
     // way photos are shown.
     match /voice/{uid}/{memoId}/{clip} {
       allow read:   if false;
-      allow create: if request.auth != null
-                    && request.auth.uid == uid
-                    && request.resource.size < 2 * 1024 * 1024
-                    && request.resource.contentType.matches('audio/.*');
-      allow update: if false;
+      // update too: when an upload arrives but its answer is lost on a weak
+      // connection, the phone sends the same clip again to the same path.
+      allow create, update: if request.auth != null
+                            && request.auth.uid == uid
+                            && request.resource.size < 2 * 1024 * 1024
+                            && request.resource.contentType.matches('audio/.*');
       allow delete: if request.auth != null && request.auth.uid == uid;
     }
   }

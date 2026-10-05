@@ -5,11 +5,10 @@
 // Reuses the photo Outbox with its own database and backend. In an entry,
 // `photoId` is the reaction id and `tags` carries { memoId, actorName }.
 
-import { ref, uploadBytes } from 'firebase/storage'
 import { collection, doc, getDocsFromServer, limit, query, serverTimestamp, setDoc, where } from 'firebase/firestore'
-import { db, storage } from '../firebase'
+import { db } from '../firebase'
 import { Outbox, type OutboxBackend, type OutboxItem } from './outbox'
-import { createStore, VOICE_DB_NAME, withTimeout } from './outboxBackend'
+import { createStore, sendFile, VOICE_DB_NAME, withTimeout } from './outboxBackend'
 
 interface VoiceMeta {
   memoId: string
@@ -20,9 +19,7 @@ const meta = (item: OutboxItem) => item.tags as VoiceMeta
 const clipPath = (item: OutboxItem) => `voice/${item.uid}/${meta(item).memoId}/${item.photoId}.${item.ext}`
 
 const voiceBackend: OutboxBackend = {
-  upload: async (item) => {
-    await uploadBytes(ref(storage, clipPath(item)), item.blob, { contentType: item.blob.type || 'audio/webm' })
-  },
+  upload: (item, watch) => sendFile(clipPath(item), item.blob, { contentType: item.blob.type || 'audio/webm' }, watch),
 
   // An earlier attempt may have got through without our hearing back.
   memoExists: async (item) => {

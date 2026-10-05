@@ -23,6 +23,8 @@ function WaitingPhoto({ item }: { item: OutboxItem }) {
         <div className="desc">
           {item.attempts > 0 ? '인터넷이 약해요. 연결되면 자동으로 보내요.' : '곧 기록돼요.'}
         </div>
+        {/* After several failed tries, say why, so it can be reported. */}
+        {item.attempts >= 5 && item.lastError && <div className="desc muted">({item.lastError})</div>}
       </div>
     </div>
   )

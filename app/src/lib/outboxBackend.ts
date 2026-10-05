@@ -1,11 +1,14 @@
 // The real ends of the outbox: IndexedDB on the phone, Firebase on the server.
 
-import { ref, uploadBytes } from 'firebase/storage'
+import { ref, uploadBytesResumable, type UploadMetadata } from 'firebase/storage'
 import {
   collection, doc, getDocsFromServer, limit, query, serverTimestamp, setDoc, Timestamp, updateDoc, where,
 } from 'firebase/firestore'
 import { db, storage } from '../firebase'
-import { memoryStore, Outbox, type OutboxBackend, type OutboxItem, type OutboxStore } from './outbox'
+import {
+  fromStored, memoryStore, Outbox, toStored,
+  type OutboxBackend, type OutboxItem, type OutboxStore, type Stored, type UploadWatch,
+} from './outbox'
 
 const DB_NAME = 'tbp-outbox'
 const STORE = 'photos'
@@ -14,8 +17,9 @@ export const VOICE_DB_NAME = 'tbp-voice-outbox'
 /** Give up on a silent network call so the outbox can back off and retry. */
 export const CALL_TIMEOUT_MS = 30_000
 
-// Fail an upload after 30 s without progress; the SDK's own default keeps
-// retrying for ten minutes, which would hold up every photo behind it.
+// Stop the SDK's own retrying after 30 s (its default is ten minutes); the
+// outbox does the retrying. This does not end a request that is already on
+// its way and has gone quiet: sendFile and the outbox's stall watch do that.
 storage.maxUploadRetryTime = CALL_TIMEOUT_MS
 
 export function withTimeout<T>(p: Promise<T>, what: string): Promise<T> {
@@ -25,16 +29,38 @@ export function withTimeout<T>(p: Promise<T>, what: string): Promise<T> {
   ])
 }
 
+/**
+ * Upload a file in a way the outbox can watch and stop: it hears each time
+ * bytes move, and the upload is cancelled when the outbox gives up on it.
+ */
+export async function sendFile(path: string, blob: Blob, metadata: UploadMetadata, watch: UploadWatch): Promise<void> {
+  // Read the bytes first, so a file the phone can no longer read fails here
+  // under its own name instead of looking like a bad connection.
+  const bytes = new Uint8Array(await blob.arrayBuffer())
+  if (watch.signal.aborted) throw new Error('upload stalled')
+  const task = uploadBytesResumable(ref(storage, path), bytes, metadata)
+  const stop = () => { task.cancel() }
+  watch.signal.addEventListener('abort', stop, { once: true })
+  let moved = -1
+  const off = task.on('state_changed', (snap) => {
+    if (snap.bytesTransferred !== moved) { moved = snap.bytesTransferred; watch.progress() }
+  })
+  try {
+    await task
+  } finally {
+    off()
+    watch.signal.removeEventListener('abort', stop)
+  }
+}
+
 const photoPath = (item: OutboxItem) => `photos/${item.uid}/${item.photoId}.${item.ext}`
 
 const firebaseBackend: OutboxBackend = {
-  upload: async (item) => {
-    await uploadBytes(ref(storage, photoPath(item)), item.blob, {
-      contentType: item.blob.type || 'image/jpeg',
-      // Kept on the object for forensics; the worker reads the memo doc.
-      customMetadata: { uid: item.uid, photoId: item.photoId, takenAt: new Date(item.takenAtMs).toISOString() },
-    })
-  },
+  upload: (item, watch) => sendFile(photoPath(item), item.blob, {
+    contentType: item.blob.type || 'image/jpeg',
+    // Kept on the object for forensics; the worker reads the memo doc.
+    customMetadata: { uid: item.uid, photoId: item.photoId, takenAt: new Date(item.takenAtMs).toISOString() },
+  }, watch),
 
   // A plain get() on a missing memo is denied by the rules (they read the
   // doc's patientUid), so look it up with a query the rules can check.
@@ -93,9 +119,15 @@ function idbStore(dbName: string): OutboxStore {
     })
   }
   return {
-    put: async (item) => { await run('readwrite', (s) => s.put(item)) },
-    get: (id) => run('readonly', (s) => s.get(id) as IDBRequest<OutboxItem | undefined>),
-    all: () => run('readonly', (s) => s.getAll() as IDBRequest<OutboxItem[]>),
+    put: async (item) => {
+      const rec = await toStored(item)
+      await run('readwrite', (s) => s.put(rec))
+    },
+    get: async (id) => {
+      const rec = await run('readonly', (s) => s.get(id) as IDBRequest<Stored | OutboxItem | undefined>)
+      return rec && fromStored(rec)
+    },
+    all: async () => (await run('readonly', (s) => s.getAll() as IDBRequest<(Stored | OutboxItem)[]>)).map(fromStored),
     delete: async (id) => { await run('readwrite', (s) => s.delete(id)) },
   }
 }
