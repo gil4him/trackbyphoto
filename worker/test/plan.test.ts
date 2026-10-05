@@ -3,13 +3,13 @@
 // Plan contents below are made up for the tests.
 
 import { describe, it, expect, beforeEach } from 'vitest'
-import { Timestamp } from 'firebase-admin/firestore'
+import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { acceptInvite, createInvite } from '../src/handlers/caregiver'
 import { INVITE_PROMPT_MESSAGE, invitePrompt, nextTierWithRoom } from '../src/handlers/family'
 import { changePlan } from '../src/handlers/plan'
 import { HANDLERS, processRequest } from '../src/handlers/requests'
 import { paymentProvider, stubPayments, type PaymentRequest } from '../src/payments/index'
-import { getPlans, resetPlansCache, type PlansDoc } from '../src/plans'
+import { getPlans, offeredTiers, resetPlansCache, type PlansDoc } from '../src/plans'
 import { db, clearFirestore, seedMembership, count } from './setup'
 
 const tier = (o: Record<string, unknown> = {}) => ({
@@ -191,6 +191,37 @@ describe('family members and the plan', () => {
     expect(nextTierWithRoom(table, 'free', 1)).toBe('basic')
     expect(nextTierWithRoom(table, 'basic', 2)).toBe('family') // plus has no more room than basic here
     expect(nextTierWithRoom(table, 'family', 4)).toBeNull()
+  })
+
+  describe('when the table offers three plans (no Basic)', () => {
+    const threePlans = async () => {
+      await db.doc('admin_config/plans').update({ basic: FieldValue.delete(), plus: tier({ familyMembers: 3 }) })
+      resetPlansCache()
+    }
+
+    it('lists only the plans in the table', async () => {
+      await threePlans()
+      expect(offeredTiers((await getPlans()) as PlansDoc)).toEqual(['free', 'plus', 'family'])
+    })
+
+    it('an invite past Free\'s count points at Plus', async () => {
+      await threePlans()
+      const err = await fails(createInvite(as('cg1'), { patientUid: 'p1', role: 'admin' }))
+      expect(err.details).toEqual({ limit: 1, tier: 'free', nextTier: 'plus' })
+    })
+
+    it('nobody can be put on the plan that is gone', async () => {
+      await threePlans()
+      expect((await fails(changePlan(as('cg1'), { patientUid: 'p1', tier: 'basic' }))).code).toBe('failed-precondition')
+      expect((await changePlan(as('cg1'), { patientUid: 'p1', tier: 'plus' })).changed).toBe(true)
+    })
+
+    it('an account still on it is not held to any family count', async () => {
+      await db.doc('users/p1').update({ plan: { tier: 'basic', status: 'active' } })
+      await threePlans()
+      const res = await createInvite(as('cg1'), { patientUid: 'p1', role: 'admin' })
+      expect(res.code).toMatch(/^\d{6}$/)
+    })
   })
 
   it('does not count family who left, and never removes family who already joined', async () => {

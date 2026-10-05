@@ -3,7 +3,7 @@
 // made up for the tests; the real table lives in admin_config/plans.
 
 import { describe, it, expect, beforeEach } from 'vitest'
-import { Timestamp } from 'firebase-admin/firestore'
+import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { processMemo, type MemoDeps } from '../src/handlers/memo'
 import { allowAi, dayKey } from '../src/handlers/usage'
 import { expiringMessage, runRetention, type RetentionDeps } from '../src/handlers/retention'
@@ -331,7 +331,7 @@ describe('retention', () => {
     expect(await exists('theirs')).toBe(true)
   })
 
-  it('Plus sends no notice', async () => {
+  it('Plus: the family is told too, before photos kept for years go', async () => {
     await plans({ retentionJob: true })
     await established()
     await patient('p1', 'plus')
@@ -339,8 +339,39 @@ describe('retention', () => {
     await photo('expired', 735)
     await photo('almost', 725)
     const s = storage()
-    expect(await runRetention(NOW, s)).toEqual({ patients: 1, deleted: 1, notices: 0 })
+    expect(await runRetention(NOW, s)).toEqual({ patients: 1, deleted: 1, notices: 1 })
     expect(await exists('almost')).toBe(true)
+    expect((await expiring('cg1'))[0].message).toBe('이번 주에 사진 1장이 지워져요. Family로 바꾸면 평생 보관해요.')
+  })
+
+  describe('when the table offers three plans (no Basic)', () => {
+    const THREE = { basic: FieldValue.delete() }
+    const threePlans = async () => {
+      await plans({ retentionJob: true })
+      await db.doc('admin_config/plans').update(THREE)
+      resetPlansCache()
+    }
+
+    it('Free: the notice names Plus, the next plan there is', async () => {
+      await threePlans()
+      await established()
+      await patient('p1', 'free')
+      await seedMembership('p1', 'cg1')
+      await photo('going', 5)
+      await runRetention(NOW, storage())
+      expect((await expiring('cg1'))[0].message).toBe('이번 주에 사진 1장이 지워져요. Plus로 바꾸면 2년 동안 보관해요.')
+    })
+
+    it('an account still on the plan that is gone keeps everything', async () => {
+      await threePlans()
+      await established()
+      await patient('p1', 'basic')
+      await seedMembership('p1', 'cg1')
+      await photo('old', 400)
+      const s = storage()
+      expect(await runRetention(NOW, s)).toEqual({ patients: 0, deleted: 0, notices: 0 })
+      expect(await exists('old')).toBe(true)
+    })
   })
 
   it('skips a tier whose retention period looks like a mistake', async () => {

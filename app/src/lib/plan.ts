@@ -1,17 +1,31 @@
 // What the plan sheet and 목소리 앨범 show. No Firebase in here.
 //
 // Every number comes from admin_config/plans; nothing about a tier is
-// hard-coded except its name. Photo allowances (AI memos a day, the
+// hard-coded except its name, and a tier the table leaves out is not
+// offered at all. Photo allowances (AI memos a day, the
 // fair-use guard) are deliberately never turned into text: photos are
 // unlimited on every plan and no screen counts them against anything.
 
 import { S } from './strings'
 import type { Plans, PlanEntitlements, PlanTier, Reaction } from '../types'
 
+/** Every plan the app knows by name, lowest first. */
 export const TIERS: PlanTier[] = ['free', 'basic', 'plus', 'family']
 export const TIER_NAME: Record<PlanTier, string> = { free: 'Free', basic: 'Basic', plus: 'Plus', family: 'Family' }
 /** The name with its subject particle, for "… 필요해요". */
 const TIER_SUBJECT: Record<PlanTier, string> = { free: 'Free가', basic: 'Basic이', plus: 'Plus가', family: 'Family가' }
+
+/** The plans in the table, lowest first: the ones a family can choose. */
+export function offered(plans: Plans): PlanTier[] {
+  return TIERS.filter((t) => !!plans[t])
+}
+
+/** The name of the lowest plan that includes `feature` ("Plus"), for a
+ *  "Plus 이상" chip; null when no plan offers it. */
+export function fromTier(plans: Plans | null, feature: 'weekly' | 'messenger' | 'checkin' | 'recap'): string | null {
+  const tier = plans ? offered(plans).find((t) => plans[t]![feature] === true) : undefined
+  return tier ? TIER_NAME[tier] : null
+}
 
 const DAY_MS = 24 * 3600 * 1000
 /** A changed plan keeps everything for a week before retention starts (worker: NOTICE_DAYS). */
@@ -55,16 +69,16 @@ export function planLines(ent: PlanEntitlements, patientName: string, flags: Pla
 
 /** The plan the sheet points at for this reason; null when none fits (or from 설정). */
 export function suggestedTier(plans: Plans, current: PlanTier, reason: PlanReason): PlanTier | null {
-  const higher = TIERS.slice(TIERS.indexOf(current) + 1).filter((t) => plans[t])
+  const higher = offered(plans).filter((t) => TIERS.indexOf(t) > TIERS.indexOf(current))
   if (reason.kind === 'family') {
     if (reason.nextTier !== undefined) return reason.nextTier
-    return higher.find((t) => plans[t].familyMembers > reason.limit) ?? null
+    return higher.find((t) => plans[t]!.familyMembers > reason.limit) ?? null
   }
-  if (reason.kind === 'voice') return higher.find((t) => plans[t].voiceReplies) ?? null
+  if (reason.kind === 'voice') return higher.find((t) => plans[t]!.voiceReplies) ?? null
   if (reason.kind === 'retention') {
     const mine = plans[current]?.retentionDays
     if (mine == null) return null
-    return higher.find((t) => plans[t].retentionDays == null || plans[t].retentionDays! > mine) ?? null
+    return higher.find((t) => plans[t]!.retentionDays == null || plans[t]!.retentionDays! > mine) ?? null
   }
   return null
 }

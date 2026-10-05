@@ -1,10 +1,10 @@
 // What the plan sheet says. The plan contents below are made up for the tests.
 import { describe, it, expect } from 'vitest'
 import {
-  albumMonths, daysUntilOldestGoes, keptFor, planLines, reasonLine, shortensKeeping, suggestedTier,
+  albumMonths, daysUntilOldestGoes, fromTier, keptFor, offered, planLines, reasonLine, shortensKeeping, suggestedTier,
 } from './plan'
 import { PLANS } from './plan.fixture'
-import type { Reaction } from '../types'
+import type { Plans, Reaction } from '../types'
 
 const DAY = 24 * 3600 * 1000
 
@@ -117,5 +117,43 @@ describe('목소리 앨범', () => {
       ['2026년 10월', ['b', 'c']],
       ['2026년 9월', ['a']],
     ])
+  })
+})
+
+describe('a table that offers three plans', () => {
+  // Basic left out, and nobody includes messenger delivery.
+  const { basic: _gone, ...rest } = PLANS
+  void _gone
+  const THREE: Plans = {
+    ...rest,
+    plus: { ...PLANS.plus, familyMembers: 3, messenger: false },
+    family: { ...PLANS.family, messenger: false },
+  }
+
+  it('offers only the plans in the table, lowest first', () => {
+    expect(offered(PLANS)).toEqual(['free', 'basic', 'plus', 'family'])
+    expect(offered(THREE)).toEqual(['free', 'plus', 'family'])
+  })
+
+  it('points each upgrade moment at the next plan there is', () => {
+    expect(suggestedTier(THREE, 'free', { kind: 'family', limit: 1 })).toBe('plus')
+    expect(suggestedTier(THREE, 'free', { kind: 'retention', message: 'x' })).toBe('plus')
+    expect(suggestedTier(THREE, 'plus', { kind: 'retention', message: 'x' })).toBe('family')
+    // Someone still on the plan that is gone is pointed upwards as well.
+    expect(suggestedTier(THREE, 'basic', { kind: 'family', limit: 2 })).toBe('plus')
+  })
+
+  it('names the lowest plan that includes a feature, or none', () => {
+    expect(fromTier(PLANS, 'messenger')).toBe('Basic')
+    expect(fromTier(PLANS, 'weekly')).toBe('Plus')
+    expect(fromTier(THREE, 'weekly')).toBe('Plus')
+    expect(fromTier(THREE, 'recap')).toBe('Family')
+    expect(fromTier(THREE, 'messenger')).toBeNull()
+    expect(fromTier(null, 'weekly')).toBeNull()
+  })
+
+  it('never promises KakaoTalk when no plan includes it', () => {
+    const flags = { ...PLANS.flags, digest: true }
+    for (const t of offered(THREE)) expect(planLines(THREE[t]!, '어머니', flags).join(' ')).not.toContain('카카오톡')
   })
 })

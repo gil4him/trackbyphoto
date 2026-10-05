@@ -27,13 +27,16 @@ const PUSH_HELP: Record<PushState, string> = {
  * 알림: every notice addressed to the signed-in person, and how they want to
  * be told. Family only; a parent's linked phone never shows this.
  */
-export function Notifications({ uid, onOpen, digestOn = false, messengerIncluded = false }: {
+export function Notifications({ uid, onOpen, digestOn = false, messengerIncluded = false, messengerFrom = null }: {
   uid: string
   onOpen: (n: AppNotification) => void
   /** The digest is rolled out: 이메일 요약 and 카카오톡 요약 can be switched. */
   digestOn?: boolean
   /** The plan of the parent being viewed includes messenger delivery. */
   messengerIncluded?: boolean
+  /** The lowest plan that includes it ("Plus"); null when no plan does, and
+   *  then 카카오톡 요약 isn't offered at all. */
+  messengerFrom?: string | null
 }) {
   const toast = useToast()
   const items = useNotificationFeed(uid)
@@ -139,9 +142,9 @@ export function Notifications({ uid, onOpen, digestOn = false, messengerIncluded
             aria-label="이메일 요약 전환"
           ><span className="knob" /></button>
         </div>
-        <div className="row">
+        {(messengerIncluded || messengerFrom) && <div className="row">
           <div className="who">
-            <b>카카오톡 요약</b>{!messengerIncluded && <> <span className="plan-chip">Basic 이상</span></>}<br />
+            <b>카카오톡 요약</b>{!messengerIncluded && <> <span className="plan-chip">{messengerFrom} 이상</span></>}<br />
             <span>
               {!digestOn ? '매일 저녁 카카오톡으로 요약을 받아요. 곧 제공돼요.'
                 : messengerOn ? `매일 저녁 ${channels.messengerTo ?? ''} 번호로 요약 링크를 보내요.`
@@ -157,7 +160,7 @@ export function Notifications({ uid, onOpen, digestOn = false, messengerIncluded
             onClick={toggleMessenger}
             aria-label="카카오톡 요약 전환"
           ><span className="knob" /></button>
-        </div>
+        </div>}
         {digestOn && messengerIncluded && phoneOpen && (
           <form className="dg-phone" onSubmit={(e) => { e.preventDefault(); void savePhone() }}>
             <input
