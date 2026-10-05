@@ -233,7 +233,7 @@ export interface PlanEntitlements {
  *  A tier the doc leaves out is not offered. */
 export type Plans = Partial<Record<PlanTier, PlanEntitlements>> & {
   fairUse: { photosPerDay: number | null }
-  flags: Partial<Record<'reactions' | 'voiceReplies' | 'digest' | 'pushFamily' | 'usageCaps' | 'retentionJob' | 'messengerFree' | 'trailMap' | 'planSheet', boolean>>
+  flags: Partial<Record<'reactions' | 'voiceReplies' | 'digest' | 'emailDigest' | 'pushFamily' | 'usageCaps' | 'retentionJob' | 'messengerFree' | 'trailMap' | 'planSheet', boolean>>
 }
 
 export type ReactionKind = 'heart' | 'comment' | 'voice'

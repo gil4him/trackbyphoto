@@ -11,5 +11,5 @@ export const PLANS: Plans & Record<PlanTier, PlanEntitlements> = {
   plus: tier({ familyMembers: 2, retentionDays: 730, messenger: true, voiceReplies: true, weekly: true, checkin: true, aiPhotosPerDay: null }),
   family: tier({ familyMembers: 6, retentionDays: null, messenger: true, voiceReplies: true, weekly: true, checkin: true, recap: true, voiceAlbum: true, seniors: 2, aiPhotosPerDay: null }),
   fairUse: { photosPerDay: 411 },
-  flags: { digest: true, voiceReplies: true, retentionJob: true, planSheet: true },
+  flags: { digest: true, emailDigest: true, voiceReplies: true, retentionJob: true, planSheet: true },
 }

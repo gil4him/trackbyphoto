@@ -176,8 +176,20 @@ describe('daily digest', () => {
     expect(repliesLine('어머니', 1, 0, 2)).toBe('어머니님이 하트 1개, 글 답장 2개를 남기셨어요')
   })
 
-  it('reaches each family member by in-app notice and push, e-mail unless switched off, messenger only when switched on', async () => {
+  it('sends no e-mail while e-mail delivery is not switched on, whatever a person chose', async () => {
     await plans({ digest: true })
+    await patient('basic')
+    await seedMembership('p1', 'cg1')
+    await db.doc('users/cg1').set({ channels: { push: true, email: true, messenger: false } })
+    await saturday()
+    const { f, deps } = fakes()
+    await runDigests(SAT_EVENING, deps)
+    expect(f.mails).toHaveLength(0)
+    expect((await digest())!.delivered).toEqual({ cg1: ['inapp', 'push'] })
+  })
+
+  it('reaches each family member by in-app notice and push, e-mail unless switched off, messenger only when switched on', async () => {
+    await plans({ digest: true, emailDigest: true })
     await patient('basic')
     await seedMembership('p1', 'cg1')
     await seedMembership('p1', 'cg2', { role: 'viewer' })
@@ -216,7 +228,7 @@ describe('daily digest', () => {
   })
 
   it('goes out once: a later pass sends nothing again, but reaches someone who joined since', async () => {
-    await plans({ digest: true })
+    await plans({ digest: true, emailDigest: true })
     await patient('basic')
     await seedMembership('p1', 'cg1')
     await saturday()
@@ -234,7 +246,7 @@ describe('daily digest', () => {
   })
 
   it('Free: no messenger and no transcripts, even with the switch on and a number on file', async () => {
-    await plans({ digest: true })
+    await plans({ digest: true, emailDigest: true })
     await patient()
     await seedMembership('p1', 'cg1')
     await db.doc('users/cg1').set({ channels: { messenger: true } })

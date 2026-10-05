@@ -55,7 +55,7 @@ export function planLines(ent: PlanEntitlements, patientName: string, flags: Pla
   const digest = flags.digest === true
   const voice = flags.voiceReplies === true
   return [
-    !digest ? '앱 알림' : ent.messenger ? '매일 카카오톡 요약' : '앱 알림 + 이메일 요약',
+    !digest ? '앱 알림' : ent.messenger ? '매일 카카오톡 요약' : flags.emailDigest === true ? '앱 알림 + 이메일 요약' : '매일 하루 요약',
     voice && ent.voiceReplies ? `${patientName} 음성 답장 듣기` : '',
     digest && ent.weekly ? '주간 하이라이트' : '',
     digest && ent.checkin ? '“오늘 사진 없음” 안심 알림' : '',
