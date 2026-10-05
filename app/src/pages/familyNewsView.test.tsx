@@ -2,6 +2,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { renderToString } from 'react-dom/server'
 
+vi.mock('../firebase', () => ({ db: {}, auth: {}, storage: {} }))
 vi.mock('../lib/reactions', () => ({ COMMENT_MAX: 60, markRead: vi.fn(), sendElderComment: vi.fn(), sendElderHeart: vi.fn() }))
 vi.mock('../lib/voiceOutbox', () => ({ sendVoice: vi.fn() }))
 vi.mock('../lib/recorder', () => ({ canRecord: () => true, Mic: class {} }))
