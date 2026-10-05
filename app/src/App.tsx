@@ -37,7 +37,8 @@ import { PlanSheet } from './components/PlanSheet'
 import { TIER_NAME, type PlanReason } from './lib/plan'
 import { homeFor } from './lib/trail'
 import { relativeDateLabel } from './util'
-import { disablePush, refreshPush } from './lib/push'
+import { disablePush, onPushOpened, refreshPush, type PushOpened } from './lib/push'
+import { PushNudge } from './components/PushNudge'
 import type { AppNotification } from './types'
 import { entitlements, flagOn } from './lib/plans'
 import { byMemo } from './lib/reactionsModel'
@@ -88,7 +89,7 @@ function App() {
   // /accept is its own URL: the 가족초대 link sent by KakaoTalk or text message
   // is trackbyphoto.web.app/accept?code=123456.
   const [showAcceptInvite, setShowAcceptInvite] = useState(false)
-  const { memberships: { patients }, loading: _membershipsLoading } = useMembershipsWrapped(user?.uid)
+  const { memberships: { patients }, loading: membershipsLoading } = useMembershipsWrapped(user?.uid)
   // Elder safeguard notices live on the signed-in user's own account (§8).
   const { unread: notifications, dismiss: dismissNotification } = useNotifications(user?.uid)
   // True once a newer build has been deployed than the one we're running.
@@ -122,6 +123,10 @@ function App() {
   useEffect(() => {
     if (pushOn && familyUid) void refreshPush()
   }, [pushOn, familyUid])
+  // A push that was tapped in the installed app; opened once the family's
+  // data has loaded (see PushOpener below).
+  const [pushed, setPushed] = useState<PushOpened | null>(null)
+  useEffect(() => (pushOn && familyUid ? onPushOpened(setPushed) : undefined), [pushOn, familyUid])
   // Keep sending photos that are still on this phone (weak connection).
   useOutboxSync(user?.uid)
   const selectedMemo = selectedMemoId ? memos.find((m) => m.id === selectedMemoId) ?? null : null
@@ -413,6 +418,14 @@ function App() {
       setTab('today')
     }
   }
+  const openPush = (p: PushOpened) => {
+    setPushed(null)
+    if (!p.digestId && !p.patientUid) { setTab('alerts'); return }
+    openNotice({
+      id: '', recipientUid: user.uid, actorUid: '', message: '', read: true,
+      type: p.type ?? '', patientUid: p.patientUid ?? '', memoId: p.memoId, digestId: p.digestId,
+    } as AppNotification)
+  }
   // This device stops getting pushes for the account that signs out.
   const signOutHere = async () => {
     if (pushOn) await disablePush().catch(() => {})
@@ -445,6 +458,7 @@ function App() {
 
   return (
     <ToastProvider>
+      <PushOpener pushed={pushed} ready={!membershipsLoading} onOpen={openPush} />
       <div className={`app${isSelf ? '' : ' caregiver-mode'}`}>
         {updateReady && (
           <button className="update-prompt" onClick={() => window.location.reload()}>
@@ -522,7 +536,7 @@ function App() {
             <>
               {tab === 'home'     && pushOn && <InstallHint />}
               {tab === 'alerts'   && <Notifications uid={user.uid} onOpen={openNotice} digestOn={digestOn} messengerIncluded={flagOn(plans, 'messengerFree') || ent?.messenger === true} />}
-              {tab === 'home'     && <Home uid={activePatientUid || user.uid} patientName={settings.patientName} greetingName={isSelf ? selfLabel : settings.patientName} memos={memos} onOpenAsk={openAsk} onOpen={setSelectedMemoId} canCapture={isSelf} notifications={bannerNotices} onDismissNotification={dismissNotification} newsCard={ownNews && <FamilyNewsCard news={ownNews} onOpen={() => { if (ownNews.state !== 'none') openFamilyNews(ownNews) }} />} />}
+              {tab === 'home'     && <Home uid={activePatientUid || user.uid} patientName={settings.patientName} greetingName={isSelf ? selfLabel : settings.patientName} memos={memos} onOpenAsk={openAsk} onOpen={setSelectedMemoId} canCapture={isSelf} notifications={bannerNotices} onDismissNotification={dismissNotification} topCard={pushOn && patients.length > 0 ? <PushNudge /> : undefined} newsCard={ownNews && <FamilyNewsCard news={ownNews} onOpen={() => { if (ownNews.state !== 'none') openFamilyNews(ownNews) }} />} />}
               {tab === 'today'    && <Today memos={memos} onOpen={setSelectedMemoId} uid={activePatientUid || user.uid} rx={rx} onOpenTrail={trailOn ? openDayTrail : undefined} onOpenVoiceAlbum={voiceAlbumOn ? () => setVoiceAlbum(true) : undefined} />}
               {tab === 'ask'      && <Ask memos={memos} onOpen={setSelectedMemoId} />}
               {tab === 'settings' && (
@@ -565,6 +579,14 @@ function App() {
       </div>
     </ToastProvider>
   )
+}
+
+/** Opens what a tapped push points at, once whose records the person follows is known. */
+function PushOpener({ pushed, ready, onOpen }: { pushed: PushOpened | null; ready: boolean; onOpen: (p: PushOpened) => void }) {
+  useEffect(() => {
+    if (pushed && ready) onOpen(pushed)
+  }, [pushed, ready, onOpen])
+  return null
 }
 
 // Wrap useMemberships so the caller can destructure either name shape. The

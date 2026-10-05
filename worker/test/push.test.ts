@@ -3,7 +3,7 @@
 
 import { describe, it, expect, beforeEach } from 'vitest'
 import { Timestamp } from 'firebase-admin/firestore'
-import { deadTokens, pushToUsers, registerFcmToken, setChannels, type PushDeps, type PushMessage } from '../src/handlers/push'
+import { deadTokens, fcmMessage, pushToUsers, registerFcmToken, setChannels, type PushDeps, type PushMessage } from '../src/handlers/push'
 import { processMemo, type MemoDeps } from '../src/handlers/memo'
 import { processReaction, type ReactionDeps } from '../src/handlers/reactions'
 import { processSettingsChange } from '../src/handlers/audit'
@@ -37,6 +37,18 @@ beforeEach(async () => {
   resetPlansCache()
   resetHomeCache()
   await flag(true)
+})
+
+describe('the message sent to FCM', () => {
+  it('carries the words, what the installed apps need to open the right place, and a link for browsers', () => {
+    const m = fcmMessage([TOKEN(1)], { title: '오늘하루', body: '요약이 도착했어요', data: { type: 'digest.ready', patientUid: 'p1', digestId: 'd1' }, path: 'digest/d1' })
+    expect(m.tokens).toEqual([TOKEN(1)])
+    expect(m.notification).toEqual({ title: '오늘하루', body: '요약이 도착했어요' })
+    expect(m.data).toEqual({ type: 'digest.ready', patientUid: 'p1', digestId: 'd1' })
+    expect(m.webpush?.fcmOptions?.link).toMatch(/\/digest\/d1$/)
+    // iPhone app: the banner makes a sound.
+    expect(m.apns?.payload?.aps?.sound).toBe('default')
+  })
 })
 
 describe('pushToUsers', () => {
