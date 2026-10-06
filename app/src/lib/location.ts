@@ -41,6 +41,12 @@ function remember(geo: Geo): Geo {
   return geo
 }
 
+/** Forget where the phone last was (its account was deleted). */
+export function forgetLastFix(): void {
+  lastFix = null
+  try { localStorage.removeItem(LAST_FIX_KEY) } catch { /* storage blocked */ }
+}
+
 /** One position request; null on denial, timeout or no signal. */
 async function position(precise: boolean, timeoutMs: number): Promise<Geo | null> {
   // An approximate fix may be a little old; a precise one should be current.

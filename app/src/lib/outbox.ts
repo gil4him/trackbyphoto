@@ -171,6 +171,17 @@ export class Outbox {
     if (!stillQueued) await this.backend.patchGeo(photoId, geo)
   }
 
+  /** This user's account was deleted: forget everything of theirs still
+   *  waiting on the phone. Those photos can no longer go anywhere. */
+  async drop(uid: string): Promise<void> {
+    await this.withLock(async () => {
+      for (const item of await this.store.all()) {
+        if (item.uid === uid) await this.store.delete(item.photoId)
+      }
+    })
+    await this.emit()
+  }
+
   /** The connection may be back: try everything now instead of waiting. */
   async retryNow(uid: string): Promise<void> {
     this.retries += 1
