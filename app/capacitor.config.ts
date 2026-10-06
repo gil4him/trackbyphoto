@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.gil4him.trackbyphoto',
+  appId: 'com.zymer.daylie',
   appName: '오늘하루',
   webDir: 'dist',
   plugins: {

@@ -2,7 +2,7 @@
 
 Fastlane is a tool that does the tedious "build → sign → upload to the store"
 steps for you with one command. This folder configures it for **오늘하루 /
-TrackByPhoto** (bundle ID `com.gil4him.trackbyphoto`).
+TrackByPhoto** (bundle ID `com.zymer.daylie`).
 
 > You'll need a Mac with Xcode (for iOS) and Android Studio (for Android), plus a
 > paid **Apple Developer** account and a **Google Play Console** account. Some
