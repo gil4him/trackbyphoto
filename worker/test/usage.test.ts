@@ -9,7 +9,7 @@ import { allowAi, dayKey } from '../src/handlers/usage'
 import { expiringMessage, runRetention, type RetentionDeps } from '../src/handlers/retention'
 import { LlmGenerationError } from '../src/llm/ollama'
 import { resetPlansCache, type PlansDoc } from '../src/plans'
-import { resetHomeCache } from '../src/travel'
+import { resetHomeCache, setTravelGeocoder } from '../src/travel'
 import { db, clearFirestore, seedMembership, count } from './setup'
 
 const DAY = 24 * 3600 * 1000
@@ -79,6 +79,7 @@ beforeEach(async () => {
   await clearFirestore()
   resetPlansCache()
   resetHomeCache()
+  setTravelGeocoder(async () => ({ place: '', address: '' }))
 })
 
 describe('daily limits', () => {

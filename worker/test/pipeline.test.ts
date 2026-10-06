@@ -8,8 +8,8 @@ import { beat } from '../src/heartbeat'
 import { locateMemo } from '../src/handlers/place'
 import { processRequest } from '../src/handlers/requests'
 import { LlmGenerationError, LlmUnavailableError } from '../src/llm/ollama'
-import { areaOf, buildPrompt, parseModelResponse, readableText, type PromptHints } from '../src/llm/prompt'
-import { distanceKm, inferHome, resetHomeCache, utcOffsetHours } from '../src/travel'
+import { areaOf, buildPrompt, categoryFromTags, parseModelResponse, readableText, type PromptHints } from '../src/llm/prompt'
+import { distanceKm, inferHome, resetHomeCache, setTravelGeocoder, utcOffsetHours } from '../src/travel'
 import { db, clearFirestore, seedMembership, count } from './setup'
 
 const PHOTO_URL = 'https://example.test/photo.jpg?token=t'
@@ -51,7 +51,7 @@ async function seedPending(id: string, extra: Record<string, unknown> = {}) {
 
 const memo = async (id: string) => (await db.doc(`memos/${id}`).get()).data()!
 
-beforeEach(async () => { await clearFirestore(); resetHomeCache() })
+beforeEach(async () => { await clearFirestore(); resetHomeCache(); setTravelGeocoder(async () => ({ place: '', address: '' })) })
 
 describe('processMemo', () => {
   it('writes the local-model memo, notifies caregivers once, bumps counters', async () => {
@@ -126,6 +126,23 @@ describe('processMemo', () => {
     // The nearest shop's name is kept out of the prompt; the area is enough.
     expect(d.lastHints?.placeHint).toBe('도코나메시, 일본')
     expect(d.lastHints?.timeHint).toBe('13:18')
+  })
+
+  it('names home for the model when the photo is far from it', async () => {
+    setTravelGeocoder(async () => ({ place: '래미안 · 반포동, 서초구', address: '' }))
+    await db.doc('users/p1').set({ patientName: '엄마', home: { lat: 37.48, lng: 127.01 } })
+    await seedPending('m1', { lat: 34.86, lng: 136.82 })
+    const d = deps({ geocode: async () => ({ place: '도코나메시, 일본', address: '' }) })
+    await processMemo('m1', 1, d)
+    expect(d.lastHints?.homeHint?.homeArea).toBe('반포동, 서초구')
+  })
+
+  it('files a suit far from home as 출장 when the model is not used', async () => {
+    await db.doc('users/p1').set({ patientName: '엄마', home: { lat: 37.48, lng: 127.01 } })
+    await seedPending('m1', { lat: 34.86, lng: 136.82, tags: { labels: [{ name: 'suit', confidence: 0.9 }], text: [], faceCount: 1 } })
+    const d = deps({ generate: async () => { throw new LlmGenerationError('bad json') } })
+    await processMemo('m1', MAX_ATTEMPTS, d)
+    expect((await memo('m1')).activity).toBe('출장')
   })
 
   it('infers home from where most photos were taken', async () => {
@@ -477,5 +494,19 @@ describe('travel context', () => {
     expect(buildPrompt({ homeHint: { km: 900, away: true } })).toContain('여행이나 출장 중일 가능성')
     expect(buildPrompt({ homeHint: { km: 1, away: false } })).toContain('집 또는 집 근처')
     expect(buildPrompt()).not.toContain('집과의 거리')
+  })
+  it('names home and reads work clothes as 출장 only when away', () => {
+    const away = buildPrompt({ homeHint: { km: 8000, away: true, homeArea: '팔로알토, 미국' } })
+    expect(away).toContain('집(팔로알토, 미국)에서 약 8000km')
+    expect(away).toContain('집은 팔로알토, 미국, 지금은 다른 지역이에요')
+    expect(away).toContain('정장·넥타이·재킷')
+    expect(buildPrompt({ homeHint: { km: 900, away: true } })).not.toContain('집은 ')
+    expect(buildPrompt({ homeHint: { km: 1, away: false } })).not.toContain('정장')
+  })
+  it('reads a suit as 출장 from the tags only when away', () => {
+    const suit = { labels: [{ name: 'suit', confidence: 0.9 }], text: [], faceCount: 1 }
+    expect(categoryFromTags(suit, true)).toBe('출장')
+    expect(categoryFromTags(suit, false)).toBe('기타')
+    expect(categoryFromTags({ labels: [{ name: 'suitcase', confidence: 0.9 }], text: [], faceCount: 0 }, true)).toBe('이동')
   })
 })

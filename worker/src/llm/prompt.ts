@@ -19,7 +19,8 @@ export interface PromptHints {
   /** The area the photo was taken in (see areaOf), not a shop name. */
   placeHint?: string
   /** Where the photo is relative to home (see travel.ts). */
-  homeHint?: { km: number; away: boolean }
+  /** homeArea: home's area name, only when away. */
+  homeHint?: { km: number; away: boolean; homeArea?: string }
   /** Text the phone read in the photo (see readableText). */
   textHint?: string[]
   /** The place hint came from another photo taken within minutes, not from
@@ -54,8 +55,12 @@ export function buildPrompt(hints: PromptHints = {}, variant: PromptVariant = 'l
   ]
   if (homeHint?.away) {
     context.push(
-      `- 집과의 거리: 집에서 약 ${homeHint.km}km 떨어진 곳이에요. 여행이나 출장 중일 가능성이 높아요.`,
+      homeHint.homeArea
+        ? `- 집과의 거리: 집(${homeHint.homeArea})에서 약 ${homeHint.km}km 떨어진 곳이에요. 여행이나 출장 중일 가능성이 높아요.`
+        : `- 집과의 거리: 집에서 약 ${homeHint.km}km 떨어진 곳이에요. 여행이나 출장 중일 가능성이 높아요.`,
+      ...(homeHint.homeArea ? [`  → 집은 ${homeHint.homeArea}, 지금은 다른 지역이에요. 일하는 모습이면 "출장", 구경하는 모습이면 "여행"이에요.`] : []),
       '  → 공항·역·차 안이면 "이동", 회의실·전시장처럼 일하는 모습이면 "출장", 식사·카페·쇼핑이 분명하면 그 카테고리, 그 밖에는 "여행"을 고르세요.',
+      '  → 정장·넥타이·재킷 차림이거나 사원증·명찰(목걸이)을 걸고 있으면 "출장"일 가능성이 높아요.',
       '  → memo나 scene에 지명(도시 이름)을 자연스럽게 한 번 넣으세요.',
     )
   } else if (homeHint) {
@@ -234,30 +239,33 @@ export function parseModelResponse(raw: string, opts: { relaxed?: boolean } = {}
 // Final-fallback stub, used when the local model fails repeatedly on a photo.
 // It never claims to know what the photo shows: a neutral line, plus a
 // category only when the phone's own Vision tags point at one.
-export function stubActivity(tags?: VisionTags | null): { activity: string; memo: string; scene: string } {
-  return { activity: categoryFromTags(tags), memo: '사진을 기록했어요.', scene: '' }
+export function stubActivity(tags?: VisionTags | null, away = false): { activity: string; memo: string; scene: string } {
+  return { activity: categoryFromTags(tags, away), memo: '사진을 기록했어요.', scene: '' }
 }
 
 /**
  * A photo kept without a memo from the model (handlers/usage.ts). It reads as
  * a normal entry: nothing in it says a step was skipped.
  */
-export function storedOnlyMemo(tags?: VisionTags | null): { activity: string; memo: string; scene: string } {
-  return { activity: categoryFromTags(tags), memo: '사진을 남겼어요', scene: '' }
+export function storedOnlyMemo(tags?: VisionTags | null, away = false): { activity: string; memo: string; scene: string } {
+  return { activity: categoryFromTags(tags, away), memo: '사진을 남겼어요', scene: '' }
 }
 
 /**
  * Pick a coarse category from the phone's Vision tags (English
  * VNClassifyImageRequest names). Only used for the stub. Defaults to 기타.
+ * Far from home (away), work clothes or a lanyard read as 출장.
  */
 export function categoryFromTags(
   tags: VisionTags | null | undefined,
+  away = false,
 ): string {
   if (!tags) return '기타'
   const names = tags.labels.map((l) => l.name.toLowerCase()).join(' ')
   if (/food|meal|dish|plate|bowl|fruit|vegetable/.test(names)) return '식사'
   if (/coffee|tea|drink|beverage|cup|dessert/.test(names)) return '카페'
   if (/luggage|suitcase|airport|airplane|train|vehicle|car_interior/.test(names)) return '이동'
+  if (away && /suit|necktie|blazer|tuxedo|lanyard|badge/.test(names)) return '출장'
   if (/flower|blossom|petal|bouquet|rose|tulip|sky|sea|ocean|mountain|landscape/.test(names)) return '자연'
   if (/park|tree|outdoor|street|walk|path|garden|trail|grass/.test(names)) return '산책'
   if (/sofa|bed|chair|tv|television|book|home interior|indoor/.test(names)) return '휴식'

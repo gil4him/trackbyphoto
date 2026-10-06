@@ -38,6 +38,7 @@ import {
 import { registerFcmToken, setChannels } from './push.js'
 import { setDigest } from './digest.js'
 import { changePlan } from './plan.js'
+import { searchAddress } from './geo.js'
 
 type Handler = (caller: Caller, payload: any) => Promise<unknown>
 
@@ -62,6 +63,7 @@ export const HANDLERS: Record<string, Handler> = {
   setChannels,
   setDigest,
   changePlan,
+  searchAddress,
 }
 
 const STALE_AFTER_MS = 24 * 3600 * 1000

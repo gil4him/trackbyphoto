@@ -7,7 +7,8 @@
 
 import { getFirestore } from 'firebase-admin/firestore'
 import { logger } from './log.js'
-import type { GeoLang } from './geocode.js'
+import { reverseGeocode, type GeoLang, type GeoResult } from './geocode.js'
+import { areaOf } from './llm/prompt.js'
 
 export interface LatLng { lat: number; lng: number }
 
@@ -90,10 +91,35 @@ export async function localTimeHint(
 }
 
 const inferredCache = new Map<string, { home: LatLng | null; expiresAt: number }>()
+const homeAreaCache = new Map<string, { key: string; area: string; expiresAt: number }>()
 
-/** Test hook: forget inferred homes. */
+/** Test hook: forget inferred homes and their area names. */
 export function resetHomeCache() {
   inferredCache.clear()
+  homeAreaCache.clear()
+}
+
+type Geocoder = (lat: number, lng: number) => Promise<GeoResult>
+let travelGeocoder: Geocoder = (lat, lng) => reverseGeocode(lat, lng)
+
+/** Test hook: how home's area name is looked up. */
+export function setTravelGeocoder(fn: Geocoder) {
+  travelGeocoder = fn
+}
+
+/** Home's area in Korean ("서초동, 서초구", "Palo Alto, 미국") for the prompt; '' when unknown. */
+async function homeAreaOf(patientUid: string, home: LatLng): Promise<string> {
+  const key = `${home.lat.toFixed(3)},${home.lng.toFixed(3)}`
+  const cached = homeAreaCache.get(patientUid)
+  if (cached && cached.key === key && cached.expiresAt > Date.now()) return cached.area
+  try {
+    const area = areaOf((await travelGeocoder(home.lat, home.lng)).place)
+    homeAreaCache.set(patientUid, { key, area, expiresAt: Date.now() + CACHE_MS })
+    return area
+  } catch (err) {
+    logger.warn('[travel] could not name home', { patientUid, err: String(err) })
+    return ''
+  }
 }
 
 export async function resolveHome(patientUid: string): Promise<LatLng | null> {
@@ -140,10 +166,15 @@ export async function homeHintFor(
   patientUid: string,
   lat: number | null,
   lng: number | null,
-): Promise<{ km: number; away: boolean } | undefined> {
+): Promise<{ km: number; away: boolean; homeArea?: string } | undefined> {
   if (lat == null || lng == null) return undefined
   const home = await resolveHome(patientUid)
   if (!home) return undefined
   const km = distanceKm(home, { lat, lng })
-  return { km: km < 10 ? Math.round(km) : Math.round(km / 10) * 10, away: km >= AWAY_KM }
+  const hint = { km: km < 10 ? Math.round(km) : Math.round(km / 10) * 10, away: km >= AWAY_KM }
+  if (!hint.away) return hint
+  // Away: name home too, so the model can see "home is California, this is
+  // Tokyo" rather than only a distance.
+  const homeArea = await homeAreaOf(patientUid, home)
+  return homeArea ? { ...hint, homeArea } : hint
 }

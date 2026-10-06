@@ -9,10 +9,11 @@ import { CloudLlmError, CLOUD_MODEL, generateMemoGemini } from '../src/llm/gemin
 import { cloudMemoAllowed, generateMemoRouted, resetCloudCache, type MemoArgs, type RouteDeps } from '../src/llm/route'
 import { LlmGenerationError, type LlmResult } from '../src/llm/ollama'
 import { buildPrompt, parseModelResponse } from '../src/llm/prompt'
-import { nominatimPlace } from '../src/geocode'
+import { kakaoSearchCandidates, nominatimPlace, nominatimSearchCandidates } from '../src/geocode'
+import { searchAddress } from '../src/handlers/geo'
 import { mimeFromPath, processMemo, type MemoDeps } from '../src/handlers/memo'
 import { resetPlansCache } from '../src/plans'
-import { resetHomeCache } from '../src/travel'
+import { resetHomeCache, setTravelGeocoder } from '../src/travel'
 import { db, clearFirestore } from './setup'
 
 const ARGS: MemoArgs = { imageBase64: 'aGk=', patientUid: 'p1', placeHint: '신주쿠구, 일본' }
@@ -49,6 +50,31 @@ describe('the cloud prompt', () => {
     const raw = JSON.stringify({ activity: '여행', memo: 'くら 회전초밥 앞에서', scene: 'くら寿司 간판이 보여요. 밤거리예요.' })
     expect(parseModelResponse(raw)).toBeNull()
     expect(parseModelResponse(raw, { relaxed: true })?.scene).toBe('くら寿司 간판이 보여요. 밤거리예요.')
+  })
+})
+
+describe('address search for 집 위치', () => {
+  it('turns Kakao results into labelled places', () => {
+    expect(kakaoSearchCandidates([
+      { address_name: '서울 서초구 반포동 1', road_address: { address_name: '서울 서초구 신반포로 194', building_name: '센트럴시티' }, x: '127.004', y: '37.505' },
+      { place_name: '래미안 퍼스티지', road_address_name: '서울 서초구 반포대로 275', x: '126.99', y: '37.50' },
+      { address_name: '좌표 없음' },
+    ])).toEqual([
+      { lat: 37.505, lng: 127.004, label: '센트럴시티 · 서울 서초구 신반포로 194' },
+      { lat: 37.5, lng: 126.99, label: '래미안 퍼스티지 · 서울 서초구 반포대로 275' },
+    ])
+  })
+
+  it('labels Nominatim results by street address, at most five', () => {
+    const ny = { lat: '40.748', lon: '-73.985', address: { house_number: '350', road: '5th Avenue', city: 'New York', 'ISO3166-2-lvl4': 'US-NY', country_code: 'us' } }
+    expect(nominatimSearchCandidates([ny])).toEqual([{ lat: 40.748, lng: -73.985, label: '350 5th Avenue, New York, NY' }])
+    expect(nominatimSearchCandidates(Array(8).fill(ny))).toHaveLength(5)
+  })
+
+  it('refuses an empty or overlong query', async () => {
+    const caller = { uid: 'u1', email: null, name: null }
+    await expect(searchAddress(caller, { query: '  ' })).rejects.toMatchObject({ code: 'invalid-argument' })
+    await expect(searchAddress(caller, { query: 'x'.repeat(101) })).rejects.toMatchObject({ code: 'invalid-argument' })
   })
 })
 
@@ -216,7 +242,7 @@ describe('the Gemini call', () => {
 })
 
 describe('memos written through the router', () => {
-  beforeEach(async () => { await clearFirestore(); resetHomeCache() })
+  beforeEach(async () => { await clearFirestore(); resetHomeCache(); setTravelGeocoder(async () => ({ place: '', address: '' })) })
 
   const seed = (id: string, extra: Record<string, unknown> = {}) => db.doc(`memos/${id}`).set({
     patientUid: 'p1', photoPath: `photos/p1/${id}.jpg`, photoUrl: '', takenAt: Timestamp.fromDate(new Date('2026-10-06T11:39:00Z')),
