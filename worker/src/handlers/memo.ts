@@ -36,7 +36,7 @@ import { getStorage } from 'firebase-admin/storage'
 import { logger } from '../log.js'
 import { downloadLink } from '../storageLinks.js'
 import { bumpAdminCounters } from '../counters.js'
-import { reverseGeocode, type GeoResult } from '../geocode.js'
+import { reverseGeocode, type GeoLang, type GeoResult } from '../geocode.js'
 import {
   LlmGenerationError,
   LlmUnavailableError,
@@ -45,7 +45,7 @@ import {
 } from '../llm/ollama.js'
 import { generateMemoRouted, type MemoArgs } from '../llm/route.js'
 import { areaOf, readableText, storedOnlyMemo, stubActivity, type VisionTags } from '../llm/prompt.js'
-import { homeHintFor, localTimeHint } from '../travel.js'
+import { homeHintFor, localTimeHint, resolveGeoLang } from '../travel.js'
 import { pushToUsers, type PushMessage } from './push.js'
 import { accountPhotoSafely } from './usage.js'
 
@@ -65,7 +65,7 @@ export interface PhotoInfo {
 export interface MemoDeps {
   /** Resolve the photo; null when the object doesn't exist. */
   loadPhoto: (photoPath: string) => Promise<PhotoInfo | null>
-  geocode: (lat: number | null, lng: number | null) => Promise<GeoResult>
+  geocode: (lat: number | null, lng: number | null, lang?: GeoLang) => Promise<GeoResult>
   generate: (args: MemoArgs) => Promise<LlmResult>
   /** Push the new-photo notice to family devices (default: handlers/push). */
   push?: (uids: string[], message: PushMessage) => Promise<unknown>
@@ -112,7 +112,7 @@ export async function prepareMemo(memoId: string, deps: MemoDeps = defaultMemoDe
     if (photo) update.photoUrl = photo.photoUrl
   }
   if (lat != null && lng != null && !placeKnown(data)) {
-    const { place, address } = await deps.geocode(lat, lng)
+    const { place, address } = await deps.geocode(lat, lng, await resolveGeoLang(patientUid))
     if (place || address) {
       update.place = place
       update.address = address
@@ -206,7 +206,7 @@ export async function processMemo(memoId: string, attempt: number, deps: MemoDep
     ? { place: '', address: '' }
     : placeKnown(data)
       ? { place: (data.place as string) || '', address: (data.address as string) || '' }
-      : await deps.geocode(lat, lng)
+      : await deps.geocode(lat, lng, await resolveGeoLang(patientUid))
   const located = !!(place || address)
 
   let activity: string

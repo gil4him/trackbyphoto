@@ -5,6 +5,7 @@ import { isWorkerOffline, WorkerError, WORKER_OFFLINE_MESSAGE } from '../lib/wor
 import { createManagedElder, createPairingLink, deleteManagedElder, formatPairCode, type PairingLink } from '../lib/pairing'
 import { nameTaken } from '../lib/people'
 import { buildPairMessage, openSMS, sharePairToKakao } from '../lib/share'
+import { deviceGeoLang } from '../util'
 import type { UserSettings } from '../types'
 
 /**
@@ -28,8 +29,8 @@ export function RegisterElder({ onClose, onRegistered, takenNames = [] }: {
   const toast = useToast()
   const [step, setStep] = useState<Step>('name')
   const [name, setName] = useState('')
-  const [settings, setSettings] = useState<Pick<UserSettings, 'cadence' | 'autoMode' | 'bigText'>>({
-    cadence: 'daily', autoMode: true, bigText: true,
+  const [settings, setSettings] = useState<Pick<UserSettings, 'cadence' | 'autoMode' | 'bigText' | 'geoLang'>>({
+    cadence: 'daily', autoMode: true, bigText: true, geoLang: deviceGeoLang(),
   })
   const [busy, setBusy] = useState(false)
   const [patientUid, setPatientUid] = useState<string | null>(null)

@@ -264,6 +264,10 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
     toast.show('집 위치를 저장했어요')
   }
 
+  // 언어: one's own account is seeded with the phone's language; anyone else
+  // without one reads as Korean, as the worker does.
+  const geoLang = settings.geoLang ?? 'ko'
+
   // 하루 요약: when the worker sends the digest of this person's day.
   const digest = { ...DEFAULT_DIGEST, ...settings.digest }
   const deviceTz = Intl.DateTimeFormat().resolvedOptions().timeZone
@@ -435,6 +439,17 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
               <span aria-hidden="true">→</span>
             </button>
           )}
+        </div>
+      )}
+
+      {canManageHere && (
+        <div className="sect">
+          <div className="sect-lab">언어</div>
+          <div className="help">사진을 찍은 장소와 주소를 이 언어로 적어요. 앞으로 찍는 사진부터 적용돼요.</div>
+          <div className="seg">
+            <button className={geoLang === 'ko' ? 'on' : ''} onClick={() => update('geoLang', 'ko')}>한국어</button>
+            <button className={geoLang === 'en' ? 'on' : ''} onClick={() => update('geoLang', 'en')}>English</button>
+          </div>
         </div>
       )}
 

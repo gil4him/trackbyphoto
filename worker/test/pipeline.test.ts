@@ -341,6 +341,16 @@ describe('place lookups that finish later', () => {
     expect(m.needsGeocode).toBeUndefined()
   })
 
+  it('asks the geocoder in the patient\'s chosen language', async () => {
+    const langs: Array<string | undefined> = []
+    const geocode: MemoDeps['geocode'] = async (_lat, _lng, lang) => { langs.push(lang); return { place: '', address: '' } }
+    await seedPending('m1')
+    await processMemo('m1', 1, deps({ geocode }))
+    await db.doc('users/p1').set({ geoLang: 'en' })
+    await locateMemo('m1', geocode)
+    expect(langs).toEqual(['ko', 'en'])
+  })
+
   it('flags the memo when the geocoder does not answer, then fills it in', async () => {
     await seedPending('m1')
     await processMemo('m1', 1, deps({ geocode: async () => ({ place: '', address: '' }) }))

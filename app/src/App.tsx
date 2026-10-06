@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { doc, onSnapshot, setDoc, serverTimestamp } from 'firebase/firestore'
+import { doc, onSnapshot, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from './firebase'
 import { useAuth } from './hooks/useAuth'
 import { useMemos } from './hooks/useMemos'
@@ -42,7 +42,7 @@ import { VoiceAlbum } from './pages/VoiceAlbum'
 import { PlanSheet } from './components/PlanSheet'
 import { TIER_NAME, fromTier, type PlanReason } from './lib/plan'
 import { homeFor } from './lib/trail'
-import { relativeDateLabel } from './util'
+import { deviceGeoLang, relativeDateLabel } from './util'
 import { disablePush, onPushOpened, refreshPush, type PushOpened } from './lib/push'
 import { PushNudge } from './components/PushNudge'
 import type { AppNotification } from './types'
@@ -204,6 +204,14 @@ function App() {
         setSettings(loaded)
         setSettingsUid(activePatientUid)
         rememberSettings(activePatientUid, loaded)
+        // An account from before 설정 → 언어 takes the phone's language once.
+        // Only this one field, and only on the server's answer for one's own
+        // account, so nothing else can be overwritten.
+        const geoLangUnset = !(snap.data() as Partial<UserSettings>).geoLang
+        if (geoLangUnset && !snap.metadata.fromCache && activePatientUid === user.uid && !elder) {
+          updateDoc(sref, { geoLang: deviceGeoLang(), lastModifiedBy: user.uid, lastModifiedAt: serverTimestamp() })
+            .catch((e) => console.error('[settings] geoLang', e))
+        }
       } else if (snap.metadata.fromCache) {
         // No connection, or a slow one: "no such doc" is only the phone's own
         // empty cache talking. Never seed defaults on that (it would replace
@@ -215,7 +223,7 @@ function App() {
         // Only seed defaults for the SELF doc — never overwrite a missing
         // doc for someone we're caregiving (could be a transient consistency
         // gap, and we don't want to plant data we don't own).
-        setDoc(sref, { ...DEFAULT_SETTINGS, lastModifiedBy: user.uid, lastModifiedAt: serverTimestamp() })
+        setDoc(sref, { ...DEFAULT_SETTINGS, geoLang: deviceGeoLang(), lastModifiedBy: user.uid, lastModifiedAt: serverTimestamp() })
           .catch((e) => console.error('[settings] init', e))
       }
     }, (err) => console.error('[settings] subscription', err))

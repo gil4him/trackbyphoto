@@ -13,8 +13,8 @@
 
 import { getFirestore, FieldValue } from 'firebase-admin/firestore'
 import { logger } from '../log.js'
-import { reverseGeocode, type GeoResult } from '../geocode.js'
-import { homeHintFor } from '../travel.js'
+import { reverseGeocode, type GeoLang, type GeoResult } from '../geocode.js'
+import { homeHintFor, resolveGeoLang } from '../travel.js'
 
 const RETRY_DELAYS_MS = [30_000, 2 * 60_000, 10 * 60_000, 30 * 60_000, 60 * 60_000]
 
@@ -22,7 +22,7 @@ export type LocateOutcome = 'done' | 'retry'
 
 export async function locateMemo(
   memoId: string,
-  geocode: (lat: number | null, lng: number | null) => Promise<GeoResult> = reverseGeocode,
+  geocode: (lat: number | null, lng: number | null, lang?: GeoLang) => Promise<GeoResult> = reverseGeocode,
 ): Promise<LocateOutcome> {
   const ref = getFirestore().collection('memos').doc(memoId)
   const data = (await ref.get()).data()
@@ -35,7 +35,7 @@ export async function locateMemo(
     return 'done'
   }
 
-  const { place, address } = await geocode(lat, lng)
+  const { place, address } = await geocode(lat, lng, await resolveGeoLang(data.patientUid as string))
   if (!place && !address) return 'retry'
 
   const update: Record<string, unknown> = { place, address, needsGeocode: FieldValue.delete() }

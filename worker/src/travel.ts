@@ -7,6 +7,7 @@
 
 import { getFirestore } from 'firebase-admin/firestore'
 import { logger } from './log.js'
+import type { GeoLang } from './geocode.js'
 
 export interface LatLng { lat: number; lng: number }
 
@@ -120,6 +121,17 @@ export async function resolveHome(patientUid: string): Promise<LatLng | null> {
     // Travel context is a nicety; never fail a memo over it.
     logger.warn('[travel] could not resolve home', { patientUid, err: String(err) })
     return null
+  }
+}
+
+/** The patient's place-name language (설정 → 언어); Korean until one is chosen. */
+export async function resolveGeoLang(patientUid: string): Promise<GeoLang> {
+  try {
+    const lang = (await getFirestore().collection('users').doc(patientUid).get()).data()?.geoLang
+    return lang === 'en' ? 'en' : 'ko'
+  } catch (err) {
+    logger.warn('[travel] could not read geoLang', { patientUid, err: String(err) })
+    return 'ko'
   }
 }
 
