@@ -3,6 +3,7 @@ import type { AppNotification } from '../types'
 
 const ICONS: Array<[prefix: string, icon: string]> = [
   ['photo.', '📷'],
+  ['familyPhoto.', '🖼️'],
   ['reaction.voice', '🎙️'],
   ['reaction.comment', '💬'],
   ['reaction.', '❤️'],

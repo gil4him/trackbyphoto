@@ -997,6 +997,94 @@ describe('photos (storage)', () => {
   })
 })
 
+describe('photos family send to a parent (familyPhotos)', () => {
+  const ELDER = 'elder_fp'
+  const GUARDIAN = 'cg_guardian_fp'
+  const elderDb = () => testEnv.authenticatedContext(ELDER, { elder: true, deviceId: 'dev1' }).firestore()
+  const sent = (id: string, by: string, patient = ELDER) => ({
+    patientUid: patient, senderUid: by, senderName: '민수', photoPath: `familyPhotos/${patient}/${id}.jpg`,
+    caption: '보고 싶어요', status: 'pending', createdAt: serverTimestamp(),
+  })
+  const seed = async (settings: Record<string, unknown> = {}) => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore()
+      await setDoc(doc(db, 'users', ELDER), { patientName: '할머니', accountType: 'managed', lastModifiedBy: GUARDIAN, ...settings })
+      await setDoc(doc(db, 'users', ELDER, 'devices', 'dev1'), { name: 'phone', status: 'active' })
+      await setDoc(doc(db, 'memberships', membershipId(ELDER, GUARDIAN)), { patientUid: ELDER, caregiverUid: GUARDIAN, role: 'guardian', status: 'active', consentId: 'c' })
+      await setDoc(doc(db, 'memberships', membershipId(ELDER, CAREGIVER_ACTIVE_VIEWER)), { patientUid: ELDER, caregiverUid: CAREGIVER_ACTIVE_VIEWER, role: 'viewer', status: 'active', consentId: 'c' })
+      await setDoc(doc(db, 'familyPhotos', 'ready1'), { ...sent('ready1', GUARDIAN), status: 'ready', photoUrl: 'https://x/y', createdAt: new Date() })
+    })
+  }
+
+  it('any active family member can send, into the parent\'s own folder, as pending', async () => {
+    await seed()
+    await assertSucceeds(setDoc(doc(authedDb(GUARDIAN), 'familyPhotos', 'g1'), sent('g1', GUARDIAN)))
+    await assertSucceeds(setDoc(doc(authedDb(CAREGIVER_ACTIVE_VIEWER), 'familyPhotos', 'v1'), sent('v1', CAREGIVER_ACTIVE_VIEWER)))
+    await assertFails(setDoc(doc(authedDb(STRANGER), 'familyPhotos', 's1'), sent('s1', STRANGER)))
+    await assertFails(setDoc(doc(authedDb(GUARDIAN), 'familyPhotos', 'g2'), { ...sent('g2', GUARDIAN), photoPath: `familyPhotos/${STRANGER}/g2.jpg` }))
+    await assertFails(setDoc(doc(authedDb(GUARDIAN), 'familyPhotos', 'g3'), { ...sent('g3', GUARDIAN), status: 'ready' }))
+    await assertFails(setDoc(doc(authedDb(GUARDIAN), 'familyPhotos', 'g4'), { ...sent('g4', GUARDIAN), senderUid: CAREGIVER_ACTIVE_VIEWER }))
+    await assertFails(setDoc(doc(authedDb(GUARDIAN), 'familyPhotos', 'g5'), { ...sent('g5', GUARDIAN), caption: 'x'.repeat(61) }))
+    await assertFails(setDoc(doc(elderDb(), 'familyPhotos', 'e1'), sent('e1', ELDER)))
+  })
+
+  it('the 대표 가족\'s settings decide: off, or admins only', async () => {
+    await seed({ familyPhotos: { enabled: false } })
+    await assertFails(setDoc(doc(authedDb(GUARDIAN), 'familyPhotos', 'g1'), sent('g1', GUARDIAN)))
+    await seed({ familyPhotos: { enabled: true, senders: 'admins' } })
+    await assertSucceeds(setDoc(doc(authedDb(GUARDIAN), 'familyPhotos', 'g2'), sent('g2', GUARDIAN)))
+    await assertFails(setDoc(doc(authedDb(CAREGIVER_ACTIVE_VIEWER), 'familyPhotos', 'v2'), sent('v2', CAREGIVER_ACTIVE_VIEWER)))
+  })
+
+  it('the parent and the family read them; strangers do not', async () => {
+    await seed()
+    await assertSucceeds(getDoc(doc(elderDb(), 'familyPhotos', 'ready1')))
+    await assertSucceeds(getDoc(doc(authedDb(CAREGIVER_ACTIVE_VIEWER), 'familyPhotos', 'ready1')))
+    await assertSucceeds(getDocs(query(collection(elderDb(), 'familyPhotos'), where('patientUid', '==', ELDER))))
+    await assertFails(getDoc(doc(authedDb(STRANGER), 'familyPhotos', 'ready1')))
+  })
+
+  it('the parent\'s phone may mark a photo seen and leave one reply, nothing else', async () => {
+    await seed()
+    const ref = doc(elderDb(), 'familyPhotos', 'ready1')
+    await assertSucceeds(updateDoc(ref, { seenAt: serverTimestamp() }))
+    await assertSucceeds(updateDoc(ref, { reply: { kind: 'heart', at: serverTimestamp(), notified: false } }))
+    await assertSucceeds(updateDoc(ref, { reply: { kind: 'comment', text: '고마워', at: serverTimestamp(), notified: false } }))
+    await assertFails(updateDoc(ref, { reply: { kind: 'comment', text: 'x'.repeat(61), at: serverTimestamp(), notified: false } }))
+    await assertFails(updateDoc(ref, { reply: { kind: 'heart', at: serverTimestamp(), notified: true } }))
+    await assertFails(updateDoc(ref, { reply: { kind: 'voice', at: serverTimestamp(), notified: false } }))
+    await assertFails(updateDoc(ref, { caption: '바꿈' }))
+    await assertFails(updateDoc(ref, { status: 'pending' }))
+    await assertFails(updateDoc(doc(authedDb(GUARDIAN), 'familyPhotos', 'ready1'), { seenAt: serverTimestamp() }))
+  })
+
+  it('no written reply when written replies are switched off for this parent', async () => {
+    await seed({ textReplies: 'off' })
+    const ref = doc(elderDb(), 'familyPhotos', 'ready1')
+    await assertSucceeds(updateDoc(ref, { reply: { kind: 'heart', at: serverTimestamp(), notified: false } }))
+    await assertFails(updateDoc(ref, { reply: { kind: 'comment', text: '고마워', at: serverTimestamp(), notified: false } }))
+  })
+
+  it('the sender or whoever manages the records may remove a photo', async () => {
+    await seed()
+    await assertFails(deleteDoc(doc(authedDb(CAREGIVER_ACTIVE_VIEWER), 'familyPhotos', 'ready1')))
+    await assertFails(deleteDoc(doc(elderDb(), 'familyPhotos', 'ready1')))
+    await assertSucceeds(deleteDoc(doc(authedDb(GUARDIAN), 'familyPhotos', 'ready1')))
+  })
+
+  it('the file goes into storage only from an active family member, and is read by the parent and family', async () => {
+    await seed()
+    const img = new Uint8Array([1, 2, 3])
+    const storageOf = (uid: string, claims?: Record<string, unknown>) => testEnv.authenticatedContext(uid, claims).storage()
+    await assertSucceeds(uploadBytes(ref(storageOf(CAREGIVER_ACTIVE_VIEWER), `familyPhotos/${ELDER}/v1.jpg`), img, { contentType: 'image/jpeg' }))
+    await assertFails(uploadBytes(ref(storageOf(STRANGER), `familyPhotos/${ELDER}/s1.jpg`), img, { contentType: 'image/jpeg' }))
+    await assertFails(uploadBytes(ref(storageOf(CAREGIVER_ACTIVE_VIEWER), `familyPhotos/${ELDER}/v2.jpg`), img, { contentType: 'audio/webm' }))
+    await assertSucceeds(getBytes(ref(storageOf(ELDER, { elder: true, deviceId: 'dev1' }), `familyPhotos/${ELDER}/v1.jpg`)))
+    await assertSucceeds(getBytes(ref(storageOf(GUARDIAN), `familyPhotos/${ELDER}/v1.jpg`)))
+    await assertFails(getBytes(ref(storageOf(STRANGER), `familyPhotos/${ELDER}/v1.jpg`)))
+  })
+})
+
 describe('voice clips (storage)', () => {
   const audio = new Uint8Array([1, 2, 3])
   const storageOf = (uid: string) => testEnv.authenticatedContext(uid).storage()

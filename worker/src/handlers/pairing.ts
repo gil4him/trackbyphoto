@@ -586,7 +586,7 @@ export async function unlinkDevice(caller: Caller, data: { patientUid?: string; 
 }
 
 // Every top-level collection whose docs belong to one patient (by patientUid).
-const PATIENT_COLLECTIONS = ['memos', 'reactions', 'consents', 'memberships', 'pairings', 'invites', 'auditLogs', 'notifications']
+const PATIENT_COLLECTIONS = ['memos', 'reactions', 'familyPhotos', 'consents', 'memberships', 'pairings', 'invites', 'auditLogs', 'notifications']
 
 /**
  * 부모님 삭제: the guardian (the family member who registered the parent)
@@ -628,7 +628,7 @@ export async function deleteManagedElder(caller: Caller, data: { patientUid?: st
   // Tests run without a storage emulator; skip rather than reach real GCS.
   if (!process.env.FIRESTORE_EMULATOR_HOST || process.env.FIREBASE_STORAGE_EMULATOR_HOST) {
     // Photos and the parent's voice replies.
-    for (const prefix of [`photos/${patientUid}/`, `voice/${patientUid}/`]) {
+    for (const prefix of [`photos/${patientUid}/`, `voice/${patientUid}/`, `familyPhotos/${patientUid}/`]) {
       await getStorage().bucket().deleteFiles({ prefix }).catch((err) =>
         logger.warn('[pairing] file cleanup failed', { patientUid, prefix, err: String(err) }))
     }

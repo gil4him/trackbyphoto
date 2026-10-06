@@ -11,6 +11,8 @@ import { reloadToLatest } from './lib/sw'
 import { recallSettings, rememberSettings } from './lib/settingsCache'
 import { usePatientNames } from './hooks/usePatientNames'
 import { listedPeople } from './lib/people'
+import { useFamilyPhotos } from './hooks/useFamilyPhotos'
+import { SendFamilyPhoto, SentFamilyPhotos } from './components/SendFamilyPhoto'
 import { normalizeInviteCode, syncCaregiverName } from './lib/caregiver'
 import { setFaviconBadge } from './lib/favicon'
 import { Tabs, type TabKey } from './components/Tabs'
@@ -128,6 +130,13 @@ function App() {
   const [planSheet, setPlanSheet] = useState<PlanReason | null>(null)
   const [voiceAlbum, setVoiceAlbum] = useState(false)
   const familyUid = user && !elder ? user.uid : undefined
+  // Photos family send to a parent: the switch, and the 대표 가족's setting
+  // for this parent (received at all; who may send).
+  const familyPhotosFlag = flagOn(plans, 'familyPhotos')
+  const familyPhotosOn = familyPhotosFlag && settings.familyPhotos?.enabled !== false
+  const viewingParent = !!user && !elder && !!activePatientUid && activePatientUid !== user.uid
+  const familyPhotos = useFamilyPhotos(familyPhotosOn && viewingParent ? activePatientUid! : undefined)
+  const [sendPhotoOpen, setSendPhotoOpen] = useState(false)
   useEffect(() => {
     if (pushOn && familyUid) void refreshPush()
   }, [pushOn, familyUid])
@@ -343,6 +352,7 @@ function App() {
           reactions={reactionsOn ? reactions : null}
           voiceOn={flagOn(plans, 'voiceReplies') && settings.voiceEnabled === true}
           textMode={settings.textReplies}
+          familyPhotosOn={familyPhotosOn}
           onRelink={async () => {
             await signOut().catch(() => {})
             setPairCode('')
@@ -423,6 +433,12 @@ function App() {
       setPlanSheet({ kind: 'retention', message: n.message })
       return
     }
+    // The parent answered a photo: the sent list on that parent's home.
+    if (n.type.startsWith('familyPhoto.')) {
+      if (!here) onSwitchPatient(n.patientUid)
+      setTab('home')
+      return
+    }
     // "언니·오빠도 함께 받아보세요" leads to 가족초대.
     if (n.type === 'family.invite_prompt') {
       if (!here) onSwitchPatient(n.patientUid)
@@ -455,6 +471,8 @@ function App() {
   const ent = entitlements(plans, settings.plan?.tier)
   // Whoever manages these records may change the plan; other family only look.
   const myRole = patients.find((p) => p.patientUid === activePatientUid)?.role
+  const canSendPhoto = familyPhotosOn && !isSelf && settingsUid === activePatientUid
+    && (settings.familyPhotos?.senders !== 'admins' || myRole === 'admin' || myRole === 'guardian')
   const canChangePlan = isSelf ? settings.accountType !== 'managed' : myRole === 'admin' || myRole === 'guardian'
   // 목소리 앨범: family only, on a plan that includes it.
   const voiceAlbumOn = planOn && !isSelf && flagOn(plans, 'voiceReplies') && ent?.voiceAlbum === true
@@ -556,7 +574,7 @@ function App() {
             <>
               {tab === 'home'     && pushOn && <InstallHint />}
               {tab === 'alerts'   && <Notifications uid={user.uid} onOpen={openNotice} digestOn={digestOn} emailOffered={flagOn(plans, 'emailDigest')} messengerIncluded={flagOn(plans, 'messengerFree') || ent?.messenger === true} messengerFrom={fromTier(plans, 'messenger')} />}
-              {tab === 'home'     && <Home uid={activePatientUid || user.uid} patientName={settings.patientName} greetingName={isSelf ? selfLabel : settings.patientName} memos={memos} onOpenAsk={openAsk} onOpen={setSelectedMemoId} canCapture={isSelf} notifications={bannerNotices} onDismissNotification={dismissNotification} topCard={pushOn && patients.length > 0 ? <PushNudge /> : undefined} newsCard={ownNews && <FamilyNewsCard news={ownNews} onOpen={() => { if (ownNews.state !== 'none') openFamilyNews(ownNews) }} />} />}
+              {tab === 'home'     && <Home uid={activePatientUid || user.uid} patientName={settings.patientName} greetingName={isSelf ? selfLabel : settings.patientName} memos={memos} onOpenAsk={openAsk} onOpen={setSelectedMemoId} canCapture={isSelf} notifications={bannerNotices} onDismissNotification={dismissNotification} topCard={pushOn && patients.length > 0 ? <PushNudge /> : undefined} onSendPhoto={canSendPhoto ? () => setSendPhotoOpen(true) : undefined} sentPhotos={familyPhotosOn && !isSelf ? <SentFamilyPhotos photos={familyPhotos} myUid={user.uid} /> : undefined} newsCard={ownNews && <FamilyNewsCard news={ownNews} onOpen={() => { if (ownNews.state !== 'none') openFamilyNews(ownNews) }} />} />}
               {tab === 'today'    && <Today memos={memos} onOpen={setSelectedMemoId} uid={activePatientUid || user.uid} rx={rx} onOpenTrail={trailOn ? openDayTrail : undefined} onOpenVoiceAlbum={voiceAlbumOn ? () => setVoiceAlbum(true) : undefined} />}
               {tab === 'ask'      && <Ask memos={memos} onOpen={setSelectedMemoId} />}
               {tab === 'settings' && (
@@ -575,6 +593,7 @@ function App() {
                   reactionsRollout={reactionsOn}
                   digestRollout={digestOn}
                   weeklyIncluded={ent?.weekly === true}
+                  familyPhotosRollout={familyPhotosFlag}
                   weeklyFrom={fromTier(plans, 'weekly')}
                   onOpenPlans={planOn && plans ? setPlanSheet : undefined}
                   planName={TIER_NAME[settings.plan?.tier ?? 'free']}
@@ -585,6 +604,15 @@ function App() {
           )}
         </main>
 
+        {sendPhotoOpen && canSendPhoto && (
+          <SendFamilyPhoto
+            patientUid={activePatientUid || user.uid}
+            patientName={settings.patientName}
+            sender={{ uid: user.uid, name: user.displayName || selfLabel }}
+            photos={familyPhotos}
+            onClose={() => setSendPhotoOpen(false)}
+          />
+        )}
         {planSheet && planOn && plans && settingsUid === (activePatientUid || user.uid) && (
           <PlanSheet
             plans={plans}
