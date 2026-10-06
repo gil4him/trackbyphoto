@@ -22,7 +22,21 @@ export interface PromptHints {
   homeHint?: { km: number; away: boolean }
   /** Text the phone read in the photo (see readableText). */
   textHint?: string[]
+  /** The place hint came from another photo taken within minutes, not from
+   *  this one (it had no location). */
+  nearHint?: boolean
+  /** Cloud prompt only: the whole place label, nearest shop or building
+   *  included ("くら寿司 · 니시신주쿠, 신주쿠구"), and the coordinates. */
+  placeFull?: string
+  coords?: { lat: number; lng: number }
 }
+
+/** 'cloud' is the prompt for Gemini, which reads Japanese and knows places;
+ *  the local model keeps the stricter one. */
+export type PromptVariant = 'local' | 'cloud'
+
+const JAPANESE_RULE_LOCAL = '- 또렷이 읽히는 한글·영어·숫자만 인용하세요. 일본어나 한자로 된 글자는 옮겨 적거나 번역하지 말고 "일본어 광고가 붙어 있어요"처럼만 쓰세요.'
+const JAPANESE_RULE_CLOUD = '- 일본어·한자 간판과 안내판도 읽을 수 있으면 뜻을 한국어로 옮기세요. 역·가게·지명은 한국어 발음으로 쓰세요 ("新宿駅" → "신주쿠역").'
 
 // The model writes three things per photo:
 //   activity  one category word
@@ -30,11 +44,12 @@ export interface PromptHints {
 //   scene     2–3 short, plain sentences for the detail page
 // Everything must come from what is visible in the photo; the hints only
 // add context (time, place, distance from home) the picture can't show.
-export function buildPrompt(hints: PromptHints = {}): string {
-  const { timeHint, placeHint, homeHint, textHint } = hints
+export function buildPrompt(hints: PromptHints = {}, variant: PromptVariant = 'local'): string {
+  const { timeHint, placeHint, homeHint, textHint, nearHint, placeFull, coords } = hints
+  const cloud = variant === 'cloud'
   const context = [
     `- 시간: ${timeHint || '알 수 없음'}`,
-    `- 지역: ${placeHint || '알 수 없음'}`,
+    `- 지역: ${placeHint ? (nearHint ? `${placeHint} 근처 (이 사진은 위치가 없어, 몇 분 안에 찍은 다른 사진의 위치예요)` : placeHint) : '알 수 없음'}`,
     '  → 지역 이름일 뿐이에요. 사진에 보이지 않는 가게·음식·물건을 지역 이름에서 지어내지 마세요.',
   ]
   if (homeHint?.away) {
@@ -47,6 +62,18 @@ export function buildPrompt(hints: PromptHints = {}): string {
     context.push(`- 집과의 거리: ${homeHint.km < 2 ? '집 또는 집 근처예요.' : `집에서 약 ${homeHint.km}km 떨어진 곳이에요.`} "여행"·"출장"은 고르지 마세요.`)
   }
 
+  if (cloud && placeFull && !nearHint) {
+    context.push(
+      `- 지도에서 가장 가까운 곳: ${placeFull}`,
+      '  → 사진의 모습과 맞을 때만 쓰세요 (거리 사진이면 그 근처, 실내 사진이면 지어내지 마세요).',
+    )
+  }
+  if (cloud && coords) {
+    context.push(
+      `- 좌표: ${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}`,
+      '  → 이 좌표 근처의 유명한 역·거리·명소를 알고 있고 사진과 맞으면 이름을 넣어 구체적으로 쓰세요.',
+    )
+  }
   if (textHint?.length) {
     context.push(
       `- 휴대폰이 사진에서 읽은 글자: ${textHint.map((t) => `"${t}"`).join(', ')}`,
@@ -62,12 +89,13 @@ export function buildPrompt(hints: PromptHints = {}): string {
     '- 사진에 실제로 보이는 것만 쓰세요. 보이지 않는 일은 지어내지 마세요.',
     '- 쉬운 한국어 존댓말(~요)로 쓰세요.',
     '- 사람 이름, 관계(딸·친구 등), 건강·약·진단명은 추측하지 마세요.',
+    ...(cloud ? ['- 가게·건물 이름은 사진에서 읽히거나 아래 상황 정보에 있을 때만 쓰세요. 좌표로 아는 지역·역·거리 이름은 써도 돼요.'] : []),
     '',
     '배경의 글자:',
     '- 현수막·간판·전광판·안내판이 보이면 적힌 글자를 읽고, 무엇이 적혀 있는지 담으세요 (행사 이름, 역 이름, 날짜 등).',
     '- 현수막이나 간판이 크게 찍혔다면 그것이 사진의 주제예요. memo(제목)에 그 내용을 넣으세요.',
     '- 외국어 문장은 뜻을 한국어로 옮겨 쓰세요 ("The biggest festival" → "가장 큰 축제"). 지명·역·가게·행사 이름은 원문 그대로 써도 돼요 ("Higashi Betsuin 역").',
-    '- 또렷이 읽히는 한글·영어·숫자만 인용하세요. 일본어나 한자로 된 글자는 옮겨 적거나 번역하지 말고 "일본어 광고가 붙어 있어요"처럼만 쓰세요.',
+    cloud ? JAPANESE_RULE_CLOUD : JAPANESE_RULE_LOCAL,
     '- 상품·책·서비스를 알리는 광고판과 포스터는 현수막·안내판과 달라요. 내용을 옮기지 말고 "광고판이 보여요"라고만 쓰세요.',
     '',
     'memo (제목 한 줄, 12~22자):',
@@ -161,21 +189,24 @@ function tidyMemo(raw: string): string {
 // them into things the sign doesn't say, and the family can't read them.
 const FOREIGN_SCRIPT = /[\u3040-\u30ff\u3400-\u9fff]/
 
-/** Collapse whitespace, drop sentences that copy Japanese/Chinese text, and
- *  keep at most three sentences. */
-function tidyScene(raw: string): string {
+/** Collapse whitespace, drop sentences that copy Japanese/Chinese text (kept
+ *  when relaxed), and keep at most three sentences. */
+function tidyScene(raw: string, relaxed = false): string {
   const text = raw.replace(/\s+/g, ' ').trim()
   // A sentence ends where Korean text meets a full stop; a period inside a
   // quoted sign ("Sta.", "jejuair.com") is not an ending.
   const sentences = text.split(/(?<=[가-힣][.!?])\s+/)
   return sentences
-    .filter((s) => !FOREIGN_SCRIPT.test(s))
+    .filter((s) => relaxed || !FOREIGN_SCRIPT.test(s))
     .slice(0, SCENE_MAX_SENTENCES)
     .map((s) => s.trim())
     .join(' ')
 }
 
-export function parseModelResponse(raw: string): { activity: string; memo: string; scene: string } | null {
+/** `relaxed`: the cloud model, which reads Japanese well; a stray kana in its
+ *  answer is kept rather than failing the memo. */
+export function parseModelResponse(raw: string, opts: { relaxed?: boolean } = {}): { activity: string; memo: string; scene: string } | null {
+  const relaxed = opts.relaxed === true
   // Models occasionally wrap JSON in a code fence even with the
   // response-format hint.
   const cleaned = raw.replace(/^```(?:json)?\s*|\s*```$/g, '').trim()
@@ -185,9 +216,9 @@ export function parseModelResponse(raw: string): { activity: string; memo: strin
     const memo = typeof parsed.memo === 'string' ? tidyMemo(parsed.memo) : ''
     // scene is optional in the response — when a model briefly drops it we
     // still accept the memo. The UI falls back to the title when it's empty.
-    const scene = typeof parsed.scene === 'string' ? tidyScene(parsed.scene) : ''
+    const scene = typeof parsed.scene === 'string' ? tidyScene(parsed.scene, relaxed) : ''
     // A title quoting Japanese/Chinese text is rejected so the caller retries.
-    if (!memo || FOREIGN_SCRIPT.test(memo)) return null
+    if (!memo || (!relaxed && FOREIGN_SCRIPT.test(memo))) return null
     // Snap the activity to one of the known categories. The model can drift
     // ("점심" instead of "식사") so we coerce — anything unrecognized falls
     // back to 기타 rather than polluting the dashboard with one-off buckets.

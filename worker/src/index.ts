@@ -16,6 +16,7 @@
  *   FIREBASE_STORAGE_BUCKET         default trackbyphoto-app.firebasestorage.app
  *   OLLAMA_BASE_URL / OLLAMA_MODEL  default http://localhost:11434 / gemma4:e4b
  *   KAKAO_REST_KEY                  optional, Korean reverse geocoding
+ *   GEMINI_API_KEY                  optional, Gemini memos for those let through (llm/route.ts)
  *   WORKER_STATE_DIR                default ~/.trackbyphoto/state
  *   FIRESTORE_EMULATOR_HOST etc.    honored by firebase-admin for local runs
  */
@@ -36,6 +37,7 @@ import { startHousekeeping } from './handlers/housekeeping.js'
 import { watchFamilyPhotos } from './handlers/familyPhotos.js'
 import { startHeartbeat } from './heartbeat.js'
 import { sttAvailable } from './llm/stt.js'
+import { geminiConfigured } from './llm/gemini.js'
 
 const STORAGE_BUCKET = process.env.FIREBASE_STORAGE_BUCKET || 'trackbyphoto-app.firebasestorage.app'
 const STATE_DIR = process.env.WORKER_STATE_DIR || join(homedir(), '.trackbyphoto', 'state')
@@ -53,6 +55,7 @@ async function main() {
     model: await resolveModel(),
     ollama: (await ollamaAvailable()) ? 'up' : 'DOWN (memos will wait)',
     stt: (await sttAvailable()) ? 'up' : 'DOWN (voice replies will wait)',
+    cloud: geminiConfigured() ? 'configured (cloudMemo flag / admin_config/cloudLlm decide who)' : 'off',
   })
 
   await requeueInterruptedRequests()

@@ -8,8 +8,10 @@
  *   2. reverse-geocodes lat/lng (a failed or late lookup is finished by
  *      handlers/place.ts),
  *   3. writes the memo from the photo itself:
- *        a. local vision model on Ollama (memoSource 'local-llm'), told the
- *           time, the place and how far from home the photo was taken,
+ *        a. a vision model told the time, the place and how far from home the
+ *           photo was taken: Gemini (memoSource 'cloud-llm') for the people
+ *           llm/route.ts lets through, otherwise, or when Gemini fails, the
+ *           local model on Ollama (memoSource 'local-llm'),
  *        b. neutral stub after MAX_ATTEMPTS failed generations
  *           (memoSource 'local-stub') so a bad photo can't stay pending forever,
  *        c. no model at all past the day's allowance (memoSource
@@ -24,8 +26,8 @@
  * memo arrives: the photo and its place show at once, however long the line
  * for the model is. New photos go ahead of memos that are being re-written.
  *
- * There is deliberately no paid cloud fallback. If the Mac mini or Ollama is
- * down the memo simply stays pending ("메모 작성 중…") until it's back; the
+ * If the Mac mini or Ollama is down (and Gemini is not in use for that
+ * person) the memo simply stays pending ("메모 작성 중…") until it's back; the
  * listener's initial snapshot picks up everything that queued meanwhile.
  */
 
@@ -36,14 +38,13 @@ import { downloadLink } from '../storageLinks.js'
 import { bumpAdminCounters } from '../counters.js'
 import { reverseGeocode, type GeoResult } from '../geocode.js'
 import {
-  generateMemo,
   LlmGenerationError,
   LlmUnavailableError,
   REWRITE_TEMPERATURE,
   type LlmResult,
 } from '../llm/ollama.js'
-import { withModelLock } from '../llm/lock.js'
-import { areaOf, readableText, storedOnlyMemo, stubActivity, type PromptHints, type VisionTags } from '../llm/prompt.js'
+import { generateMemoRouted, type MemoArgs } from '../llm/route.js'
+import { areaOf, readableText, storedOnlyMemo, stubActivity, type VisionTags } from '../llm/prompt.js'
 import { homeHintFor, localTimeHint } from '../travel.js'
 import { pushToUsers, type PushMessage } from './push.js'
 import { accountPhotoSafely } from './usage.js'
@@ -65,7 +66,7 @@ export interface MemoDeps {
   /** Resolve the photo; null when the object doesn't exist. */
   loadPhoto: (photoPath: string) => Promise<PhotoInfo | null>
   geocode: (lat: number | null, lng: number | null) => Promise<GeoResult>
-  generate: (args: PromptHints & { imageBase64: string; temperature?: number }) => Promise<LlmResult>
+  generate: (args: MemoArgs) => Promise<LlmResult>
   /** Push the new-photo notice to family devices (default: handlers/push). */
   push?: (uids: string[], message: PushMessage) => Promise<unknown>
 }
@@ -81,8 +82,7 @@ export const defaultMemoDeps: MemoDeps = {
     return { photoUrl, base64: async () => (await file.download())[0].toString('base64') }
   },
   geocode: reverseGeocode,
-  // Shares the Mac mini with speech-to-text: one model at a time.
-  generate: (args) => withModelLock(() => generateMemo(args)),
+  generate: generateMemoRouted,
 }
 
 export type MemoOutcome =
@@ -120,6 +120,44 @@ export async function prepareMemo(memoId: string, deps: MemoDeps = defaultMemoDe
     }
   }
   if (Object.keys(update).length) await memoRef.update(update)
+}
+
+/** How far apart in time a photo may be and still lend its place. */
+const NEAR_MS = 15 * 60_000
+
+/** The place of this person's photo taken closest in time, within 15
+ *  minutes; '' when there is none. */
+async function nearbyPlace(memoId: string, patientUid: string, takenAt: Date | undefined): Promise<string> {
+  if (!takenAt) return ''
+  try {
+    const snap = await getFirestore().collection('memos')
+      .where('patientUid', '==', patientUid)
+      .where('takenAt', '>=', new Date(takenAt.getTime() - NEAR_MS))
+      .where('takenAt', '<=', new Date(takenAt.getTime() + NEAR_MS))
+      .get()
+    let best = ''
+    let bestGap = Infinity
+    for (const d of snap.docs) {
+      const m = d.data()
+      const at = m.takenAt?.toDate?.() as Date | undefined
+      if (d.id === memoId || !at || typeof m.lat !== 'number' || !m.place) continue
+      const gap = Math.abs(at.getTime() - takenAt.getTime())
+      if (gap < bestGap) { best = m.place as string; bestGap = gap }
+    }
+    return best
+  } catch (err) {
+    logger.warn('[memo] nearby place lookup failed', { memoId, err: String(err) })
+    return ''
+  }
+}
+
+/** The photo's type from its file name; the app mostly uploads JPEG. */
+export function mimeFromPath(path: string): string {
+  const ext = path.split('.').pop()?.toLowerCase()
+  if (ext === 'png') return 'image/png'
+  if (ext === 'webp') return 'image/webp'
+  if (ext === 'heic' || ext === 'heif') return `image/${ext}`
+  return 'image/jpeg'
 }
 
 /** The memo already carries the place for its coordinates. */
@@ -195,10 +233,18 @@ export async function processMemo(memoId: string, attempt: number, deps: MemoDep
     scene = kept.scene
     memoSource = 'stored-only'
   } else try {
+    // No location of its own: the place of a photo taken within minutes, as a
+    // hint only. Nothing of it is written onto this memo.
+    const near = !hasCoords ? await nearbyPlace(memoId, patientUid, data.takenAt?.toDate?.()) : ''
     const result = await deps.generate({
       imageBase64: await photo.base64(),
+      patientUid,
+      mimeType: mimeFromPath(photoPath),
       timeHint: await localTimeHint(patientUid, data.takenAt?.toDate?.(), lat, lng, data.tzOffsetMin as number | undefined),
-      placeHint: areaOf(place) || undefined,
+      placeHint: (near ? areaOf(near) : areaOf(place)) || undefined,
+      nearHint: !!near || undefined,
+      placeFull: place || undefined,
+      coords: hasCoords ? { lat, lng } : undefined,
       homeHint: await homeHintFor(patientUid, lat, lng),
       textHint: readableText(tags?.text),
       // Text the model wrote before means someone asked for another take.
@@ -207,7 +253,7 @@ export async function processMemo(memoId: string, attempt: number, deps: MemoDep
     activity = result.activity
     memo = result.memo
     scene = result.scene
-    memoSource = 'local-llm'
+    memoSource = result.source ?? 'local-llm'
     llmCost = result.cost
     llmModel = result.model
   } catch (err) {

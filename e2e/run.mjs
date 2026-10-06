@@ -108,6 +108,8 @@ const workerEnv = {
 // Never a real key: the worker must only see the emulators.
 delete workerEnv.GOOGLE_APPLICATION_CREDENTIALS
 delete workerEnv.KAKAO_REST_KEY
+// Memos come from the fake model server, never from the real Gemini.
+delete workerEnv.GEMINI_API_KEY
 delete workerEnv.SMTP_URL
 const worker = spawn(process.execPath, [join(HERE, '..', 'worker', 'dist', 'index.js')], { env: workerEnv, stdio: ['ignore', 'pipe', 'pipe'] })
 let workerLog = ''

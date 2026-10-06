@@ -70,6 +70,7 @@ const SOURCE_KO: Record<MemoSource | string, string> = {
   'foundation-models': 'Apple Intelligence',
   'template':          'iPhone 분석',
   'local-llm':         '로컬 AI (Mac mini)',
+  'cloud-llm':         '클라우드 AI (Gemini)',
   'local-stub':        '로컬 AI 추정',
   'stored-only':       '저장만 (AI 없음)',
   'cloud-vision':      '클라우드 AI (Gemini)',
