@@ -8,7 +8,7 @@ import { processMemo, type MemoDeps } from '../src/handlers/memo'
 import { processReaction, type ReactionDeps } from '../src/handlers/reactions'
 import { processSettingsChange } from '../src/handlers/audit'
 import { resetPlansCache } from '../src/plans'
-import { resetHomeCache } from '../src/travel'
+import { resetHomeCache, setTravelGeocoder } from '../src/travel'
 import { db, clearFirestore, seedMembership, count } from './setup'
 
 const MSG: PushMessage = { title: '오늘하루', body: '어머니님이 새 사진을 올렸어요', data: { type: 'photo.new' } }
@@ -36,6 +36,7 @@ beforeEach(async () => {
   await clearFirestore()
   resetPlansCache()
   resetHomeCache()
+  setTravelGeocoder(async () => ({ place: '', address: '' }))
   await flag(true)
 })
 

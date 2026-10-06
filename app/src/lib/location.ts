@@ -10,6 +10,7 @@
 
 import { Capacitor } from '@capacitor/core'
 import { Geolocation } from '@capacitor/geolocation'
+import { callWorker } from './worker'
 
 export interface Geo { lat: number; lng: number }
 interface Fix extends Geo { at: number }
@@ -116,4 +117,12 @@ export async function findFix(): Promise<Geo | null> {
 /** A single quick attempt, for settings screens. */
 export async function getGeo(): Promise<Geo | null> {
   return recentFix() ?? (await preciseOrApproximate())
+}
+
+export interface AddressCandidate { lat: number; lng: number; label: string }
+
+/** 설정 → 집 위치 → 주소로 찾기: an address or building name → places to pick. */
+export async function searchAddress(query: string, patientUid: string): Promise<AddressCandidate[]> {
+  const { candidates } = await callWorker<{ candidates: AddressCandidate[] }>('searchAddress', { query, patientUid })
+  return candidates
 }

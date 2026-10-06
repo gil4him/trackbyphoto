@@ -809,6 +809,8 @@ nav.tabbar .tab.on .tab-avatar { box-shadow: 0 0 0 2px var(--coral2); }
 .dg-phone { display: flex; gap: 8px; margin: 10px 4px 0; }
 .dg-phone input { flex: 1; min-width: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; font-size: 16px; }
 .dg-phone button { padding: 10px 14px; border: 0; border-radius: 10px; background: var(--ink, #1d1d1f); color: #fff; font-weight: 700; }
+.home-search { display: flex; gap: 8px; align-items: center; margin: 8px 0; }
+.home-search input { flex: 1; min-width: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; font-size: 16px; background: #fff; font-family: inherit; }
 .dg-hour { padding: 8px 12px; border: 1px solid var(--line); border-radius: 10px; font-size: 16px; background: #fff; }
 .linklike { border: 0; background: none; padding: 0; color: var(--accent-ink); font: inherit; font-weight: 700; text-decoration: underline; }
 

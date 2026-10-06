@@ -226,8 +226,11 @@ export async function processMemo(memoId: string, attempt: number, deps: MemoDep
     rewrite: !!data.notifiedAt,
   })
 
+  // Before the branch: the stored-only and stub categories need it too.
+  const homeHint = await homeHintFor(patientUid, lat, lng)
+
   if (!usage.ai) {
-    const kept = storedOnlyMemo(tags)
+    const kept = storedOnlyMemo(tags, homeHint?.away)
     activity = kept.activity
     memo = kept.memo
     scene = kept.scene
@@ -245,7 +248,7 @@ export async function processMemo(memoId: string, attempt: number, deps: MemoDep
       nearHint: !!near || undefined,
       placeFull: place || undefined,
       coords: hasCoords ? { lat, lng } : undefined,
-      homeHint: await homeHintFor(patientUid, lat, lng),
+      homeHint,
       textHint: readableText(tags?.text),
       // Text the model wrote before means someone asked for another take.
       temperature: data.memo && data.memoSource !== 'stored-only' ? REWRITE_TEMPERATURE : undefined,
@@ -267,7 +270,7 @@ export async function processMemo(memoId: string, attempt: number, deps: MemoDep
       return 'failed'
     }
     logger.warn('[memo] generation failed on final attempt; writing stub', { memoId, attempt, err: err.message })
-    const stub = stubActivity(tags)
+    const stub = stubActivity(tags, homeHint?.away)
     activity = stub.activity
     memo = stub.memo
     scene = stub.scene

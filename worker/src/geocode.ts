@@ -243,3 +243,95 @@ export async function reverseGeocode(lat: number | null, lng: number | null, lan
     return EMPTY
   }
 }
+
+// ────────────────────────────────────────────────────────────────────────────
+// Address search (설정 → 집 위치 → 주소로 찾기): text → a few places to pick.
+// Same services as above: Kakao for Korean text when the key is set, else
+// Nominatim. At most SEARCH_LIMIT candidates.
+// ────────────────────────────────────────────────────────────────────────────
+
+export interface GeoCandidate {
+  lat: number
+  lng: number
+  label: string
+}
+
+const SEARCH_LIMIT = 5
+
+interface KakaoSearchDoc {
+  place_name?: string
+  address_name?: string
+  road_address_name?: string
+  road_address?: { address_name?: string; building_name?: string } | null
+  x?: string
+  y?: string
+}
+
+/** Kakao address or keyword search results → candidates. */
+export function kakaoSearchCandidates(docs: KakaoSearchDoc[] | undefined): GeoCandidate[] {
+  const out: GeoCandidate[] = []
+  for (const d of docs ?? []) {
+    const lat = Number(d.y), lng = Number(d.x)
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue
+    const address = (d.road_address?.address_name || d.road_address_name || d.address_name || '').trim()
+    const name = cleanName(d.place_name || d.road_address?.building_name)
+    const label = name && address ? `${name} · ${address}` : name || address
+    if (label) out.push({ lat, lng, label })
+  }
+  return out.slice(0, SEARCH_LIMIT)
+}
+
+export interface NominatimSearchResult extends NominatimResponse {
+  lat?: string
+  lon?: string
+}
+
+/** Nominatim /search results → candidates, labelled by street address. */
+export function nominatimSearchCandidates(results: NominatimSearchResult[] | undefined): GeoCandidate[] {
+  const out: GeoCandidate[] = []
+  for (const r of results ?? []) {
+    const lat = Number(r.lat), lng = Number(r.lon)
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue
+    const label = nominatimPlace(r)?.address || (r.display_name || '').split(',').slice(0, 3).map((s) => s.trim()).join(', ')
+    if (label) out.push({ lat, lng, label })
+  }
+  return out.slice(0, SEARCH_LIMIT)
+}
+
+async function searchKakao(query: string, apiKey: string): Promise<GeoCandidate[]> {
+  const get = async (kind: 'address' | 'keyword') => {
+    const url = `https://dapi.kakao.com/v2/local/search/${kind}.json?query=${encodeURIComponent(query)}&size=${SEARCH_LIMIT}`
+    const res = await fetch(url, { headers: { Authorization: `KakaoAK ${apiKey}` }, signal: AbortSignal.timeout(TIMEOUT_MS) })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    return kakaoSearchCandidates(((await res.json()) as { documents?: KakaoSearchDoc[] }).documents)
+  }
+  // A street address first; a building or place name ("래미안 퍼스티지") otherwise.
+  const byAddress = await get('address')
+  return byAddress.length ? byAddress : get('keyword')
+}
+
+async function searchNominatim(query: string, lang: GeoLang): Promise<GeoCandidate[]> {
+  const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=${SEARCH_LIMIT}&addressdetails=1`
+  const res = await fetch(url, {
+    headers: {
+      'User-Agent': 'TrackByPhoto/1.0 (https://trackbyphoto.web.app)',
+      'Accept-Language': lang === 'en' ? 'en' : 'ko,en',
+    },
+    signal: AbortSignal.timeout(TIMEOUT_MS),
+  })
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  return nominatimSearchCandidates((await res.json()) as NominatimSearchResult[])
+}
+
+export async function searchAddress(query: string, lang: GeoLang = 'ko'): Promise<GeoCandidate[]> {
+  const kakaoKey = process.env.KAKAO_REST_KEY || ''
+  if (kakaoKey && lang === 'ko' && /[가-힣]/.test(query)) {
+    try {
+      const found = await searchKakao(query, kakaoKey)
+      if (found.length) return found
+    } catch (err) {
+      logger.warn('[searchAddress] Kakao failed; trying Nominatim', { err: String(err) })
+    }
+  }
+  return searchNominatim(query, lang)
+}

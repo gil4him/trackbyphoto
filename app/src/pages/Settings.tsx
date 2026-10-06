@@ -17,7 +17,7 @@ import { sendInviteSMS, shareInviteToKakao } from '../lib/share'
 import { RegisterElder } from './RegisterElder'
 import { ElderDevices } from '../components/ElderDevices'
 import { deleteManagedElder } from '../lib/pairing'
-import { getGeo } from '../lib/location'
+import { getGeo, searchAddress, type AddressCandidate } from '../lib/location'
 import { DEFAULT_DIGEST, DIGEST_HOURS, saveDigestSettings } from '../lib/digest'
 import type { PlanReason } from '../lib/plan'
 import { S } from '../lib/strings'
@@ -263,6 +263,28 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
     update('home', { ...geo, label: '직접 설정한 위치' })
     toast.show('집 위치를 저장했어요')
   }
+  const [homeQuery, setHomeQuery] = useState('')
+  const [searching, setSearching] = useState(false)
+  const [found, setFound] = useState<AddressCandidate[] | null>(null)
+  const findHome = async () => {
+    const q = homeQuery.trim()
+    if (!q) return
+    setSearching(true)
+    try {
+      setFound(await searchAddress(q, activePatientUid))
+    } catch (err) {
+      console.error('[home] address search failed', err)
+      toast.show('주소를 찾지 못했어요', isWorkerOffline(err) ? WORKER_OFFLINE_MESSAGE : '잠시 후 다시 시도해 주세요')
+    } finally {
+      setSearching(false)
+    }
+  }
+  const pickHome = (c: AddressCandidate) => {
+    update('home', c)
+    setFound(null)
+    setHomeQuery('')
+    toast.show('집 위치를 저장했어요')
+  }
 
   // 언어: one's own account is seeded with the phone's language; anyone else
   // without one reads as Korean, as the worker does.
@@ -433,6 +455,28 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
               </div>
             </>
           )}
+          <div className="help">주소나 건물 이름으로 찾을 수도 있어요. 앞으로 찍는 사진부터 적용돼요.</div>
+          <div className="home-search">
+            <input
+              value={homeQuery}
+              maxLength={100}
+              placeholder="예: 서초대로 1, 350 5th Ave New York"
+              onChange={(e) => setHomeQuery(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') findHome() }}
+            />
+            <button className="signout-btn" disabled={searching || !homeQuery.trim()} onClick={findHome}>
+              {searching ? '찾는 중…' : '주소로 찾기'}
+            </button>
+          </div>
+          {found && (found.length === 0
+            ? <div className="help">찾은 곳이 없어요. 다르게 적어 보세요.</div>
+            : (
+              <div className="name-chips">
+                {found.map((c) => (
+                  <button key={`${c.lat},${c.lng}`} className="name-chip" onClick={() => pickHome(c)}>{c.label}</button>
+                ))}
+              </div>
+            ))}
           {isSelf && (
             <button className="linkbtn" disabled={locating} onClick={useCurrentAsHome}>
               <span>{locating ? '위치 확인 중…' : '지금 있는 곳을 집으로 설정'}</span>
