@@ -14,6 +14,10 @@ import {
   type User,
 } from 'firebase/auth'
 import { auth } from '../firebase'
+import { accountGone, forgetAccountKeys } from '../lib/account'
+import { outbox } from '../lib/outboxBackend'
+import { voiceOutbox } from '../lib/voiceOutbox'
+import { forgetLastFix } from '../lib/location'
 
 // In the iOS/Android apps Google refuses OAuth inside the embedded WebView
 // (disallowed_useragent), so the native Google account sheet runs instead
@@ -74,6 +78,36 @@ export async function signInAsElder(customToken: string): Promise<void> {
   await signInWithCustomToken(auth, customToken)
 }
 
+/** How often an open app asks whether its account still exists. */
+const ALIVE_CHECK_MS = 5 * 60_000
+
+/**
+ * Ask the server whether the signed-in account still exists (a forced token
+ * refresh). If it was deleted, forget what this phone kept of it, sign out
+ * and start again at the first screen. True when that is under way; false
+ * when the account is fine or the answer was not definite (no connection).
+ */
+export async function resetIfAccountGone(): Promise<boolean> {
+  const u = auth.currentUser
+  if (!u || u.isAnonymous || navigator.onLine === false) return false
+  // Kept now: the library signs a deleted user out by itself while refreshing.
+  const uid = u.uid
+  try {
+    await u.getIdToken(true)
+    return false
+  } catch (err) {
+    if (!accountGone(err)) return false
+  }
+  console.warn('[auth] this account no longer exists; starting over')
+  forgetAccountKeys(uid)
+  forgetLastFix()
+  await Promise.all([outbox.drop(uid), voiceOutbox.drop(uid)]).catch(() => {})
+  if (isNative) await FirebaseAuthentication.signOut().catch(() => {})
+  await fbSignOut(auth).catch(() => {})
+  window.location.replace('/')
+  return true
+}
+
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null)
   const [elder, setElder] = useState<ElderSession | null>(null)
@@ -98,6 +132,20 @@ export function useAuth() {
     })
     return () => unsub()
   }, [])
+
+  // On opening, on coming back to the app, and every few minutes while open.
+  const signedInUid = user && !user.isAnonymous ? user.uid : null
+  useEffect(() => {
+    if (!signedInUid) return
+    const check = () => { if (document.visibilityState === 'visible') void resetIfAccountGone() }
+    const id = window.setInterval(check, ALIVE_CHECK_MS)
+    document.addEventListener('visibilitychange', check)
+    check()
+    return () => {
+      window.clearInterval(id)
+      document.removeEventListener('visibilitychange', check)
+    }
+  }, [signedInUid])
 
   const signInWithGoogle = async () => {
     if (isNative) {

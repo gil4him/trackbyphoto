@@ -1,0 +1,24 @@
+// A phone whose account no longer exists: the family deleted the parent
+// (부모님 삭제), or the account was removed elsewhere. The sign-in library
+// itself only notices at its hourly token refresh, so the app asks.
+
+/** Answers to a token refresh that mean the account is gone for good (the
+ *  sign-in can never be renewed): Firebase reports a deleted account as
+ *  user-token-expired, the local emulator as invalid-refresh-token. Any other
+ *  failure (no connection, a slow one) is not believed. */
+const GONE = new Set([
+  'auth/user-token-expired', 'auth/user-not-found', 'auth/user-disabled', 'auth/invalid-user-token', 'auth/invalid-refresh-token',
+])
+
+export function accountGone(err: unknown): boolean {
+  const code = (err as { code?: unknown } | null)?.code
+  return typeof code === 'string' && GONE.has(code)
+}
+
+/** What this phone kept about that account. The plans table (not personal)
+ *  stays; the Firestore cache is memory only and goes with the reload. */
+export function forgetAccountKeys(uid: string): void {
+  for (const key of [`tbp.settings.${uid}`, `tbp.activePatient.${uid}`]) {
+    try { localStorage.removeItem(key) } catch { /* storage blocked */ }
+  }
+}

@@ -638,4 +638,27 @@ await step('a slow connection never replaces someone\'s own settings with defaul
   expect(after?.patientName === '지은 본인' && after?.bigText === false, `settings were replaced: ${JSON.stringify({ patientName: after?.patientName, bigText: after?.bigText })}`)
 })
 
+await step('a deleted parent\'s phone starts over at the first screen, keeping nothing of theirs', async () => {
+  // Last: the parent's phone is used by the steps above. Photos still waiting
+  // on the phone are dropped with the account (they can't go anywhere).
+  if (await family.$('.acct-return')) await family.click('.acct-return')
+  await tab(family, '설정')
+  await waitText(family, '함께 보는 가족')
+  await click(family, `${PARENT}님 삭제`)
+  await waitText(family, `${PARENT}님을 삭제할까요?`)
+  await click(family, '삭제하기', { selector: '.modal button' })
+  await waitText(family, `${PARENT}님을 삭제했어요`, 70_000)
+  const end = Date.now() + 20_000
+  while ((await db.doc(`users/${patientUid}`).get()).exists && Date.now() < end) await sleep(500)
+  expect(!(await db.doc(`users/${patientUid}`).get()).exists, 'the account still exists')
+  // The phone was left open; coming back to it is one of the moments it checks.
+  await parent.evaluate(() => document.dispatchEvent(new Event('visibilitychange')))
+  await waitText(parent, '한 번의 터치로 오늘의 순간을 가족에게 전합니다', 60_000)
+  const t = await text(parent)
+  expect(!t.includes('연결이 해제되었어요'), 'the phone shows the unlink screen instead of starting over')
+  expect(!t.includes('사진 찍기'), 'the phone still shows the camera')
+  const kept = await parent.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith('tbp.settings.') || k.startsWith('tbp.activePatient.')))
+  expect(kept.length === 0, `the phone kept ${kept.join(', ')}`)
+})
+
 await finish()

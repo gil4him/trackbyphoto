@@ -12,6 +12,7 @@ import { FamilyPhotoViewer } from './FamilyPhotoViewer'
 import { useFamilyPhotos } from '../hooks/useFamilyPhotos'
 import { useElderNews, type OpenNews } from '../hooks/useElderNews'
 import { unlinkedFrom } from '../lib/device'
+import { resetIfAccountGone } from '../hooks/useAuth'
 import type { Memo, Reaction, TextReplies } from '../types'
 
 /**
@@ -20,7 +21,8 @@ import type { Memo, Reaction, TextReplies } from '../types'
  * to put the icon on the home screen). No tabs, no settings, no sign-out —
  * family manages all of that from their own phones, and nothing here differs
  * by plan. If family disconnects this phone (연결 해제),
- * the device record flips to 'revoked' and the screen locks.
+ * the device record flips to 'revoked' and the screen locks. If family
+ * deleted the parent altogether, the phone starts over at the first screen.
  */
 export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn, textMode, familyPhotosOn = false, onRelink }: {
   uid: string
@@ -48,6 +50,8 @@ export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn
 
   useEffect(() => {
     if (!deviceId) { setRevoked(true); return }
+    // Unlinked, or the whole account deleted? Only the first locks the screen.
+    const lockUnlessDeleted = async () => { if (!(await resetIfAccountGone())) setRevoked(true) }
     return onSnapshot(
       doc(db, 'users', uid, 'devices', deviceId),
       // Metadata changes too: that is how "the server confirms there is no
@@ -55,10 +59,11 @@ export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn
       { includeMetadataChanges: true },
       (snap) => {
         const unlinked = unlinkedFrom(snap)
-        if (unlinked !== null) setRevoked(unlinked)
+        if (unlinked === true) void lockUnlessDeleted()
+        else if (unlinked === false) setRevoked(false)
       },
       // Rules deny every read once the device is revoked.
-      (err) => { if (err.code === 'permission-denied') setRevoked(true) },
+      (err) => { if (err.code === 'permission-denied') void lockUnlessDeleted() },
     )
   }, [uid, deviceId])
 
