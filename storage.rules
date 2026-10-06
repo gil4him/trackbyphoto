@@ -13,6 +13,28 @@ service firebase.storage {
       allow delete:         if request.auth != null && request.auth.uid == uid;
     }
 
+    // Photos family send to a parent: familyPhotos/{patientUid}/{id}.jpg
+    // Uploaded by an active family member of that parent (the record's own
+    // rules decide who may send); seen by the parent's phone and the family
+    // through the worker's link. Removed by the sender through the record,
+    // or by whoever manages the parent's records.
+    match /familyPhotos/{patientUid}/{file} {
+      function membershipPath() {
+        return /databases/(default)/documents/memberships/$(patientUid + '_' + request.auth.uid);
+      }
+      function member() {
+        return request.auth != null && request.auth.uid != patientUid
+          && firestore.exists(membershipPath())
+          && firestore.get(membershipPath()).data.status == 'active';
+      }
+      allow read:   if request.auth != null && (request.auth.uid == patientUid || member());
+      allow create: if member()
+                    && request.resource.size < 8 * 1024 * 1024
+                    && request.resource.contentType.matches('image/.*');
+      allow update: if false;
+      allow delete: if member();
+    }
+
     // The parent's voice replies: voice/{uid}/{memoId}/{reactionId}.{webm|m4a}
     // Only that parent's phone uploads them (a reply is at most 15 s). Nobody
     // reads them here: the worker hands the family a tokenized link, the same

@@ -7,6 +7,9 @@ import { MemoDetail } from './MemoDetail'
 import { FamilyNews } from './FamilyNews'
 import { FamilyNewsCard } from '../components/FamilyNewsCard'
 import { ElderInstallButton } from '../components/ElderInstallButton'
+import { FamilyPhotosCard } from '../components/FamilyPhotosCard'
+import { FamilyPhotoViewer } from './FamilyPhotoViewer'
+import { useFamilyPhotos } from '../hooks/useFamilyPhotos'
 import { useElderNews, type OpenNews } from '../hooks/useElderNews'
 import { unlinkedFrom } from '../lib/device'
 import type { Memo, Reaction, TextReplies } from '../types'
@@ -19,7 +22,7 @@ import type { Memo, Reaction, TextReplies } from '../types'
  * by plan. If family disconnects this phone (연결 해제),
  * the device record flips to 'revoked' and the screen locks.
  */
-export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn, textMode, onRelink }: {
+export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn, textMode, familyPhotosOn = false, onRelink }: {
   uid: string
   deviceId: string
   patientName: string
@@ -30,6 +33,8 @@ export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn
   voiceOn: boolean
   /** Written replies family allows for this parent. */
   textMode?: TextReplies
+  /** Photos from family are switched on, and received for this parent. */
+  familyPhotosOn?: boolean
   onRelink: () => void
 }) {
   const [view, setView] = useState<'home' | 'records'>('home')
@@ -38,6 +43,8 @@ export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn
   // The news the parent opened, kept as it was when they tapped the card.
   const [openNews, setOpenNews] = useState<OpenNews | null>(null)
   const news = useElderNews(reactions, uid)
+  const familyPhotos = useFamilyPhotos(familyPhotosOn ? uid : undefined)
+  const [photosOpen, setPhotosOpen] = useState(false)
 
   useEffect(() => {
     if (!deviceId) { setRevoked(true); return }
@@ -86,6 +93,8 @@ export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn
             textMode={textMode}
             onDone={() => setOpenNews(null)}
           />
+        ) : photosOpen ? (
+          <FamilyPhotoViewer photos={familyPhotos} textMode={textMode} onDone={() => setPhotosOpen(false)} />
         ) : open ? (
           <MemoDetail memo={open} onBack={() => setOpenId(null)} readOnly />
         ) : view === 'records' ? (
@@ -106,6 +115,7 @@ export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn
             newsCard={(
               <>
                 {news && <FamilyNewsCard news={news} onOpen={() => { if (news.state !== 'none') setOpenNews(news) }} />}
+                {familyPhotosOn && <FamilyPhotosCard photos={familyPhotos} onOpen={() => setPhotosOpen(true)} />}
                 <ElderInstallButton />
               </>
             )}

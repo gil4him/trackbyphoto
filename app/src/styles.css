@@ -879,3 +879,23 @@ button.rx-voice.locked { width: 100%; padding: 10px 12px; border: 1px solid #FFD
 /* A step that can't be taken yet should look it. */
 .modal .linkbtn:disabled { opacity: .4; }
 
+/* Photos family send to a parent. */
+.fp-view .fp-photo { width: 100%; min-height: 36vh; max-height: 52vh; border-radius: 20px; overflow: hidden; background: #000; display: flex; align-items: center; justify-content: center; }
+.fp-view .fp-photo img { width: 100%; max-height: 52vh; object-fit: contain; display: block; }
+.fp-replied { font-size: 20px; color: var(--ink-2); text-align: center; }
+.news-btn.quiet { background: transparent; color: var(--ink-2); border-color: var(--line); }
+.fp-send-btn { margin-top: 12px; }
+.fp-send { display: flex; flex-direction: column; gap: 10px; }
+.fp-pick { width: 100%; min-height: 120px; border: 2px dashed var(--line); border-radius: 16px; background: var(--surface, #fff); font: inherit; font-size: 18px; font-weight: 600; color: var(--ink-2); cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; overflow: hidden; padding: 0; }
+.fp-pick.has { border-style: solid; }
+.fp-pick.has img { width: 100%; max-height: 240px; object-fit: cover; display: block; }
+.fp-pick.has span { padding: 8px; font-size: 15px; }
+.fp-sent { margin-top: 18px; display: flex; flex-direction: column; gap: 8px; }
+.fp-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 16px; background: var(--surface, #fff); border: 1px solid var(--line); }
+.fp-thumb { width: 56px; height: 56px; border-radius: 12px; overflow: hidden; background: #f1ede9; flex: none; display: flex; align-items: center; justify-content: center; font-size: 24px; }
+.fp-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.fp-body { flex: 1; min-width: 0; }
+.fp-cap { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fp-meta { font-size: 14px; color: var(--ink-2); }
+.fp-replied-mark { color: var(--accent-ink); }
+

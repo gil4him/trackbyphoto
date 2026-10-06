@@ -51,6 +51,8 @@ interface Props {
   digestRollout?: boolean
   /** This parent's plan includes the weekly highlight. */
   weeklyIncluded?: boolean
+  /** Photos from family are rolled out: the 대표 가족 can switch them for this parent. */
+  familyPhotosRollout?: boolean
   /** The people the signed-in user looks after: the same list as the
    *  switcher at the top of the app. */
   people?: Person<LiveMembership>[]
@@ -64,7 +66,7 @@ interface Props {
   familyLimit?: number | null
 }
 
-export function Settings({ settings, onChange, user, onSignOut, memos, activePatientUid, isSelf, onSwitchPatient, myRole, voiceRollout = false, reactionsRollout = false, digestRollout = false, weeklyIncluded = false, weeklyFrom = null, people = [], onOpenPlans, planName, familyLimit = null }: Props) {
+export function Settings({ settings, onChange, user, onSignOut, memos, activePatientUid, isSelf, onSwitchPatient, myRole, voiceRollout = false, reactionsRollout = false, digestRollout = false, weeklyIncluded = false, weeklyFrom = null, people = [], familyPhotosRollout = false, onOpenPlans, planName, familyLimit = null }: Props) {
   const toast = useToast()
   // A family-managed elder (부모님 등록하기): family runs 가족 관리 and
   // 기기 관리 for them, since the elder's phone has no settings at all.
@@ -356,6 +358,36 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
       {isManaged && !isSelf && canManageHere && (
         <ElderDevices patientUid={activePatientUid} patientName={settings.patientName} />
       )}
+
+      {familyPhotosRollout && isManaged && !isSelf && canManageHere && (() => {
+        const fp = settings.familyPhotos ?? {}
+        const enabled = fp.enabled !== false
+        const senders = fp.senders === 'admins' ? 'admins' : 'all'
+        return (
+          <div className="sect">
+            <div className="sect-lab">가족 사진</div>
+            <div className="row">
+              <div className="who"><b>가족이 보낸 사진 받기</b><br /><span>{settings.patientName}님 휴대폰에 카드로 보여요. 사진을 보면 하트나 짧은 답장을 보낼 수 있어요.</span></div>
+              <button
+                className={`switch ${enabled ? 'on' : ''}`}
+                role="switch"
+                aria-checked={enabled}
+                onClick={() => update('familyPhotos', { ...fp, enabled: !enabled })}
+                aria-label="가족 사진 받기 전환"
+              ><span className="knob" /></button>
+            </div>
+            {enabled && (
+              <>
+                <div className="seg">
+                  <button className={senders === 'all' ? 'on' : ''} onClick={() => update('familyPhotos', { ...fp, senders: 'all' })}>모든 가족</button>
+                  <button className={senders === 'admins' ? 'on' : ''} onClick={() => update('familyPhotos', { ...fp, senders: 'admins' })}>관리자만</button>
+                </div>
+                <div className="help">{senders === 'admins' ? '대표 가족과 관리자만 사진을 보낼 수 있어요.' : '함께 보는 가족 모두 사진을 보낼 수 있어요. 한 사람이 하루 10장까지예요.'}</div>
+              </>
+            )}
+          </div>
+        )
+      })()}
 
       <div className="sect">
         <div className="sect-lab">사용자 이름</div>

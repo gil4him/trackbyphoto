@@ -81,6 +81,9 @@ export interface UserSettings {
    *  'quick' (ready-made phrases; the default), 'full' (phrases and typing),
    *  or 'off'. Set by family in 설정. */
   textReplies?: TextReplies
+  /** Photos family send to this parent: received at all, and who may send.
+   *  Set by the 대표 가족; absent means on, everyone. */
+  familyPhotos?: { enabled?: boolean; senders?: 'all' | 'admins' }
   /** The patient's plan. Written only by the worker (changePlan); missing means free. */
   plan?: { tier: PlanTier; status?: string; since?: Timestamp }
   /** When the digest of this person's day goes out (worker-owned; setDigest). */
@@ -189,6 +192,8 @@ export interface AppNotification {
   memoId?: string
   /** Present on 'reaction.*'. */
   reactionId?: string
+  /** Present on 'familyPhoto.*'. */
+  familyPhotoId?: string
   /** Present on 'digest.ready' — the digest the notice opens. */
   digestId?: string
   read: boolean
@@ -233,10 +238,27 @@ export interface PlanEntitlements {
  *  A tier the doc leaves out is not offered. */
 export type Plans = Partial<Record<PlanTier, PlanEntitlements>> & {
   fairUse: { photosPerDay: number | null }
-  flags: Partial<Record<'reactions' | 'voiceReplies' | 'digest' | 'emailDigest' | 'pushFamily' | 'usageCaps' | 'retentionJob' | 'messengerFree' | 'trailMap' | 'planSheet', boolean>>
+  flags: Partial<Record<'reactions' | 'voiceReplies' | 'digest' | 'emailDigest' | 'pushFamily' | 'usageCaps' | 'retentionJob' | 'messengerFree' | 'trailMap' | 'planSheet' | 'familyPhotos', boolean>>
 }
 
 export type ReactionKind = 'heart' | 'comment' | 'voice'
+
+/** familyPhotos/{id}: a photo a family member sent to a parent. The worker
+ *  fills `photoUrl` and flips status to 'ready'; the parent's phone sets
+ *  `seenAt` and one `reply`. */
+export interface FamilyPhoto {
+  id: string
+  patientUid: string
+  senderUid: string
+  senderName: string
+  photoPath: string
+  photoUrl?: string
+  caption: string
+  status: 'pending' | 'ready'
+  createdAtMs: number
+  seenAtMs?: number
+  reply?: { kind: 'heart' | 'comment'; text?: string; atMs: number }
+}
 
 /** reactions/{id} — a heart or comment from family, or a heart or voice reply
  *  from the parent, on one memo. Shape is enforced by firestore.rules. */

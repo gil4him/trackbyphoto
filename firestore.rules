@@ -410,6 +410,65 @@ service cloud.firestore {
     }
 
     // ────────────────────────────────────────────────────────────────────
+    // familyPhotos/{id}
+    //
+    // Photos family send to a parent. Create: an active family member of
+    // the parent, into the parent's familyPhotos/ folder, as a 'pending'
+    // record the worker finishes (link, status). The parent's settings say
+    // whether photos are received at all and who may send (everyone, or
+    // admins only); the 대표 가족 sets that. Read: the parent and family.
+    // Update: the parent's phone marks a photo seen and leaves one reply
+    // (a heart, or a short written line when written replies are allowed);
+    // nothing else. Delete: the sender, or whoever manages the records.
+    // ────────────────────────────────────────────────────────────────────
+    match /familyPhotos/{id} {
+      function fp() { return request.resource.data; }
+      function parentSettings(patientUid) {
+        return get(/databases/$(database)/documents/users/$(patientUid)).data.get('familyPhotos', {});
+      }
+      function maySend(patientUid) {
+        return isActive(patientUid) && !elderSession()
+          && parentSettings(patientUid).get('enabled', true) != false
+          && (parentSettings(patientUid).get('senders', 'all') != 'admins'
+              || hasRole(patientUid, 'admin') || hasRole(patientUid, 'guardian'));
+      }
+      function replyOk(patientUid) {
+        return fp().reply.keys().hasOnly(['kind', 'text', 'at', 'notified'])
+          && fp().reply.at == request.time
+          && fp().reply.notified == false
+          && (
+               (fp().reply.kind == 'heart' && !('text' in fp().reply))
+            || (
+                 fp().reply.kind == 'comment'
+                 && fp().reply.text is string && fp().reply.text.size() >= 1 && fp().reply.text.size() <= 60
+                 && get(/databases/$(database)/documents/users/$(patientUid)).data.get('textReplies', 'quick') != 'off'
+               )
+          );
+      }
+
+      allow read: if isAdmin() || canRead(resource.data.patientUid);
+
+      allow create: if signedIn()
+                    && fp().senderUid == request.auth.uid
+                    && fp().senderName is string && fp().senderName.size() <= 40
+                    && fp().patientUid is string && fp().patientUid != request.auth.uid
+                    && maySend(fp().patientUid)
+                    && fp().photoPath == 'familyPhotos/' + fp().patientUid + '/' + id + '.jpg'
+                    && fp().caption is string && fp().caption.size() <= 60
+                    && fp().status == 'pending'
+                    && fp().createdAt == request.time
+                    && fp().keys().hasOnly(['patientUid', 'senderUid', 'senderName', 'photoPath', 'caption', 'status', 'createdAt']);
+
+      allow update: if isOwner(resource.data.patientUid)
+                    && fp().diff(resource.data).affectedKeys().hasOnly(['seenAt', 'reply'])
+                    && (!('seenAt' in fp().diff(resource.data).affectedKeys()) || fp().seenAt == request.time)
+                    && (!('reply' in fp().diff(resource.data).affectedKeys()) || replyOk(resource.data.patientUid));
+
+      allow delete: if (signedIn() && resource.data.senderUid == request.auth.uid && !elderSession())
+                    || (canManage(resource.data.patientUid) && !elderSession());
+    }
+
+    // ────────────────────────────────────────────────────────────────────
     // requests/{id}
     //
     // Work queue for the Mac mini worker — the replacement for HTTPS

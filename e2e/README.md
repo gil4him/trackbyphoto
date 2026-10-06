@@ -42,18 +42,22 @@ them the dead-upload step.
 11. A registration can be cancelled on the link step, leaving nothing behind.
 12. 설정 → 함께 보는 가족 lists the same people as the switcher.
 13. A parent one registered can be deleted from that list.
-14. An account removed outside the app drops out of the lists, and the
+14. A family member sends the parent a photo with a line; it reaches the
+    parent's home screen as a lit card.
+15. The parent opens it, sees the photo, and answers with ❤️; the sender sees
+    the answer and is told.
+16. The 대표 가족 can switch family photos off for that parent, and on again.
+17. An account removed outside the app drops out of the lists, and the
     worker withdraws the link to it.
-15. The parent's phone opens with no connection and still knows whose it is.
-16. A slow connection never replaces someone's settings with defaults.
+18. The parent's phone opens with no connection and still knows whose it is.
+19. A slow connection never replaces someone's settings with defaults.
 
 ## What it cannot cover
 
 The installed iPhone and Android apps, a push actually arriving, the real
 camera, the home-screen icon, Google's own sign-in screen (the family
 account is created in the Auth emulator and its session put where the SDK
-keeps it), iPhone Safari, and photos themselves showing (the worker's photo
-links point at the real storage host, which has no such bucket).
+keeps it), and iPhone Safari.
 
 Failures leave a screenshot and the page text of every browser in
 `e2e/.tmp/shots`, and the worker's log in `e2e/.tmp/worker.log`.

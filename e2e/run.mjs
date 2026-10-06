@@ -39,7 +39,7 @@ const PLANS = {
   plus: tier({ familyMembers: 3, retentionDays: 400, weekly: true, checkin: true }),
   family: tier({ familyMembers: 6, retentionDays: null, weekly: true, checkin: true, recap: true, seniors: 2 }),
   fairUse: { photosPerDay: null },
-  flags: { reactions: true, pushFamily: true, trailMap: true, digest: true, voiceReplies: false, emailDigest: false, usageCaps: false, retentionJob: false, messengerFree: false, planSheet: false },
+  flags: { reactions: true, pushFamily: true, trailMap: true, digest: true, familyPhotos: true, voiceReplies: false, emailDigest: false, usageCaps: false, retentionJob: false, messengerFree: false, planSheet: false },
 }
 
 // ── Results ────────────────────────────────────────────────────────────────
@@ -79,7 +79,8 @@ async function click(page, label, { selector = 'button, a', timeout = 20_000 } =
     const match = (e) => (e.getAttribute('aria-label') || '').includes(want) || e.textContent.replace(/\s+/g, ' ').includes(want)
     return [...document.querySelectorAll(sel)].find((e) => match(e) && !e.disabled && e.getClientRects().length > 0) || null
   }, { timeout }, selector, label)
-  await handle.asElement().click()
+  // A plain DOM click: a toast sliding over the button must not swallow it.
+  await handle.asElement().evaluate((el) => el.click())
 }
 const tab = (page, label) => click(page, label, { selector: 'nav.tabbar button.tab' })
 /** With E2E_SNAP=1, keep a picture of a screen worth looking at. */
@@ -358,6 +359,68 @@ await step('parent answers with a ready-made reply → the family sees it and ge
   expect(found, 'no notice for the parent\'s reply')
 })
 
+// ── Photos from the family to the parent ──────────────────────────────────
+await step('family sends the parent a photo with a line → it reaches the parent\'s home screen', async () => {
+  await click(family, '뒤로', { timeout: 5000 }).catch(() => {})
+  await tab(family, '홈')
+  await click(family, '사진 보내기')
+  const input = await family.waitForSelector('input[aria-label="사진 고르기"]', { timeout: 10_000 })
+  await input.uploadFile(photos[0])
+  await family.waitForSelector('.modal .fp-pick.has', { timeout: 10_000 })
+  await click(family, '보고 싶어요', { selector: '.modal button.name-chip' })
+  await family.waitForFunction(() => document.querySelector('.modal input[aria-label="한마디"]')?.value === '보고 싶어요', { timeout: 5000 })
+  await click(family, '보내기', { selector: '.modal button.linkbtn' })
+  await waitText(family, '사진을 보냈어요', 30_000)
+  const sentDoc = (await db.collection('familyPhotos').where('senderUid', '==', familyUid).get()).docs[0]
+  expect(sentDoc && sentDoc.get('caption') === '보고 싶어요', `the record says: ${JSON.stringify(sentDoc?.data()?.caption)}`)
+  await waitText(family, '보낸 사진', 10_000)
+  await snap(family, 'family-sent-list')
+  // The worker finishes it; the parent's card lights up.
+  await parent.waitForSelector('.fp-card.on', { timeout: 60_000 })
+  expect(await has(parent, `${KID.name}가 사진을 보냈어요`), `parent card: ${(await text(parent)).split('\n').find((l) => l.includes('사진'))}`)
+  await snap(parent, 'parent-photo-card')
+})
+
+await step('parent opens it and answers with ❤️ → the sender sees it and is told', async () => {
+  await parent.click('.fp-card')
+  await waitText(parent, '보고 싶어요', 20_000)
+  expect(await has(parent, KID.name), 'the sender is not named')
+  expect(!(await has(parent, '다음 사진')), '다음 is offered for a single photo')
+  // The photo itself is on screen (through the worker's link).
+  await parent.waitForFunction(() => { const i = document.querySelector('.fp-photo img'); return !!i && i.complete && i.naturalWidth > 0 }, { timeout: 20_000 })
+  await snap(parent, 'parent-photo-view')
+  await click(parent, '❤️ 고마워요')
+  await waitText(parent, '보냈어요', 20_000)
+  await parent.waitForSelector('input[type=file]', { timeout: 20_000 }) // back home by itself
+  await parent.waitForFunction(() => !document.querySelector('.fp-card.on') && !!document.querySelector('.fp-card'), { timeout: 20_000 })
+  await waitText(family, '❤️ 고마워요', 30_000)
+  const end = Date.now() + 30_000
+  let found = false
+  while (!found && Date.now() < end) {
+    const n = await db.collection('notifications').where('recipientUid', '==', familyUid).where('type', '==', 'familyPhoto.reply').get()
+    found = n.docs.some((d) => String(d.get('message')).includes('❤️'))
+    if (!found) await sleep(500)
+  }
+  expect(found, 'no notice for the parent\'s ❤️')
+})
+
+await step('the 대표 가족 can switch family photos off for this parent, and on again', async () => {
+  await tab(family, '설정')
+  await waitText(family, '가족 사진')
+  await click(family, '가족 사진 받기 전환')
+  await sleep(1500)
+  await tab(family, '홈')
+  await sleep(1000)
+  expect(!(await has(family, '사진 보내기')), 'the send button is still there with photos off')
+  await parent.waitForFunction(() => !document.querySelector('.fp-card'), { timeout: 20_000 })
+  await tab(family, '설정')
+  await click(family, '가족 사진 받기 전환')
+  await sleep(1500)
+  await tab(family, '홈')
+  await waitText(family, '사진 보내기', 10_000)
+  await parent.waitForSelector('.fp-card', { timeout: 20_000 })
+})
+
 await step('family 알림: only 앱 알림 is offered (no e-mail, no KakaoTalk)', async () => {
   await click(family, '뒤로', { timeout: 5000 }).catch(() => {})
   await tab(family, '알림')
@@ -391,7 +454,7 @@ await step('daily summary: written, announced to the family, and opens from 알�
   if (!REAL_LLM) expect(d.summary === FAKE_SUMMARY, `unexpected summary text: ${d.summary}`)
   expect(JSON.stringify(d.delivered).includes('inapp'), 'the family was not told in the app')
   await waitText(family, '요약이 도착했어요', 30_000)
-  await click(family, '요약이 도착했어요', { selector: 'button, a, li, .ntf-row' })
+  await click(family, '요약이 도착했어요', { selector: 'button.ntf-row' })
   await waitText(family, REAL_LLM ? '사진' : FAKE_SUMMARY, 30_000)
   return `${d.photoCount} photos`
 })
@@ -400,9 +463,10 @@ await step('family 설정: reply and summary settings are there; voice and plans
   await family.goto(SITE, { waitUntil: 'load' })
   await family.waitForSelector('nav.tabbar', { timeout: 30_000 })
   await tab(family, '설정')
+  // The parent's settings, once the app has settled on whose records these are.
+  await waitText(family, `${PARENT}님 휴대폰`, 30_000)
   await waitText(family, '글로 답장')
   const t = await text(family)
-  expect(t.includes(PARENT), 'these are not the parent\'s settings')
   expect(t.includes('하루 요약'), 'no 하루 요약 section')
   expect(t.includes('짧은 답장'), 'no 짧은 답장 option')
   expect(!t.includes('음성 답장'), '음성 답장 is shown')

@@ -37,7 +37,23 @@ export const S = {
   planBeta: '지금은 베타 기간이라 요금이 청구되지 않아요.',
   planViewer: '요금제는 대표 가족이나 관리자가 바꿀 수 있어요.',
   voiceAlbum: '목소리 앨범',
+  /** The parent's card: "민수가 사진을 보냈어요", "민수 외 1명이 사진 3장을 보냈어요". */
+  familyPhotoCardNew: (name: string, others: number, count: number) =>
+    `${subject(name)}${others > 0 ? ` 외 ${others}명이` : ''} 사진${count > 1 ? ` ${count}장` : ''}을 보냈어요`,
+  familyPhotoCardOld: '가족이 보낸 사진 보기',
+  familyPhotoNext: '다음 사진 ›',
+  familyPhotoSend: '사진 보내기',
+  familyPhotoSendTitle: (name: string) => `${name}님께 사진 보내기`,
+  familyPhotoCaption: '한마디 (선택)',
+  familyPhotoSent: '사진을 보냈어요',
+  familyPhotoLimit: '오늘은 사진 10장까지 보낼 수 있어요',
+  familyPhotoSentList: '보낸 사진',
 }
+
+/** One-tap captions for a photo sent to a parent. */
+export const FAMILY_PHOTO_CAPTIONS = ['보고 싶어요', '오늘 이렇게 지냈어요', '잘 지내고 있어요', '사랑해요']
+/** The quiet limit on photos one family member sends in a day. */
+export const FAMILY_PHOTOS_PER_DAY = 10
 
 /** One-tap answers on the parent's 글로 답장하기 screen, in a parent's own voice. */
 export const QUICK_REPLIES = ['잘 지내', '고마워', '밥 먹었어', '나중에 전화할게', '사랑해']

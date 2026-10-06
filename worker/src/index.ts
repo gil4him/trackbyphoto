@@ -33,6 +33,7 @@ import { ReactionScheduler, watchReactions } from './handlers/reactions.js'
 import { startRetention } from './handlers/retention.js'
 import { startDigests } from './handlers/digest.js'
 import { startHousekeeping } from './handlers/housekeeping.js'
+import { watchFamilyPhotos } from './handlers/familyPhotos.js'
 import { startHeartbeat } from './heartbeat.js'
 import { sttAvailable } from './llm/stt.js'
 
@@ -70,6 +71,7 @@ async function main() {
     startRetention(),
     startDigests(),
     startHousekeeping(),
+    watchFamilyPhotos(),
   ]
   const purgeTimer = setInterval(() => {
     purgeStaleRequests().catch((err) => logger.warn('[request] purge failed', { err: String(err) }))

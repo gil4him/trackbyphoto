@@ -32,6 +32,7 @@
 import { getFirestore, FieldValue } from 'firebase-admin/firestore'
 import { getStorage } from 'firebase-admin/storage'
 import { logger } from '../log.js'
+import { downloadLink } from '../storageLinks.js'
 import { bumpAdminCounters } from '../counters.js'
 import { reverseGeocode, type GeoResult } from '../geocode.js'
 import {
@@ -71,26 +72,13 @@ export interface MemoDeps {
 
 export const defaultMemoDeps: MemoDeps = {
   loadPhoto: async (photoPath) => {
-    const bucket = getStorage().bucket()
-    const file = bucket.file(photoPath)
-    const [exists] = await file.exists()
-    if (!exists) return null
     // The browser fetches the photo via a plain <img src> with no auth header,
-    // so Storage rules would 403 it. The Firebase-style download URL bypasses
-    // rules when a `token` query param matches a token in the object's
-    // metadata. The Web SDK's uploadBytes auto-generates one; reuse it (or
-    // mint a new one if missing).
-    const [storageMeta] = await file.getMetadata()
-    const existingTokens = (storageMeta.metadata as Record<string, string> | undefined)?.firebaseStorageDownloadTokens
-    let token = existingTokens?.split(',')[0]
-    if (!token) {
-      token = crypto.randomUUID()
-      await file.setMetadata({ metadata: { firebaseStorageDownloadTokens: token } })
-    }
-    return {
-      photoUrl: `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(photoPath)}?alt=media&token=${token}`,
-      base64: async () => (await file.download())[0].toString('base64'),
-    }
+    // so Storage rules would 403 it; the download link (storageLinks.ts) is
+    // the way round that.
+    const photoUrl = await downloadLink(photoPath)
+    if (!photoUrl) return null
+    const file = getStorage().bucket().file(photoPath)
+    return { photoUrl, base64: async () => (await file.download())[0].toString('base64') }
   },
   geocode: reverseGeocode,
   // Shares the Mac mini with speech-to-text: one model at a time.
