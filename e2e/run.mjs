@@ -108,6 +108,8 @@ const workerEnv = {
 // Never a real key: the worker must only see the emulators.
 delete workerEnv.GOOGLE_APPLICATION_CREDENTIALS
 delete workerEnv.KAKAO_REST_KEY
+// Memos come from the fake model server, never from the real Gemini.
+delete workerEnv.GEMINI_API_KEY
 delete workerEnv.SMTP_URL
 const worker = spawn(process.execPath, [join(HERE, '..', 'worker', 'dist', 'index.js')], { env: workerEnv, stdio: ['ignore', 'pipe', 'pipe'] })
 let workerLog = ''
@@ -652,7 +654,8 @@ await step('a deleted parent\'s phone starts over at the first screen, keeping n
   while ((await db.doc(`users/${patientUid}`).get()).exists && Date.now() < end) await sleep(500)
   expect(!(await db.doc(`users/${patientUid}`).get()).exists, 'the account still exists')
   // The phone was left open; coming back to it is one of the moments it checks.
-  await parent.evaluate(() => document.dispatchEvent(new Event('visibilitychange')))
+  // It may already be starting over (a reload), which ends this page's script.
+  await parent.evaluate(() => document.dispatchEvent(new Event('visibilitychange'))).catch(() => {})
   await waitText(parent, '한 번의 터치로 오늘의 순간을 가족에게 전합니다', 60_000)
   const t = await text(parent)
   expect(!t.includes('연결이 해제되었어요'), 'the phone shows the unlink screen instead of starting over')

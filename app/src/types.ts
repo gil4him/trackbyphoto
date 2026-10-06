@@ -18,6 +18,7 @@ export type MemoSource =
   | 'foundation-models' // iOS 26+ Apple Intelligence on-device LLM
   | 'template'          // pre-iOS-26: Korean sentence template over Vision tags
   | 'local-llm'         // Mac mini worker's local vision model (Ollama)
+  | 'cloud-llm'         // Gemini, for the people the worker lets through (llm/route.ts)
   | 'local-stub'        // fallback after the local model failed repeatedly
   | 'stored-only'       // kept without an AI memo (past the day's allowance)
   | 'cloud-vision'      // legacy: Gemini/OpenAI Cloud Function (older memos)
@@ -238,7 +239,7 @@ export interface PlanEntitlements {
  *  A tier the doc leaves out is not offered. */
 export type Plans = Partial<Record<PlanTier, PlanEntitlements>> & {
   fairUse: { photosPerDay: number | null }
-  flags: Partial<Record<'reactions' | 'voiceReplies' | 'digest' | 'emailDigest' | 'pushFamily' | 'usageCaps' | 'retentionJob' | 'messengerFree' | 'trailMap' | 'planSheet' | 'familyPhotos', boolean>>
+  flags: Partial<Record<'reactions' | 'voiceReplies' | 'digest' | 'emailDigest' | 'pushFamily' | 'usageCaps' | 'retentionJob' | 'messengerFree' | 'trailMap' | 'planSheet' | 'familyPhotos' | 'cloudMemo', boolean>>
 }
 
 export type ReactionKind = 'heart' | 'comment' | 'voice'

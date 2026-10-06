@@ -41,7 +41,7 @@ export async function locateMemo(
   const update: Record<string, unknown> = { place, address, needsGeocode: FieldValue.delete() }
   // The memo was written without knowing where the photo was taken. If that
   // turns out to be far from home, have it written again with the place.
-  const writtenBlind = data.status === 'ready' && !data.place && data.memoSource === 'local-llm' && data.humanEdited !== true
+  const writtenBlind = data.status === 'ready' && !data.place && ['local-llm', 'cloud-llm'].includes(data.memoSource) && data.humanEdited !== true
   if (writtenBlind && (await homeHintFor(data.patientUid as string, lat, lng))?.away) update.status = 'pending'
   await ref.update(update)
   logger.info('[place] located', { memoId, place, rewrite: update.status === 'pending' })

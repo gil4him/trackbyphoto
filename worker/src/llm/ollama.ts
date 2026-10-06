@@ -42,6 +42,8 @@ export interface LlmResult {
   memo: string
   scene: string
   model: string
+  /** Which kind of model wrote it; stored as the memo's memoSource. */
+  source?: 'local-llm' | 'cloud-llm'
   /** Token counts for the dashboard. USD is always 0 for local models but the
    *  field stays so the counter rollup keeps its shape. */
   cost: { promptTokens: number; outputTokens: number; totalUSD: number }
@@ -153,7 +155,7 @@ export async function generateMemo(args: PromptHints & {
   })
   const parsed = parseModelResponse(raw)
   if (!parsed) throw new LlmGenerationError(`unparseable model output: ${raw.slice(0, 200)}`)
-  return { ...parsed, model, cost: { promptTokens, outputTokens, totalUSD: 0 } }
+  return { ...parsed, model, source: 'local-llm', cost: { promptTokens, outputTokens, totalUSD: 0 } }
 }
 
 const SUMMARY_SCHEMA = {

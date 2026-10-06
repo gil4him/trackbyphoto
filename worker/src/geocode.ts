@@ -61,6 +61,13 @@ function formatPlace(name: string, local: string | undefined, district: string |
   return name || area
 }
 
+/** "Name · 동네, 도시, 나라" — drops parts that are missing or repeat. */
+function formatPlaceAbroad(name: string, parts: Array<string | undefined>): string {
+  const area = parts.map((s) => (s || '').trim()).filter((s, i, a) => s && s !== name && a.indexOf(s) === i).join(', ')
+  if (name && area) return `${name} · ${area}`
+  return name || area
+}
+
 interface KakaoCoord2AddressDoc {
   address?: {
     region_1depth_name?: string
@@ -100,7 +107,7 @@ async function reverseGeocodeKakao(lat: number, lng: number, apiKey: string): Pr
   return parts
 }
 
-interface NominatimResponse {
+export interface NominatimResponse {
   name?: string
   display_name?: string
   address?: {
@@ -146,19 +153,29 @@ async function reverseGeocodeNominatim(lat: number, lng: number): Promise<Nomina
     signal: AbortSignal.timeout(TIMEOUT_MS),
   })
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
-  const data = (await res.json()) as NominatimResponse
+  const result = nominatimPlace((await res.json()) as NominatimResponse)
+  if (!result) throw new Error('no usable address fields')
+  return result
+}
+
+/** Place label, street address and shop/landmark name from one Nominatim
+ *  answer; null when it has nothing usable. */
+export function nominatimPlace(data: NominatimResponse): NominatimResult | null {
   const a = data.address || {}
 
   // A named feature (cafe, park, building) leads; then the neighborhood
   // (Korea: 동 → suburb) and district (Korea: 구 → borough; US: city).
+  // A point on a street is "named" after the street ("東鉄9号付属街路10号線",
+  // "かえで通り"), which tells the family nothing: no name then.
   const poi = cleanName(a.amenity || a.shop || a.leisure || a.tourism || a.office || a.park)
-  const name = poi || cleanName(a.building || data.name)
+  const roadOnly = !!data.name && data.name === a.road
+  const name = poi || cleanName(a.building || (roadOnly ? '' : data.name))
   const local = a.neighbourhood || a.quarter || a.suburb || a.village
   const district = a.borough || a.city_district || a.town || a.city || a.county
-  // Outside Korea a neighbourhood name means little to the family; the city
-  // and country do ("FamilyMart · 도코나메시, 일본").
+  // Abroad: the neighbourhood, the city and the country
+  // ("FamilyMart · 니시신주쿠, 신주쿠구, 일본"); the city alone was too broad.
   const place = (a.country_code && a.country_code !== 'kr'
-    ? formatPlace(name, a.city || a.town || a.village || a.county || a.state, a.country)
+    ? formatPlaceAbroad(name, [local, a.city || a.town || a.village || a.county || a.state, a.country])
     : formatPlace(name, local, district)) || a.state || ''
 
   // Street address, most-general first in Korea ("서울특별시 서초구 신반포로 194"),
@@ -175,7 +192,7 @@ async function reverseGeocodeNominatim(lat: number, lng: number): Promise<Nomina
       const short = data.display_name.split(',').slice(0, 2).map((s) => s.trim()).join(', ')
       return { place: short, address: data.display_name, poi }
     }
-    throw new Error('no usable address fields')
+    return null
   }
   return { place: place || address, address, poi }
 }
