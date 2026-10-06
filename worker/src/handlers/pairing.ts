@@ -79,6 +79,7 @@ interface Settings {
   cadence?: 'realtime' | 'daily' | 'weekly'
   autoMode?: boolean
   bigText?: boolean
+  geoLang?: 'ko' | 'en'
 }
 
 function requireAuth(caller: Caller): string {
@@ -241,6 +242,7 @@ export async function createManagedElder(caller: Caller, data: CreateManagedElde
 
   const s = data.settings ?? {}
   const cadence = s.cadence === 'realtime' || s.cadence === 'weekly' ? s.cadence : 'daily'
+  const geoLang = s.geoLang === 'en' ? 'en' : 'ko'
   const consentTextVersion = data.consentTextVersion || 'managed-v1'
 
   const elder = await getAuth().createUser({ displayName: patientName })
@@ -263,6 +265,7 @@ export async function createManagedElder(caller: Caller, data: CreateManagedElde
     patientName,
     recipients: [],
     cadence,
+    geoLang,
     autoMode: s.autoMode !== false,
     bigText: s.bigText !== false,
     retention: '90',

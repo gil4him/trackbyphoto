@@ -141,14 +141,14 @@ export function MemoDetail({ memo, onBack, readOnly = false, rx }: { memo: Memo;
       </div>
 
       <div className="detail-meta">
-        <span className="pill t">{fmtTime(takenAt)}</span>
+        <span className="pill t">{fmtDate(takenAt)} · {fmtTime(takenAt)}</span>
         {memo.activity && <span className="pill">{memo.activity}</span>}
         {memo.place && <span className="pill p">{memo.place}</span>}
       </div>
 
       <div className="detail-section">
         <div className="d-label">
-          <span>{fmtDate(takenAt)}</span>
+          <span>메모</span>
           {rewriting
             ? <span className="src-badge tone-neutral">{serverDown ? '서버가 쉬는 중' : '다시 쓰는 중…'}</span>
             : memo.humanEdited

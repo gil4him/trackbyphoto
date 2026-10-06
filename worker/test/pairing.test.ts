@@ -25,7 +25,7 @@ const DEVICE = { name: 'iPhone', platform: 'ios' }
 async function registerElder() {
   const { patientUid } = await createManagedElder(FAMILY, {
     patientName: '엄마',
-    settings: { cadence: 'realtime', autoMode: true, bigText: true },
+    settings: { cadence: 'realtime', autoMode: true, bigText: true, geoLang: 'en' },
   })
   return patientUid
 }
@@ -46,7 +46,7 @@ describe('createManagedElder', () => {
     expect((await getAuth().getUser(patientUid)).displayName).toBe('엄마')
 
     const user = (await db.doc(`users/${patientUid}`).get()).data()!
-    expect(user).toMatchObject({ patientName: '엄마', accountType: 'managed', createdBy: 'fam1', cadence: 'realtime', lastModifiedBy: 'fam1' })
+    expect(user).toMatchObject({ patientName: '엄마', accountType: 'managed', createdBy: 'fam1', cadence: 'realtime', geoLang: 'en', lastModifiedBy: 'fam1' })
 
     const m = (await db.doc(`memberships/${patientUid}_fam1`).get()).data()!
     expect(m).toMatchObject({ role: 'guardian', status: 'active', caregiverName: '딸' })

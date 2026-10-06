@@ -64,6 +64,8 @@ export interface Memo {
   humanEdited?: boolean
 }
 
+export type GeoLang = 'ko' | 'en'
+
 export interface UserSettings {
   patientName: string
   recipients: { name: string; phone: string }[]
@@ -75,6 +77,9 @@ export interface UserSettings {
    *  location with it to tell a trip from everyday life; when unset it infers
    *  home from where most photos are taken. */
   home?: { lat: number; lng: number; label: string } | null
+  /** Language of place names and addresses on new photos (설정 → 언어).
+   *  Seeded from the phone's language; the worker reads Korean when unset. */
+  geoLang?: GeoLang
   /** Voice replies were agreed to (a 'voice_reply' consent is on file) and
    *  are switched on: the parent's phone shows 꾹 누르고 말하기. */
   voiceEnabled?: boolean

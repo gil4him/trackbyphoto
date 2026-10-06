@@ -42,7 +42,7 @@ export function describeThisDevice(): { name: string; platform: string } {
 
 export async function createManagedElder(args: {
   patientName: string
-  settings: Pick<UserSettings, 'cadence' | 'autoMode' | 'bigText'>
+  settings: Pick<UserSettings, 'cadence' | 'autoMode' | 'bigText' | 'geoLang'>
 }): Promise<{ patientUid: string }> {
   // The consent screen (RegisterElder) includes voice replies since managed-v2.
   return callWorker('createManagedElder', { ...args, consentTextVersion: MANAGED_CONSENT_VERSION, voiceConsent: true }, { timeoutMs: PAIR_TIMEOUT_MS })

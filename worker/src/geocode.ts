@@ -13,7 +13,9 @@ import { logger } from './log.js'
 //     the exact road address and building name. Kakao's reverse lookup has no
 //     shop names, so OpenStreetMap Nominatim runs alongside and contributes
 //     the shop/landmark name ("Tiger Sugar") when it has one.
-//  2. Otherwise Nominatim alone — free, no API key, global coverage.
+//  2. Otherwise Nominatim alone — free, no API key, global coverage. Also
+//     for Korean points when the patient chose English (설정 → 언어):
+//     Kakao only answers in Korean.
 //  3. If everything fails, return empty strings so the UI shows "위치 정보 없음" rather
 //     than a fake Korean place name. (Previously a stub list of Korean
 //     locations was returned even for US coords, which is what produced the
@@ -22,6 +24,9 @@ import { logger } from './log.js'
 function isLikelyKorea(lat: number, lng: number): boolean {
   return lat >= 33 && lat <= 39 && lng >= 124 && lng <= 132
 }
+
+/** Language for place labels and addresses (설정 → 언어). */
+export type GeoLang = 'ko' | 'en'
 
 export interface GeoResult {
   place: string
@@ -131,6 +136,7 @@ export interface NominatimResponse {
     city?: string
     province?: string
     state?: string
+    'ISO3166-2-lvl4'?: string
     country?: string
     country_code?: string
   }
@@ -141,14 +147,14 @@ interface NominatimResult extends GeoResult {
   poi: string
 }
 
-async function reverseGeocodeNominatim(lat: number, lng: number): Promise<NominatimResult> {
+async function reverseGeocodeNominatim(lat: number, lng: number, lang: GeoLang = 'ko'): Promise<NominatimResult> {
   // Nominatim usage policy requires a real User-Agent identifying the app.
-  // Korean-language results when available (Accept-Language: ko, en).
+  // Names in the patient's chosen language, Korean falling back to English.
   const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`
   const res = await fetch(url, {
     headers: {
       'User-Agent': 'TrackByPhoto/1.0 (https://trackbyphoto.web.app)',
-      'Accept-Language': 'ko,en',
+      'Accept-Language': lang === 'en' ? 'en' : 'ko,en',
     },
     signal: AbortSignal.timeout(TIMEOUT_MS),
   })
@@ -160,6 +166,11 @@ async function reverseGeocodeNominatim(lat: number, lng: number): Promise<Nomina
 
 /** Place label, street address and shop/landmark name from one Nominatim
  *  answer; null when it has nothing usable. */
+function usState(a: NonNullable<NominatimResponse['address']>): string {
+  const iso = a['ISO3166-2-lvl4'] || ''
+  return a.country_code === 'us' && /^US-[A-Z]{2}$/.test(iso) ? iso.slice(3) : ''
+}
+
 export function nominatimPlace(data: NominatimResponse): NominatimResult | null {
   const a = data.address || {}
 
@@ -179,13 +190,14 @@ export function nominatimPlace(data: NominatimResponse): NominatimResult | null 
     : formatPlace(name, local, district)) || a.state || ''
 
   // Street address, most-general first in Korea ("서울특별시 서초구 신반포로 194"),
-  // most-specific first elsewhere ("194 Main St, Palo Alto, CA").
+  // most-specific first elsewhere ("350 5th Ave, New York, NY"). US states
+  // as their two-letter code ("US-NY" → "NY").
   const street = a.road ? (a.house_number ? (a.country_code === 'kr' ? `${a.road} ${a.house_number}` : `${a.house_number} ${a.road}`) : a.road) : ''
   const city = a.city || a.town || a.village || a.province || a.state
   const borough = a.borough || a.city_district
   const address = a.country_code === 'kr'
     ? [city, borough, street || local].filter(Boolean).join(' ')
-    : [street || local, a.city || a.town || a.village, a.state].filter(Boolean).join(', ')
+    : [street || local, a.city || a.town || a.village, usState(a) || a.state].filter(Boolean).join(', ')
 
   if (!place && !address) {
     if (data.display_name) {
@@ -197,14 +209,15 @@ export function nominatimPlace(data: NominatimResponse): NominatimResult | null 
   return { place: place || address, address, poi }
 }
 
-export async function reverseGeocode(lat: number | null, lng: number | null): Promise<GeoResult> {
+export async function reverseGeocode(lat: number | null, lng: number | null, lang: GeoLang = 'ko'): Promise<GeoResult> {
   if (lat == null || lng == null) return EMPTY
 
+  // Kakao answers in Korean only; in English, Nominatim covers Korea too.
   const kakaoKey = process.env.KAKAO_REST_KEY || ''
-  if (kakaoKey && isLikelyKorea(lat, lng)) {
+  if (kakaoKey && lang === 'ko' && isLikelyKorea(lat, lng)) {
     const [kakao, osm] = await Promise.allSettled([
       reverseGeocodeKakao(lat, lng, kakaoKey),
-      reverseGeocodeNominatim(lat, lng),
+      reverseGeocodeNominatim(lat, lng, lang),
     ])
     if (kakao.status === 'fulfilled') {
       const k = kakao.value
@@ -223,7 +236,7 @@ export async function reverseGeocode(lat: number | null, lng: number | null): Pr
   }
 
   try {
-    const { place, address } = await reverseGeocodeNominatim(lat, lng)
+    const { place, address } = await reverseGeocodeNominatim(lat, lng, lang)
     return { place, address }
   } catch (err) {
     logger.warn('[reverseGeocode] Nominatim failed; returning empty', { err: String(err), lat, lng })

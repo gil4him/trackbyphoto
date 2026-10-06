@@ -65,6 +65,17 @@ describe('place labels abroad', () => {
     expect(r?.place).toBe('中町, 아쓰기시, 일본')
   })
 
+  it('writes a US street address with the two-letter state', () => {
+    const r = nominatimPlace({ address: {
+      house_number: '350', road: '5th Avenue', city: 'New York', state: 'New York',
+      'ISO3166-2-lvl4': 'US-NY', country: 'United States', country_code: 'us',
+    } })
+    expect(r?.address).toBe('350 5th Avenue, New York, NY')
+    // Elsewhere the state keeps its name.
+    expect(nominatimPlace({ address: { road: 'Main St', city: 'Toronto', state: 'Ontario', 'ISO3166-2-lvl4': 'CA-ON', country_code: 'ca' } })?.address)
+      .toBe('Main St, Toronto, Ontario')
+  })
+
   it('leaves Korean labels as they were', () => {
     expect(nominatimPlace({ address: { suburb: '반포동', borough: '서초구', country_code: 'kr' } })?.place).toBe('반포동, 서초구')
   })

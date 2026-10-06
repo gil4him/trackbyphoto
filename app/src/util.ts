@@ -1,3 +1,5 @@
+import type { GeoLang } from './types'
+
 export function fmtDate(d: Date): string {
   const m = d.getMonth() + 1, day = d.getDate()
   const wk = ['일', '월', '화', '수', '목', '금', '토'][d.getDay()]
@@ -10,6 +12,12 @@ export function fmtTime(d: Date): string {
   const ampm = h < 12 ? '오전' : '오후'
   h = h % 12; if (h === 0) h = 12
   return `${ampm} ${h}:${m}`
+}
+
+/** The phone's language as a place-name language: English unless it's Korean. */
+export function deviceGeoLang(): GeoLang {
+  const lang = (typeof navigator !== 'undefined' && navigator.language) || 'ko'
+  return lang.toLowerCase().startsWith('ko') ? 'ko' : 'en'
 }
 
 export function greeting(name: string): string {
