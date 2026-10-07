@@ -17,15 +17,14 @@ can't be changed).
 
 ## 0. Before you start
 
-- [ ] Get the **real** upload-keystore password. `app/fastlane/.env` still has the
-      placeholder `changeme`, so the keystore can't be opened (it is PKCS12, so not even the
-      fingerprint can be read without it). It is **not** in GitHub secrets either, so it is
-      only wherever you saved it when you made the keystore. Put it in `app/fastlane/.env`
-      (`ANDROID_KEYSTORE_PASSWORD` and `ANDROID_KEY_PASSWORD`), then run:
-      ```
-      keytool -list -v -keystore app/fastlane/upload-keystore.jks -alias upload
-      ```
-      and copy its SHA-1 / SHA-256 for step 1.
+- [x] New upload keystore (the old password was lost; nothing had been uploaded to Play,
+      so a new key is fine). The old file is kept as `app/fastlane/upload-keystore.OLD.jks`.
+      The new `app/fastlane/upload-keystore.jks` (alias `upload`, RSA 2048, 10000 days) has one
+      random password for store and key, stored only in `app/fastlane/.env`. Keep a copy in
+      your password manager: if it is lost, Play needs an upload-key reset.
+- [ ] Update the GitHub secrets for CI — they still hold the **old** keystore:
+      `ANDROID_KEYSTORE_BASE64` (`base64 -i app/fastlane/upload-keystore.jks`),
+      `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_PASSWORD` (the password from `.env`).
 - [x] In your local `app/fastlane/.env` (not in git), change
       `IOS_BUNDLE_ID=com.zymer.daylie` and `ANDROID_PACKAGE=com.zymer.daylie`.
 
@@ -34,10 +33,12 @@ can't be changed).
 - [x] Firebase console → Project settings → General → **Add app → Android**
   - Package name: `com.zymer.daylie`
   - Nickname: 오늘하루 Android
-- [ ] Add these SHA fingerprints (Project settings → your new Android app → Add fingerprint):
+- [ ] Add these SHA fingerprints (Project settings → your new Android app → Add fingerprint).
+      The debug ones are already in; the upload ones are new:
   - debug.keystore SHA-1: `96:C5:BD:07:06:A3:F7:ED:82:17:FC:E9:4F:76:92:C4:85:EC:62:3B`
   - debug.keystore SHA-256: `9C:56:B3:4E:11:E6:0B:CC:C7:DE:E3:89:38:01:56:20:0B:0B:1D:BC:27:D6:9B:07:4C:6B:06:E4:C4:64:5B:1B`
-  - upload-keystore SHA-1 / SHA-256: from step 0
+  - upload-keystore SHA-1: `8B:8E:A0:C0:7C:91:29:18:1E:28:E7:F6:E3:F8:47:57:E5:79:C2:23`
+  - upload-keystore SHA-256: `7A:23:E4:25:1D:25:6D:44:BF:B5:43:0B:D4:6E:A1:81:A4:6C:1D:51:15:EA:26:25:60:39:73:68:C4:69:F6:9E`
   - Later, after the first Play upload: the **Play App Signing** key's SHA-1 / SHA-256
     (Play Console → Test and release → App integrity → App signing). Google re-signs the app
     with that key, so without it sign-in fails for people who install from Play.
@@ -114,8 +115,7 @@ console.cloud.google.com → APIs & Services → Credentials.
 - [ ] Play Console (Digioptics account) → Users and permissions → **Invite new users** →
       `play-upload@trackbyphoto-app.iam.gserviceaccount.com` → App permissions: 오늘하루 →
       Releases (release to testing tracks + production) → Invite.
-- [ ] GitHub secrets `ANDROID_KEYSTORE_PASSWORD` and `ANDROID_KEY_PASSWORD` (same values as in
-      `.env`). CI skips the Play upload without them.
+- [ ] GitHub keystore secrets — see step 0 (CI skips the Play upload without them).
 - [ ] The very first AAB may have to be uploaded by hand in Play Console (Google requires one
       manual upload before the API can publish to a new app).
 - [ ] Opt in to **Play App Signing**, then add its SHA fingerprints to Firebase (step 1).
