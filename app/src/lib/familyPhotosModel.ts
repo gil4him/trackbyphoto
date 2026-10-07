@@ -2,6 +2,7 @@
 
 import type { FamilyPhoto } from '../types'
 import { S } from './strings'
+import { sameDay } from './reactionsModel'
 
 /** Photos the parent's phone can show, newest first. */
 export function showable(photos: FamilyPhoto[]): FamilyPhoto[] {
@@ -11,12 +12,18 @@ export function showable(photos: FamilyPhoto[]): FamilyPhoto[] {
 /** Not yet looked at on the parent's phone. */
 export const unseen = (photos: FamilyPhoto[]) => showable(photos).filter((p) => !p.seenAtMs)
 
-/** The card line on the parent's home screen; null when there is nothing to show. */
-export function cardLine(photos: FamilyPhoto[]): { line: string; lit: boolean } | null {
+/**
+ * The card line on the parent's home screen, the same way 가족 소식 works:
+ * lit while something is new, dim for the rest of the day a photo came,
+ * then gone. null when there is nothing to show.
+ */
+export function cardLine(photos: FamilyPhoto[], nowMs = Date.now()): { line: string; lit: boolean } | null {
   const all = showable(photos)
   if (all.length === 0) return null
   const fresh = unseen(photos)
-  if (fresh.length === 0) return { line: S.familyPhotoCardOld, lit: false }
+  if (fresh.length === 0) {
+    return all.some((p) => sameDay(p.createdAtMs, nowMs)) ? { line: S.familyPhotoCardOld, lit: false } : null
+  }
   const senders = [...new Set(fresh.map((p) => p.senderName))]
   return { line: S.familyPhotoCardNew(senders[0], senders.length - 1, fresh.length), lit: true }
 }

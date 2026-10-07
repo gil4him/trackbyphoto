@@ -17,7 +17,7 @@ export type ElderNews =
   /** `item` is what the parent is shown; `unreadIds` are stamped read on opening. */
   | { state: 'new' | 'seen'; item: Reaction; unreadIds: string[] }
 
-function sameDay(aMs: number, bMs: number): boolean {
+export function sameDay(aMs: number, bMs: number): boolean {
   const a = new Date(aMs), b = new Date(bMs)
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
 }
