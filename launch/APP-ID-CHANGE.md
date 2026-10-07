@@ -26,12 +26,12 @@ can't be changed).
       keytool -list -v -keystore app/fastlane/upload-keystore.jks -alias upload
       ```
       and copy its SHA-1 / SHA-256 for step 1.
-- [ ] In your local `app/fastlane/.env` (not in git), change
+- [x] In your local `app/fastlane/.env` (not in git), change
       `IOS_BUNDLE_ID=com.zymer.daylie` and `ANDROID_PACKAGE=com.zymer.daylie`.
 
 ## 1. Firebase — new Android app (project `trackbyphoto-app`)
 
-- [ ] Firebase console → Project settings → General → **Add app → Android**
+- [x] Firebase console → Project settings → General → **Add app → Android**
   - Package name: `com.zymer.daylie`
   - Nickname: 오늘하루 Android
 - [ ] Add these SHA fingerprints (Project settings → your new Android app → Add fingerprint):
@@ -46,7 +46,7 @@ can't be changed).
 
 ## 2. Firebase — new iOS app
 
-- [ ] Firebase console → Add app → **iOS** — Bundle ID: `com.zymer.daylie`, Team ID `8LH5JSLM82`.
+- [x] Firebase console → Add app → **iOS** — Bundle ID: `com.zymer.daylie`, Team ID `8LH5JSLM82`.
 - [ ] Download the new **GoogleService-Info.plist** → give it to Claude (it replaces
       `app/ios/App/App/GoogleService-Info.plist`).
   - Note: `app/ios/App/App/Info.plist` hard-codes the Google sign-in URL scheme
@@ -60,7 +60,7 @@ can't be changed).
 
 ## 3. Apple Developer — new App ID
 
-- [ ] developer.apple.com → Certificates, IDs & Profiles → Identifiers → **+** → App IDs → App
+- [x] developer.apple.com → Certificates, IDs & Profiles → Identifiers → **+** → App IDs → App
   - Bundle ID (explicit): `com.zymer.daylie`
   - Capabilities: ☑ **Push Notifications**, ☑ **Sign in with Apple**
 - Heads-up: the iOS project currently has **no `.entitlements` file**, and the app only
@@ -72,7 +72,7 @@ can't be changed).
 ## 4. Signing — regenerate with match
 
 Run on the Mac, from `app/`, after step 3 (needs the new App ID to exist):
-- [ ] `bundle exec fastlane match appstore --app_identifier com.zymer.daylie`
+- [x] `bundle exec fastlane match appstore --app_identifier com.zymer.daylie`
   - Not readonly: this makes a new App Store provisioning profile for the new ID and saves it
     to the certificates repo. The existing distribution certificate is reused.
   - If capabilities change later, run it again with `--force` so the profile picks them up.
@@ -110,8 +110,8 @@ console.cloud.google.com → APIs & Services → Credentials.
 
 ## 8. Back to Claude
 
-- [ ] Hand over the new `google-services.json` and `GoogleService-Info.plist`.
-- [ ] Claude swaps them in, checks the Info.plist URL scheme, rebuilds, and adds them to the PR.
+- [x] Hand over the new `google-services.json` and `GoogleService-Info.plist`.
+- [x] Claude swaps them in, checks the Info.plist URL scheme, rebuilds, and adds them to the PR.
 - [ ] Test on a real phone: Google sign-in, push notification, photo upload, 꾹 누르고 말하기.
 - [ ] Merge the PR, then run `beta_ios` / `beta_android`.
 
