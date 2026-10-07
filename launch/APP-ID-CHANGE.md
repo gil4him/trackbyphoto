@@ -19,8 +19,8 @@ can't be changed).
 
 - [ ] Get the **real** upload-keystore password. `app/fastlane/.env` still has the
       placeholder `changeme`, so the keystore can't be opened (it is PKCS12, so not even the
-      fingerprint can be read without it). It's probably only in the GitHub secret
-      `ANDROID_KEYSTORE_PASSWORD`. Put it in `app/fastlane/.env`
+      fingerprint can be read without it). It is **not** in GitHub secrets either, so it is
+      only wherever you saved it when you made the keystore. Put it in `app/fastlane/.env`
       (`ANDROID_KEYSTORE_PASSWORD` and `ANDROID_KEY_PASSWORD`), then run:
       ```
       keytool -list -v -keystore app/fastlane/upload-keystore.jks -alias upload
@@ -104,8 +104,18 @@ console.cloud.google.com → APIs & Services → Credentials.
 
 ## 7. Google Play Console
 
-- [ ] Create the app (오늘하루) — the package name is set by the first upload, so the first
-      AAB must already be `com.zymer.daylie` (it is, on this branch).
+- [x] Create the app (오늘하루) — the package name is set by the first upload, so the first
+      AAB must already be `com.zymer.daylie` (it is, on this branch). Done on the
+      Digioptics, LLC account; internal testing list "오늘하루 가족 테스터".
+- [ ] Make a Play upload key. There is none yet: `app/fastlane/play-key.json` doesn't exist
+      and GitHub has no `PLAY_JSON_KEY_BASE64`. Google Cloud (project `trackbyphoto-app`) →
+      IAM → Service accounts → create one → Keys → Add key → JSON. Then Play Console
+      (Digioptics account) → Users and permissions → Invite that service-account email with
+      release rights for 오늘하루. Save the JSON as `app/fastlane/play-key.json`; for CI also
+      set GitHub secrets `PLAY_JSON_KEY_BASE64` (`base64 -i play-key.json`),
+      `ANDROID_KEYSTORE_PASSWORD` and `ANDROID_KEY_PASSWORD`.
+- [ ] The very first AAB may have to be uploaded by hand in Play Console (Google requires one
+      manual upload before the API can publish to a new app).
 - [ ] Opt in to **Play App Signing**, then add its SHA fingerprints to Firebase (step 1).
 
 ## 8. Back to Claude
