@@ -40,7 +40,9 @@ export const S = {
   /** The parent's card: "민수가 사진을 보냈어요", "민수 외 1명이 사진 3장을 보냈어요". */
   familyPhotoCardNew: (name: string, others: number, count: number) =>
     `${subject(name)}${others > 0 ? ` 외 ${others}명이` : ''} 사진${count > 1 ? ` ${count}장` : ''}을 보냈어요`,
-  familyPhotoCardOld: '가족이 보낸 사진 보기',
+  familyPhotoCardOld: '가족 사진 다시 보기',
+  familyPhotoFrom: (name: string) => `${subject(name)} 보냈어요`,
+  familyPhotoLoadFail: '사진을 불러오지 못했어요',
   familyPhotoNext: '다음 사진 ›',
   familyPhotoSend: '사진 보내기',
   familyPhotoSendTitle: (name: string) => `${name}님께 사진 보내기`,

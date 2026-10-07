@@ -3,7 +3,6 @@ import { markFamilyPhotoSeen, replyToFamilyPhoto } from '../lib/familyPhotos'
 import { viewerOrder } from '../lib/familyPhotosModel'
 import { COMMENT_MAX } from '../lib/reactions'
 import { QUICK_REPLIES, S } from '../lib/strings'
-import { fmtDate } from '../util'
 import type { FamilyPhoto, TextReplies } from '../types'
 
 /**
@@ -24,6 +23,7 @@ export function FamilyPhotoViewer({ photos, textMode = 'quick', onDone, mark = m
   const [index, setIndex] = useState(0)
   const [phase, setPhase] = useState<'view' | 'text' | 'sent'>('view')
   const [draft, setDraft] = useState('')
+  const [broken, setBroken] = useState<Set<string>>(() => new Set())
   const seen = useRef(new Set<string>())
   // The latest copy of the photo on screen (its reply may have just landed).
   const current = order[index] ? photos.find((p) => p.id === order[index].id) ?? order[index] : undefined
@@ -92,17 +92,26 @@ export function FamilyPhotoViewer({ photos, textMode = 'quick', onDone, mark = m
   return (
     <section className="page news fp-view">
       <button className="elder-back" onClick={onDone}>‹ 처음으로</button>
-      <div className="fp-photo"><img src={current.photoUrl} alt={current.caption || `${current.senderName}이 보낸 사진`} /></div>
+      <div className="fp-photo">
+        {broken.has(current.id)
+          ? <div className="fp-broken">{S.familyPhotoLoadFail}</div>
+          : <img
+              src={current.photoUrl}
+              alt={current.caption || `${current.senderName}이 보낸 사진`}
+              onError={() => setBroken((b) => new Set(b).add(current.id))}
+            />}
+      </div>
       {current.caption && <div className="news-text">{current.caption}</div>}
-      <div className="news-from">{current.senderName} · {fmtDate(new Date(current.createdAtMs))}{order.length > 1 ? ` · ${index + 1}/${order.length}` : ''}</div>
+      <div className="news-from">{S.familyPhotoFrom(current.senderName)}</div>
+      {/* Answered already: say so, and offer only the way on — one reply per photo. */}
       {current.reply && (
         <div className="fp-replied" role="status">
           {current.reply.kind === 'heart' ? '❤️ 고마워요를 보냈어요' : `“${current.reply.text}”라고 답했어요`}
         </div>
       )}
       <div className="news-actions">
-        <button className="news-btn primary" onClick={() => send({ kind: 'heart' })}>{S.elderReplyHeart}</button>
-        {textMode !== 'off' && <button className="news-btn" onClick={() => setPhase('text')}>{S.elderReplyText}</button>}
+        {!current.reply && <button className="news-btn primary" onClick={() => send({ kind: 'heart' })}>{S.elderReplyHeart}</button>}
+        {!current.reply && textMode !== 'off' && <button className="news-btn" onClick={() => setPhase('text')}>{S.elderReplyText}</button>}
         {hasNext && <button className="news-btn quiet" onClick={() => setIndex((i) => i + 1)}>{S.familyPhotoNext}</button>}
       </div>
     </section>

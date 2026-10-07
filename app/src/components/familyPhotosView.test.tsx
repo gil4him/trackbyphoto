@@ -22,6 +22,13 @@ describe('FamilyPhotosCard', () => {
     expect(out).toContain('민수가 사진을 보냈어요')
     expect(out).toContain('fp-card on')
   })
+
+  it('is gone the day after everything was seen', () => {
+    const seenYesterday = photo('1', { seenAtMs: 1, createdAtMs: Date.now() - 2 * 24 * 3600 * 1000 })
+    expect(renderToString(<FamilyPhotosCard photos={[seenYesterday]} onOpen={() => {}} />)).toBe('')
+    const seenToday = photo('2', { seenAtMs: 1, createdAtMs: Date.now() })
+    expect(renderToString(<FamilyPhotosCard photos={[seenToday]} onOpen={() => {}} />)).toContain('가족 사진 다시 보기')
+  })
 })
 
 describe('FamilyPhotoViewer', () => {
@@ -30,7 +37,8 @@ describe('FamilyPhotoViewer', () => {
     expect(out).toContain('src="https://x/1.jpg"')
     const t = text(out)
     expect(t).toContain('보고 싶어요')
-    expect(t.some((l) => l.startsWith('민수 ·') && l.endsWith('1/2'))).toBe(true)
+    expect(t).toContain('민수가 보냈어요')
+    expect(t.some((l) => l.includes('1/2'))).toBe(false)
     expect(t).toContain('❤️ 고마워요')
     expect(t).toContain('글로 답장하기')
     expect(t).toContain('다음 사진 ›')
@@ -42,8 +50,12 @@ describe('FamilyPhotoViewer', () => {
     expect(t).not.toContain('다음 사진 ›')
   })
 
-  it('says what the parent already answered', () => {
-    const t = text(renderToString(<FamilyPhotoViewer photos={[photo('1', { seenAtMs: 1, reply: { kind: 'comment', text: '고마워', atMs: 2 } })]} onDone={() => {}} />))
+  it('says what the parent already answered, and offers only the way on', () => {
+    const answered = photo('1', { seenAtMs: 1, reply: { kind: 'comment', text: '고마워', atMs: 2 } })
+    const t = text(renderToString(<FamilyPhotoViewer photos={[answered, photo('2', { seenAtMs: 1 })]} onDone={() => {}} />))
     expect(t).toContain('“고마워”라고 답했어요')
+    expect(t).not.toContain('❤️ 고마워요')
+    expect(t).not.toContain('글로 답장하기')
+    expect(t).toContain('다음 사진 ›')
   })
 })

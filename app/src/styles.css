@@ -882,9 +882,10 @@ button.rx-voice.locked { width: 100%; padding: 10px 12px; border: 1px solid #FFD
 .modal .linkbtn:disabled { opacity: .4; }
 
 /* Photos family send to a parent. */
-.fp-view .fp-photo { width: 100%; min-height: 36vh; max-height: 52vh; border-radius: 20px; overflow: hidden; background: #000; display: flex; align-items: center; justify-content: center; }
-.fp-view .fp-photo img { width: 100%; max-height: 52vh; object-fit: contain; display: block; }
-.fp-replied { font-size: 20px; color: var(--ink-2); text-align: center; }
+.fp-view .fp-photo { width: 100%; min-height: 48vh; max-height: 62vh; border-radius: 20px; overflow: hidden; background: #000; display: flex; align-items: center; justify-content: center; }
+.fp-view .fp-photo img { width: 100%; max-height: 62vh; object-fit: contain; display: block; }
+.fp-view .fp-broken { color: #fff; font-size: 24px; padding: 24px; text-align: center; }
+.fp-replied { font-size: 24px; color: var(--ink-2); text-align: center; }
 .news-btn.quiet { background: transparent; color: var(--ink-2); border-color: var(--line); }
 .fp-send-btn { margin-top: 12px; }
 .fp-send { display: flex; flex-direction: column; gap: 10px; }
