@@ -500,8 +500,10 @@ describe('travel context', () => {
     expect(away).toContain('집(팔로알토, 미국)에서 약 8000km')
     expect(away).toContain('집은 팔로알토, 미국, 지금은 다른 지역이에요')
     expect(away).toContain('정장·넥타이·재킷')
+    expect(away).toContain('노트북·서류가 놓인 책상')
     expect(buildPrompt({ homeHint: { km: 900, away: true } })).not.toContain('집은 ')
     expect(buildPrompt({ homeHint: { km: 1, away: false } })).not.toContain('정장')
+    expect(buildPrompt({ homeHint: { km: 1, away: false } })).not.toContain('노트북·서류')
   })
   it('reads a suit as 출장 from the tags only when away', () => {
     const suit = { labels: [{ name: 'suit', confidence: 0.9 }], text: [], faceCount: 1 }
