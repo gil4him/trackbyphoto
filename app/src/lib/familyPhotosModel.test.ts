@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { cardLine, sentStatus, sentToday, showable, viewerOrder } from './familyPhotosModel'
+import { canSendFamilyPhoto, cardLine, sentStatus, sentToday, showable, viewerOrder } from './familyPhotosModel'
 import type { FamilyPhoto } from '../types'
 
 const p = (id: string, o: Partial<FamilyPhoto> = {}): FamilyPhoto => ({
@@ -47,5 +47,15 @@ describe('what the sender sees', () => {
     const yesterday = new Date(2026, 9, 4, 23, 0).getTime()
     const photos = [p('a', { createdAtMs: now - 1000 }), p('b', { createdAtMs: yesterday }), p('c', { createdAtMs: now - 500, senderUid: 'cg2' })]
     expect(sentToday(photos, 'cg1', now)).toBe(1)
+  })
+})
+
+describe('who may send a parent photos', () => {
+  it('follows the parent\'s setting and the sender\'s role, as the rules do', () => {
+    expect(canSendFamilyPhoto(undefined, 'viewer')).toBe(true)
+    expect(canSendFamilyPhoto({ enabled: false }, 'guardian')).toBe(false)
+    expect(canSendFamilyPhoto({ senders: 'admins' }, 'viewer')).toBe(false)
+    expect(canSendFamilyPhoto({ senders: 'admins' }, 'admin')).toBe(true)
+    expect(canSendFamilyPhoto({ senders: 'admins' }, 'guardian')).toBe(true)
   })
 })

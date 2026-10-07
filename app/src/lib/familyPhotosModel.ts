@@ -4,6 +4,13 @@ import type { FamilyPhoto } from '../types'
 import { S } from './strings'
 import { sameDay } from './reactionsModel'
 
+/** Whether this family member may send this parent photos: the parent's
+ *  setting (received at all; everyone or admins only) and their role. The
+ *  same test as maySend in firestore.rules, so a shown button never fails. */
+export function canSendFamilyPhoto(fp: { enabled?: boolean; senders?: 'all' | 'admins' } | undefined, role: string | undefined): boolean {
+  return fp?.enabled !== false && (fp?.senders !== 'admins' || role === 'admin' || role === 'guardian')
+}
+
 /** Photos the parent's phone can show, newest first. */
 export function showable(photos: FamilyPhoto[]): FamilyPhoto[] {
   return photos.filter((p) => p.status === 'ready' && !!p.photoUrl).sort((a, b) => b.createdAtMs - a.createdAtMs)
