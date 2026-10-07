@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 import { MemoThumb } from '../components/MemoThumb'
+import { TextReply } from '../components/TextReply'
 import { useToast } from '../components/Toast'
-import { COMMENT_MAX, markRead, sendElderComment, sendElderHeart } from '../lib/reactions'
+import { markRead, sendElderComment, sendElderHeart } from '../lib/reactions'
 import { canRecord, Mic } from '../lib/recorder'
 import { sendVoice } from '../lib/voiceOutbox'
-import { QUICK_REPLIES, S } from '../lib/strings'
+import { S } from '../lib/strings'
 import { fmtTime } from '../util'
 import type { Memo, Reaction, TextReplies } from '../types'
 
@@ -13,11 +15,11 @@ const canSpeak = typeof window !== 'undefined' && 'speechSynthesis' in window
 /**
  * 가족 소식: the newest message from family in large type, read aloud, and
  * ways to answer: a heart, holding a button and talking, or a written reply
- * (ready-made phrases to tap; typing only when family switched it on for this
- * parent). The same screen on a parent's linked phone and in the regular app
+ * (typing, with ready-made phrases to tap underneath; phrases only when family
+ * chose 짧은 답장 for this parent). The same screen on a parent's linked phone and in the regular app
  * (someone looking at their own records), and identical on every plan.
  */
-export function FamilyNews({ uid, patientName, item, unreadIds, memo, voiceOn, textMode = 'quick', backLabel = '‹ 처음으로', onDone }: {
+export function FamilyNews({ uid, patientName, item, unreadIds, memo, voiceOn, textMode = 'full', backLabel = '‹ 처음으로', onDone }: {
   uid: string
   patientName: string
   item: Reaction
@@ -33,7 +35,7 @@ export function FamilyNews({ uid, patientName, item, unreadIds, memo, voiceOn, t
 }) {
   const toast = useToast()
   const [phase, setPhase] = useState<'view' | 'recording' | 'text' | 'sent'>('view')
-  const [draft, setDraft] = useState('')
+  const typed = useRef<HTMLInputElement>(null)
   const [reading, setReading] = useState(canSpeak)
   const [hint, setHint] = useState('')
   const mic = useRef<Mic | null>(null)
@@ -91,7 +93,9 @@ export function FamilyNews({ uid, patientName, item, unreadIds, memo, voiceOn, t
   const openText = () => {
     if (canSpeak) window.speechSynthesis.cancel()
     setReading(false)
-    setPhase('text')
+    // Render the text box now and focus it inside this tap, so the keyboard opens.
+    flushSync(() => setPhase('text'))
+    typed.current?.focus()
   }
 
   const finishVoice = async () => {
@@ -138,31 +142,7 @@ export function FamilyNews({ uid, patientName, item, unreadIds, memo, voiceOn, t
   }
 
   if (phase === 'text') {
-    return (
-      <section className="page news">
-        <button className="elder-back" onClick={() => setPhase('view')}>‹ 뒤로</button>
-        <div className="news-from">{item.actorName}에게</div>
-        <div className="news-text small">{S.elderReplyTextTitle}</div>
-        <div className="news-actions">
-          {QUICK_REPLIES.map((q) => (
-            <button key={q} className="news-btn" onClick={() => sendText(q)}>{q}</button>
-          ))}
-          {textMode === 'full' && (
-            <form className="news-type" onSubmit={(e) => { e.preventDefault(); sendText(draft) }}>
-              <input
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                maxLength={COMMENT_MAX}
-                placeholder={S.elderReplyTextPlaceholder}
-                aria-label="답장 직접 쓰기"
-                enterKeyHint="send"
-              />
-              <button type="submit" disabled={!draft.trim()}>보내기</button>
-            </form>
-          )}
-        </div>
-      </section>
-    )
+    return <TextReply to={item.actorName} textMode={textMode} inputRef={typed} onBack={() => setPhase('view')} onSend={sendText} />
   }
 
   return (

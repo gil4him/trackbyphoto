@@ -84,8 +84,8 @@ export interface UserSettings {
    *  are switched on: the parent's phone shows 꾹 누르고 말하기. */
   voiceEnabled?: boolean
   /** How this person may answer family in writing on the 가족 소식 screen:
-   *  'quick' (ready-made phrases; the default), 'full' (phrases and typing),
-   *  or 'off'. Set by family in 설정. */
+   *  'full' (typing, with ready-made phrases underneath; the default),
+   *  'quick' (phrases only, no keyboard) or 'off'. Set by family in 설정. */
   textReplies?: TextReplies
   /** Photos family send to this parent: received at all, and who may send.
    *  Set by the 대표 가족; absent means on, everyone. */

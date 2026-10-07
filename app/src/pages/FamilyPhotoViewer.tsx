@@ -1,17 +1,18 @@
 import { useEffect, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
+import { TextReply } from '../components/TextReply'
 import { markFamilyPhotoSeen, replyToFamilyPhoto } from '../lib/familyPhotos'
 import { viewerOrder } from '../lib/familyPhotosModel'
-import { COMMENT_MAX } from '../lib/reactions'
-import { QUICK_REPLIES, S } from '../lib/strings'
+import { S } from '../lib/strings'
 import type { FamilyPhoto, TextReplies } from '../types'
 
 /**
  * The parent looks at photos the family sent, one at a time: the photo, a
  * line from the sender, and the same big replies as 가족 소식 (❤️ 고마워요,
- * or a ready-made written line). New photos come first. The order is fixed
+ * or a written line). New photos come first. The order is fixed
  * when the screen opens, so a photo doesn't jump away as it is marked seen.
  */
-export function FamilyPhotoViewer({ photos, textMode = 'quick', onDone, mark = markFamilyPhotoSeen, reply = replyToFamilyPhoto }: {
+export function FamilyPhotoViewer({ photos, textMode = 'full', onDone, mark = markFamilyPhotoSeen, reply = replyToFamilyPhoto }: {
   photos: FamilyPhoto[]
   textMode?: TextReplies
   onDone: () => void
@@ -22,7 +23,7 @@ export function FamilyPhotoViewer({ photos, textMode = 'quick', onDone, mark = m
   const [order] = useState(() => viewerOrder(photos))
   const [index, setIndex] = useState(0)
   const [phase, setPhase] = useState<'view' | 'text' | 'sent'>('view')
-  const [draft, setDraft] = useState('')
+  const typed = useRef<HTMLInputElement>(null)
   const [broken, setBroken] = useState<Set<string>>(() => new Set())
   const seen = useRef(new Set<string>())
   // The latest copy of the photo on screen (its reply may have just landed).
@@ -40,7 +41,7 @@ export function FamilyPhotoViewer({ photos, textMode = 'quick', onDone, mark = m
   useEffect(() => {
     if (phase !== 'sent') return
     const t = setTimeout(() => {
-      if (hasNext) { setIndex((i) => i + 1); setPhase('view'); setDraft('') } else onDone()
+      if (hasNext) { setIndex((i) => i + 1); setPhase('view') } else onDone()
     }, 1500)
     return () => clearTimeout(t)
   }, [phase, hasNext, onDone])
@@ -69,24 +70,13 @@ export function FamilyPhotoViewer({ photos, textMode = 'quick', onDone, mark = m
   }
 
   if (phase === 'text') {
-    return (
-      <section className="page news">
-        <button className="elder-back" onClick={() => setPhase('view')}>‹ 뒤로</button>
-        <div className="news-from">{current.senderName}에게</div>
-        <div className="news-text small">{S.elderReplyTextTitle}</div>
-        <div className="news-actions">
-          {QUICK_REPLIES.map((q) => (
-            <button key={q} className="news-btn" onClick={() => send({ kind: 'comment', text: q })}>{q}</button>
-          ))}
-          {textMode === 'full' && (
-            <form className="news-type" onSubmit={(e) => { e.preventDefault(); if (draft.trim()) send({ kind: 'comment', text: draft }) }}>
-              <input value={draft} onChange={(e) => setDraft(e.target.value)} maxLength={COMMENT_MAX} placeholder={S.elderReplyTextPlaceholder} aria-label="답장 직접 쓰기" enterKeyHint="send" />
-              <button type="submit" disabled={!draft.trim()}>보내기</button>
-            </form>
-          )}
-        </div>
-      </section>
-    )
+    return <TextReply to={current.senderName} textMode={textMode} inputRef={typed} onBack={() => setPhase('view')} onSend={(text) => send({ kind: 'comment', text })} />
+  }
+
+  // Render the text box now and focus it inside this tap, so the keyboard opens.
+  const openText = () => {
+    flushSync(() => setPhase('text'))
+    typed.current?.focus()
   }
 
   return (
@@ -111,7 +101,7 @@ export function FamilyPhotoViewer({ photos, textMode = 'quick', onDone, mark = m
       )}
       <div className="news-actions">
         {!current.reply && <button className="news-btn primary" onClick={() => send({ kind: 'heart' })}>{S.elderReplyHeart}</button>}
-        {!current.reply && textMode !== 'off' && <button className="news-btn" onClick={() => setPhase('text')}>{S.elderReplyText}</button>}
+        {!current.reply && textMode !== 'off' && <button className="news-btn" onClick={openText}>{S.elderReplyText}</button>}
         {hasNext && <button className="news-btn quiet" onClick={() => setIndex((i) => i + 1)}>{S.familyPhotoNext}</button>}
       </div>
     </section>
