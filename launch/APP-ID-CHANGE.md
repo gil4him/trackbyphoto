@@ -107,13 +107,15 @@ console.cloud.google.com → APIs & Services → Credentials.
 - [x] Create the app (오늘하루) — the package name is set by the first upload, so the first
       AAB must already be `com.zymer.daylie` (it is, on this branch). Done on the
       Digioptics, LLC account; internal testing list "오늘하루 가족 테스터".
-- [ ] Make a Play upload key. There is none yet: `app/fastlane/play-key.json` doesn't exist
-      and GitHub has no `PLAY_JSON_KEY_BASE64`. Google Cloud (project `trackbyphoto-app`) →
-      IAM → Service accounts → create one → Keys → Add key → JSON. Then Play Console
-      (Digioptics account) → Users and permissions → Invite that service-account email with
-      release rights for 오늘하루. Save the JSON as `app/fastlane/play-key.json`; for CI also
-      set GitHub secrets `PLAY_JSON_KEY_BASE64` (`base64 -i play-key.json`),
-      `ANDROID_KEYSTORE_PASSWORD` and `ANDROID_KEY_PASSWORD`.
+- [x] Play upload key made: service account
+      `play-upload@trackbyphoto-app.iam.gserviceaccount.com` (no Cloud roles), key saved as
+      `app/fastlane/play-key.json` (gitignored) and as GitHub secret `PLAY_JSON_KEY_BASE64`.
+      Android Publisher API enabled.
+- [ ] Play Console (Digioptics account) → Users and permissions → **Invite new users** →
+      `play-upload@trackbyphoto-app.iam.gserviceaccount.com` → App permissions: 오늘하루 →
+      Releases (release to testing tracks + production) → Invite.
+- [ ] GitHub secrets `ANDROID_KEYSTORE_PASSWORD` and `ANDROID_KEY_PASSWORD` (same values as in
+      `.env`). CI skips the Play upload without them.
 - [ ] The very first AAB may have to be uploaded by hand in Play Console (Google requires one
       manual upload before the API can publish to a new app).
 - [ ] Opt in to **Play App Signing**, then add its SHA fingerprints to Firebase (step 1).
