@@ -152,6 +152,22 @@ describe('revokeMembership', () => {
     await seedMembership('p1', 'cg1')
     await expect(call(revokeMembership, { patientUid: 'p1', caregiverUid: 'cg1' }, { uid: 'stranger' })).rejects.toThrow()
   })
+
+  it('an admin cannot remove the guardian', async () => {
+    await seedMembership('p1', 'g1', { role: 'guardian' })
+    await seedMembership('p1', 'cg1')
+    await expect(call(revokeMembership, { patientUid: 'p1', caregiverUid: 'g1' }, { uid: 'cg1' })).rejects.toThrow()
+    expect((await db.doc('memberships/p1_g1').get()).data()!.status).toBe('active')
+  })
+
+  it('the guardian can still remove an admin, and leave themselves', async () => {
+    await seedMembership('p1', 'g1', { role: 'guardian' })
+    await seedMembership('p1', 'cg1')
+    await call(revokeMembership, { patientUid: 'p1', caregiverUid: 'cg1' }, { uid: 'g1' })
+    expect((await db.doc('memberships/p1_cg1').get()).data()!.status).toBe('revoked')
+    await call(revokeMembership, { patientUid: 'p1', caregiverUid: 'g1' }, { uid: 'g1' })
+    expect((await db.doc('memberships/p1_g1').get()).data()!.status).toBe('revoked')
+  })
 })
 
 // ── syncCaregiverName ────────────────────────────────────────────────────────
