@@ -856,6 +856,9 @@ a.pair-btn { display: flex; align-items: center; justify-content: center; text-d
 .news-type input:focus { outline: none; border-color: var(--coral2); }
 .news-type button { flex: none; min-height: 64px; padding: 0 20px; border: 0; border-radius: 18px; background: linear-gradient(135deg, var(--coral1), var(--coral2)); color: #fff; font: inherit; font-size: 22px; font-weight: 800; }
 .news-type button:disabled { opacity: .4; }
+/* Under the text box: the ready-made phrases as smaller one-tap shortcuts. */
+.news-quick { margin-top: 18px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.news-quick .news-btn { min-height: 60px; padding: 6px 8px; font-size: 22px; line-height: 1.2; }
 
 /* ── v2 phase 6: plan sheet, locked voice card, 목소리 앨범 ──────────── */
 button.rx-voice.locked { width: 100%; padding: 10px 12px; border: 1px solid #FFD3BD; border-radius: 14px; background: #FFF6F0; font: inherit; font-weight: 600; text-align: left; cursor: pointer; }

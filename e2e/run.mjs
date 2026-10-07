@@ -347,6 +347,9 @@ await step('family sends a heart and a comment → the parent\'s 가족 소식 c
 await step('parent answers with a ready-made reply → the family sees it and gets a notice', async () => {
   await parent.click('.news-card.tappable')
   await click(parent, '글로 답장하기')
+  // Typing comes first, already focused so the phone's keyboard is up; the phrases sit underneath.
+  await parent.waitForSelector('input[aria-label="답장 직접 쓰기"]', { timeout: 10_000 })
+  expect(await parent.evaluate(() => document.activeElement?.getAttribute('aria-label') === '답장 직접 쓰기'), 'the text box is not focused')
   await click(parent, '고마워', { selector: 'button.news-btn' })
   await waitText(parent, '보냈어요', 20_000)
   expect(!(await parent.$('.news-rec, .rec-btn')) && !(await has(parent, '꾹 누르고')), 'the parent screen offers voice recording')
@@ -470,7 +473,7 @@ await step('family 설정: reply and summary settings are there; voice and plans
   await waitText(family, '글로 답장')
   const t = await text(family)
   expect(t.includes('하루 요약'), 'no 하루 요약 section')
-  expect(t.includes('짧은 답장'), 'no 짧은 답장 option')
+  expect(t.includes('짧은 답장만') && t.includes('직접 쓰기'), 'the 글로 답장 options are missing')
   expect(!t.includes('음성 답장'), '음성 답장 is shown')
   expect(!t.includes('요금제'), '요금제 is shown')
 })

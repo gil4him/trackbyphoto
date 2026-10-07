@@ -80,6 +80,8 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
   // managed parent's list when we're their guardian/admin. Anything else
   // would just log permission errors.
   const canManageHere = isSelf || (isManaged && (myRole === 'guardian' || myRole === 'admin'))
+  // 글로 답장: typing (with phrases underneath) unless family chose otherwise.
+  const textReplies = settings.textReplies ?? 'full'
   const { caregivers } = useMemberships(canManageHere ? activePatientUid : undefined, { withPatients: false })
   // 부모님 삭제 is for the guardian (whoever registered the parent) only.
   const isGuardian = isManaged && !isSelf && myRole === 'guardian'
@@ -642,13 +644,13 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
         <div className="sect">
           <div className="sect-lab">글로 답장</div>
           <div className="seg">
-            <button className={(settings.textReplies ?? 'quick') === 'off' ? 'on' : ''} onClick={() => update('textReplies', 'off')}>끄기</button>
-            <button className={(settings.textReplies ?? 'quick') === 'quick' ? 'on' : ''} onClick={() => update('textReplies', 'quick')}>짧은 답장</button>
-            <button className={settings.textReplies === 'full' ? 'on' : ''} onClick={() => update('textReplies', 'full')}>직접 쓰기도</button>
+            <button className={textReplies === 'off' ? 'on' : ''} onClick={() => update('textReplies', 'off')}>끄기</button>
+            <button className={textReplies === 'quick' ? 'on' : ''} onClick={() => update('textReplies', 'quick')}>짧은 답장만</button>
+            <button className={textReplies === 'full' ? 'on' : ''} onClick={() => update('textReplies', 'full')}>직접 쓰기</button>
           </div>
           <div className="help">
-            {settings.textReplies === 'off' ? `${settings.patientName}님은 하트${settings.voiceEnabled ? '와 목소리' : ''}로만 답해요.`
-              : settings.textReplies === 'full' ? `${settings.patientName}님이 “고마워” 같은 짧은 답장을 누르거나, 직접 써서 답할 수 있어요.`
+            {textReplies === 'off' ? `${settings.patientName}님은 하트${settings.voiceEnabled ? '와 목소리' : ''}로만 답해요.`
+              : textReplies === 'full' ? `${settings.patientName}님이 직접 써서 답해요. “고마워” 같은 짧은 답장도 바로 아래에 있어요.`
               : `${settings.patientName}님이 “고마워”, “밥 먹었어” 같은 짧은 답장을 한 번 눌러 보낼 수 있어요. 자판은 나오지 않아요.`}
           </div>
         </div>
