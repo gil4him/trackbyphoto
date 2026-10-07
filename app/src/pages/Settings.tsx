@@ -520,7 +520,7 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
                     <span> · {m.role === 'guardian' ? '대표 가족 · ' : ''}{statusLabel}</span>
                   </div>
                   <div className="send-row">
-                    {m.status !== 'revoked' && !isMe && (
+                    {m.status !== 'revoked' && !isMe && (m.role !== 'guardian' || isSelf) && (
                       <button
                         className="send-btn send-del"
                         onClick={() => onRevoke(m.caregiverUid, label)}

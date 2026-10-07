@@ -403,7 +403,8 @@ export async function revokeMembership(caller: Caller, data: RevokeMembershipReq
   }
 
   // Authz: caller is patient, an active admin caregiver on the patient, or
-  // the caregiver themselves (removing their own access).
+  // the caregiver themselves (removing their own access). A guardian row is
+  // further limited below.
   const callerIsCaregiverOnRow = callerUid === caregiverUid
   const callerCanManage = await isOwnerOrAdminCaregiver(callerUid, patientUid)
   if (!callerIsCaregiverOnRow && !callerCanManage) {
@@ -414,6 +415,12 @@ export async function revokeMembership(caller: Caller, data: RevokeMembershipReq
   const ref = db.collection('memberships').doc(membershipDocId(patientUid, caregiverUid))
   const snap = await ref.get()
   if (!snap.exists) throw new HttpsError('not-found', 'membership not found')
+  // The 대표 가족 (guardian) can't be removed by an admin they invited: only
+  // the guardian themselves or the self-managed owner may end that row.
+  if ((snap.data() as { role?: string }).role === 'guardian'
+      && !callerIsCaregiverOnRow && callerUid !== patientUid) {
+    throw new HttpsError('permission-denied', 'only the guardian can remove the guardian')
+  }
 
   const logRef = db.collection('auditLogs').doc()
   const batch = db.batch()
