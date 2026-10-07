@@ -22,7 +22,7 @@ can't be changed).
       The new `app/fastlane/upload-keystore.jks` (alias `upload`, RSA 2048, 10000 days) has one
       random password for store and key, stored only in `app/fastlane/.env`. Keep a copy in
       your password manager: if it is lost, Play needs an upload-key reset.
-- [ ] Update the GitHub secrets for CI — they still hold the **old** keystore:
+- [x] GitHub secrets for CI updated to the **new** keystore:
       `ANDROID_KEYSTORE_BASE64` (`base64 -i app/fastlane/upload-keystore.jks`),
       `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_PASSWORD` (the password from `.env`).
 - [x] In your local `app/fastlane/.env` (not in git), change
@@ -115,7 +115,7 @@ console.cloud.google.com → APIs & Services → Credentials.
 - [ ] Play Console (Digioptics account) → Users and permissions → **Invite new users** →
       `play-upload@trackbyphoto-app.iam.gserviceaccount.com` → App permissions: 오늘하루 →
       Releases (release to testing tracks + production) → Invite.
-- [ ] GitHub keystore secrets — see step 0 (CI skips the Play upload without them).
+- [x] GitHub keystore secrets — see step 0 (CI skips the Play upload without them).
 - [ ] The very first AAB may have to be uploaded by hand in Play Console (Google requires one
       manual upload before the API can publish to a new app).
 - [ ] Opt in to **Play App Signing**, then add its SHA fingerprints to Firebase (step 1).
