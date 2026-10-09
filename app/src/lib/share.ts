@@ -212,7 +212,10 @@ export function isKakaoConfigured(): boolean {
 // Always the hosted web app: the native apps run on capacitor://localhost /
 // https://localhost, which mean nothing on the recipient's phone. Until
 // Universal/App Links exist, the link opens in the recipient's browser.
-const INVITE_ORIGIN = 'https://trackbyphoto.web.app'
+// Each edition has its own site (VITE_PUBLIC_URL).
+const INVITE_ORIGIN = (
+  (import.meta.env.VITE_PUBLIC_URL as string | undefined) || 'https://trackbyphoto.web.app'
+).replace(/\/+$/, '')
 
 export function inviteLink(code: string): string {
   return `${INVITE_ORIGIN}/accept?code=${code}`

@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:full": "tsc -b && vite build",
+    "build:simple": "tsc -b && vite build --mode simple",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run"
