@@ -917,3 +917,62 @@ button.rx-voice.locked { width: 100%; padding: 10px 12px; border: 1px solid #FFD
 .fp-meta { font-size: 14px; color: var(--ink-2); }
 .fp-replied-mark { color: var(--accent-ink); }
 
+
+/* ── Simple edition: the parent's camera screen (pages/ElderCamera.tsx) ──
+   Native draws the camera behind the web view, so while it runs the page is
+   see-through (camera-live on <html>, lib/cameraPreview.ts). */
+html.camera-live, html.camera-live body, html.camera-live .app, html.camera-live main { background: transparent !important; }
+.elder-cam {
+  position: fixed; inset: 0; z-index: 10;
+  font-family: "Nanum Gothic", -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  color: #fff;
+}
+html:not(.camera-live) .elder-cam { background: #000; }
+.elder-cam-feed { position: absolute; inset: 0; overflow: hidden; }
+.elder-cam-video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.elder-cam-bubble {
+  position: absolute; left: 16px; right: 16px; top: calc(var(--safe-top) + 16px);
+  display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 14px 18px;
+  border: 0; border-radius: 22px; background: rgba(255, 255, 255, .94); color: var(--ink);
+  font: inherit; font-size: 20px; font-weight: 700; text-align: left;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .25);
+}
+.elder-cam-bubble-icon { font-size: 28px; }
+.elder-cam-bubble-body { display: flex; flex-direction: column; gap: 4px; }
+.elder-cam-bubble-text { font-weight: 400; font-size: 19px; color: var(--ink-2); }
+.elder-cam-bar {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 24px calc(var(--safe-bot) + 28px);
+}
+.elder-cam-records, .elder-cam-bar-spacer { width: 84px; }
+.elder-cam-records {
+  min-height: 60px; border: 0; border-radius: 18px;
+  background: rgba(0, 0, 0, .45); color: #fff; font: inherit; font-size: 18px; font-weight: 700;
+}
+.elder-cam-shutter {
+  width: 104px; height: 104px; border-radius: 50%; padding: 0;
+  border: 6px solid rgba(255, 255, 255, .9); background: #fff;
+  box-shadow: 0 0 0 4px rgba(0, 0, 0, .25), 0 10px 30px rgba(0, 0, 0, .35);
+  transition: transform .12s ease;
+}
+.elder-cam-shutter:active:not(:disabled) { transform: scale(.92); }
+.elder-cam-shutter:disabled { opacity: .55; }
+.elder-cam-overlay {
+  position: absolute; left: 24px; right: 24px; top: 50%; transform: translateY(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  padding: 28px 20px; border-radius: 26px; text-align: center;
+  background: rgba(0, 0, 0, .66); font-size: 26px; font-weight: 800;
+}
+.elder-cam-overlay.ok { background: rgba(255, 107, 107, .92); }
+.elder-cam-overlay-sub { font-size: 20px; font-weight: 400; }
+.elder-cam-denied {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 10px; padding: 24px; text-align: center;
+}
+.elder-cam-denied-title { margin: 0; font-size: 26px; font-weight: 800; }
+.elder-cam-denied-sub { margin: 0 0 18px; font-size: 20px; }
+.elder-cam-retry {
+  min-height: 64px; min-width: 200px; border: 0; border-radius: 20px;
+  background: var(--accent); color: #fff; font: inherit; font-size: 22px; font-weight: 800;
+}

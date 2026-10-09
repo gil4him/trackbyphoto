@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { listedPeople, nameTaken, sameName } from './people'
+import { listedPeople, nameTaken, sameName, sentToName } from './people'
 
 describe('who is listed', () => {
   const links = [{ patientUid: 'a', role: 'guardian' }, { patientUid: 'b', role: 'viewer' }, { patientUid: 'c', role: 'admin' }, { patientUid: 'd', role: 'viewer' }]
@@ -26,5 +26,20 @@ describe('a name that is already taken', () => {
     expect(nameTaken('할아버지 ', ['엄마', '할아버지'])).toBe('할아버지')
     expect(nameTaken('외할아버지', ['엄마', '할아버지'])).toBeNull()
     expect(nameTaken('   ', ['엄마'])).toBeNull()
+  })
+})
+
+describe('who the parent\'s photos go to', () => {
+  it('names the first active family member who has a name', () => {
+    expect(sentToName([
+      { status: 'invited', caregiverName: '민수' },
+      { status: 'active' },
+      { status: 'active', caregiverName: ' 지은 ' },
+    ])).toBe('지은')
+  })
+
+  it('says 가족 when nobody has a name yet', () => {
+    expect(sentToName([])).toBe('가족')
+    expect(sentToName([{ status: 'active', caregiverName: '' }])).toBe('가족')
   })
 })

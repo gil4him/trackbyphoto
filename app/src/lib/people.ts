@@ -32,3 +32,13 @@ export function nameTaken(name: string, existing: string[]): string | null {
   if (!name.trim()) return null
   return existing.find((e) => sameName(e, name)) ?? null
 }
+
+/**
+ * Who the parent's photos go to, for "…에게 보냈어요": the first active family
+ * member with a name. caregiverName is stamped by the worker and can be
+ * missing on older rows, so there is always a fallback.
+ */
+export function sentToName(caregivers: { status: string; caregiverName?: string }[]): string {
+  const named = caregivers.find((c) => c.status === 'active' && c.caregiverName?.trim())
+  return named?.caregiverName?.trim() || '가족'
+}
