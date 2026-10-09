@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Template: scripts/install-simple.sh (via install.sh) replaces __HOME__ and copies this to
+     ~/Library/LaunchAgents. KeepAlive restarts the worker whenever it exits
+     (it exits on purpose if a Firestore listener dies). -->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.daylie.worker.simple</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>__HOME__/daylie-worker-simple/scripts/run.sh</string>
+        <string>__HOME__/daylie-secrets/simple/worker.env</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>__HOME__/daylie-worker-simple</string>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+    <key>StandardOutPath</key>
+    <string>__HOME__/Library/Logs/daylie-worker-simple.log</string>
+    <key>StandardErrorPath</key>
+    <string>__HOME__/Library/Logs/daylie-worker-simple.log</string>
+</dict>
+</plist>

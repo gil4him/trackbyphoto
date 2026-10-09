@@ -13,8 +13,11 @@
 #   ~/.trackbyphoto/worker.env    optional, e.g. KAKAO_REST_KEY=..., OLLAMA_MODEL=...
 set -euo pipefail
 
-LABEL=com.trackbyphoto.worker
-DEST="$HOME/trackbyphoto-worker"
+# Overridable so a second instance (install-simple.sh) can sit beside this one.
+LABEL="${WORKER_LABEL:-com.trackbyphoto.worker}"
+DEST="${WORKER_DEST:-$HOME/trackbyphoto-worker}"
+KEY="${WORKER_SA_KEY:-$HOME/.trackbyphoto/sa-key.json}"
+LOG="${WORKER_LOG:-~/Library/Logs/trackbyphoto-worker.log}"
 PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
 SRC="$(cd "$(dirname "$0")/.." && pwd)"
 
@@ -35,7 +38,6 @@ if [ "${1:-}" = "uninstall" ]; then
   exit 0
 fi
 
-KEY="$HOME/.trackbyphoto/sa-key.json"
 if [ ! -f "$KEY" ]; then
   echo "Missing $KEY — create the service-account key first (see worker/README.md)." >&2
   exit 1
@@ -56,4 +58,4 @@ sed "s#__HOME__#$HOME#g" "$SRC/launchd/$LABEL.plist" > "$PLIST"
 
 stop_agent
 launchctl bootstrap "gui/$(id -u)" "$PLIST"
-echo "Started $LABEL. Logs: tail -f ~/Library/Logs/trackbyphoto-worker.log"
+echo "Started $LABEL. Logs: tail -f $LOG"
