@@ -1,0 +1,36 @@
+// Which first screen a linked parent's phone shows in the full edition.
+import { describe, it, expect, vi } from 'vitest'
+import { renderToString } from 'react-dom/server'
+
+vi.mock('../lib/edition', () => ({ isSimple: () => false, EDITION: 'full' }))
+vi.mock('../firebase', () => ({ db: {}, auth: {}, storage: {} }))
+vi.mock('../lib/cameraPreview', () => ({ startPreview: vi.fn(), stopPreview: vi.fn(), capturePhoto: vi.fn() }))
+vi.mock('../lib/capture', () => ({ savePhoto: vi.fn(), captureNativePhoto: vi.fn(), isNativeApp: false }))
+vi.mock('../lib/location', () => ({ warmUpLocation: vi.fn() }))
+vi.mock('../lib/reactions', () => ({ markRead: vi.fn() }))
+vi.mock('@capacitor/app', () => ({ App: { addListener: vi.fn(async () => ({ remove: vi.fn() })) } }))
+vi.mock('@capacitor/haptics', () => ({ Haptics: { impact: vi.fn(async () => {}) }, ImpactStyle: { Medium: 'MEDIUM' } }))
+vi.mock('../hooks/useMemberships', () => ({ useMemberships: () => ({ caregivers: [], patients: [], loading: false }) }))
+vi.mock('../hooks/useFamilyPhotos', () => ({ useFamilyPhotos: () => [] }))
+vi.mock('../hooks/useOutbox', () => ({ useOutbox: () => [] }))
+vi.mock('../hooks/useAppUpdate', () => ({ noteCaptureStarted: vi.fn() }))
+vi.mock('../hooks/useAuth', () => ({ resetIfAccountGone: vi.fn() }))
+vi.mock('../components/MemoThumb', () => ({ MemoThumb: () => <span className="tl-thumb" /> }))
+vi.mock('../components/ElderInstallButton', () => ({ ElderInstallButton: () => null }))
+
+import { ElderApp } from './ElderApp'
+import { ToastProvider } from '../components/Toast'
+
+const render = () => renderToString(
+  <ToastProvider>
+    <ElderApp uid="mom" deviceId="d1" patientName="어머니" memos={[]} reactions={[]} voiceOn={false} onRelink={() => {}} />
+  </ToastProvider>,
+).replace(/<!-- -->/g, '')
+
+describe('ElderApp (full)', () => {
+  it('keeps today\'s home screen with the 가족 소식 card', () => {
+    const out = render()
+    expect(out).not.toContain('elder-cam')
+    expect(out).toContain('오늘 가족 소식이 아직 없어요')
+  })
+})

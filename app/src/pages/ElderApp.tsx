@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { doc, onSnapshot } from 'firebase/firestore'
 import { db } from '../firebase'
 import { Home } from './Home'
+import { ElderCamera } from './ElderCamera'
 import { Today } from './Today'
 import { MemoDetail } from './MemoDetail'
 import { FamilyNews } from './FamilyNews'
@@ -13,6 +14,7 @@ import { useFamilyPhotos } from '../hooks/useFamilyPhotos'
 import { useElderNews, type OpenNews } from '../hooks/useElderNews'
 import { unlinkedFrom } from '../lib/device'
 import { resetIfAccountGone } from '../hooks/useAuth'
+import { isSimple } from '../lib/edition'
 import type { Memo, Reaction, TextReplies } from '../types'
 
 /**
@@ -23,6 +25,7 @@ import type { Memo, Reaction, TextReplies } from '../types'
  * by plan. If family disconnects this phone (연결 해제),
  * the device record flips to 'revoked' and the screen locks. If family
  * deleted the parent altogether, the phone starts over at the first screen.
+ * In the simple edition the first screen is the camera itself (ElderCamera).
  */
 export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn, textMode, familyPhotosOn = false, onRelink }: {
   uid: string
@@ -107,6 +110,8 @@ export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn
             <button className="elder-back" onClick={() => setView('home')}>‹ 처음으로</button>
             <Today memos={memos} onOpen={setOpenId} uid={uid} readOnly />
           </>
+        ) : isSimple() ? (
+          <ElderCamera uid={uid} reactions={reactions} onOpenRecords={() => setView('records')} />
         ) : (
           <Home
             uid={uid}
