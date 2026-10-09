@@ -22,8 +22,8 @@ import { logger } from '../log.js'
 import { WorkerError as HttpsError, type Caller } from '../context.js'
 import { flagOn } from '../plans.js'
 import { maskPhone, normalizePhone } from '../messenger/index.js'
+import { APP_URL } from '../config.js'
 
-const APP_URL = process.env.APP_URL || 'https://trackbyphoto.web.app/'
 /** One person's devices: phone, tablet, a couple of browsers. */
 const MAX_TOKENS = 10
 /** FCM's ways of saying a token will never work again. */
@@ -71,7 +71,7 @@ export const defaultPushDeps: PushDeps = {
 
 /** Absolute link to a page of the app. */
 export function appLink(path = ''): string {
-  return APP_URL.replace(/\/$/, '') + '/' + path.replace(/^\//, '')
+  return APP_URL + '/' + path.replace(/^\//, '')
 }
 
 /** Which of the tokens FCM says are gone for good (same order as `tokens`). */

@@ -1,4 +1,5 @@
 import { logger } from './log.js'
+import { APP_URL } from './config.js'
 
 // Reverse geocoding.
 //
@@ -153,7 +154,7 @@ async function reverseGeocodeNominatim(lat: number, lng: number, lang: GeoLang =
   const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`
   const res = await fetch(url, {
     headers: {
-      'User-Agent': 'TrackByPhoto/1.0 (https://trackbyphoto.web.app)',
+      'User-Agent': `TrackByPhoto/1.0 (${APP_URL})`,
       'Accept-Language': lang === 'en' ? 'en' : 'ko,en',
     },
     signal: AbortSignal.timeout(TIMEOUT_MS),
@@ -314,7 +315,7 @@ async function searchNominatim(query: string, lang: GeoLang): Promise<GeoCandida
   const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=${SEARCH_LIMIT}&addressdetails=1`
   const res = await fetch(url, {
     headers: {
-      'User-Agent': 'TrackByPhoto/1.0 (https://trackbyphoto.web.app)',
+      'User-Agent': `TrackByPhoto/1.0 (${APP_URL})`,
       'Accept-Language': lang === 'en' ? 'en' : 'ko,en',
     },
     signal: AbortSignal.timeout(TIMEOUT_MS),

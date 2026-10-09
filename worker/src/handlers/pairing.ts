@@ -42,6 +42,7 @@ import { getStorage } from 'firebase-admin/storage'
 import { getFirestore, FieldValue, Timestamp, type DocumentReference } from 'firebase-admin/firestore'
 import { logger } from '../log.js'
 import { WorkerError as HttpsError, type Caller } from '../context.js'
+import { APP_URL } from '../config.js'
 
 // Crockford-style alphabet without look-alikes (0/O, 1/I/L, U): 30^8 ≈ 6.6e11.
 const CODE_ALPHABET = '23456789ABCDEFGHJKMNPQRSTVWXYZ'
@@ -57,7 +58,7 @@ const FAIL_WINDOW_MS = 10 * 60 * 1000
 
 const ANON_CLEANUP_DELAY_MS = 2 * 60 * 1000
 
-export const PAIR_ORIGIN = 'https://trackbyphoto.web.app'
+export const PAIR_ORIGIN = APP_URL
 
 type PairingPurpose = 'onboard' | 'repair'
 type PairingMode = 'remote' | 'qr'
