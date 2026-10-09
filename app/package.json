@@ -15,12 +15,15 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@capacitor-community/camera-preview": "^8.0.2",
     "@capacitor-firebase/authentication": "^8.5.2",
     "@capacitor-firebase/messaging": "^8.5.2",
     "@capacitor/android": "^8.5.2",
+    "@capacitor/app": "^8.1.2",
     "@capacitor/camera": "^8.2.0",
     "@capacitor/core": "^8.5.2",
     "@capacitor/geolocation": "^8.2.0",
+    "@capacitor/haptics": "^8.0.2",
     "@capacitor/share": "^8.0.3",
     "firebase": "^12.14.0",
     "on-device-vision": "file:plugins/on-device-vision",
