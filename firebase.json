@@ -1,7 +1,7 @@
 {
   "hosting": [
     {
-      "site": "trackbyphoto",
+      "target": "app",
       "public": "app/dist",
       "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
       "rewrites": [{ "source": "**", "destination": "/index.html" }],
@@ -29,7 +29,7 @@
       ]
     },
     {
-      "site": "trackbyphoto-app",
+      "target": "shim",
       "public": "app/redirect-shim",
       "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
       "redirects": [

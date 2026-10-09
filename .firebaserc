@@ -1,5 +1,20 @@
 {
   "projects": {
-    "default": "trackbyphoto-app"
+    "default": "trackbyphoto-app",
+    "full": "trackbyphoto-app",
+    "simple": "daylie-simple-4df13"
+  },
+  "targets": {
+    "trackbyphoto-app": {
+      "hosting": {
+        "app": ["trackbyphoto"],
+        "shim": ["trackbyphoto-app"]
+      }
+    },
+    "daylie-simple-4df13": {
+      "hosting": {
+        "app": ["dayliesimple"]
+      }
+    }
   }
 }
