@@ -121,7 +121,9 @@ end
 # ── Android signing: passed straight to Gradle so we don't edit build.gradle ──
 def android_signing
   {
-    "android.injected.signing.store.file"     => ENV["ANDROID_KEYSTORE_PATH"],
+    # The path is relative to app/ (where .env and CI put it), but Gradle would
+    # read it from app/android/app/, so hand it over absolute.
+    "android.injected.signing.store.file"     => File.expand_path(ENV["ANDROID_KEYSTORE_PATH"], ".."),
     "android.injected.signing.store.password" => ENV["ANDROID_KEYSTORE_PASSWORD"],
     "android.injected.signing.key.alias"      => ENV["ANDROID_KEY_ALIAS"],
     "android.injected.signing.key.password"   => ENV["ANDROID_KEY_PASSWORD"],

@@ -1,4 +1,4 @@
-package com.gil4him.trackbyphoto;
+package com.zymer.daylie;
 
 import com.getcapacitor.BridgeActivity;
 

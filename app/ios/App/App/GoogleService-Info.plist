@@ -3,9 +3,11 @@
 <plist version="1.0">
 <dict>
 	<key>CLIENT_ID</key>
-	<string>2450507790-ctdkeudmv1oupfav0q4904qsho8kcuk0.apps.googleusercontent.com</string>
+	<string>2450507790-d9dakl4g26jp40bll7o18chfo4mlu12t.apps.googleusercontent.com</string>
 	<key>REVERSED_CLIENT_ID</key>
-	<string>com.googleusercontent.apps.2450507790-ctdkeudmv1oupfav0q4904qsho8kcuk0</string>
+	<string>com.googleusercontent.apps.2450507790-d9dakl4g26jp40bll7o18chfo4mlu12t</string>
+	<key>ANDROID_CLIENT_ID</key>
+	<string>2450507790-3p6t66u0gomsh29vhtfrt97pso3o84m3.apps.googleusercontent.com</string>
 	<key>API_KEY</key>
 	<string>AIzaSyAZx6rTnWa8sXkUSHZrq_O7TdURDwiHgEM</string>
 	<key>GCM_SENDER_ID</key>
@@ -13,7 +15,7 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.gil4him.trackbyphoto</string>
+	<string>com.zymer.daylie</string>
 	<key>PROJECT_ID</key>
 	<string>trackbyphoto-app</string>
 	<key>STORAGE_BUCKET</key>
@@ -29,6 +31,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:2450507790:ios:cfe7ebac62861d67d6945f</string>
+	<string>1:2450507790:ios:6b7ec34609d587d0d6945f</string>
 </dict>
 </plist>
