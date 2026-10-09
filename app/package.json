@@ -8,6 +8,8 @@
     "build": "tsc -b && vite build",
     "build:full": "tsc -b && vite build",
     "build:simple": "tsc -b && vite build --mode simple",
+    "native:full": "bash scripts/native-config.sh full",
+    "native:simple": "bash scripts/native-config.sh simple",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run"

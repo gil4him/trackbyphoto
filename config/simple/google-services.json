@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "99411030280",
+    "project_id": "daylie-simple-4df13",
+    "storage_bucket": "daylie-simple-4df13.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:99411030280:android:e6a78be9c297f2b971fcbd",
+        "android_client_info": {
+          "package_name": "com.zymer.daylie"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCfCwJ07BOYvV0fYcEbgnhfK_H3aczZHMA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
