@@ -12,11 +12,90 @@ TrackByPhoto** (bundle ID `com.zymer.daylie`).
 
 | Command | What it does |
 |---|---|
+| `bundle exec fastlane build_android_aab` | Builds the signed **AAB** and stops — prints its path. Nothing is uploaded. |
 | `bundle exec fastlane beta_ios` | Builds & signs iOS, uploads to **TestFlight** (testers). |
 | `bundle exec fastlane beta_android` | Builds a signed **AAB**, uploads to Play **internal** track. |
-| `bundle exec fastlane release_ios` | Uploads a build to the **App Store** (you press final "Submit" in the web console). |
+| `bundle exec fastlane release_ios` | Uploads a build + the Korean listing to the **App Store** (submitting is opt-in). |
 | `bundle exec fastlane release_android` | Uploads to the Play **production** track. |
 | `bundle exec fastlane beta` / `release` | Does both platforms at once. |
+
+## Which edition am I shipping? (`EDITION`)
+
+Two apps are built from this one codebase: **simple** (오늘하루, Firebase project
+`daylie-simple-4df13`) and **full** (TrackByPhoto, `trackbyphoto-app`). Every lane
+defaults to **simple**. Override it either way:
+
+```sh
+EDITION=full bundle exec fastlane release_ios
+bundle exec fastlane release_ios edition:full
+```
+
+Under the hood each lane runs `npm run build:<edition>` and then
+`npm run native:<edition>`, which copies that edition's
+`GoogleService-Info.plist` / `google-services.json` into `ios/` and `android/`
+and runs `npx cap sync`.
+
+> **Those two native config files are tracked, and the committed state is
+> `full`.** A simple-edition build therefore leaves your working tree dirty on
+> purpose. Run `npm run native:full` before you commit. No lane here ever runs
+> `git add` or `git commit` — the tree is yours to clean up.
+
+## Shipping the simple edition (오늘하루) the first time
+
+Google will not accept the very first production release over the API, so it's a
+manual upload once and automated after that:
+
+1. `bundle exec fastlane build_android_aab` → copy the absolute `.aab` path it
+   prints at the end.
+2. Play Console → **Test and release → Production → Create new release** → drag
+   that `.aab` in. Fill **App content → App access** with the demo login (see
+   `REVIEW_NOTES.md`), then roll out.
+3. Play Console → **Test and release → App integrity** → copy the **App signing
+   key** SHA-256 and add it to `app/well-known/assetlinks.json`, then redeploy
+   hosting — otherwise App Links don't verify for store installs.
+4. From then on: `bundle exec fastlane release_android` (uploads the AAB plus
+   `fastlane/metadata/android/ko-KR` — listing text, icon, feature graphic).
+
+iOS, once the app record exists in App Store Connect:
+
+```sh
+bundle exec fastlane release_ios                            # upload build + listing, don't submit
+bundle exec fastlane release_ios submit_for_review:true     # also submit to App Review
+bundle exec fastlane release_ios submit_for_review:true automatic_release:true
+```
+
+`release_ios` options (all default to the cautious choice):
+
+| Option | Default | Meaning |
+|---|---|---|
+| `edition:` | `simple` | which app to build |
+| `submit_for_review:` | `false` | upload only; you press **Submit** yourself |
+| `automatic_release:` | `false` | you press **Release** after review passes |
+| `skip_metadata:` | upload if `fastlane/metadata` has files | the Korean listing |
+| `skip_screenshots:` | skip while `fastlane/screenshots` is empty | set `skip_screenshots:false` once you've put screenshots there |
+
+`release_android` takes `edition:`, `skip_metadata:`, `skip_images:` and
+`skip_screenshots:` with the same "upload it if the folder has files" defaults.
+
+## The store listing lives in this folder
+
+- `metadata/ko/` — App Store listing in Korean (name, subtitle, description,
+  keywords, promotional text, release notes, URLs). `metadata/copyright.txt` and
+  `metadata/primary_category.txt` (Lifestyle) are shared across locales. The age
+  rating questionnaire is answered in App Store Connect, not here.
+- `metadata/review_information/notes.txt` — the App Review notes. The demo
+  **login** is never committed: put it in App Store Connect's *Sign-in required*
+  fields (or in local, gitignored `demo_user.txt` / `demo_password.txt`).
+- `metadata/android/ko-KR/` — Play listing (title, short/full description,
+  `changelogs/default.txt`) plus `images/icon.png` (512×512) and
+  `images/featureGraphic.png` (1024×500). Drop phone screenshots in
+  `images/phoneScreenshots/` and they upload automatically.
+- `screenshots/` — App Store screenshots. Doesn't exist yet: make
+  `fastlane/screenshots/ko/`, drop the PNGs in, and `release_ios` starts
+  uploading them (while it's missing or empty they're skipped, so an empty run
+  can never wipe the screenshots already on the listing).
+- `REVIEW_NOTES.md` — what to paste into App Review and Play *App access*,
+  in Korean and English.
 
 ## One-time setup
 
@@ -34,7 +113,12 @@ TrackByPhoto** (bundle ID `com.zymer.daylie`).
    an engineer about Fastlane `match`.)
 5. **Android keystore** (only once): create your upload key with
    `keytool -genkey -v -keystore fastlane/upload-keystore.jks -alias upload -keyalg RSA -keysize 2048 -validity 10000`
-   then put the passwords/alias into `.env`.
+   then put the passwords/alias into `.env`. `ANDROID_KEYSTORE_PATH` may be
+   absolute or `~`-prefixed — the simple edition's upload key lives at
+   `~/daylie-secrets/simple/upload-keystore.jks` (mode 600), outside the repo.
+   Lose that file and you can never update the app, so back it up.
+   Its SHA-256 must also appear in `app/well-known/assetlinks.json`; check with
+   `/opt/homebrew/opt/openjdk@21/bin/keytool -list -v -keystore <path> -alias upload`.
 
 ## Running it automatically with GitHub Actions
 

@@ -51,6 +51,11 @@ app/vendor/bundle/
 *.jks
 *.keystore
 app/fastlane/play-key.json
+# App Review's demo login. The store listing text in fastlane/metadata IS
+# committed; these two are the credentials deliver would send with it, so they
+# stay local (or live only in the App Store Connect / Play Console fields).
+app/fastlane/metadata/review_information/demo_user.txt
+app/fastlane/metadata/review_information/demo_password.txt
 # Generated on an EOL Ruby 2.6 locally — pins gems that break modern Ruby in CI.
 # Let each environment resolve its own (CI runs Ruby 3.2).
 app/Gemfile.lock

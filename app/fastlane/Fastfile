@@ -2,33 +2,101 @@
 # Run from the app/ folder, e.g.  bundle exec fastlane beta_ios
 #
 # Lanes:
-#   beta_ios        build + sign iOS, upload to TestFlight (tester builds)
-#   beta_android    build a signed AAB, upload to Play "internal" track
-#   release_ios     build + upload to the App Store (no auto-submit)
-#   release_android build + upload to the Play "production" track
-#   beta / release  do both platforms at once
+#   beta_ios          build + sign iOS, upload to TestFlight (tester builds)
+#   beta_android      build a signed AAB, upload to Play "internal" track
+#   release_ios       build + upload to the App Store (submit is opt-in)
+#   release_android   build + upload to the Play "production" track
+#   build_android_aab build the signed AAB only, print its path (no upload)
+#   beta / release    do both platforms at once
+#
+# EDITION — which build of the app a lane ships: "simple" (오늘하루, the
+# Firebase project daylie-simple-4df13) or "full" (TrackByPhoto). Defaults to
+# "simple" on this branch. Override per run either way:
+#     EDITION=full bundle exec fastlane release_ios
+#     bundle exec fastlane release_ios edition:full
+#
+# No lane here ever runs `git commit` / `git add`. The native Firebase config
+# files the edition switch rewrites are tracked, so switching to "simple"
+# dirties your working tree on purpose — see the note each lane prints.
 
 # Keep our human-written fastlane/README.md (don't let fastlane overwrite it).
 skip_docs
 
+EDITIONS = %w[full simple].freeze
+ANDROID_AAB_REL = "android/app/build/outputs/bundle/release/app-release.aab".freeze
+
+# ── Small helpers ─────────────────────────────────────────────────────────────
+
+# app/ — the folder that holds package.json. Fastlane's working directory is
+# either app/ or app/fastlane depending on how it was invoked, so walk up from
+# wherever we are instead of guessing with a relative "..".
+def app_dir
+  dir = Dir.pwd
+  dir = File.expand_path("..", dir) until File.exist?(File.join(dir, "package.json")) || dir == "/"
+  UI.user_error!("Can't find the app/ folder (no package.json above #{Dir.pwd})") if dir == "/"
+  dir
+end
+
+# Lane options arrive from the command line as strings ("submit_for_review:true"),
+# so "false" must not count as true.
+def flag(value, default = false)
+  return default if value.nil?
+  return value if value == true || value == false
+  %w[true 1 yes y on].include?(value.to_s.strip.downcase)
+end
+
+# Which edition this run ships: lane option wins, then EDITION, then "simple".
+def edition(options = {})
+  ed = (options[:edition] || ENV["EDITION"] || "simple").to_s.strip.downcase
+  UI.user_error!("EDITION must be one of #{EDITIONS.join(' / ')} (got '#{ed}')") unless EDITIONS.include?(ed)
+  ed
+end
+
+# Run a block with Fastlane's Bundler environment stripped out. Needed for
+# anything that shells into CocoaPods (its own Ruby), which otherwise tries to
+# load our fastlane Gemfile and dies with "Could not find … in locally
+# installed gems".
+def without_bundler(&block)
+  if defined?(Bundler) && Bundler.respond_to?(:with_unbundled_env)
+    Bundler.with_unbundled_env(&block)
+  elsif defined?(Bundler) && Bundler.respond_to?(:with_clean_env)
+    Bundler.with_clean_env(&block)
+  else
+    block.call
+  end
+end
+
+# Does this folder hold at least one real file? (Used to decide whether there is
+# any metadata / any screenshot worth uploading.) Dotfiles don't count, so a
+# .gitkeep or a stray .DS_Store can't fool us into "uploading" an empty folder —
+# which for screenshots would wipe the ones already on the listing.
+def folder_has_files?(path)
+  return false unless Dir.exist?(path)
+  Dir.glob(File.join(path, "**", "*")).any? { |f| File.file?(f) && !File.basename(f).start_with?(".") }
+end
+
 # ── Shared: build the web app and copy it into the native project ─────────────
 # Capacitor wraps our React/Vite site, so before any native build we rebuild the
-# web bundle and sync it into ios/ or android/. Keeps native builds current.
-def sync_web(platform)
-  Dir.chdir("..") do                      # step up from app/fastlane to app/
-    sh("npm", "run", "build")
-    # `cap sync` runs `pod install`. Run it OUTSIDE Fastlane's Bundler env, or
-    # CocoaPods (its own Ruby) tries to load our fastlane Gemfile and dies with
-    # "Could not find … in locally installed gems".
-    cap = -> { sh("npx", "cap", "sync", platform) }
-    if defined?(Bundler) && Bundler.respond_to?(:with_unbundled_env)
-      Bundler.with_unbundled_env(&cap)
-    elsif defined?(Bundler) && Bundler.respond_to?(:with_clean_env)
-      Bundler.with_clean_env(&cap)
-    else
-      cap.call
-    end
+# web bundle for this edition and sync it into ios/ or android/.
+#
+# `npm run native:<edition>` (scripts/native-config.sh) copies that edition's
+# GoogleService-Info.plist / google-services.json into the native projects and
+# runs `npx cap sync` itself — so it replaces the plain `cap sync` we used to do
+# here, and like `cap sync` it must run outside Fastlane's Bundler env.
+def sync_web(platform, options = {})
+  ed = edition(options)
+  UI.important("Edition: #{ed} — web build `npm run build:#{ed}`, native config `npm run native:#{ed}` (#{platform})")
+  Dir.chdir(app_dir) do
+    sh("npm", "run", "build:#{ed}")
+    without_bundler { sh("npm", "run", "native:#{ed}") }
   end
+  return if ed == "full"
+  UI.important("────────────────────────────────────────────────────────────")
+  UI.important("ios/App/App/GoogleService-Info.plist and android/app/google-services.json")
+  UI.important("now point at the #{ed.upcase} Firebase project. Both files are tracked and the")
+  UI.important("committed state is `full`, so run `npm run native:full` before you commit.")
+  UI.important("(This lane changed no git state of its own — nothing was staged or committed.)")
+  UI.important("────────────────────────────────────────────────────────────")
 end
 
 # A unique, always-increasing build number (timestamp in minutes) so each upload
@@ -119,11 +187,26 @@ def ios_build
 end
 
 # ── Android signing: passed straight to Gradle so we don't edit build.gradle ──
+
+# Where the upload keystore lives. ANDROID_KEYSTORE_PATH (from fastlane/.env)
+# may be absolute, "~"-prefixed (the real home for the upload key is
+# ~/daylie-secrets/simple/upload-keystore.jks), or relative to app/ as CI writes
+# it ("./fastlane/upload-keystore.jks"). Gradle would read a relative path from
+# app/android/app/, so always hand it over absolute.
+def android_keystore_path
+  raw = ENV["ANDROID_KEYSTORE_PATH"].to_s.strip
+  UI.user_error!("ANDROID_KEYSTORE_PATH is not set — see fastlane/.env.example") if raw.empty?
+  path = File.expand_path(raw, app_dir)     # also expands a leading "~"
+  UI.user_error!("Upload keystore not found at #{path} (ANDROID_KEYSTORE_PATH)") unless File.file?(path)
+  path
+end
+
 def android_signing
+  %w[ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD].each do |name|
+    UI.user_error!("#{name} is not set — see fastlane/.env.example") if ENV[name].to_s.empty?
+  end
   {
-    # The path is relative to app/ (where .env and CI put it), but Gradle would
-    # read it from app/android/app/, so hand it over absolute.
-    "android.injected.signing.store.file"     => File.expand_path(ENV["ANDROID_KEYSTORE_PATH"], ".."),
+    "android.injected.signing.store.file"     => android_keystore_path,
     "android.injected.signing.store.password" => ENV["ANDROID_KEYSTORE_PASSWORD"],
     "android.injected.signing.key.alias"      => ENV["ANDROID_KEY_ALIAS"],
     "android.injected.signing.key.password"   => ENV["ANDROID_KEY_PASSWORD"],
@@ -131,10 +214,20 @@ def android_signing
   }
 end
 
+# Build the signed release AAB. Returns its absolute path.
+def android_build_aab(options = {})
+  sync_web("android", options)
+  gradle(project_dir: "android", task: "clean")
+  gradle(project_dir: "android", task: "bundle", build_type: "Release", properties: android_signing)
+  aab = File.join(app_dir, ANDROID_AAB_REL)
+  UI.user_error!("Gradle finished but no AAB at #{aab}") unless File.file?(aab)
+  aab
+end
+
 # ── iOS lanes ─────────────────────────────────────────────────────────────────
 
-lane :beta_ios do
-  sync_web("ios")
+lane :beta_ios do |options|
+  sync_web("ios", options)
   key = asc_api_key
   ios_install_signing
   ios_configure_signing
@@ -143,64 +236,149 @@ lane :beta_ios do
   upload_to_testflight(api_key: key, skip_waiting_for_build_processing: true)
 end
 
-lane :release_ios do
-  sync_web("ios")
+# Options (all optional, all default to the safe choice):
+#   edition:simple|full      which build to ship (default: EDITION or "simple")
+#   submit_for_review:true   also submit the build to App Review (default false —
+#                            the build is only uploaded, you press Submit yourself)
+#   automatic_release:true   release to the Store the moment review passes
+#                            (default false — you press "Release" yourself)
+#   skip_metadata:true       don't upload fastlane/metadata
+#                            (default: upload it whenever that folder has files)
+#   skip_screenshots:false   do upload fastlane/screenshots
+#                            (default: skip while that folder is empty)
+lane :release_ios do |options|
+  sync_web("ios", options)
   key = asc_api_key
   ios_install_signing
   ios_configure_signing
   increment_build_number(xcodeproj: "ios/App/App.xcodeproj", build_number: unique_build_number)
   ios_build
-  upload_to_app_store(
+
+  # Paths deliver expects, as absolute paths so they resolve the same however
+  # fastlane was invoked.
+  metadata_path    = File.join(app_dir, "fastlane/metadata")
+  screenshots_path = File.join(app_dir, "fastlane/screenshots")
+
+  # Default: upload the Korean listing we keep in fastlane/metadata; skip
+  # screenshots until someone has actually put some in fastlane/screenshots
+  # (an empty folder would make deliver wipe the listing's screenshots).
+  skip_metadata = options.key?(:skip_metadata) ? flag(options[:skip_metadata]) : !folder_has_files?(metadata_path)
+  skip_shots    = options.key?(:skip_screenshots) ? flag(options[:skip_screenshots]) : !folder_has_files?(screenshots_path)
+  submit        = flag(options[:submit_for_review])
+  auto_release  = flag(options[:automatic_release])
+
+  UI.message("metadata:    #{skip_metadata ? 'skipped' : metadata_path}")
+  UI.message("screenshots: #{skip_shots ? 'skipped' : screenshots_path}")
+  UI.important("submit_for_review: #{submit}   automatic_release: #{auto_release}")
+
+  args = {
     api_key: key,
-    submit_for_review: false,   # uploads the build; you press "submit" in App Store Connect
-    automatic_release: false,
-    force: true,                # skip the HTML confirmation prompt
-    skip_metadata: true,        # we ship the binary only; edit listing in the web console
-    skip_screenshots: true,
+    submit_for_review: submit,
+    automatic_release: auto_release,
+    force: true,                 # skip the HTML confirmation prompt
+    skip_binary_upload: false,
+    skip_metadata: skip_metadata,
+    skip_screenshots: skip_shots,
     precheck_include_in_app_purchases: false
-  )
+  }
+  unless skip_metadata
+    args[:metadata_path] = metadata_path
+    # fastlane/metadata holds the App Store locales (ko/) next to Play's
+    # metadata/android/ — the standard shared layout, but "android" isn't an
+    # App Store language, so deliver's folder-name check has to be turned off.
+    args[:ignore_language_directory_validation] = true
+  end
+  args[:screenshots_path] = screenshots_path unless skip_shots
+  # Apple blocks a submission that hasn't answered the IDFA question. We show no
+  # ads and run no ad attribution, so: no IDFA. Only needed when submitting.
+  args[:submission_information] = { add_id_info_uses_idfa: false } if submit
+
+  upload_to_app_store(args)
 end
 
 # ── Android lanes (require `npx cap add android` to have been run once) ────────
 
-lane :beta_android do
-  sync_web("android")
-  gradle(project_dir: "android", task: "clean")
-  gradle(project_dir: "android", task: "bundle", build_type: "Release", properties: android_signing)
+# Build the signed release AAB and stop. Nothing is uploaded and nothing talks
+# to Google — this is the lane for the *first* release, which Google requires you
+# to upload by hand in the Play Console (the API can't create the app, and
+# `supply` can't upload until a first AAB has been accepted).
+#
+#   bundle exec fastlane build_android_aab
+#   → prints the absolute path; drag that file into
+#     Play Console → Test and release → Production → Create new release
+#
+# Options: edition:simple|full
+lane :build_android_aab do |options|
+  aab = android_build_aab(options)
+  size = (File.size(aab) / 1024.0 / 1024.0).round(1)
+  UI.success("────────────────────────────────────────────────────────────")
+  UI.success("Signed release AAB (#{size} MB):")
+  UI.success(aab)
+  UI.success("Upload it by hand: Play Console → Test and release → Production")
+  UI.success("→ Create new release → upload this .aab. Nothing was uploaded by")
+  UI.success("this lane. After that first release, `release_android` can upload.")
+  UI.success("────────────────────────────────────────────────────────────")
+  aab
+end
+
+# Options: edition:simple|full
+lane :beta_android do |options|
+  aab = android_build_aab(options)
   upload_to_play_store(
     track: "internal",
     package_name: ENV["ANDROID_PACKAGE"],
     json_key: ENV["PLAY_JSON_KEY_PATH"],
-    aab: "android/app/build/outputs/bundle/release/app-release.aab",
+    aab: aab,
     skip_upload_metadata: true,
     skip_upload_images: true,
     skip_upload_screenshots: true
   )
 end
 
-lane :release_android do
-  sync_web("android")
-  gradle(project_dir: "android", task: "clean")
-  gradle(project_dir: "android", task: "bundle", build_type: "Release", properties: android_signing)
-  upload_to_play_store(
+# Options (all optional):
+#   edition:simple|full
+#   skip_metadata:true    don't upload fastlane/metadata/android
+#                         (default: upload it whenever that folder has files)
+#   skip_images:true      don't upload the icon / feature graphic
+#                         (default: upload whenever .../images has files)
+#   skip_screenshots:false  do upload phone screenshots
+#                           (default: skip while there are none)
+lane :release_android do |options|
+  aab = android_build_aab(options)
+
+  android_metadata = File.join(app_dir, "fastlane/metadata/android")
+  images           = File.join(android_metadata, "ko-KR/images")
+  shots            = File.join(images, "phoneScreenshots")
+
+  skip_metadata = options.key?(:skip_metadata) ? flag(options[:skip_metadata]) : !folder_has_files?(android_metadata)
+  skip_images   = options.key?(:skip_images) ? flag(options[:skip_images]) : !folder_has_files?(images)
+  skip_shots    = options.key?(:skip_screenshots) ? flag(options[:skip_screenshots]) : !folder_has_files?(shots)
+
+  UI.message("metadata:    #{skip_metadata ? 'skipped' : android_metadata}")
+  UI.message("images:      #{skip_images ? 'skipped' : images}")
+  UI.message("screenshots: #{skip_shots ? 'skipped' : shots}")
+
+  args = {
     track: "production",
     package_name: ENV["ANDROID_PACKAGE"],
     json_key: ENV["PLAY_JSON_KEY_PATH"],
-    aab: "android/app/build/outputs/bundle/release/app-release.aab",
-    skip_upload_metadata: true,
-    skip_upload_images: true,
-    skip_upload_screenshots: true
-  )
+    aab: aab,
+    skip_upload_metadata: skip_metadata,
+    skip_upload_images: skip_images,
+    skip_upload_screenshots: skip_shots
+  }
+  args[:metadata_path] = android_metadata unless skip_metadata && skip_images && skip_shots
+  upload_to_play_store(args)
 end
 
 # ── Do both platforms in one command ──────────────────────────────────────────
 
-lane :beta do
-  beta_ios
-  beta_android
+lane :beta do |options|
+  beta_ios(options)
+  beta_android(options)
 end
 
-lane :release do
-  release_ios
-  release_android
+lane :release do |options|
+  release_ios(options)
+  release_android(options)
 end

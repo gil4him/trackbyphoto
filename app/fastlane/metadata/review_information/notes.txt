@@ -1,0 +1,73 @@
+오늘하루 (Daylie) — 심사 안내 / Notes for App Review
+
+[한국어]
+이 앱은 두 대의 휴대폰이 짝을 이뤄 동작합니다.
+
+1) 가족(자녀) 휴대폰 — Google 또는 Apple로 로그인합니다. 부모님을 등록하고,
+   부모님이 찍은 사진을 날짜별로 보고, 하트와 한마디를 남기고, 부모님께
+   사진을 보냅니다.
+2) 부모님 휴대폰 — 계정을 만들지 않습니다. 가족이 만든 QR이나 링크로 한 번
+   연결되면, 그 뒤로는 앱이 사진 찍는 화면만 보여줍니다. 메뉴, 목록, 설정,
+   로그아웃이 없는 것은 의도된 설계입니다. 어르신이 버튼 하나만 누르면 되도록
+   일부러 그렇게 만들었습니다.
+
+심사용 데모 계정은 가족(자녀) 쪽 계정입니다. 아이디와 비밀번호는 이 심사
+정보 화면의 "로그인 정보" 칸에 적어 두었습니다. 이 계정에는 이미 데모
+부모님이 연결되어 있고 예시 사진이 들어 있으므로, 로그인만 하면 사진 목록,
+사진 상세(시간·장소·자동 메모), 하트와 한마디, "부모님께 사진 보내기"를 모두
+확인할 수 있습니다. 두 번째 휴대폰은 필요하지 않습니다.
+
+부모님 화면을 직접 보시려면: 로그인 화면에서 "부모님 휴대폰이에요"를 누르고,
+가족 계정의 설정 → 부모님에서 만든 연결 코드(8자리)를 "코드 입력"에 넣으시면
+됩니다.
+
+권한에 대해:
+· 카메라 — 사진을 찍고, 연결할 때 QR을 읽기 위해 필요합니다.
+· 위치(앱 사용 중) — 사진을 찍은 곳의 이름을 남기기 위해서만 씁니다.
+  거부해도 앱은 정상 동작하고 사진은 그대로 전해집니다. 상시/백그라운드
+  위치는 요청하지 않습니다.
+· 사진 — 찍은 사진을 휴대폰 사진 앱에도 저장하고, 가족이 보낼 사진을 고를 때
+  씁니다.
+· 알림 — 가족 휴대폰에서만 사용합니다. 부모님 휴대폰은 푸시를 등록하지
+  않습니다.
+
+이 앱은 건강·의료 기능이 없고, 건강이나 질병에 관한 어떤 주장도 하지
+않습니다. 가족이 사진을 나누는 앱입니다.
+
+[English]
+The app is a pair of phones.
+
+1) The family (adult child) phone signs in with Google or Apple. It registers a
+   parent, sees the parent's photos grouped by day with time and place, leaves a
+   heart or a one-line comment, and sends photos to the parent.
+2) The parent's phone never creates an account. It is linked once, by scanning a
+   QR code the family phone shows or by tapping a link the family sends. After
+   that the app shows only a camera viewfinder. Having no menus, no lists, no
+   settings and no sign-out on the parent's phone is intentional, not an
+   unfinished screen: the whole point is that an elderly parent presses one
+   large button and the photo reaches the family.
+
+The demo account provided in the "Sign-in required" fields of this review
+information is a family (adult child) account. It is already linked to a demo
+parent and already contains sample photos, so signing in is enough to review
+everything: the photo list, a photo's detail page (time, place, the
+automatically written memo), hearts and comments, and "send a photo to the
+parent". A second device is not required.
+
+To see the parent's side yourself: on the sign-in screen tap "부모님
+휴대폰이에요" ("This is my parent's phone"), then tap "코드 입력" ("enter code")
+and type the 8-character pairing code generated in the family account under
+Settings → 부모님 (Parent).
+
+Permissions:
+· Camera — to take the photo, and to read the QR code when linking.
+· Location (while in use) — only to label the photo with the name of the place
+  it was taken. Denying it is fine; the photo is still sent. No background or
+  "always" location is requested.
+· Photos — to also save the captured photo to the phone's own library, and for
+  the family to pick a photo to send.
+· Notifications — family phone only. The parent's linked phone does not
+  register for push.
+
+There are no health or medical features and the app makes no health claims. It
+is a family photo-sharing app.
