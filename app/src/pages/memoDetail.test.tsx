@@ -8,6 +8,7 @@ vi.mock('../lib/capture', () => ({ deleteMemo: async () => {} }))
 import { MemoDetail } from './MemoDetail'
 import { ToastProvider } from '../components/Toast'
 import type { Memo } from '../types'
+import type { ReactionsContext } from '../components/Reactions'
 
 const taken = new Date(2026, 9, 6, 14, 30)
 const memo = {
@@ -39,5 +40,24 @@ describe('MemoDetail', () => {
     const out = renderToString(<ToastProvider><MemoDetail memo={memo} onBack={() => {}} /></ToastProvider>)
     expect(out).not.toContain('공유하기')
     expect(out).toContain('aria-label="더보기"') // 수정 · 다시 쓰기 · 삭제
+  })
+})
+
+describe('MemoDetail 가족 이야기', () => {
+  const rx = (canReact: boolean, items: unknown[] = []) => ({
+    byMemo: new Map([[memo.id, items]]), me: { uid: 'me', name: 'Shawn' }, patientUid: 'p1', patientName: '할아버지',
+    canReact, voiceOn: false, voiceAllowed: false,
+  }) as unknown as ReactionsContext
+  const html = (ctx: ReactionsContext) =>
+    renderToString(<ToastProvider><MemoDetail memo={memo} onBack={() => {}} rx={ctx} /></ToastProvider>)
+
+  it('on a parent\'s photo: the box to write in', () => {
+    const out = html(rx(true))
+    expect(out).toContain('가족 이야기')
+    expect(out).toContain('aria-label="글 남기기"')
+  })
+
+  it('on one\'s own photo with nothing left on it: no empty section', () => {
+    expect(html(rx(false))).not.toContain('가족 이야기')
   })
 })

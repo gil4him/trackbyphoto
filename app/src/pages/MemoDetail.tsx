@@ -251,7 +251,9 @@ export function MemoDetail({ memo, onBack, readOnly = false, rx }: { memo: Memo;
         )}
       </div>
 
-      {rx && (
+      {/* Messages on a photo go to its owner: family write on a parent's
+          photo; on one's own, it shows only what others have left. */}
+      {rx && (rx.canReact || (rx.byMemo.get(memo.id)?.length ?? 0) > 0) && (
         <div className="detail-section">
           <div className="d-label"><span>가족 이야기</span></div>
           <Reactions memoId={memo.id} ctx={rx} />
