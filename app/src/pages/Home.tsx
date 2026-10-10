@@ -8,6 +8,7 @@ import { noteCaptureStarted } from '../hooks/useAppUpdate'
 import { fmtDate, fmtTime } from '../util'
 import { MemoThumb } from '../components/MemoThumb'
 import type { Memo, AppNotification } from '../types'
+import { isSimple } from '../lib/edition'
 
 /**
  * The prototype's home is a single-purpose screen: a giant circular capture
@@ -140,13 +141,13 @@ export function Home({ uid, patientName, greetingName, memos, onOpenAsk, onOpen,
             </button>
           )}
 
-          <button className="askbtn" onClick={onOpenAsk} aria-label={recordsLabel ? '지난 기록 보기' : '지난 기록 물어보기'}>
+          {!isSimple() && <button className="askbtn" onClick={onOpenAsk} aria-label={recordsLabel ? '지난 기록 보기' : '지난 기록 물어보기'}>
             <svg className="ask-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <circle cx="11" cy="11" r="7" />
               <path d="M20.5 20.5l-3.6-3.6" />
             </svg>
             <span className="lab">{recordsLabel ? '지난 기록 보기' : '지난 기록 물어보기'}</span>
-          </button>
+          </button>}
         </div>
 
         {canCapture && sendTargets && sendTargets.length > 0 && onSendTo && (

@@ -97,7 +97,8 @@ function App() {
   const [connectingParent, setConnectingParent] = useState(false)
   // The digest page: opened by a /digest/{id} link (push, e-mail, message) or
   // from the 알림 list.
-  const [digestId, setDigestId] = useState<string | null>(() => (typeof window === 'undefined' ? null : digestIdFromPath(window.location.pathname)))
+  // The simple edition has no digests.
+  const [digestId, setDigestId] = useState<string | null>(() => (typeof window === 'undefined' || isSimple() ? null : digestIdFromPath(window.location.pathname)))
   const [tab, setTab] = useState<TabKey>('home')
   const [selectedMemoId, setSelectedMemoId] = useState<string | null>(null)
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS)
@@ -483,7 +484,7 @@ function App() {
     if (digestIdFromPath(window.location.pathname)) window.history.replaceState(null, '', '/')
   }
   const openNotice = (n: AppNotification) => {
-    if (n.digestId) { setDigestId(n.digestId); return }
+    if (n.digestId && !isSimple()) { setDigestId(n.digestId); return }
     const reachable = n.patientUid === user.uid || patients.some((p) => p.patientUid === n.patientUid)
     if (!reachable) return
     const here = n.patientUid === (activePatientUid || user.uid)
