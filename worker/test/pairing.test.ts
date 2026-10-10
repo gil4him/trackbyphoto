@@ -57,6 +57,16 @@ describe('createManagedElder', () => {
     expect(await count('auditLogs', 'action', 'elder.create')).toBe(1)
   })
 
+  it('can make the first phone link in the same call', async () => {
+    const res = await createManagedElder(FAMILY, { patientName: '엄마', link: 'qr' })
+    expect(res.link).toMatchObject({ purpose: 'onboard' })
+    expect(res.link!.code).toHaveLength(8)
+    const pairing = await db.collection('pairings').where('patientUid', '==', res.patientUid).get()
+    expect(pairing.size).toBe(1)
+    expect(pairing.docs[0].data()).toMatchObject({ mode: 'qr', status: 'pending', purpose: 'onboard' })
+    expect((await createManagedElder(FAMILY, { patientName: '아빠' })).link).toBeUndefined()
+  })
+
   it('refuses callers without a family (Google) account', async () => {
     await expect(createManagedElder(ANON('anon1'), { patientName: '엄마' })).rejects.toThrow(/family account/)
   })

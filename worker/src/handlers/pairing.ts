@@ -214,6 +214,8 @@ interface CreateManagedElderRequest {
   consentTextVersion?: string
   /** The consent screen the guardian accepted included voice replies. */
   voiceConsent?: boolean
+  /** Also make the first phone link right away (one round trip for 엄마 연결하기). */
+  link?: 'qr' | 'remote'
 }
 
 /** Names compare without regard to spacing or letter case ("할아버지 " = "할아버지"). */
@@ -222,7 +224,7 @@ export const sameName = (a: string, b: string) => {
   return tidy(a) === tidy(b)
 }
 
-export async function createManagedElder(caller: Caller, data: CreateManagedElderRequest): Promise<{ patientUid: string }> {
+export async function createManagedElder(caller: Caller, data: CreateManagedElderRequest): Promise<{ patientUid: string; link?: CreatePairingLinkResponse }> {
   const callerUid = requireFamilyAccount(caller)
   const patientName = typeof data?.patientName === 'string' ? data.patientName.trim().slice(0, 20) : ''
   if (!patientName) throw new HttpsError('invalid-argument', 'patientName required')
@@ -306,6 +308,9 @@ export async function createManagedElder(caller: Caller, data: CreateManagedElde
   }
 
   logger.info('[pairing] managed elder created', { patientUid, callerUid })
+  if (data.link === 'qr' || data.link === 'remote') {
+    return { patientUid, link: await createPairingLink(caller, { patientUid, mode: data.link }) }
+  }
   return { patientUid }
 }
 
