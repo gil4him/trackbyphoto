@@ -81,7 +81,7 @@ describe('processMemo', () => {
     expect(await count('notifications', 'type', 'photo.new')).toBe(1)
   })
 
-  it('simple edition: no per-photo notice or push (one daily notice instead)', async () => {
+  it('simple edition: the per-photo notice and push too (plus the evening count)', async () => {
     await seedMembership('p1', 'cg1')
     await seedPending('m1')
     const pushed: string[][] = []
@@ -93,8 +93,8 @@ describe('processMemo', () => {
     }
     expect((await memo('m1')).status).toBe('ready')
     expect((await memo('m1')).notifiedAt).toBeTruthy()
-    expect(await count('notifications', 'type', 'photo.new')).toBe(0)
-    expect(pushed).toHaveLength(0)
+    expect(await count('notifications', 'type', 'photo.new')).toBe(1)
+    expect(pushed).toEqual([['cg1']])
     expect((await db.doc('admin_totals/global').get()).data()!.memos).toBe(1)
   })
 
