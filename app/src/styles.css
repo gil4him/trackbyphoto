@@ -976,3 +976,28 @@ html:not(.camera-live) .elder-cam { background: #000; }
   min-height: 64px; min-width: 200px; border: 0; border-radius: 20px;
   background: var(--accent); color: #fff; font: inherit; font-size: 22px; font-weight: 800;
 }
+
+/* Simple edition, phone not linked yet: the same viewfinder looks for the
+   family's QR (pages/ElderPairStart.tsx). */
+.elder-pair-hint {
+  position: absolute; left: 16px; right: 16px; top: calc(var(--safe-top) + 20px);
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 18px 20px; border-radius: 22px; text-align: center;
+  background: rgba(0, 0, 0, .55);
+}
+.elder-pair-hint-title { font-size: 24px; font-weight: 800; }
+.elder-pair-hint-sub { font-size: 18px; }
+.elder-pair-frame {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: min(68vw, 300px); aspect-ratio: 1; border-radius: 28px;
+  border: 4px solid rgba(255, 255, 255, .9); box-shadow: 0 0 0 4000px rgba(0, 0, 0, .25);
+}
+.elder-pair-bar {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  display: flex; justify-content: center; gap: 14px;
+  padding: 0 20px calc(var(--safe-bot) + 28px);
+}
+.elder-pair-link {
+  min-height: 60px; padding: 0 22px; border: 0; border-radius: 18px;
+  background: rgba(0, 0, 0, .55); color: #fff; font: inherit; font-size: 19px; font-weight: 700;
+}

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Capacitor } from '@capacitor/core'
 import { doc, onSnapshot, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from './firebase'
 import { useAuth } from './hooks/useAuth'
@@ -26,6 +27,8 @@ import { MemoDetail } from './pages/MemoDetail'
 import { SignIn } from './pages/SignIn'
 import { AcceptInvite, PENDING_INVITE_KEY } from './pages/AcceptInvite'
 import { PairDevice } from './pages/PairDevice'
+import { ElderPairStart } from './pages/ElderPairStart'
+import { isSimple } from './lib/edition'
 import { ElderApp } from './pages/ElderApp'
 import { SuperAdmin, ADMIN_EMAIL } from './pages/SuperAdmin'
 import { Ask } from './components/Ask'
@@ -81,6 +84,9 @@ function App() {
   const user = authUser && !authUser.isAnonymous ? authUser : null
   // Pairing screen: opened by a /pair link, or by "가족에게 받은 코드가 있어요".
   const [pairCode, setPairCode] = useState<string | null>(pairCodeFromUrl)
+  // Simple edition: a signed-out phone opens on the pairing camera
+  // (ElderPairStart) until 가족이에요 says it's the family's own phone.
+  const [familyMode, setFamilyMode] = useState(false)
   // The digest page: opened by a /digest/{id} link (push, e-mail, message) or
   // from the 알림 list.
   const [digestId, setDigestId] = useState<string | null>(() => (typeof window === 'undefined' ? null : digestIdFromPath(window.location.pathname)))
@@ -310,6 +316,16 @@ function App() {
           </main>
         </div>
       </ToastProvider>
+    )
+  }
+
+  if (!user && isSimple() && Capacitor.isNativePlatform() && !familyMode) {
+    return (
+      <ElderPairStart
+        onCode={setPairCode}
+        onFamily={() => setFamilyMode(true)}
+        onEnterCode={() => setPairCode('')}
+      />
     )
   }
 
