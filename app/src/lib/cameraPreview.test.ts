@@ -9,7 +9,7 @@ const plugin = vi.hoisted(() => ({
 vi.mock('@capacitor-community/camera-preview', () => ({ CameraPreview: plugin }))
 vi.mock('@capacitor/core', () => ({ Capacitor: { isNativePlatform: () => false, convertFileSrc: (p: string) => p } }))
 
-import { base64ToFile, capturePhoto, isPreviewRunning, startPreview, stopPreview } from './cameraPreview'
+import { base64ToFile, capturePhoto, captureSampleBlob, isPreviewRunning, sampleToBlob, startPreview, stopPreview } from './cameraPreview'
 
 describe('base64ToFile', () => {
   it('decodes plain and data: URL base64', async () => {
@@ -58,5 +58,24 @@ describe('the preview owner', () => {
     const shot = await capturePhoto()
     expect(shot.nativePath).toBeUndefined()
     expect(await shot.file.text()).toBe('jpeg-bytes')
+  })
+})
+
+describe('frame samples for QR scanning', () => {
+  it('decodes a base64 sample (Android, web)', async () => {
+    plugin.captureSample.mockResolvedValueOnce({ value: btoa('frame') })
+    expect(await (await captureSampleBlob()).text()).toBe('frame')
+  })
+
+  it('reads a temp-file sample (iOS storing to file)', async () => {
+    const fetchMock = vi.fn(async () => new Response('file-frame'))
+    vi.stubGlobal('fetch', fetchMock)
+    try {
+      expect(await (await sampleToBlob('/tmp/sample.jpg')).text()).toBe('file-frame')
+      expect(await (await sampleToBlob('file:///tmp/sample.jpg')).text()).toBe('file-frame')
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 })

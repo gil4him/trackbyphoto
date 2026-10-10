@@ -6,7 +6,8 @@ import { CameraPreview } from '@capacitor-community/camera-preview'
  *
  * One owner for the camera: start, stop and capture all go through here, so
  * nothing double-starts it (Android rejects a second start) and step 2's QR
- * pairing can sample frames from the same preview with captureSampleBase64.
+ * pairing (ElderPairStart) samples frames from the same preview with
+ * captureSampleBlob.
  *
  * Native (iOS/Android): the plugin draws the camera BEHIND the web view
  * (toBack), so while it runs the page must be transparent — `camera-live` on
@@ -23,7 +24,14 @@ export const WEB_VIDEO_CLASS = 'elder-cam-video'
 let running = false
 let starting: Promise<void> | null = null
 
-export async function startPreview(parentId: string): Promise<void> {
+export interface PreviewOptions {
+  /** Native only. true (default): shots are written to a file for savePhoto.
+   *  The pairing screen never takes photos, so it passes false — then iOS
+   *  also hands frame samples back as base64 instead of temp files. */
+  storeToFile?: boolean
+}
+
+export async function startPreview(parentId: string, opts: PreviewOptions = {}): Promise<void> {
   if (running) return
   if (starting) return starting
   starting = (async () => {
@@ -33,7 +41,7 @@ export async function startPreview(parentId: string): Promise<void> {
         await CameraPreview.start({
           position: 'rear',
           toBack: true,
-          storeToFile: true,
+          storeToFile: opts.storeToFile ?? true,
           disableAudio: true,
           lockAndroidOrientation: true,
           enableHighResolution: true,
@@ -83,10 +91,22 @@ export async function capturePhoto(): Promise<{ file: File; nativePath?: string 
   return { file: base64ToFile(value, 'photo.jpg', 'image/jpeg') }
 }
 
-/** A small, quick frame for scanning (step 2: QR pairing). Base64 JPEG. */
-export async function captureSampleBase64(quality = 60): Promise<string> {
+/** A small, quick frame of the running preview, for QR scanning. */
+export async function captureSampleBlob(quality = 60): Promise<Blob> {
   const { value } = await CameraPreview.captureSample({ quality })
-  return value
+  return sampleToBlob(value)
+}
+
+/**
+ * captureSample answers with base64 JPEG on Android and the web, but with the
+ * path of a temp JPEG on iOS when the preview stores to file — accept both.
+ */
+export async function sampleToBlob(value: string): Promise<Blob> {
+  if (value.startsWith('/') || value.startsWith('file:')) {
+    const res = await fetch(Capacitor.convertFileSrc(value))
+    return res.blob()
+  }
+  return base64ToFile(value, 'sample.jpg', 'image/jpeg')
 }
 
 /** Base64 (with or without a data: prefix) to a File. */
