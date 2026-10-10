@@ -3,6 +3,7 @@ import { Capacitor } from '@capacitor/core'
 import { doc, onSnapshot, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from './firebase'
 import { useAuth } from './hooks/useAuth'
+import { useLaunchUrl } from './hooks/useLaunchUrl'
 import { useMemos } from './hooks/useMemos'
 import { useMemberships } from './hooks/useMemberships'
 import { useOutboxSync } from './hooks/useOutbox'
@@ -90,6 +91,8 @@ function App() {
   // Simple edition: a signed-out phone opens on the pairing camera
   // (ElderPairStart) until 가족이에요 says it's the family's own phone.
   const [familyMode, setFamilyMode] = useState(false)
+  // …or by a /pair link that opened the native app.
+  useLaunchUrl(setPairCode)
   // Simple edition: 엄마 연결하기 opened from Home (ConnectParentCard).
   const [connectingParent, setConnectingParent] = useState(false)
   // The digest page: opened by a /digest/{id} link (push, e-mail, message) or
