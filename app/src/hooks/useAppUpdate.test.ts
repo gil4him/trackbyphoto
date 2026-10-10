@@ -11,3 +11,14 @@ describe('self-update on a parent\'s phone', () => {
     expect(mayBeReturningFromCamera(Date.now() + 11 * 60_000)).toBe(false)
   })
 })
+
+describe('mayAutoReload', () => {
+  it('lets a parent\'s phone reload by itself at most once every two minutes', async () => {
+    const { mayAutoReload } = await import('./useAppUpdate')
+    const m = new Map<string, string>()
+    const s = { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => { m.set(k, v) } }
+    expect(mayAutoReload(1_000_000, s)).toBe(true)
+    expect(mayAutoReload(1_000_000 + 60_000, s)).toBe(false)
+    expect(mayAutoReload(1_000_000 + 121_000, s)).toBe(true)
+  })
+})

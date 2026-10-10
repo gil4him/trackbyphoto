@@ -151,7 +151,7 @@ function App() {
   // True once a newer build has been deployed than the one we're running.
   const updateReady = useAppUpdate()
   // A parent's linked phone updates itself; family gets the prompt below.
-  useReloadOnReturn(updateReady && !!elder)
+  useReloadOnReturn(!!elder)
   const { memos } = useMemos(activePatientUid || undefined)
 
   // v2 reactions: off until the rollout flag in admin_config/plans is on.
