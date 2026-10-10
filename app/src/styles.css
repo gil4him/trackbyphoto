@@ -400,6 +400,25 @@ main { padding: 18px 22px calc(110px + var(--safe-bot)); }
 .kakao-btn:disabled { opacity: 0.6; cursor: wait; }
 
 /* ---------- BOTTOM NAV (4 tabs) ---------- */
+/* The floating camera button (components/CameraFab.tsx): bottom-right,
+   above the tab bar, centred with the 480px column like the tab bar. */
+.cam-fab-wrap {
+  position: fixed; left: 0; right: 0; bottom: calc(92px + var(--safe-bot));
+  max-width: 480px; margin: 0 auto; padding: 0 16px;
+  display: flex; justify-content: flex-end; pointer-events: none; z-index: 55;
+}
+.cam-fab {
+  pointer-events: auto; width: 58px; height: 58px; border-radius: 50%; border: 0; padding: 15px;
+  background: linear-gradient(135deg, var(--coral1), var(--coral2));
+  box-shadow: 0 10px 26px rgba(255,107,107,.42); cursor: pointer;
+}
+.cam-fab svg { width: 100%; height: 100%; display: block; }
+.cam-fab:active:not(:disabled) { transform: scale(.94); }
+.cam-fab:disabled { opacity: .55; }
+/* The parent app has no tab bar: lower, and bigger to tap. */
+.elder-mode .cam-fab-wrap { bottom: calc(22px + var(--safe-bot)); }
+.elder-mode .cam-fab { width: 68px; height: 68px; padding: 17px; }
+
 nav.tabbar {
   position: fixed; left: 0; right: 0; bottom: 0;
   max-width: 480px; margin: 0 auto;
