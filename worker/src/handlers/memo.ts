@@ -48,6 +48,7 @@ import { areaOf, readableText, storedOnlyMemo, stubActivity, type VisionTags } f
 import { homeHintFor, localTimeHint, resolveGeoLang } from '../travel.js'
 import { pushToUsers, type PushMessage } from './push.js'
 import { accountPhotoSafely } from './usage.js'
+import { edition } from '../config.js'
 
 /** Failed generations on one photo before falling back to the stub. */
 export const MAX_ATTEMPTS = 5
@@ -306,37 +307,40 @@ export async function processMemo(memoId: string, attempt: number, deps: MemoDep
 
   // Notify each active caregiver that a new photo is in — once per memo,
   // gated on notifiedAt so a worker restart mid-flight can't double-notify.
-  // Best-effort: never fail the memo over a notice.
+  // Best-effort: never fail the memo over a notice. The simple edition sends
+  // one notice a day instead (dailyNotice.ts) and none per photo.
   if (firstCompletion) {
-    try {
-      const cgs = await db.collection('memberships')
-        .where('patientUid', '==', patientUid)
-        .where('status', '==', 'active')
-        .get()
-      if (!cgs.empty) {
-        const patientName = (await db.collection('users').doc(patientUid).get()).data()?.patientName as string || '사용자'
-        const notifyBatch = db.batch()
-        cgs.forEach((d) => {
-          notifyBatch.set(db.collection('notifications').doc(), {
-            recipientUid: d.data().caregiverUid,
-            patientUid,
-            actorUid: patientUid,
-            type: 'photo.new',
-            message: `${patientName}님이 새 사진을 올렸어요`,
-            memoId,
-            read: false,
-            createdAt: FieldValue.serverTimestamp(),
+    if (edition() !== 'simple') {
+      try {
+        const cgs = await db.collection('memberships')
+          .where('patientUid', '==', patientUid)
+          .where('status', '==', 'active')
+          .get()
+        if (!cgs.empty) {
+          const patientName = (await db.collection('users').doc(patientUid).get()).data()?.patientName as string || '사용자'
+          const notifyBatch = db.batch()
+          cgs.forEach((d) => {
+            notifyBatch.set(db.collection('notifications').doc(), {
+              recipientUid: d.data().caregiverUid,
+              patientUid,
+              actorUid: patientUid,
+              type: 'photo.new',
+              message: `${patientName}님이 새 사진을 올렸어요`,
+              memoId,
+              read: false,
+              createdAt: FieldValue.serverTimestamp(),
+            })
           })
-        })
-        await notifyBatch.commit()
-        await (deps.push ?? pushToUsers)(cgs.docs.map((d) => d.data().caregiverUid as string), {
-          title: '오늘하루',
-          body: `${patientName}님이 새 사진을 올렸어요`,
-          data: { type: 'photo.new', patientUid, memoId },
-        })
+          await notifyBatch.commit()
+          await (deps.push ?? pushToUsers)(cgs.docs.map((d) => d.data().caregiverUid as string), {
+            title: '오늘하루',
+            body: `${patientName}님이 새 사진을 올렸어요`,
+            data: { type: 'photo.new', patientUid, memoId },
+          })
+        }
+      } catch (err) {
+        logger.warn('[notify] caregiver photo notice failed', { err: String(err) })
       }
-    } catch (err) {
-      logger.warn('[notify] caregiver photo notice failed', { err: String(err) })
     }
 
     // Roll up dashboard counters. A counter failure must not mark the memo

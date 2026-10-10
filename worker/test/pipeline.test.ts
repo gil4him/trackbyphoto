@@ -81,6 +81,23 @@ describe('processMemo', () => {
     expect(await count('notifications', 'type', 'photo.new')).toBe(1)
   })
 
+  it('simple edition: no per-photo notice or push (one daily notice instead)', async () => {
+    await seedMembership('p1', 'cg1')
+    await seedPending('m1')
+    const pushed: string[][] = []
+    process.env.EDITION = 'simple'
+    try {
+      expect(await processMemo('m1', 1, deps({ push: async (uids) => { pushed.push(uids); return 0 } }))).toBe('done')
+    } finally {
+      delete process.env.EDITION
+    }
+    expect((await memo('m1')).status).toBe('ready')
+    expect((await memo('m1')).notifiedAt).toBeTruthy()
+    expect(await count('notifications', 'type', 'photo.new')).toBe(0)
+    expect(pushed).toHaveLength(0)
+    expect((await db.doc('admin_totals/global').get()).data()!.memos).toBe(1)
+  })
+
   it('ignores a memo written on the phone and writes its own from the photo', async () => {
     await seedPending('m1', {
       deviceMemo: '오늘의 한 순간을 담았어요.\n\n지어낸 긴 이야기.',

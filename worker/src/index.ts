@@ -19,6 +19,7 @@
  *   GEMINI_API_KEY                  optional, Gemini memos for those let through (llm/route.ts)
  *   WORKER_STATE_DIR                default ~/.trackbyphoto/state
  *   APP_URL                         default https://trackbyphoto.web.app (links in pair/push/digest)
+ *   EDITION                         'simple' for the simple-core worker; default full (config.ts)
  *   FIRESTORE_EMULATOR_HOST etc.    honored by firebase-admin for local runs
  */
 
