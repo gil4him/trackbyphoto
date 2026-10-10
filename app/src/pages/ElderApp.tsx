@@ -15,7 +15,8 @@ import { useElderNews, type OpenNews } from '../hooks/useElderNews'
 import { unlinkedFrom } from '../lib/device'
 import { resetIfAccountGone } from '../hooks/useAuth'
 import { isSimple } from '../lib/edition'
-import type { Memo, Reaction, TextReplies } from '../types'
+import type { FamilyPhoto, Memo, Reaction, TextReplies } from '../types'
+import { cardLine } from '../lib/familyPhotosModel'
 
 /**
  * Everything a family-managed elder's phone shows: the capture screen, one
@@ -111,7 +112,13 @@ export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn
             <Today memos={memos} onOpen={setOpenId} uid={uid} readOnly />
           </>
         ) : isSimple() ? (
-          <ElderCamera uid={uid} reactions={reactions} onOpenRecords={() => setView('records')} />
+          <ElderCamera
+            uid={uid}
+            reactions={reactions}
+            photos={familyPhotosOn ? newPhotosLine(familyPhotos) : null}
+            onOpenRecords={() => setView('records')}
+            onOpenPhotos={() => setPhotosOpen(true)}
+          />
         ) : (
           <Home
             uid={uid}
@@ -134,4 +141,10 @@ export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn
       </main>
     </div>
   )
+}
+
+/** The camera's bubble line while a photo from family is new, else null. */
+function newPhotosLine(photos: FamilyPhoto[]): string | null {
+  const card = cardLine(photos)
+  return card?.lit ? card.line : null
 }

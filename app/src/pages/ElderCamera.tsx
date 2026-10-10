@@ -30,8 +30,11 @@ const OVERLAY_MS = 1500
 export type CameraPhase = 'starting' | 'live' | 'denied'
 export type Overlay = { ok: true; text: string } | { ok: false; text: string; sub: string }
 
-export function ElderCameraView({ phase, busy, overlay, news, ask = null, onShutter, onDismissNews, onOpenRecords, onRetry, onAskNext = () => {} }: {
+export function ElderCameraView({ phase, busy, overlay, news, photos = null, ask = null, onShutter, onDismissNews, onOpenRecords, onRetry, onOpenPhotos = () => {}, onAskNext = () => {} }: {
   phase: CameraPhase
+  /** "민수가 사진을 보냈어요" while a photo from family is new, else null. */
+  photos?: string | null
+  onOpenPhotos?: () => void
   /** A plain sentence before a permission question (ElderAsk), or null. */
   ask?: string | null
   onAskNext?: () => void
@@ -43,10 +46,18 @@ export function ElderCameraView({ phase, busy, overlay, news, ask = null, onShut
   onOpenRecords: () => void
   onRetry: () => void
 }) {
-  const item = news?.state === 'new' ? news.item : null
+  // A photo from family comes first; hearts and comments after it.
+  const item = !photos && news?.state === 'new' ? news.item : null
   return (
     <div className="elder-cam">
       <div id={FEED_ID} className="elder-cam-feed" />
+
+      {photos && (
+        <button type="button" className="elder-cam-bubble" onClick={onOpenPhotos}>
+          <span className="elder-cam-bubble-icon" aria-hidden="true">🖼️</span>
+          <span className="elder-cam-bubble-body"><span>{photos}</span></span>
+        </button>
+      )}
 
       {item && (
         <button type="button" className="elder-cam-bubble" onClick={onDismissNews}>
@@ -90,11 +101,14 @@ export function ElderCameraView({ phase, busy, overlay, news, ask = null, onShut
   )
 }
 
-export function ElderCamera({ uid, reactions, onOpenRecords }: {
+export function ElderCamera({ uid, reactions, photos = null, onOpenRecords, onOpenPhotos }: {
   uid: string
   /** This parent's reactions; null while reactions aren't rolled out. */
   reactions: Reaction[] | null
+  /** The line for a new photo from family (familyPhotosModel cardLine), or null. */
+  photos?: string | null
   onOpenRecords: () => void
+  onOpenPhotos?: () => void
 }) {
   const [phase, setPhase] = useState<CameraPhase>('starting')
   const [busy, setBusy] = useState(false)
@@ -212,6 +226,8 @@ export function ElderCamera({ uid, reactions, onOpenRecords }: {
       onDismissNews={onDismissNews}
       onOpenRecords={onOpenRecords}
       onRetry={restart}
+      photos={photos}
+      onOpenPhotos={() => { void stopPreview(); onOpenPhotos?.() }}
       ask={ask === 'camera' ? ASK_CAMERA : ask === 'location' ? ASK_LOCATION : null}
       onAskNext={onAskNext}
     />

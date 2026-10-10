@@ -79,4 +79,13 @@ describe('ElderCameraView', () => {
     expect(html).toContain('다음')
     expect(html).not.toContain('사진 찍기')
   })
+
+  it('shows a new photo from family first, before hearts and comments', () => {
+    const html = renderToString(
+      <ElderCameraView phase="live" busy={false} overlay={null} news={null} photos="지은이 사진을 보냈어요"
+        onShutter={() => {}} onDismissNews={() => {}} onOpenRecords={() => {}} onRetry={() => {}} />,
+    )
+    expect(html).toContain('지은이 사진을 보냈어요')
+    expect(html).toContain('🖼️')
+  })
 })
