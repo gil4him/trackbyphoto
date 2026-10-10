@@ -37,5 +37,6 @@ describe('Settings for a parent (full)', () => {
 
   it('', () => {
     for (const s of ['가족 관리', '언어', '자동 기록', '전송 시점', '사진 보관', 'Phase 1 안내']) expect(html).toContain(s)
+    expect(html).not.toContain('알림 시간')
   })
 })

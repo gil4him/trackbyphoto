@@ -18,7 +18,7 @@ import { RegisterElder } from './RegisterElder'
 import { ElderDevices } from '../components/ElderDevices'
 import { deleteManagedElder } from '../lib/pairing'
 import { getGeo, searchAddress, type AddressCandidate } from '../lib/location'
-import { DEFAULT_DIGEST, DIGEST_HOURS, saveDigestSettings } from '../lib/digest'
+import { DEFAULT_DIGEST, DIGEST_HOURS, noticeHourChoices, noticeHourLabel, saveDigestSettings } from '../lib/digest'
 import type { PlanReason } from '../lib/plan'
 import { S } from '../lib/strings'
 import type { PlanTier } from '../types'
@@ -675,6 +675,22 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
             ><span className="knob" /></button>
           </div>
           <div className="help">처음 말할 때 {settings.patientName}님 휴대폰이 마이크 사용을 한 번 물어봐요.</div>
+        </div>
+      )}
+
+      {/* Simple edition: when the daily "오늘 엄마님의 사진 n장" notice comes
+          (worker/src/handlers/dailyNotice.ts reads digest.hourLocal). */}
+      {simple && !isSelf && canManageHere && (
+        <div className="sect">
+          <div className="sect-lab">알림 시간</div>
+          <div className="seg">
+            {noticeHourChoices(digest.hourLocal).map((h) => (
+              <button key={h} className={digest.hourLocal === h ? 'on' : ''} disabled={digestBusy} onClick={() => changeDigest({ hourLocal: h })}>
+                {noticeHourLabel(h)}
+              </button>
+            ))}
+          </div>
+          <div className="help">매일 이 시간에 오늘 사진 몇 장인지 알려드려요</div>
         </div>
       )}
 

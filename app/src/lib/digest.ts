@@ -10,6 +10,20 @@ export const DEFAULT_DIGEST: DigestSettings = { cadence: 'daily', hourLocal: 20,
 /** Hours offered in 설정 → 하루 요약. */
 export const DIGEST_HOURS = [17, 18, 19, 20, 21, 22]
 
+/** Simple edition 알림 시간: when the daily "오늘 사진 n장" notice goes out. */
+export const NOTICE_HOURS = [18, 20, 22]
+
+/** The choices to show: the usual three, plus the stored hour if it's another. */
+export function noticeHourChoices(current: number): number[] {
+  return [...new Set([...NOTICE_HOURS, current])].sort((a, b) => a - b)
+}
+
+export function noticeHourLabel(h: number): string {
+  if (h >= 22) return `밤 ${h - 12}시`
+  if (h >= 17) return `저녁 ${h - 12}시`
+  return h < 12 ? `오전 ${h}시` : h === 12 ? '낮 12시' : `오후 ${h - 12}시`
+}
+
 /** Photos shown on the digest page before "+ 더 보기". */
 export const DIGEST_TILES = 9
 

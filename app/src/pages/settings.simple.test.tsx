@@ -35,6 +35,12 @@ describe('Settings for a parent (simple)', () => {
     for (const s of ['계정', '기기 관리', '사용자 이름', '글자 크기', '부모님 삭제']) expect(html).toContain(s)
   })
 
+  it('lets the family pick when the daily notice comes', () => {
+    expect(html).toContain('알림 시간')
+    expect(html).toContain('저녁 8시')
+    expect(html).toContain('매일 이 시간에 오늘 사진 몇 장인지 알려드려요')
+  })
+
   it('hides the full edition extras', () => {
     for (const s of ['가족 관리', '언어', '자동 기록', '전송 시점', '사진 보관', 'Phase 1 안내']) expect(html).not.toContain(s)
   })
