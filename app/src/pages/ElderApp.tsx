@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 import { doc, onSnapshot } from 'firebase/firestore'
 import { db } from '../firebase'
 import { Home } from './Home'
@@ -18,6 +18,9 @@ import { isSimple } from '../lib/edition'
 import type { FamilyPhoto, Memo, Reaction, TextReplies } from '../types'
 import { cardLine } from '../lib/familyPhotosModel'
 import { CameraFab } from '../components/CameraFab'
+import { TextSizeFab } from '../components/TextSizeFab'
+import { loadTextLevel, nextTextLevel, saveTextLevel } from '../lib/textScale'
+import { useToast } from '../components/Toast'
 
 /**
  * Everything a family-managed elder's phone shows: the capture screen, one
@@ -46,6 +49,9 @@ export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn
 }) {
   const [view, setView] = useState<'home' | 'records'>('home')
   const [openId, setOpenId] = useState<string | null>(null)
+  // Simple edition: the text size on 내 사진 and a memo (TextSizeFab).
+  const [textLevel, setTextLevel] = useState(loadTextLevel)
+  const toast = useToast()
   const [revoked, setRevoked] = useState(false)
   // The news the parent opened, kept as it was when they tapped the card.
   const [openNews, setOpenNews] = useState<OpenNews | null>(null)
@@ -91,6 +97,14 @@ export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn
 
   // The floating camera on 내 사진 and a memo: straight back to the first
   // screen (the camera in the simple edition, Home with 사진 찍기 in full).
+  const textStyle = { '--text-scale': isSimple() ? textLevel.scale : 1 } as CSSProperties
+  const biggerText = () => {
+    const next = nextTextLevel(textLevel)
+    setTextLevel(next)
+    saveTextLevel(next)
+    toast.show(`글자 크기: ${next.label}`, '')
+  }
+
   const backToCamera = () => {
     setOpenId(null)
     setView('home')
@@ -113,16 +127,18 @@ export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn
         ) : photosOpen ? (
           <FamilyPhotoViewer photos={familyPhotos} textMode={textMode} onDone={() => setPhotosOpen(false)} />
         ) : open ? (
-          <>
+          <div className="text-scaled" style={textStyle}>
             <MemoDetail memo={open} onBack={() => setOpenId(null)} readOnly />
+            {isSimple() && <TextSizeFab level={textLevel} onNext={biggerText} />}
             <CameraFab label="카메라로 돌아가기" onClick={backToCamera} />
-          </>
+          </div>
         ) : view === 'records' ? (
-          <>
+          <div className="text-scaled" style={textStyle}>
             <button className="elder-back" onClick={() => setView('home')}>‹ 처음으로</button>
             <Today memos={memos} onOpen={setOpenId} uid={uid} readOnly />
+            {isSimple() && <TextSizeFab level={textLevel} onNext={biggerText} />}
             <CameraFab label="카메라로 돌아가기" onClick={backToCamera} />
-          </>
+          </div>
         ) : isSimple() ? (
           <ElderCamera
             uid={uid}

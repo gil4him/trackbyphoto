@@ -419,6 +419,34 @@ main { padding: 18px 22px calc(110px + var(--safe-bot)); }
 .elder-mode .cam-fab-wrap { bottom: calc(22px + var(--safe-bot)); }
 .elder-mode .cam-fab { width: 68px; height: 68px; padding: 17px; }
 
+/* The parent's text size (TextSizeFab, lib/textScale.ts): "가" stacked above
+   the camera button; --text-scale on .text-scaled grows 내 사진 and a memo. */
+.text-fab-wrap {
+  position: fixed; left: 0; right: 0; bottom: calc(102px + var(--safe-bot));
+  max-width: 480px; margin: 0 auto; padding: 0 16px;
+  display: flex; justify-content: flex-end; pointer-events: none; z-index: 55;
+}
+.text-fab {
+  pointer-events: auto; width: 68px; height: 68px; border-radius: 50%; border: 0;
+  background: #fff; color: var(--ink); font: inherit; font-size: 30px; font-weight: 800;
+  box-shadow: 0 8px 22px rgba(0,0,0,.16), inset 0 0 0 1.5px var(--line);
+}
+.text-fab:active { transform: scale(.94); }
+.text-scaled { --text-scale: 1; padding-bottom: 96px; }
+.text-scaled .detail-memo { font-size: calc(22px * var(--text-scale)); }
+.text-scaled .d-scene { font-size: calc(17px * var(--text-scale)); }
+.text-scaled .d-scene.muted { font-size: calc(15px * var(--text-scale)); }
+.text-scaled .pill { font-size: calc(15px * var(--text-scale)); }
+.text-scaled .detail-section .d-label { font-size: calc(13px * var(--text-scale)); }
+.text-scaled .d-place { font-size: calc(16px * var(--text-scale)); }
+.text-scaled .d-address, .text-scaled .d-map-link { font-size: calc(14px * var(--text-scale)); }
+.text-scaled .q-datehdr { font-size: calc(16px * var(--text-scale)); }
+.text-scaled .tl-item .when { font-size: calc(14.5px * var(--text-scale)); }
+.text-scaled .tl-item .act { font-size: calc(19px * var(--text-scale)); }
+/* Bigger text wraps instead of being cut off. */
+.text-scaled .tl-item .desc { font-size: calc(14.5px * var(--text-scale)); white-space: normal; }
+.text-scaled .detail-memo, .text-scaled .d-scene, .text-scaled .d-place, .text-scaled .tl-item .act, .text-scaled .tl-item .desc { transition: font-size .15s ease; overflow-wrap: anywhere; }
+
 nav.tabbar {
   position: fixed; left: 0; right: 0; bottom: 0;
   max-width: 480px; margin: 0 auto;
