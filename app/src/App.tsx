@@ -186,7 +186,6 @@ function App() {
       selfUid: user.uid,
       patientUids: patients.map((p) => p.patientUid),
       names: patientNames,
-      simple: isSimple(),
     }))
     // Re-evaluate when the patients list arrives — a revoked membership
     // should bounce us back to self automatically.
@@ -580,7 +579,7 @@ function App() {
           </button>
         )}
         <main>
-          {!isSimple() && people.length > 0 && !selectedMemo && !openNews && !digestId && !trail && !voiceAlbum && (
+          {people.length > 0 && !selectedMemo && !openNews && !digestId && !trail && !voiceAlbum && (
             <PatientSwitcher
               selfUid={user.uid}
               selfLabel={selfLabel}

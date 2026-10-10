@@ -58,22 +58,11 @@ describe('consentButtonLabel', () => {
 describe('pickActivePatient', () => {
   const base = { selfUid: 'me', patientUids: ['mom', 'dad'], names: { mom: '엄마', dad: '아빠' } as Record<string, string | null> }
 
-  it('full: the stored choice while reachable, else yourself', () => {
-    expect(pickActivePatient({ ...base, stored: 'dad', simple: false })).toBe('dad')
-    expect(pickActivePatient({ ...base, stored: 'me', simple: false })).toBe('me')
-    expect(pickActivePatient({ ...base, stored: null, simple: false })).toBe('me')
-    expect(pickActivePatient({ ...base, stored: 'gone', simple: false })).toBe('me')
-    expect(pickActivePatient({ ...base, names: { mom: '엄마', dad: null }, stored: 'dad', simple: false })).toBe('me')
-  })
-
-  it('simple: always a parent when there is one', () => {
-    expect(pickActivePatient({ ...base, stored: null, simple: true })).toBe('mom')
-    expect(pickActivePatient({ ...base, stored: 'me', simple: true })).toBe('mom')
-    expect(pickActivePatient({ ...base, stored: 'dad', simple: true })).toBe('dad')
-    expect(pickActivePatient({ ...base, names: { mom: null, dad: '아빠' }, stored: null, simple: true })).toBe('dad')
-  })
-
-  it('simple, no parent yet: yourself', () => {
-    expect(pickActivePatient({ ...base, patientUids: [], names: {}, stored: 'me', simple: true })).toBe('me')
+  it('the stored choice while reachable, else yourself', () => {
+    expect(pickActivePatient({ ...base, stored: 'dad' })).toBe('dad')
+    expect(pickActivePatient({ ...base, stored: 'me' })).toBe('me')
+    expect(pickActivePatient({ ...base, stored: null })).toBe('me')
+    expect(pickActivePatient({ ...base, stored: 'gone' })).toBe('me')
+    expect(pickActivePatient({ ...base, names: { mom: '엄마', dad: null }, stored: 'dad' })).toBe('me')
   })
 })
