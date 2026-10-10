@@ -11,6 +11,8 @@ import { markRead } from '../lib/reactions'
 import type { Memo, MemoSource } from '../types'
 import { mapLink } from '../lib/memoViews'
 import { isSimple } from '../lib/edition'
+import { Capacitor } from '@capacitor/core'
+import { downloadPhoto, sharePhoto } from '../lib/photoShare'
 
 // 'stored-only' has no badge on purpose: nothing says a step was skipped.
 const SOURCE_BADGES: Partial<Record<MemoSource, { label: string; tone: 'good' | 'neutral' | 'warn' }>> = {
@@ -121,6 +123,21 @@ export function MemoDetail({ memo, onBack, readOnly = false, rx }: { memo: Memo;
 
   const mapUrl = mapLink(memo, isSimple())
 
+  const [sharing, setSharing] = useState(false)
+  const passOn = async (run: () => Promise<unknown>) => {
+    setSharing(true)
+    try {
+      await run()
+    } catch (err) {
+      console.error('[share] photo failed', err)
+      toast.show('사진을 보내지 못했어요', '잠시 후 다시 시도해 주세요')
+    } finally {
+      setSharing(false)
+    }
+  }
+  const onShare = () => passOn(() => sharePhoto(memo))
+  const onDownload = () => passOn(() => downloadPhoto(memo))
+
   return (
     <section className="page detail">
       <div className="detail-topbar">
@@ -145,6 +162,16 @@ export function MemoDetail({ memo, onBack, readOnly = false, rx }: { memo: Memo;
         {memo.activity && <span className="pill">{memo.activity}</span>}
         {memo.place && <span className="pill p">{memo.place}</span>}
       </div>
+
+      {/* Simple edition, family: pass the photo on (KakaoTalk, 이미지 저장). */}
+      {isSimple() && !readOnly && memo.photoUrl && (
+        <div className="detail-share">
+          <button className="share-btn" disabled={sharing} onClick={() => void onShare()}>공유하기</button>
+          {!Capacitor.isNativePlatform() && (
+            <button className="share-btn ghost" disabled={sharing} onClick={() => void onDownload()}>저장</button>
+          )}
+        </div>
+      )}
 
       <div className="detail-section">
         <div className="d-label">

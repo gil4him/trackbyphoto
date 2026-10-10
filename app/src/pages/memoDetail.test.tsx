@@ -34,4 +34,9 @@ describe('MemoDetail', () => {
     expect(out).toContain('<div class="d-label"><span>메모</span>')
     expect(out.match(/10월 6일/g)?.length).toBe(1)
   })
+
+  it('has no 공유하기 in the full edition', () => {
+    const out = renderToString(<ToastProvider><MemoDetail memo={memo} onBack={() => {}} /></ToastProvider>)
+    expect(out).not.toContain('공유하기')
+  })
 })
