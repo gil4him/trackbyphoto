@@ -9,7 +9,8 @@ import { useWorkerStatus } from '../hooks/useWorkerStatus'
 import { Reactions, type ReactionsContext } from '../components/Reactions'
 import { markRead } from '../lib/reactions'
 import type { Memo, MemoSource } from '../types'
-import { mapLink } from '../lib/memoViews'
+import { detailActions, mapLink, type DetailAction } from '../lib/memoViews'
+import { BottomSheet } from '../components/BottomSheet'
 import { isSimple } from '../lib/edition'
 import { Capacitor } from '@capacitor/core'
 import { downloadPhoto, sharePhoto } from '../lib/photoShare'
@@ -35,6 +36,8 @@ const BODY_MAX = 200
  * sentences, then the place. Family can correct the text by hand or ask the
  * worker to write it again from the photo.
  * `readOnly` (an elder's linked phone): no delete, no edit.
+ * The header holds back, the date and ⋯, which opens the rest (공유하기,
+ * 저장, 수정, 다시 쓰기, 삭제) in a sheet; 공유하기 also stays under the photo.
  */
 export function MemoDetail({ memo, onBack, readOnly = false, rx }: { memo: Memo; onBack: () => void; readOnly?: boolean; rx?: ReactionsContext }) {
   const toast = useToast()
@@ -111,8 +114,12 @@ export function MemoDetail({ memo, onBack, readOnly = false, rx }: { memo: Memo;
     }
   }
 
+  // The ⋯ sheet: its menu, or 삭제's confirmation in its place.
+  const [sheet, setSheet] = useState<null | 'menu' | 'confirm'>(null)
+  const closeSheet = () => setSheet(null)
+
   const onDelete = () => {
-    if (!confirm('이 사진을 삭제할까요?')) return
+    setSheet(null)
     deleteMemo({ memoId: memo.id, photoPath: memo.photoPath })
       .then(onBack)
       .catch((err) => {
@@ -138,12 +145,52 @@ export function MemoDetail({ memo, onBack, readOnly = false, rx }: { memo: Memo;
   const onShare = () => passOn(() => sharePhoto(memo))
   const onDownload = () => passOn(() => downloadPhoto(memo))
 
+  const actions = detailActions({
+    simple: isSimple(), readOnly, native: Capacitor.isNativePlatform(),
+    hasPhoto: !!memo.photoUrl, hasMemo: !!memo.memo, rewriting,
+  })
+  const ACTION_LABELS: Record<DetailAction, string> = { share: '공유하기', save: '사진 저장', edit: '직접 수정', rewrite: 'AI로 다시 쓰기', delete: '삭제' }
+  const runAction = (a: DetailAction) => {
+    if (a === 'delete') return setSheet('confirm')
+    setSheet(null)
+    if (a === 'share') void onShare()
+    else if (a === 'save') void onDownload()
+    else if (a === 'edit') startEdit()
+    else void rewrite()
+  }
+  const canShare = actions.includes('share')
+
   return (
     <section className="page detail">
-      <div className="detail-topbar">
-        <button className="back" onClick={onBack} aria-label="뒤로가기">‹ 뒤로</button>
-        {!readOnly && <button className="del-text" onClick={onDelete}>삭제</button>}
+      <div className="detail-head">
+        <button type="button" className="head-btn" onClick={onBack} aria-label="뒤로가기">‹</button>
+        <div className="detail-head-when">{fmtDate(takenAt)} · {fmtTime(takenAt)}</div>
+        {actions.length > 0
+          ? <button type="button" className="head-btn" onClick={() => setSheet('menu')} aria-label="더보기" aria-haspopup="dialog">⋯</button>
+          : <span className="head-btn-space" aria-hidden="true" />}
       </div>
+
+      {sheet === 'menu' && (
+        <BottomSheet onClose={closeSheet}>
+          {actions.map((a) => (
+            <button
+              key={a}
+              type="button"
+              className={`sheet-item${a === 'delete' ? ' danger sep' : ''}`}
+              disabled={(a === 'share' || a === 'save') ? sharing : (a !== 'delete' && saving)}
+              onClick={() => runAction(a)}
+            >{ACTION_LABELS[a]}</button>
+          ))}
+          <button type="button" className="sheet-cancel" onClick={closeSheet}>취소</button>
+        </BottomSheet>
+      )}
+      {sheet === 'confirm' && (
+        <BottomSheet title="이 사진을 삭제할까요?" onClose={closeSheet}>
+          <p className="sheet-sub">삭제한 사진은 되돌릴 수 없어요</p>
+          <button type="button" className="sheet-danger-btn" onClick={onDelete}>삭제</button>
+          <button type="button" className="sheet-cancel" onClick={closeSheet}>취소</button>
+        </BottomSheet>
+      )}
 
       {/* Photo header — falls back to a category-tinted gradient if no
           image yet (still uploading) so the review screen never goes blank. */}
@@ -158,29 +205,30 @@ export function MemoDetail({ memo, onBack, readOnly = false, rx }: { memo: Memo;
       </div>
 
       <div className="detail-meta">
-        <span className="pill t">{fmtDate(takenAt)} · {fmtTime(takenAt)}</span>
         {memo.activity && <span className="pill">{memo.activity}</span>}
         {memo.place && <span className="pill p">{memo.place}</span>}
       </div>
 
       {/* Simple edition, family: pass the photo on (KakaoTalk, 이미지 저장). */}
-      {isSimple() && !readOnly && memo.photoUrl && (
+      {canShare && (
         <div className="detail-share">
           <button className="share-btn" disabled={sharing} onClick={() => void onShare()}>공유하기</button>
-          {!Capacitor.isNativePlatform() && (
-            <button className="share-btn ghost" disabled={sharing} onClick={() => void onDownload()}>저장</button>
-          )}
         </div>
       )}
 
       <div className="detail-section">
         <div className="d-label">
           <span>메모</span>
-          {rewriting
-            ? <span className="src-badge tone-neutral">{serverDown ? '서버가 쉬는 중' : '다시 쓰는 중…'}</span>
-            : memo.humanEdited
-              ? <span className="src-badge tone-good">직접 작성</span>
-              : badge && <span className={`src-badge tone-${badge.tone}`}>{badge.label}</span>}
+          <span className="d-label-end">
+            {rewriting
+              ? <span className="src-badge tone-neutral">{serverDown ? '서버가 쉬는 중' : '다시 쓰는 중…'}</span>
+              : memo.humanEdited
+                ? <span className="src-badge tone-good">직접 작성</span>
+                : badge && <span className={`src-badge tone-${badge.tone}`}>{badge.label}</span>}
+            {actions.includes('edit') && !editing && (
+              <button type="button" className="d-edit-link" disabled={saving} onClick={startEdit}>수정</button>
+            )}
+          </span>
         </div>
         {editing ? (
           <div className="d-edit">
@@ -210,12 +258,6 @@ export function MemoDetail({ memo, onBack, readOnly = false, rx }: { memo: Memo;
             {body
               ? <p className="d-scene">{body}</p>
               : <p className="d-scene muted">{memo.memo ? '설명이 아직 없어요.' : waitingText}</p>}
-            {!readOnly && memo.memo && !rewriting && (
-              <div className="d-actions">
-                <button className="d-btn-secondary" disabled={saving} onClick={rewrite}>AI로 다시 쓰기</button>
-                <button className="d-btn-secondary" disabled={saving} onClick={startEdit}>직접 수정</button>
-              </div>
-            )}
           </>
         )}
       </div>

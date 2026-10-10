@@ -25,8 +25,8 @@ const render = () =>
   renderToString(<ToastProvider><MemoDetail memo={memo} onBack={() => {}} readOnly /></ToastProvider>).replace(/<!-- -->/g, '')
 
 describe('MemoDetail', () => {
-  it('shows the date and time together in the pill', () => {
-    expect(render()).toContain('<span class="pill t">10월 6일 (화) · 오후 2:30</span>')
+  it('shows the date and time together in the header', () => {
+    expect(render()).toContain('<div class="detail-head-when">10월 6일 (화) · 오후 2:30</div>')
   })
 
   it('labels the memo box instead of repeating the date', () => {
@@ -38,5 +38,6 @@ describe('MemoDetail', () => {
   it('has no 공유하기 in the full edition', () => {
     const out = renderToString(<ToastProvider><MemoDetail memo={memo} onBack={() => {}} /></ToastProvider>)
     expect(out).not.toContain('공유하기')
+    expect(out).toContain('aria-label="더보기"') // 수정 · 다시 쓰기 · 삭제
   })
 })

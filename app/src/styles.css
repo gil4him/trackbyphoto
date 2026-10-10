@@ -207,13 +207,25 @@ main { padding: 18px 22px calc(110px + var(--safe-bot)); }
 
 /* ---------- MEMO DETAIL (review-style) ---------- */
 .detail { padding-bottom: 16px; }
-.detail-topbar { display: flex; justify-content: space-between; align-items: center; margin: -4px 0 12px; }
-.detail-topbar .back, .detail-topbar .del-text {
-  border: none; background: transparent; font-size: 16px; font-weight: 700;
-  padding: 8px 4px; cursor: pointer; font-family: inherit;
+/* Header: back · date · ⋯, frosted and up behind the status bar like the
+   account bar, staying put while the page scrolls. */
+.detail-head {
+  position: sticky; top: 0; z-index: 40;
+  margin: calc(-18px - var(--safe-top)) -22px 14px;
+  padding: calc(var(--safe-top) + 8px) 14px 8px;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  background: rgba(255,255,255,.92);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--line);
 }
-.detail-topbar .back { color: var(--ink-2); }
-.detail-topbar .del-text { color: var(--danger); }
+.head-btn, .head-btn-space { flex: none; width: 42px; height: 42px; }
+.head-btn {
+  border: none; border-radius: 50%; background: rgba(0,0,0,.05);
+  font: inherit; font-size: 24px; font-weight: 700; line-height: 1; color: var(--ink);
+  display: grid; place-items: center; cursor: pointer; padding: 0 0 2px;
+}
+.head-btn:active { background: rgba(0,0,0,.1); }
+.detail-head-when { flex: 1; min-width: 0; text-align: center; font-size: 15px; font-weight: 700; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* Photo header: real photo when available, gradient as caption strip when not. */
 .detail-photo {
@@ -252,7 +264,9 @@ main { padding: 18px 22px calc(110px + var(--safe-bot)); }
 
 .d-scene { margin: 0; font-size: 17px; line-height: 1.65; color: var(--ink); }
 .d-scene.muted { color: var(--muted); font-size: 15px; }
-.d-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
+.d-label-end { display: inline-flex; align-items: center; gap: 10px; }
+.d-edit-link { border: none; background: none; padding: 4px 2px; font: inherit; font-size: 14px; font-weight: 700; color: var(--coral2); letter-spacing: 0; cursor: pointer; }
+.d-edit-link:disabled { opacity: .5; }
 .d-edit label { display: block; font-size: 12px; font-weight: 700; color: var(--muted); margin: 8px 0 4px; }
 .d-edit input {
   width: 100%; border: 1px solid var(--line); border-radius: 12px;
@@ -642,41 +656,83 @@ nav.tabbar .tab.on .tab-avatar { box-shadow: 0 0 0 2px var(--coral2); }
 
 /* ---------- CAREGIVER-SHARE: switcher, accept, invite modal ---------- */
 
-/* Patient context switcher pill, rendered at the top of main when the
-   signed-in user is a caregiver on ≥1 patient. Sits flush with the page so
-   it doesn't visually compete with the tab bar. */
-/* Account bar — full-width bar pinned to the top of every page (both modes).
-   Light for self, blue for caregiver. Only rendered when there's another
-   account to switch to (App guards on patients.length > 0). */
+/* Account bar — frosted, edge to edge, reaching up behind the status bar
+   like the tab bar at the bottom. Only rendered when there's another account
+   to switch to (App guards on people.length > 0). A soft blue and a blue
+   avatar while viewing a parent (the whole app turns blue too). */
 .acct-bar {
   position: sticky; top: 0; z-index: 40;
-  margin: -18px -22px 14px;            /* cancel main's top + side padding → edge-to-edge top bar */
+  /* cancel main's top + side padding and .app's safe-top → up to the screen edge */
+  margin: calc(-18px - var(--safe-top)) -22px 14px;
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
-  padding: 11px 18px;
+  padding: calc(var(--safe-top) + 10px) 18px 10px;
   background: rgba(255,255,255,.92);
-  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--line);
 }
-.acct-bar.caregiver {
-  background: linear-gradient(135deg, #0A84FF, #4DA3FF);
-  border-bottom-color: transparent; color: #fff;
-  box-shadow: 0 8px 20px -10px rgba(10,132,255,.6);
+.acct-bar.caregiver { background: rgba(234,244,255,.94); border-bottom-color: #CFE3FB; }
+.acct-chip { display: inline-flex; align-items: center; gap: 10px; min-width: 0; min-height: 40px; background: none; border: none; font: inherit; cursor: pointer; padding: 0; color: var(--ink); }
+.acct-chip:active { opacity: .7; }
+.acct-avatar {
+  flex: none; width: 30px; height: 30px; border-radius: 50%;
+  display: grid; place-items: center;
+  font-size: 14px; font-weight: 800; color: #fff;
+  background: linear-gradient(135deg, #FFB088, #FF6B6B);
 }
-.acct-chip { display: inline-flex; align-items: center; gap: 8px; min-width: 0; background: none; border: none; font: inherit; cursor: pointer; padding: 0; color: inherit; }
-.acct-eye { font-size: 16px; flex: none; }
-.acct-name { font-weight: 800; font-size: 16px; color: inherit; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.acct-tag { flex: none; font-size: 12.5px; font-weight: 700; color: var(--muted); }
-.acct-return { flex: none; background: rgba(255,255,255,.22); border: 1px solid rgba(255,255,255,.6); color: #fff; font: inherit; font-weight: 700; font-size: 13px; border-radius: 999px; padding: 7px 12px; cursor: pointer; }
+.acct-avatar.parent { background: linear-gradient(135deg, #5AB0F0, #0A84FF); }
+.acct-name { font-weight: 800; font-size: 17px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ps-caret { color: var(--muted); font-size: 16px; flex: none; margin-top: -4px; }
+.acct-return {
+  flex: none; background: #fff; border: 1.5px solid #0A84FF; color: #0A84FF;
+  font: inherit; font-weight: 700; font-size: 14px; border-radius: 999px; padding: 7px 14px; cursor: pointer;
+}
 .acct-return:active { transform: scale(.96); }
-.ps-caret { color: var(--muted); font-size: 14px; flex: none; }
-.acct-bar.caregiver .ps-caret { color: rgba(255,255,255,.85); }
 
-.ps-menu { position: absolute; top: calc(100% + 4px); left: 8px; right: 8px; background: #fff; border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 12px 32px rgba(0,0,0,0.12); padding: 6px; z-index: 50; }
-.ps-item { display: flex; flex-direction: column; gap: 2px; width: 100%; background: transparent; border: none; border-radius: 10px; padding: 10px 12px; cursor: pointer; text-align: left; font: inherit; }
-.ps-item:hover { background: #FAF7F1; }
-.ps-item.on  { background: linear-gradient(135deg, #FFF1DA, #FFFBF1); }
-.ps-item-name { font-weight: 700; color: var(--ink); }
-.ps-item-sub  { font-size: 12px; color: var(--muted); }
+/* 보기 전환 rows in the sheet */
+.ps-row { display: flex; align-items: center; gap: 12px; text-align: left; }
+.ps-row .acct-avatar { width: 36px; height: 36px; font-size: 16px; }
+.ps-row-text { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.ps-row-name { font-weight: 700; font-size: 17px; color: var(--ink); }
+.ps-row-sub { font-size: 13px; color: var(--muted); font-weight: 500; }
+.ps-row.on { background: #FFF6EF; }
+.ps-check { color: var(--coral2); font-weight: 800; font-size: 18px; }
+
+/* ---------- Bottom sheet (components/BottomSheet.tsx) ---------- */
+.sheet-backdrop {
+  position: fixed; inset: 0; z-index: 300;
+  background: rgba(20,18,14,.4);
+  display: flex; align-items: flex-end; justify-content: center;
+  animation: sheet-fade .18s ease;
+}
+.sheet {
+  width: 100%; max-width: 480px;
+  background: #fff; border-radius: 22px 22px 0 0;
+  padding: 8px 12px calc(var(--safe-bot) + 12px);
+  box-shadow: 0 -12px 40px rgba(0,0,0,.15);
+  animation: sheet-up .22s cubic-bezier(.2,.8,.2,1);
+  max-height: 85vh; overflow-y: auto;
+}
+.sheet-grab { width: 38px; height: 5px; border-radius: 3px; background: #DDD7CE; margin: 2px auto 8px; }
+.sheet-title { font-size: 15px; font-weight: 700; color: var(--muted); text-align: center; padding: 4px 0 10px; }
+.sheet-sub { margin: -4px 0 14px; text-align: center; font-size: 15px; color: var(--ink-2); }
+.sheet-item {
+  display: flex; align-items: center; width: 100%; min-height: 54px;
+  padding: 10px 14px; border: none; border-radius: 14px; background: transparent;
+  font: inherit; font-size: 17px; font-weight: 600; color: var(--ink); text-align: left; cursor: pointer;
+}
+.sheet-item:active { background: #F6F2EC; }
+.sheet-item:disabled { opacity: .45; }
+.sheet-item.danger { color: var(--danger); }
+.sheet-item.sep { margin-top: 6px; border-top: 1px solid var(--line); border-radius: 0 0 14px 14px; }
+.sheet-cancel, .sheet-danger-btn {
+  display: block; width: 100%; min-height: 52px; margin-top: 8px;
+  border: none; border-radius: 14px; font: inherit; font-size: 17px; font-weight: 700; cursor: pointer;
+}
+.sheet-cancel { background: #F4F1EC; color: var(--ink-2); }
+.sheet-danger-btn { background: var(--danger); color: #fff; }
+.sheet-cancel:active, .sheet-danger-btn:active { transform: scale(.98); }
+@keyframes sheet-up { from { transform: translateY(100%); } to { transform: none; } }
+@keyframes sheet-fade { from { opacity: 0; } to { opacity: 1; } }
 
 /* ───────── Caregiver mode ─────────
    Viewing someone else's account recolors the whole app from coral → blue and

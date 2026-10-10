@@ -735,7 +735,7 @@ function App() {
         <FamilyCamera
           uid={user.uid}
           viewingOther={activePatientUid !== null && activePatientUid !== user.uid}
-          show={(tab !== 'home' || !!selectedMemo || !!trail || voiceAlbum || !!digestId || !!openNews) && !sendTarget && !planSheet && !connectingParent}
+          show={(tab !== 'home' || !!trail || voiceAlbum || !!digestId || !!openNews) && !selectedMemo && !sendTarget && !planSheet && !connectingParent}
         />
         <Tabs active={tab} onChange={onTabChange} avatarUrl={user.photoURL ?? undefined} unreadCount={notifications.length} showAlerts={pushOn || digestOn} />
       </div>
