@@ -9,3 +9,8 @@ export const EDITION: Edition =
 export function isSimple(): boolean {
   return EDITION === 'simple'
 }
+
+/** The browser tab / home-screen name: the simple edition is just 오늘하루. */
+export function appTitle(simple = isSimple()): string {
+  return simple ? '오늘하루' : '오늘하루 · TrackByPhoto'
+}

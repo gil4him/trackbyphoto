@@ -32,7 +32,7 @@ import { ElderPairStart } from './pages/ElderPairStart'
 import { PairLanding } from './pages/PairLanding'
 import { RegisterElder } from './pages/RegisterElder'
 import { ConnectParentCard } from './components/ConnectParentCard'
-import { isSimple } from './lib/edition'
+import { appTitle, isSimple } from './lib/edition'
 import { ElderApp } from './pages/ElderApp'
 import { SuperAdmin, ADMIN_EMAIL } from './pages/SuperAdmin'
 import { Ask } from './components/Ask'
@@ -300,7 +300,7 @@ function App() {
     if (n > 0) nav.setAppBadge?.(n).catch(() => {})
     else nav.clearAppBadge?.().catch(() => {})
     setFaviconBadge(n)
-    document.title = n > 0 ? `(${n}) 오늘하루 · TrackByPhoto` : '오늘하루 · TrackByPhoto'
+    document.title = n > 0 ? `(${n}) ${appTitle()}` : appTitle()
   }, [notifications.length])
 
   const isAdminRoute =

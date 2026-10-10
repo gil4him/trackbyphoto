@@ -22,10 +22,22 @@ function wellKnown(mode: string): Plugin {
   }
 }
 
+// Each edition's own name in the tab title and the web-app manifest
+// (src/lib/edition.ts appTitle at runtime).
+const titleFor = (mode: string) => (mode === 'simple' ? '오늘하루' : '오늘하루 · TrackByPhoto')
+
+function editionTitle(mode: string): Plugin {
+  return {
+    name: 'daylie-title',
+    transformIndexHtml: (html) => html.replace(/<title>.*<\/title>/, `<title>${titleFor(mode)}</title>`),
+  }
+}
+
 export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
     wellKnown(mode),
+    editionTitle(mode),
     VitePWA({
       // Parents use the website from a home-screen icon, so the app's own
       // files are kept on the phone: it opens at once, on a weak connection
@@ -54,7 +66,7 @@ export default defineConfig(({ mode }) => ({
       },
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       manifest: {
-        name: '오늘하루 · TrackByPhoto',
+        name: titleFor(mode),
         short_name: '오늘하루',
         description: '한 번의 터치로 오늘의 순간을 가족에게 전합니다.',
         lang: 'ko',
