@@ -270,7 +270,9 @@ export function buildPairMessage(patientName: string, url: string, code: string,
       `아래 링크를 눌러 오늘하루 앱을 설치해 주세요. (${hours}시간 유효)`,
       url,
       '설치 후 이 링크를 한 번 더 눌러주세요.',
-      `앱에서는 코드 ${code.slice(0, 4)} ${code.slice(4)} 를 입력하세요.`,
+      '',
+      `연결 코드: ${code.slice(0, 4)} ${code.slice(4)}`,
+      "(직접 넣을 때는 앱에서 '코드 입력'을 눌러 주세요)",
     ].join('\n')
   }
   return [

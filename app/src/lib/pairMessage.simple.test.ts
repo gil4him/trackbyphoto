@@ -15,7 +15,8 @@ describe('simple pairing message', () => {
     expect(text).toContain('앱을 설치해 주세요. (24시간 유효)')
     expect(text).toContain('https://dayliesimple.web.app/pair?c=ABCD2345')
     expect(text).toContain('설치 후 이 링크를 한 번 더 눌러주세요.')
-    expect(text).toContain('ABCD 2345')
+    expect(text.split('\n')).toContain('연결 코드: ABCD 2345')
+    expect(text).toContain("앱에서 '코드 입력'을 눌러 주세요")
   })
 })
 
