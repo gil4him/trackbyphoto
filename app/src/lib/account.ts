@@ -38,4 +38,9 @@ export function forgetAccountKeys(uid: string): void {
 export async function deleteMyAccount(uid: string): Promise<void> {
   await callWorker('deleteMyAccount', {}, { timeoutMs: 120_000 })
   forgetAccountKeys(uid)
+  // Photos and voice replies still waiting on this phone go too.
+  await Promise.all([
+    import('./outboxBackend').then((m) => m.outbox.drop(uid)),
+    import('./voiceOutbox').then((m) => m.voiceOutbox.drop(uid)),
+  ]).catch(() => {})
 }
