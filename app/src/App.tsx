@@ -28,6 +28,7 @@ import { SignIn } from './pages/SignIn'
 import { AcceptInvite, PENDING_INVITE_KEY } from './pages/AcceptInvite'
 import { PairDevice } from './pages/PairDevice'
 import { ElderPairStart } from './pages/ElderPairStart'
+import { PairLanding } from './pages/PairLanding'
 import { RegisterElder } from './pages/RegisterElder'
 import { ConnectParentCard } from './components/ConnectParentCard'
 import { isSimple } from './lib/edition'
@@ -302,6 +303,18 @@ function App() {
       <div className="app">
         <main style={{ display: 'grid', placeItems: 'center', minHeight: '60vh' }}>
           <div style={{ color: 'var(--ink-2)' }}>준비 중이에요…</div>
+        </main>
+      </div>
+    )
+  }
+
+  // The simple edition is a store app: on the web, a /pair link only helps
+  // the parent's phone install it (PairLanding).
+  if (pairCode !== null && isSimple() && !Capacitor.isNativePlatform()) {
+    return (
+      <div className="app">
+        <main>
+          <PairLanding initialCode={pairCode} />
         </main>
       </div>
     )
