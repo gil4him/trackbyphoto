@@ -1028,6 +1028,15 @@ html:not(.camera-live) .elder-cam { background: #000; }
 }
 .elder-cam-records, .elder-cam-bar-spacer { width: 84px; }
 .elder-cam-bar-spacer { display: flex; justify-content: flex-end; }
+/* Right of the shutter: the camera switch, with 아이콘 만들기 above it. */
+.elder-cam-bar-side { position: relative; width: 84px; display: flex; justify-content: center; }
+.elder-cam-bar-side .elder-cam-install { position: absolute; bottom: calc(100% + 12px); right: 0; }
+.elder-cam-flip {
+  width: 64px; height: 64px; border-radius: 50%; border: 0; padding: 16px;
+  background: rgba(0, 0, 0, .45); color: #fff;
+}
+.elder-cam-flip svg { width: 100%; height: 100%; display: block; }
+.elder-cam-flip:disabled { opacity: .5; }
 .elder-cam-install {
   width: 84px; min-height: 60px; padding: 0 6px; border: 0; border-radius: 18px;
   background: rgba(0, 0, 0, .45); color: #fff; font: inherit; font-size: 15px; font-weight: 700; line-height: 1.25;

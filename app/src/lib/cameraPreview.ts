@@ -23,6 +23,9 @@ export const WEB_VIDEO_CLASS = 'elder-cam-video'
 
 let running = false
 let starting: Promise<void> | null = null
+/** Which camera shows: the back one first; flipCamera switches. */
+let facing: 'rear' | 'front' = 'rear'
+let lastStart: { parentId: string; opts: PreviewOptions } | null = null
 
 export interface PreviewOptions {
   /** Native only. true (default): shots are written to a file for savePhoto.
@@ -34,12 +37,13 @@ export interface PreviewOptions {
 export async function startPreview(parentId: string, opts: PreviewOptions = {}): Promise<void> {
   if (running) return
   if (starting) return starting
+  lastStart = { parentId, opts }
   starting = (async () => {
     if (isNative) {
       document.documentElement.classList.add(LIVE_CLASS)
       try {
         await CameraPreview.start({
-          position: 'rear',
+          position: facing,
           toBack: true,
           storeToFile: opts.storeToFile ?? true,
           disableAudio: true,
@@ -51,7 +55,7 @@ export async function startPreview(parentId: string, opts: PreviewOptions = {}):
         throw err
       }
     } else {
-      await CameraPreview.start({ parent: parentId, className: WEB_VIDEO_CLASS, position: 'rear', disableAudio: true })
+      await CameraPreview.start({ parent: parentId, className: WEB_VIDEO_CLASS, position: facing, disableAudio: true })
     }
     running = true
   })()
@@ -73,6 +77,22 @@ export async function stopPreview(): Promise<void> {
   } catch (err) {
     console.warn('[cameraPreview] stop failed', err)
   }
+}
+
+/**
+ * Switch between the back and front camera. The phone app flips the running
+ * preview; a browser can't, so the preview restarts facing the other way.
+ */
+export async function flipCamera(): Promise<'rear' | 'front'> {
+  facing = facing === 'rear' ? 'front' : 'rear'
+  if (isNative && running) {
+    await CameraPreview.flip()
+  } else if (lastStart) {
+    const { parentId, opts } = lastStart
+    await stopPreview()
+    await startPreview(parentId, opts)
+  }
+  return facing
 }
 
 export function isPreviewRunning(): boolean {

@@ -88,4 +88,9 @@ describe('ElderCameraView', () => {
     expect(html).toContain('지은이 사진을 보냈어요')
     expect(html).toContain('🖼️')
   })
+
+  it('has a camera switch next to the shutter', () => {
+    const html = render({ phase: 'live' })
+    expect(html).toContain('aria-label="카메라 전환"')
+  })
 })

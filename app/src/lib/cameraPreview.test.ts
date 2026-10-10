@@ -5,11 +5,12 @@ const plugin = vi.hoisted(() => ({
   stop: vi.fn(async () => {}),
   capture: vi.fn(async () => ({ value: btoa('jpeg-bytes') })),
   captureSample: vi.fn(async () => ({ value: 'c2FtcGxl' })),
+  flip: vi.fn(async () => {}),
 }))
 vi.mock('@capacitor-community/camera-preview', () => ({ CameraPreview: plugin }))
 vi.mock('@capacitor/core', () => ({ Capacitor: { isNativePlatform: () => false, convertFileSrc: (p: string) => p } }))
 
-import { base64ToFile, capturePhoto, captureSampleBlob, isPreviewRunning, sampleToBlob, startPreview, stopPreview } from './cameraPreview'
+import { base64ToFile, capturePhoto, captureSampleBlob, flipCamera, isPreviewRunning, sampleToBlob, startPreview, stopPreview } from './cameraPreview'
 
 describe('base64ToFile', () => {
   it('decodes plain and data: URL base64', async () => {
@@ -77,5 +78,20 @@ describe('frame samples for QR scanning', () => {
     } finally {
       vi.unstubAllGlobals()
     }
+  })
+})
+
+describe('flipping the camera in a browser', () => {
+  it('restarts the preview facing the other way, and back', async () => {
+    await stopPreview()
+    vi.clearAllMocks()
+    await startPreview('cam')
+    expect(await flipCamera()).toBe('front')
+    expect(plugin.stop).toHaveBeenCalledTimes(1)
+    expect(plugin.start).toHaveBeenLastCalledWith(expect.objectContaining({ parent: 'cam', position: 'front' }))
+    expect(await flipCamera()).toBe('rear')
+    expect(plugin.start).toHaveBeenLastCalledWith(expect.objectContaining({ position: 'rear' }))
+    expect(plugin.flip).not.toHaveBeenCalled()
+    await stopPreview()
   })
 })
