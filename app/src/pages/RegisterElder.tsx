@@ -4,6 +4,7 @@ import { useToast } from '../components/Toast'
 import { isWorkerOffline, WorkerError, WORKER_OFFLINE_MESSAGE } from '../lib/worker'
 import { canShareRemotely, createManagedElder, createPairingLink, deleteManagedElder, formatPairCode, type PairingLink } from '../lib/pairing'
 import { isSimple } from '../lib/edition'
+import { simpleGuardianConsent } from '../lib/consent'
 import { nameTaken } from '../lib/people'
 import { buildPairMessage, openSMS, sharePairToKakao } from '../lib/share'
 import { deviceGeoLang } from '../util'
@@ -151,11 +152,17 @@ export function RegisterElder({ onClose, onRegistered, takenNames = [] }: {
             <div className="modal-title">부모님을 대신해 동의 <span className="step-no">{TOTAL}/{TOTAL}</span></div>
             <div className="modal-body">
               <p>{name.trim()}님을 대신해 아래 내용에 동의합니다.</p>
-              <ul className="consent-list">
-                <li>{name.trim()}님이 찍은 사진과 자동으로 작성된 메모(시간·장소)를 저장하고 처리해요.</li>
-                <li>그 사진·메모·위치를 초대된 가족에게 보여줘요.</li>
-                <li>{name.trim()}님이 가족에게 남기는 음성 답장(녹음과 받아쓴 글)을 저장하고 가족에게 들려줘요.</li>
-              </ul>
+              {simple ? (
+                <ul className="consent-list">
+                  {simpleGuardianConsent(name.trim()).map((line) => <li key={line}>{line}</li>)}
+                </ul>
+              ) : (
+                <ul className="consent-list">
+                  <li>{name.trim()}님이 찍은 사진과 자동으로 작성된 메모(시간·장소)를 저장하고 처리해요.</li>
+                  <li>그 사진·메모·위치를 초대된 가족에게 보여줘요.</li>
+                  <li>{name.trim()}님이 가족에게 남기는 음성 답장(녹음과 받아쓴 글)을 저장하고 가족에게 들려줘요.</li>
+                </ul>
+              )}
               <div className="help">
                 동의는 기록으로 남아요. {name.trim()}님 휴대폰을 처음 연결할 때 본인에게도 한 번 안내해요.
               </div>

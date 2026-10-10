@@ -5,7 +5,9 @@ import { auth, db } from '../firebase'
 import { signInAsElder, signInForPairing } from '../hooks/useAuth'
 import { useMemberships } from '../hooks/useMemberships'
 import { isSimple } from '../lib/edition'
-import { consentButtonLabel } from '../lib/people'
+import { sentToName } from '../lib/people'
+import { SIMPLE_CONSENT_VERSION, simpleConsentText } from '../lib/consent'
+import { SimpleConsent } from '../components/SimpleConsent'
 import { WorkerError, WORKER_OFFLINE_MESSAGE } from '../lib/worker'
 import {
   afterConnect,
@@ -158,7 +160,11 @@ export function PairDevice({ initialCode, alreadyLinked = false, autoConnect = f
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, pairingId])
 
+  // One 네 is enough: a second tap mustn't write a second record.
+  const [acking, setAcking] = useState(false)
   const acknowledge = async () => {
+    if (acking) return
+    setAcking(true)
     // The install dialog must be asked for straight from the tap, so it goes
     // first; the acknowledgement is written while the dialog is up.
     const next = afterConnect(currentInstallPath())
@@ -172,8 +178,9 @@ export function PairDevice({ initialCode, alreadyLinked = false, autoConnect = f
         type: 'notice_ack',
         grantedBy: 'self',
         guardianUid: null,
-        scope: NOTICE_TEXT,
-        consentTextVersion: MANAGED_CONSENT_VERSION,
+        // Simple: the exact sentence the parent said 네 to (SimpleConsent).
+        scope: isSimple() ? simpleConsentText(sentToName(caregivers)) : NOTICE_TEXT,
+        consentTextVersion: isSimple() ? SIMPLE_CONSENT_VERSION : MANAGED_CONSENT_VERSION,
         timestamp: serverTimestamp(),
       }).catch((e) => console.warn('[pair] notice ack failed', e))
     }
@@ -293,11 +300,15 @@ export function PairDevice({ initialCode, alreadyLinked = false, autoConnect = f
         </>
       )}
 
-      {step === 'notice' && (
+      {step === 'notice' && isSimple() && (
+        <SimpleConsent caregivers={caregivers} busy={acking} onAccept={() => void acknowledge()} />
+      )}
+
+      {step === 'notice' && !isSimple() && (
         <>
           <h1 className="pair-title">연결되었어요</h1>
           <p className="pair-notice">{NOTICE_TEXT}</p>
-          <button className="pair-btn" onClick={acknowledge}>{isSimple() ? consentButtonLabel(caregivers) : '확인'}</button>
+          <button className="pair-btn" onClick={acknowledge}>확인</button>
         </>
       )}
 

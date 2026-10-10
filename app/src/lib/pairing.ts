@@ -11,6 +11,8 @@
 import { Capacitor } from '@capacitor/core'
 import { callWorker } from './worker'
 import { PUBLIC_ORIGIN } from './publicUrl'
+import { isSimple } from './edition'
+import { SIMPLE_CONSENT_VERSION } from './consent'
 import type { UserSettings } from '../types'
 
 // The Mac mini can take a moment; an elder shouldn't see "offline" too early.
@@ -66,8 +68,15 @@ export async function createManagedElder(args: {
   patientName: string
   settings: Pick<UserSettings, 'cadence' | 'autoMode' | 'bigText' | 'geoLang'>
 }): Promise<{ patientUid: string }> {
-  // The consent screen (RegisterElder) includes voice replies since managed-v2.
-  return callWorker('createManagedElder', { ...args, consentTextVersion: MANAGED_CONSENT_VERSION, voiceConsent: true }, { timeoutMs: PAIR_TIMEOUT_MS })
+  return callWorker('createManagedElder', { ...args, ...managedConsent() }, { timeoutMs: PAIR_TIMEOUT_MS })
+}
+
+/** What RegisterElder's consent screen covered: voice replies since
+ *  managed-v2; the simple edition has none (lib/consent.ts). */
+export function managedConsent(): { consentTextVersion: string; voiceConsent: boolean } {
+  return isSimple()
+    ? { consentTextVersion: SIMPLE_CONSENT_VERSION, voiceConsent: false }
+    : { consentTextVersion: MANAGED_CONSENT_VERSION, voiceConsent: true }
 }
 
 export interface PairingLink {
