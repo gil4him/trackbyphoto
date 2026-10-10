@@ -17,6 +17,7 @@ import { resetIfAccountGone } from '../hooks/useAuth'
 import { isSimple } from '../lib/edition'
 import type { FamilyPhoto, Memo, Reaction, TextReplies } from '../types'
 import { cardLine } from '../lib/familyPhotosModel'
+import { CameraFab } from '../components/CameraFab'
 
 /**
  * Everything a family-managed elder's phone shows: the capture screen, one
@@ -88,6 +89,13 @@ export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn
     )
   }
 
+  // The floating camera on 내 사진 and a memo: straight back to the first
+  // screen (the camera in the simple edition, Home with 사진 찍기 in full).
+  const backToCamera = () => {
+    setOpenId(null)
+    setView('home')
+  }
+
   return (
     <div className="app elder-mode">
       <main>
@@ -105,11 +113,15 @@ export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn
         ) : photosOpen ? (
           <FamilyPhotoViewer photos={familyPhotos} textMode={textMode} onDone={() => setPhotosOpen(false)} />
         ) : open ? (
-          <MemoDetail memo={open} onBack={() => setOpenId(null)} readOnly />
+          <>
+            <MemoDetail memo={open} onBack={() => setOpenId(null)} readOnly />
+            <CameraFab label="카메라로 돌아가기" onClick={backToCamera} />
+          </>
         ) : view === 'records' ? (
           <>
             <button className="elder-back" onClick={() => setView('home')}>‹ 처음으로</button>
             <Today memos={memos} onOpen={setOpenId} uid={uid} readOnly />
+            <CameraFab label="카메라로 돌아가기" onClick={backToCamera} />
           </>
         ) : isSimple() ? (
           <ElderCamera

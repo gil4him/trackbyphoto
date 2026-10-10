@@ -33,5 +33,7 @@ describe('ElderApp (simple)', () => {
     expect(out).toContain('elder-cam-shutter')
     expect(out).toContain('내 사진')
     expect(out).not.toContain('오늘 가족 소식이 아직 없어요')
+    // The camera screen is the camera: no floating camera button on it.
+    expect(out).not.toContain('cam-fab')
   })
 })
