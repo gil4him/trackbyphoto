@@ -49,3 +49,23 @@ export function consentButtonLabel(caregivers: { status: string; caregiverName?:
   const name = sentToName(caregivers)
   return name === '가족' ? '네, 보여줄게요' : `네, ${name}에게 보여줄게요`
 }
+
+/**
+ * Whose records the app opens on: the stored choice while it is still
+ * reachable (yourself, or a parent whose account still exists), else
+ * yourself. The simple edition has one family and no switcher, so it opens
+ * on a parent whenever there is one — never on the family member's own,
+ * empty records.
+ */
+export function pickActivePatient({ stored, selfUid, patientUids, names, simple }: {
+  stored: string | null
+  selfUid: string
+  patientUids: string[]
+  names: Record<string, NameState>
+  simple: boolean
+}): string {
+  const reachable = patientUids.filter((uid) => names[uid] !== null)
+  if (simple && reachable.length > 0) return stored && reachable.includes(stored) ? stored : reachable[0]
+  if (stored && (stored === selfUid || reachable.includes(stored))) return stored
+  return selfUid
+}

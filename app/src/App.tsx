@@ -13,7 +13,7 @@ import { reloadToLatest } from './lib/sw'
 import { recallSettings, rememberSettings } from './lib/settingsCache'
 import { usePatientDocs } from './hooks/usePatientNames'
 import { canSendFamilyPhoto } from './lib/familyPhotosModel'
-import { listedPeople } from './lib/people'
+import { listedPeople, pickActivePatient } from './lib/people'
 import { useFamilyPhotos } from './hooks/useFamilyPhotos'
 import { SendFamilyPhoto, SentFamilyPhotos } from './components/SendFamilyPhoto'
 import { normalizeInviteCode, syncCaregiverName } from './lib/caregiver'
@@ -178,13 +178,14 @@ function App() {
   // revoked since last visit).
   useEffect(() => {
     if (!user) { setActivePatientUid(null); return }
-    const stored = localStorage.getItem(activePatientStorageKey(user.uid))
     // An account the server says is gone can't be looked at either.
-    if (stored && (stored === user.uid || (patients.some((p) => p.patientUid === stored) && patientNames[stored] !== null))) {
-      setActivePatientUid(stored)
-    } else {
-      setActivePatientUid(user.uid)
-    }
+    setActivePatientUid(pickActivePatient({
+      stored: localStorage.getItem(activePatientStorageKey(user.uid)),
+      selfUid: user.uid,
+      patientUids: patients.map((p) => p.patientUid),
+      names: patientNames,
+      simple: isSimple(),
+    }))
     // Re-evaluate when the patients list arrives — a revoked membership
     // should bounce us back to self automatically.
   }, [user, patients, patientNames])
@@ -565,7 +566,7 @@ function App() {
           </button>
         )}
         <main>
-          {people.length > 0 && !selectedMemo && !openNews && !digestId && !trail && !voiceAlbum && (
+          {!isSimple() && people.length > 0 && !selectedMemo && !openNews && !digestId && !trail && !voiceAlbum && (
             <PatientSwitcher
               selfUid={user.uid}
               selfLabel={selfLabel}

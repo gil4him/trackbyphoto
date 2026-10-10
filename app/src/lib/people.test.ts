@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { consentButtonLabel, listedPeople, nameTaken, sameName, sentToName } from './people'
+import { consentButtonLabel, listedPeople, nameTaken, pickActivePatient, sameName, sentToName } from './people'
 
 describe('who is listed', () => {
   const links = [{ patientUid: 'a', role: 'guardian' }, { patientUid: 'b', role: 'viewer' }, { patientUid: 'c', role: 'admin' }, { patientUid: 'd', role: 'viewer' }]
@@ -52,5 +52,28 @@ describe('consentButtonLabel', () => {
   it('falls back when no name is known yet', () => {
     expect(consentButtonLabel([])).toBe('네, 보여줄게요')
     expect(consentButtonLabel([{ status: 'active' }])).toBe('네, 보여줄게요')
+  })
+})
+
+describe('pickActivePatient', () => {
+  const base = { selfUid: 'me', patientUids: ['mom', 'dad'], names: { mom: '엄마', dad: '아빠' } as Record<string, string | null> }
+
+  it('full: the stored choice while reachable, else yourself', () => {
+    expect(pickActivePatient({ ...base, stored: 'dad', simple: false })).toBe('dad')
+    expect(pickActivePatient({ ...base, stored: 'me', simple: false })).toBe('me')
+    expect(pickActivePatient({ ...base, stored: null, simple: false })).toBe('me')
+    expect(pickActivePatient({ ...base, stored: 'gone', simple: false })).toBe('me')
+    expect(pickActivePatient({ ...base, names: { mom: '엄마', dad: null }, stored: 'dad', simple: false })).toBe('me')
+  })
+
+  it('simple: always a parent when there is one', () => {
+    expect(pickActivePatient({ ...base, stored: null, simple: true })).toBe('mom')
+    expect(pickActivePatient({ ...base, stored: 'me', simple: true })).toBe('mom')
+    expect(pickActivePatient({ ...base, stored: 'dad', simple: true })).toBe('dad')
+    expect(pickActivePatient({ ...base, names: { mom: null, dad: '아빠' }, stored: null, simple: true })).toBe('dad')
+  })
+
+  it('simple, no parent yet: yourself', () => {
+    expect(pickActivePatient({ ...base, patientUids: [], names: {}, stored: 'me', simple: true })).toBe('me')
   })
 })
