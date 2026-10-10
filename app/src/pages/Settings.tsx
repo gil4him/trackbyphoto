@@ -67,8 +67,8 @@ interface Props {
   familyLimit?: number | null
 }
 
-// The simple edition keeps only what one family with one parent needs:
-// account, 기기 관리, names, 집 위치, replies, text size and 부모님 삭제.
+// The simple edition adds 알림 시간 (the evening photo count) and leaves out
+// the developer note.
 const simple = isSimple()
 
 export function Settings({ settings, onChange, user, onSignOut, memos, activePatientUid, isSelf, onSwitchPatient, myRole, voiceRollout = false, reactionsRollout = false, digestRollout = false, weeklyIncluded = false, weeklyFrom = null, people = [], familyPhotosRollout = false, onOpenPlans, planName, familyLimit = null }: Props) {
@@ -346,7 +346,7 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
         </div>
       </div>
 
-      {!simple && isSelf && (
+      {isSelf && (
         <div className="sect">
           <div className="sect-lab">부모님</div>
           <button className="linkbtn" onClick={() => setRegistering(true)}>
@@ -362,7 +362,7 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
         <RegisterElder onClose={() => setRegistering(false)} onRegistered={onSwitchPatient} takenNames={people.map((p) => p.name)} />
       )}
 
-      {!simple && isSelf && people.length > 0 && (
+      {isSelf && people.length > 0 && (
         <div className="sect">
           <div className="sect-lab">함께 보는 가족</div>
           {people.map((p) => {
@@ -493,7 +493,7 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
         </div>
       )}
 
-      {!simple && canManageHere && (
+      {canManageHere && (
         <div className="sect">
           <div className="sect-lab">언어</div>
           <div className="help">사진을 찍은 장소와 주소를 이 언어로 적어요. 앞으로 찍는 사진부터 적용돼요.</div>
@@ -507,7 +507,7 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
       {/* Caregiver-share management. Only shown when viewing the SIGNED-IN
           user's own account — caregivers viewing someone else's account
           don't get to invite or revoke from the patient's perspective. */}
-      {!simple && canManageHere && (
+      {canManageHere && (
         <div className="sect">
           <div className="sect-lab">가족 관리</div>
           {caregivers.length === 0 ? (
@@ -611,7 +611,7 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
         </div>
       )}
 
-      {!simple && !digestRollout && <div className="sect">
+      {!digestRollout && <div className="sect">
         <div className="sect-lab">전송 시점</div>
         <div className="seg">
           <button
@@ -630,7 +630,7 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
         <div className="help">{cadenceHint}</div>
       </div>}
 
-      {!simple && <div className="sect">
+      <div className="sect">
         <div className="sect-lab">자동 기록</div>
         <div className="row">
           <div className="who"><b>자동으로 기록·전송</b><br /><span>사진을 찍으면 바로 기록하고 보냅니다</span></div>
@@ -643,7 +643,7 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
           ><span className="knob" /></button>
         </div>
         <div className="help">끄면 보내기 전에 가족이 한 번 확인할 수 있어요</div>
-      </div>}
+      </div>
 
       {reactionsRollout && canManageHere && (
         <div className="sect">
@@ -708,7 +708,7 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
         </div>
       </div>
 
-      {!simple && !onOpenPlans && <div className="sect">
+      {!onOpenPlans && <div className="sect">
         <div className="sect-lab">사진 보관</div>
         <div className="seg">
           <button

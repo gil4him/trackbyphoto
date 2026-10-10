@@ -41,7 +41,8 @@ describe('Settings for a parent (simple)', () => {
     expect(html).toContain('매일 이 시간에 오늘 사진 몇 장인지 알려드려요')
   })
 
-  it('hides the full edition extras', () => {
-    for (const s of ['가족 관리', '언어', '자동 기록', '전송 시점', '사진 보관', 'Phase 1 안내']) expect(html).not.toContain(s)
+  it('has the full family sections, without the developer note', () => {
+    for (const s of ['가족 관리', '언어', '자동 기록', '전송 시점', '사진 보관']) expect(html).toContain(s)
+    expect(html).not.toContain('Phase 1 안내')
   })
 })
