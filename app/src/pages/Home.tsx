@@ -1,10 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { useToast } from '../components/Toast'
-import { Processing } from '../components/Processing'
-import { savePhoto, captureNativePhoto, isNativeApp } from '../lib/capture'
 import { warmUpLocation } from '../lib/location'
 import { useOutbox } from '../hooks/useOutbox'
-import { noteCaptureStarted } from '../hooks/useAppUpdate'
+import { useCapture } from '../hooks/useCapture'
 import { fmtDate, fmtTime } from '../util'
 import { MemoThumb } from '../components/MemoThumb'
 import type { Memo, AppNotification } from '../types'
@@ -19,11 +17,8 @@ import type { Memo, AppNotification } from '../types'
  * having to leave the home screen).
  */
 export function Home({ uid, patientName, greetingName, memos, onOpenAsk, onOpen, canCapture = true, notifications = [], onDismissNotification, recordsLabel, newsCard, topCard, onSendPhoto, sentPhotos, sendTargets, onSendTo }: { /** Family on their own home: parents they may send a photo to. */ sendTargets?: { uid: string; name: string }[]; onSendTo?: (t: { uid: string; name: string }) => void; /** The parent's 가족 소식 card, shown under the buttons. */ newsCard?: React.ReactNode; /** A one-off card above the greeting (family's 알림 켜기). */ topCard?: React.ReactNode; /** Family: send the parent a photo (when switched on for them). */ onSendPhoto?: () => void; /** Family: what has been sent, with the parent's answers. */ sentPhotos?: React.ReactNode; recordsLabel?: boolean; uid: string; patientName: string; greetingName: string; memos: Memo[]; onOpenAsk: () => void; onOpen: (id: string) => void; canCapture?: boolean; notifications?: AppNotification[]; onDismissNotification?: (id: string) => void }) {
-  const inputRef = useRef<HTMLInputElement>(null)
-  const [busy, setBusy] = useState(false)
-  const [busyMsg, setBusyMsg] = useState('사진을 저장하고 있어요…')
-  const [busySub] = useState('시간 · 장소 · 활동을 자동으로 적어요')
   const toast = useToast()
+  const capture = useCapture(uid)
   const lastReadyId = useRef<string | null>(null)
 
   useEffect(() => {
@@ -48,22 +43,6 @@ export function Home({ uid, patientName, greetingName, memos, onOpenAsk, onOpen,
   // Photos still on the phone, waiting to be sent.
   const waiting = useOutbox(canCapture ? uid : undefined)
   const struggling = waiting.some((i) => i.attempts > 0)
-
-  const onPick = async (file: File, nativePath?: string) => {
-    setBusy(true)
-    setBusyMsg('사진을 저장하고 있어요…')
-    try {
-      await savePhoto({ uid, file, nativePath })
-      // The outbox sends it and the worker writes the memo; the effect above
-      // toasts when the memo arrives.
-      toast.show('사진을 저장했어요', '가족에게 보내는 중이에요')
-    } catch (err) {
-      console.error(err)
-      toast.show('사진을 저장하지 못했어요', '다시 한 번 찍어 주세요')
-    } finally {
-      setBusy(false)
-    }
-  }
 
   const today = new Date()
 
@@ -117,20 +96,8 @@ export function Home({ uid, patientName, greetingName, memos, onOpenAsk, onOpen,
             <button
               className="capbtn"
               aria-label="사진 찍기"
-              onClick={async () => {
-                warmUpLocation()
-                noteCaptureStarted()
-                if (isNativeApp) {
-                  try {
-                    const { file, path } = await captureNativePhoto()
-                    onPick(file, path)
-                  } catch (err) {
-                    console.warn('[capture] native camera cancelled or failed', err)
-                  }
-                } else {
-                  inputRef.current?.click()
-                }
-              }}
+              disabled={capture.busy}
+              onClick={capture.takePhoto}
             >
               <svg className="cam" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M3 8.5A2.5 2.5 0 0 1 5.5 6h1.2l.9-1.4A1.5 1.5 0 0 1 8.9 4h6.2a1.5 1.5 0 0 1 1.3.6L17.3 6h1.2A2.5 2.5 0 0 1 21 8.5v8A2.5 2.5 0 0 1 18.5 19h-13A2.5 2.5 0 0 1 3 16.5z" />
@@ -171,18 +138,7 @@ export function Home({ uid, patientName, greetingName, memos, onOpenAsk, onOpen,
           </div>
         )}
 
-        <input
-          ref={inputRef}
-          className="hidden-input"
-          type="file"
-          accept="image/*"
-          capture="environment"
-          onChange={(e) => {
-            const f = e.target.files?.[0]
-            if (f) onPick(f)
-            e.currentTarget.value = ''
-          }}
-        />
+        {capture.inputEl}
       </div>
 
       {memos.length > 0 && (
@@ -201,7 +157,7 @@ export function Home({ uid, patientName, greetingName, memos, onOpenAsk, onOpen,
         </div>
       )}
 
-      <Processing show={busy} message={busyMsg} sub={busySub} />
+      {capture.processing}
     </section>
   )
 }
