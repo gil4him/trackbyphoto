@@ -47,6 +47,22 @@ export function pairCodeFromText(text: string): string | null {
   return code.length === PAIR_CODE_LEN ? code : null
 }
 
+/**
+ * True exactly once per phone for this key (then remembered): the first-launch
+ * checks for a pair code — clipboard, Play install referrer — run only once,
+ * so iOS's 붙여넣기 허용 question never comes back. Storage that can't be
+ * read counts as the first time.
+ */
+export function firstTimeOnly(key: string, storage: Pick<Storage, 'getItem' | 'setItem'> | undefined = globalThis.localStorage): boolean {
+  try {
+    if (!storage || storage.getItem(key) === '1') return !storage
+    storage.setItem(key, '1')
+  } catch {
+    // Private mode or blocked storage: check, at worst once per opening.
+  }
+  return true
+}
+
 /** "ABCD EFGH" — easier to read out over the phone. */
 export function formatPairCode(code: string): string {
   return code.length === PAIR_CODE_LEN ? `${code.slice(0, 4)} ${code.slice(4)}` : code

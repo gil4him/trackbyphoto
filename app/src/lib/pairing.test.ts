@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 
 vi.mock('./worker', () => ({ callWorker: vi.fn() }))
 
-import { pairCodeFromText } from './pairing'
+import { firstTimeOnly, pairCodeFromText } from './pairing'
 import { PUBLIC_ORIGIN } from './publicUrl'
 
 describe('pairCodeFromText — only our /pair links count', () => {
@@ -30,5 +30,25 @@ describe('pairCodeFromText — only our /pair links count', () => {
   it('ignores garbage', () => {
     expect(pairCodeFromText('')).toBeNull()
     expect(pairCodeFromText('안녕하세요')).toBeNull()
+  })
+})
+
+describe('firstTimeOnly', () => {
+  const fakeStorage = () => {
+    const m = new Map<string, string>()
+    return { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => { m.set(k, v) } }
+  }
+
+  it('is true once per key, then remembered', () => {
+    const s = fakeStorage()
+    expect(firstTimeOnly('a', s)).toBe(true)
+    expect(firstTimeOnly('a', s)).toBe(false)
+    expect(firstTimeOnly('b', s)).toBe(true)
+  })
+
+  it('counts unreadable or missing storage as the first time', () => {
+    const broken = { getItem: () => { throw new Error('blocked') }, setItem: () => {} }
+    expect(firstTimeOnly('a', broken)).toBe(true)
+    expect(firstTimeOnly('a', undefined)).toBe(true)
   })
 })

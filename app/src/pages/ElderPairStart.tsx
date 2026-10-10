@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { App as CapApp } from '@capacitor/app'
 import { Clipboard } from '@capacitor/clipboard'
 import { captureSampleBlob, startPreview, stopPreview } from '../lib/cameraPreview'
-import { pairCodeFromText } from '../lib/pairing'
+import { firstTimeOnly, pairCodeFromText } from '../lib/pairing'
 import { startQrScan } from '../lib/qrScan'
 import type { CameraPhase } from './ElderCamera'
 
@@ -13,8 +13,8 @@ import type { CameraPhase } from './ElderCamera'
  * A parent on her own taps the family's link again (it opens the app) or
  * types its code (코드 입력).
  * A code copied by the /pair link page (PairLanding) is picked up from the
- * clipboard too, once per opening of this screen; this screen exists only
- * before pairing, so that's the only place iOS asks to allow pasting.
+ * clipboard too, on the app's first launch only, so iOS asks to allow
+ * pasting at most once.
  * docs/Daylie-v3-Simple-Core.md §1.
  */
 
@@ -101,12 +101,15 @@ export function ElderPairStart({ onCode, onFamily, onEnterCode }: {
   useEffect(() => {
     alive.current = true
     launch()
-    Clipboard.read()
-      .then(({ value }) => {
-        const code = pairCodeFromText(value ?? '')
-        if (code) found(code)
-      })
-      .catch(() => {}) // empty clipboard, or pasting not allowed — just scan
+    // A link copied by the /pair page — looked for on the first launch only.
+    if (firstTimeOnly('tbp.pair.clipboardChecked')) {
+      Clipboard.read()
+        .then(({ value }) => {
+          const code = pairCodeFromText(value ?? '')
+          if (code) found(code)
+        })
+        .catch(() => {}) // empty clipboard, or pasting not allowed — just scan
+    }
     const sub = CapApp.addListener('appStateChange', ({ isActive }) => {
       if (done.current) return
       if (isActive) restart()
