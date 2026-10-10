@@ -4,7 +4,13 @@
       "target": "app",
       "public": "app/dist",
       "ignore": ["firebase.json", "**/._*", "**/.DS_Store", "**/node_modules/**"],
-      "rewrites": [{ "source": "**", "destination": "/index.html" }],
+      "rewrites": [
+        { "source": "/privacy", "destination": "/privacy.html" },
+        { "source": "/privacy/", "destination": "/privacy.html" },
+        { "source": "/terms", "destination": "/terms.html" },
+        { "source": "/terms/", "destination": "/terms.html" },
+        { "source": "**", "destination": "/index.html" }
+      ],
       "headers": [
         {
           "source": "**/*.@(js|css|woff2|svg|png|jpg|webp|ico)",

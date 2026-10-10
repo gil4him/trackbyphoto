@@ -22,6 +22,28 @@ function wellKnown(mode: string): Plugin {
   }
 }
 
+// 개인정보처리방침 and 이용약관 (legal/README.md). Plain static HTML, no JS,
+// served at /privacy and /terms by the rewrites in firebase.json. They
+// describe the simple edition only, so the full build never ships them.
+const LEGAL_PAGES = ['privacy', 'terms'] as const
+
+function legalPages(mode: string): Plugin {
+  return {
+    name: 'daylie-legal',
+    apply: 'build',
+    generateBundle() {
+      if (mode !== 'simple') return
+      for (const name of LEGAL_PAGES) {
+        this.emitFile({
+          type: 'asset',
+          fileName: `${name}.html`,
+          source: readFileSync(new URL(`./legal/${name}.html`, import.meta.url)),
+        })
+      }
+    },
+  }
+}
+
 // Each edition's own name in the tab title and the web-app manifest
 // (src/lib/edition.ts appTitle at runtime).
 const titleFor = (mode: string) => (mode === 'simple' ? '오늘하루' : '오늘하루 · TrackByPhoto')
@@ -37,6 +59,7 @@ export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
     wellKnown(mode),
+    legalPages(mode),
     editionTitle(mode),
     VitePWA({
       // Parents use the website from a home-screen icon, so the app's own
@@ -55,8 +78,9 @@ export default defineConfig(({ mode }) => ({
         globIgnores: ['push-sw.js'],
         navigateFallback: '/index.html',
         // Firebase's sign-in helper pages live under /__/ and must come from
-        // the server.
-        navigateFallbackDenylist: [/^\/__\//],
+        // the server. /privacy and /terms are their own static pages — the app
+        // shell must not answer for them (legalPages above).
+        navigateFallbackDenylist: [/^\/__\//, /^\/(privacy|terms)\/?$/],
         cleanupOutdatedCaches: true,
         // A new version takes over as soon as it has arrived instead of
         // waiting for every tab to close; reloadToLatest (src/lib/sw.ts)
