@@ -18,6 +18,7 @@ import { Capacitor } from '@capacitor/core'
 import { Share } from '@capacitor/share'
 import type { Memo } from '../types'
 import { fmtTime, isSameDay } from '../util'
+import { PUBLIC_ORIGIN } from './publicUrl'
 
 // ────────────────────────────────────────────────────────────────────────────
 // Phone formatting
@@ -209,16 +210,10 @@ export function isKakaoConfigured(): boolean {
 // 가족초대 — invite link delivery
 // ────────────────────────────────────────────────────────────────────────────
 
-// Always the hosted web app: the native apps run on capacitor://localhost /
-// https://localhost, which mean nothing on the recipient's phone. Until
-// Universal/App Links exist, the link opens in the recipient's browser.
-// Each edition has its own site (VITE_PUBLIC_URL).
-const INVITE_ORIGIN = (
-  (import.meta.env.VITE_PUBLIC_URL as string | undefined) || 'https://trackbyphoto.web.app'
-).replace(/\/+$/, '')
-
+// Always the hosted web app of this edition; the link opens in the
+// recipient's browser.
 export function inviteLink(code: string): string {
-  return `${INVITE_ORIGIN}/accept?code=${code}`
+  return `${PUBLIC_ORIGIN}/accept?code=${code}`
 }
 
 export function buildInviteMessage(patientName: string, code: string): string {

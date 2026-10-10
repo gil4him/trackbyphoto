@@ -10,6 +10,7 @@
 
 import { Capacitor } from '@capacitor/core'
 import { callWorker } from './worker'
+import { PUBLIC_ORIGIN } from './publicUrl'
 import type { UserSettings } from '../types'
 
 // The Mac mini can take a moment; an elder shouldn't see "offline" too early.
@@ -21,6 +22,27 @@ export const MANAGED_CONSENT_VERSION = 'managed-v2'
 /** Uppercase, strip spaces/dashes, cap at the code length. */
 export function normalizePairCode(input: string): string {
   return input.toUpperCase().replace(/[^0-9A-Z]/g, '').slice(0, PAIR_CODE_LEN)
+}
+
+/**
+ * The pair code in one of our pairing links — `{PUBLIC_ORIGIN}/pair?c=CODE`
+ * (or `#c=CODE`) — scanned from the family's QR, found on the clipboard, or
+ * opened as a Universal/App Link. Anything else (another site, another path,
+ * a bare code, a short code) is null, so a random QR or clipboard text is
+ * never sent to the worker.
+ */
+export function pairCodeFromText(text: string): string | null {
+  let url: URL
+  try {
+    url = new URL(text.trim())
+  } catch {
+    return null
+  }
+  if (url.origin !== PUBLIC_ORIGIN || url.pathname.replace(/\/+$/, '') !== '/pair') return null
+  const raw = url.searchParams.get('c') || new URLSearchParams(url.hash.slice(1)).get('c') || ''
+  // Not normalizePairCode: it would cut a longer value down to a valid length.
+  const code = raw.toUpperCase().replace(/[^0-9A-Z]/g, '')
+  return code.length === PAIR_CODE_LEN ? code : null
 }
 
 /** "ABCD EFGH" — easier to read out over the phone. */
