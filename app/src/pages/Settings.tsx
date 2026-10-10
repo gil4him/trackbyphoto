@@ -22,6 +22,7 @@ import { DEFAULT_DIGEST, DIGEST_HOURS, saveDigestSettings } from '../lib/digest'
 import type { PlanReason } from '../lib/plan'
 import { S } from '../lib/strings'
 import type { PlanTier } from '../types'
+import { isSimple } from '../lib/edition'
 
 /** Version of the 음성 답장 consent text shown below. */
 const VOICE_CONSENT_VERSION = 'voice-v1'
@@ -65,6 +66,10 @@ interface Props {
   /** How many family members the plan shares with; null when it isn't known. */
   familyLimit?: number | null
 }
+
+// The simple edition keeps only what one family with one parent needs:
+// account, 기기 관리, names, 집 위치, replies, text size and 부모님 삭제.
+const simple = isSimple()
 
 export function Settings({ settings, onChange, user, onSignOut, memos, activePatientUid, isSelf, onSwitchPatient, myRole, voiceRollout = false, reactionsRollout = false, digestRollout = false, weeklyIncluded = false, weeklyFrom = null, people = [], familyPhotosRollout = false, onOpenPlans, planName, familyLimit = null }: Props) {
   const toast = useToast()
@@ -341,7 +346,7 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
         </div>
       </div>
 
-      {isSelf && (
+      {!simple && isSelf && (
         <div className="sect">
           <div className="sect-lab">부모님</div>
           <button className="linkbtn" onClick={() => setRegistering(true)}>
@@ -357,7 +362,7 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
         <RegisterElder onClose={() => setRegistering(false)} onRegistered={onSwitchPatient} takenNames={people.map((p) => p.name)} />
       )}
 
-      {isSelf && people.length > 0 && (
+      {!simple && isSelf && people.length > 0 && (
         <div className="sect">
           <div className="sect-lab">함께 보는 가족</div>
           {people.map((p) => {
@@ -488,7 +493,7 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
         </div>
       )}
 
-      {canManageHere && (
+      {!simple && canManageHere && (
         <div className="sect">
           <div className="sect-lab">언어</div>
           <div className="help">사진을 찍은 장소와 주소를 이 언어로 적어요. 앞으로 찍는 사진부터 적용돼요.</div>
@@ -502,7 +507,7 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
       {/* Caregiver-share management. Only shown when viewing the SIGNED-IN
           user's own account — caregivers viewing someone else's account
           don't get to invite or revoke from the patient's perspective. */}
-      {canManageHere && (
+      {!simple && canManageHere && (
         <div className="sect">
           <div className="sect-lab">가족 관리</div>
           {caregivers.length === 0 ? (
@@ -606,7 +611,7 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
         </div>
       )}
 
-      {!digestRollout && <div className="sect">
+      {!simple && !digestRollout && <div className="sect">
         <div className="sect-lab">전송 시점</div>
         <div className="seg">
           <button
@@ -625,7 +630,7 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
         <div className="help">{cadenceHint}</div>
       </div>}
 
-      <div className="sect">
+      {!simple && <div className="sect">
         <div className="sect-lab">자동 기록</div>
         <div className="row">
           <div className="who"><b>자동으로 기록·전송</b><br /><span>사진을 찍으면 바로 기록하고 보냅니다</span></div>
@@ -638,7 +643,7 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
           ><span className="knob" /></button>
         </div>
         <div className="help">끄면 보내기 전에 가족이 한 번 확인할 수 있어요</div>
-      </div>
+      </div>}
 
       {reactionsRollout && canManageHere && (
         <div className="sect">
@@ -687,7 +692,7 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
         </div>
       </div>
 
-      {!onOpenPlans && <div className="sect">
+      {!simple && !onOpenPlans && <div className="sect">
         <div className="sect-lab">사진 보관</div>
         <div className="seg">
           <button
@@ -706,10 +711,10 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
         <div className="help">기간이 지난 사진은 자동 삭제됩니다.</div>
       </div>}
 
-      <div className="proto-note">
+      {!simple && <div className="proto-note">
         <b>Phase 1 안내.</b> 사진은 Firebase Cloud Storage에 저장되고, 메모는 Firestore에 기록됩니다.
         카카오톡 발송은 Phase 2에 추가됩니다.
-      </div>
+      </div>}
 
       {/* 가족초대 modal — two steps in one overlay.
           Step 1 (confirm): one consent screen. Tapping "동의하고 초대하기"

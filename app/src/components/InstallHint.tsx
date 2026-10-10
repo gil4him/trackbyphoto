@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { currentInstallPath, onInstallChange, promptInstall, type InstallPath } from '../lib/install'
+import { isSimple } from '../lib/edition'
 
 const DISMISS_KEY = 'tbp.installHint.dismissed'
 
@@ -36,7 +37,8 @@ const STEPS: Record<Exclude<InstallPath, 'none' | 'desktop' | 'prompt'>, { title
  * browser tab. Shows the right steps for their phone, or the browser's own
  * install dialog when it offers one. Hidden once the site runs from a
  * home-screen icon, in the installed apps, on a computer that can't install,
- * and after it has been dismissed.
+ * after it has been dismissed, and in the simple edition (a store app: its
+ * website only points to the stores).
  */
 export function InstallHint({ path: forced }: { /** For tests; otherwise detected. */ path?: InstallPath }) {
   const [, rerender] = useState(0)
@@ -47,7 +49,7 @@ export function InstallHint({ path: forced }: { /** For tests; otherwise detecte
   const [open, setOpen] = useState(false)
 
   const path = forced ?? currentInstallPath()
-  if (dismissed || path === 'none' || path === 'desktop') return null
+  if (dismissed || isSimple() || path === 'none' || path === 'desktop') return null
 
   const dismiss = () => {
     try { localStorage.setItem(DISMISS_KEY, '1') } catch { /* private mode */ }
