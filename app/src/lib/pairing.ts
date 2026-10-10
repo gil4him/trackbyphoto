@@ -96,7 +96,9 @@ export function describeThisDevice(): { name: string; platform: string } {
 export async function createManagedElder(args: {
   patientName: string
   settings: Pick<UserSettings, 'cadence' | 'autoMode' | 'bigText' | 'geoLang'>
-}): Promise<{ patientUid: string }> {
+  /** Also make the first phone link in the same call (one round trip). */
+  link?: 'qr' | 'remote'
+}): Promise<{ patientUid: string; link?: PairingLink }> {
   return callWorker('createManagedElder', { ...args, ...managedConsent() }, { timeoutMs: PAIR_TIMEOUT_MS })
 }
 

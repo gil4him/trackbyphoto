@@ -43,11 +43,14 @@ export function RegisterElder({ onClose, onRegistered, takenNames = [] }: {
   })
   const [busy, setBusy] = useState(false)
   const [patientUid, setPatientUid] = useState<string | null>(null)
+  // The QR link made in the same call as the parent (simple edition).
+  const [firstLink, setFirstLink] = useState<PairingLink | null>(null)
 
   const register = async () => {
     setBusy(true)
     try {
-      const res = await createManagedElder({ patientName: name.trim(), settings })
+      const res = await createManagedElder({ patientName: name.trim(), settings, ...(simple ? { link: 'qr' as const } : {}) })
+      if (res.link) setFirstLink(res.link)
       setPatientUid(res.patientUid)
       setStep('send')
     } catch (err) {
@@ -169,14 +172,14 @@ export function RegisterElder({ onClose, onRegistered, takenNames = [] }: {
             <div className="modal-actions">
               <button className="signin-secondary" onClick={() => setStep(simple ? 'name' : 'settings')}>이전</button>
               <button className="linkbtn" disabled={busy} onClick={register}>
-                <span>{busy ? '등록하는 중…' : '동의하고 등록하기'}</span><span aria-hidden="true">→</span>
+                <span>{busy ? (simple ? `${name.trim()}님 연결을 준비하고 있어요…` : '등록하는 중…') : '동의하고 등록하기'}</span><span aria-hidden="true">→</span>
               </button>
             </div>
           </>
         )}
 
         {step === 'send' && patientUid && (
-          <PairingSender patientUid={patientUid} patientName={name.trim()} onClose={close} onCancelRegistration={cancelRegistration} />
+          <PairingSender patientUid={patientUid} patientName={name.trim()} initialLink={firstLink} onClose={close} onCancelRegistration={cancelRegistration} />
         )}
       </div>
     </div>
@@ -188,15 +191,17 @@ export function RegisterElder({ onClose, onRegistered, takenNames = [] }: {
  * the elder scans while sitting next to you. Used right after registering
  * and again from 기기 관리 → 새 휴대폰 연결.
  */
-export function PairingSender({ patientUid, patientName, onClose, onCancelRegistration }: {
+export function PairingSender({ patientUid, patientName, initialLink = null, onClose, onCancelRegistration }: {
   patientUid: string
   patientName: string
+  /** A QR link made together with the parent: shown at once, no second call. */
+  initialLink?: PairingLink | null
   onClose: () => void
   /** Only right after registering: undo the registration instead of finishing. */
   onCancelRegistration?: () => Promise<void>
 }) {
   const toast = useToast()
-  const [link, setLink] = useState<(PairingLink & { mode: 'remote' | 'qr' }) | null>(null)
+  const [link, setLink] = useState<(PairingLink & { mode: 'remote' | 'qr' }) | null>(initialLink ? { ...initialLink, mode: 'qr' } : null)
   const [busy, setBusy] = useState(false)
   const [showPhone, setShowPhone] = useState(false)
   const [phone, setPhone] = useState('')
@@ -253,7 +258,7 @@ export function PairingSender({ patientUid, patientName, onClose, onCancelRegist
   // Simple edition: the QR is the main way, so it's made straight away.
   const qrAsked = useRef(false)
   useEffect(() => {
-    if (!simple || qrAsked.current) return
+    if (!simple || qrAsked.current || initialLink) return
     qrAsked.current = true
     void Promise.resolve().then(() => ensureLink('qr'))
     // Only on opening.
@@ -300,6 +305,10 @@ export function PairingSender({ patientUid, patientName, onClose, onCancelRegist
             <button className="invite-btn invite-qr" disabled={busy} onClick={onQr}>옆에 계시면 QR 보여주기</button>
           )}
         </div>
+
+        {simple && !link && busy && (
+          <div className="pair-qr"><div className="help" style={{ textAlign: 'center' }}>QR을 만들고 있어요…</div></div>
+        )}
 
         {link?.mode === 'qr' && (
           <div className="pair-qr">
