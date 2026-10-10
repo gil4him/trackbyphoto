@@ -42,3 +42,10 @@ export function sentToName(caregivers: { status: string; caregiverName?: string 
   const named = caregivers.find((c) => c.status === 'active' && c.caregiverName?.trim())
   return named?.caregiverName?.trim() || '가족'
 }
+
+/** The simple edition's consent button once a phone is linked: says who
+ *  will see the photos (PairDevice). */
+export function consentButtonLabel(caregivers: { status: string; caregiverName?: string }[]): string {
+  const name = sentToName(caregivers)
+  return name === '가족' ? '네, 보여줄게요' : `네, ${name}에게 보여줄게요`
+}

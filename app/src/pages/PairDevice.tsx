@@ -1,8 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { addDoc, collection, doc, onSnapshot, serverTimestamp } from 'firebase/firestore'
 import { signOut } from 'firebase/auth'
 import { auth, db } from '../firebase'
 import { signInAsElder, signInForPairing } from '../hooks/useAuth'
+import { useMemberships } from '../hooks/useMemberships'
+import { isSimple } from '../lib/edition'
+import { consentButtonLabel } from '../lib/people'
 import { WorkerError, WORKER_OFFLINE_MESSAGE } from '../lib/worker'
 import {
   afterConnect,
@@ -58,10 +61,13 @@ function errorMessage(err: unknown): string {
   }
 }
 
-export function PairDevice({ initialCode, alreadyLinked = false, onDone, onCancel }: {
+export function PairDevice({ initialCode, alreadyLinked = false, autoConnect = false, onDone, onCancel }: {
   initialCode: string
   /** This phone is already connected as a parent's phone. */
   alreadyLinked?: boolean
+  /** Connect straight away instead of asking 연결하기 first — the code was
+   *  just scanned from the family's QR (simple edition, ElderPairStart). */
+  autoConnect?: boolean
   onDone: () => void
   onCancel: () => void
 }) {
@@ -88,6 +94,10 @@ export function PairDevice({ initialCode, alreadyLinked = false, onDone, onCance
   }, [step])
   const [error, setError] = useState('')
   const [pairingId, setPairingId] = useState<string | null>(null)
+  // The parent's uid once connected: the simple edition's 확인 names the
+  // family member who will see the photos.
+  const [elderUid, setElderUid] = useState<string | undefined>()
+  const { caregivers } = useMemberships(isSimple() ? elderUid : undefined, { withPatients: false })
 
   const finish = async (res: PairResult) => {
     if (res.status === 'awaiting-approval') {
@@ -96,6 +106,7 @@ export function PairDevice({ initialCode, alreadyLinked = false, onDone, onCance
       return
     }
     await signInAsElder(res.customToken)
+    setElderUid(auth.currentUser?.uid)
     setStep('notice')
   }
 
@@ -111,6 +122,16 @@ export function PairDevice({ initialCode, alreadyLinked = false, onDone, onCance
       setStep('error')
     }
   }
+
+  const autoStarted = useRef(false)
+  useEffect(() => {
+    if (!autoConnect || autoStarted.current || linkedAtOpen) return
+    if (step !== 'confirm' || code.length !== PAIR_CODE_LEN) return
+    autoStarted.current = true
+    void Promise.resolve().then(connect)
+    // Only on opening.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Waiting for family approval of a re-link: watch the pairing, then collect
   // the token the moment it is approved.
@@ -276,7 +297,7 @@ export function PairDevice({ initialCode, alreadyLinked = false, onDone, onCance
         <>
           <h1 className="pair-title">연결되었어요</h1>
           <p className="pair-notice">{NOTICE_TEXT}</p>
-          <button className="pair-btn" onClick={acknowledge}>확인</button>
+          <button className="pair-btn" onClick={acknowledge}>{isSimple() ? consentButtonLabel(caregivers) : '확인'}</button>
         </>
       )}
 

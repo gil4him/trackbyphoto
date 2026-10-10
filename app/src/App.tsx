@@ -312,7 +312,13 @@ function App() {
       <ToastProvider>
         <div className="app">
           <main>
-            <PairDevice initialCode={pairCode} alreadyLinked={!!elder} onDone={closePair} onCancel={closePair} />
+            <PairDevice
+              initialCode={pairCode}
+              alreadyLinked={!!elder}
+              autoConnect={isSimple() && Capacitor.isNativePlatform()}
+              onDone={closePair}
+              onCancel={closePair}
+            />
           </main>
         </div>
       </ToastProvider>

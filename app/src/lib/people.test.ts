@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { listedPeople, nameTaken, sameName, sentToName } from './people'
+import { consentButtonLabel, listedPeople, nameTaken, sameName, sentToName } from './people'
 
 describe('who is listed', () => {
   const links = [{ patientUid: 'a', role: 'guardian' }, { patientUid: 'b', role: 'viewer' }, { patientUid: 'c', role: 'admin' }, { patientUid: 'd', role: 'viewer' }]
@@ -41,5 +41,16 @@ describe('who the parent\'s photos go to', () => {
   it('says 가족 when nobody has a name yet', () => {
     expect(sentToName([])).toBe('가족')
     expect(sentToName([{ status: 'active', caregiverName: '' }])).toBe('가족')
+  })
+})
+
+describe('consentButtonLabel', () => {
+  it('names the family member who will see the photos', () => {
+    expect(consentButtonLabel([{ status: 'active', caregiverName: '지은' }])).toBe('네, 지은에게 보여줄게요')
+  })
+
+  it('falls back when no name is known yet', () => {
+    expect(consentButtonLabel([])).toBe('네, 보여줄게요')
+    expect(consentButtonLabel([{ status: 'active' }])).toBe('네, 보여줄게요')
   })
 })
