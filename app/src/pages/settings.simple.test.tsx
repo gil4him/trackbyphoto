@@ -45,4 +45,9 @@ describe('Settings for a parent (simple)', () => {
     for (const s of ['가족 관리', '언어', '자동 기록', '전송 시점', '사진 보관']) expect(html).toContain(s)
     expect(html).not.toContain('Phase 1 안내')
   })
+
+  it('links the privacy policy and terms', () => {
+    expect(html).toContain('/privacy')
+    expect(html).toContain('/terms')
+  })
 })

@@ -27,10 +27,9 @@ as of 2026-10-10:
    개인정보 보호책임자 — both pages say only "오늘하루 운영자".
 2. The 국외 이전 clause: 보호법 제28조의8 notice/consent wording, and each
    recipient's exact address (Google LLC, Kakao, OSMF/Nominatim).
-3. Whether the worker's Kakao Local key is set in production, and whether the
-   `cloudMemo` path to Google's Gemini API is on — i.e. whether photos ever
-   reach a cloud model. Both are out-of-repo config
-   (`~/daylie-secrets/simple/worker.env`, `admin_config/plans`).
+3. Settled 2026-10-10: the simple worker has no Kakao key and no Gemini key,
+   so the pages name neither. If either is turned on
+   (`~/daylie-secrets/simple/worker.env`), update §4–§6 first.
 4. Photo retention. The 30일/90일/계속 picker in 설정 is **stored but not yet
    enforced**: `worker/src/handlers/retention.ts` deletes on the plan's
    `retentionDays` and only while the `retentionJob` flag is on. The policy

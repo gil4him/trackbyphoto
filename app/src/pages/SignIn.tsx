@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { useToast } from '../components/Toast'
+import { LegalLinks } from '../components/LegalLinks'
+import { isSimple } from '../lib/edition'
 
 export function SignIn({ onGoogle, onApple, invited, onEnterCode, parentButton = false }: {
   onGoogle: () => Promise<void>
@@ -85,6 +87,7 @@ export function SignIn({ onGoogle, onApple, invited, onEnterCode, parentButton =
           ? '가족초대를 받으셨어요. 로그인하면 바로 참여할 수 있어요.'
           : '가족과 메모를 공유하기 위해 로그인해 주세요. 사진과 메모는 본인 계정에만 저장됩니다.'}
       </p>
+      {isSimple() && <LegalLinks />}
     </section>
   )
 }

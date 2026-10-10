@@ -25,6 +25,7 @@ import type { PlanReason } from '../lib/plan'
 import { S } from '../lib/strings'
 import type { PlanTier } from '../types'
 import { isSimple } from '../lib/edition'
+import { LegalLinks } from '../components/LegalLinks'
 
 /** Version of the 음성 답장 consent text shown below. */
 const VOICE_CONSENT_VERSION = 'voice-v1'
@@ -780,6 +781,7 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
           </div>
         </div>
       )}
+      {isSimple() && <LegalLinks />}
       {deleteMeOpen && (
         <BottomSheet title="계정을 삭제할까요?" onClose={() => { if (!deleteMeBusy) setDeleteMeOpen(false) }}>
           <p className="sheet-sub">내 사진과 기록, 가족 연결이 모두 지워지고 되돌릴 수 없어요.</p>
