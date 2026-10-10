@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { useToast } from '../components/Toast'
 
-export function SignIn({ onGoogle, invited, onEnterCode, parentButton = false }: {
+export function SignIn({ onGoogle, onApple, invited, onEnterCode, parentButton = false }: {
   onGoogle: () => Promise<void>
+  /** The iPhone app: Sign in with Apple above Google. */
+  onApple?: () => Promise<void>
   invited?: boolean
   onEnterCode?: () => void
   /** Simple edition: the parent's way in is a big button, not a small link. */
@@ -12,12 +14,17 @@ export function SignIn({ onGoogle, invited, onEnterCode, parentButton = false }:
   const [error, setError] = useState<string | null>(null)
   const toast = useToast()
 
-  const handleGoogle = async () => {
+  const run = (signIn: () => Promise<void>) => async () => {
     setBusy(true)
     setError(null)
     try {
-      await onGoogle()
+      await signIn()
     } catch (err) {
+      // Closing the Apple sheet is not a failure.
+      if (/cancel|1001/i.test(String((err as { message?: string })?.message ?? err))) {
+        setBusy(false)
+        return
+      }
       // Show the underlying reason (Firebase code or native plugin message)
       // so a failure on a phone can be read off the screen and reported.
       const e = err as { code?: string; message?: string }
@@ -38,7 +45,16 @@ export function SignIn({ onGoogle, invited, onEnterCode, parentButton = false }:
         <p>한 번의 터치로 오늘의 순간을 가족에게 전합니다.</p>
       </div>
 
-      <button className="g-btn" onClick={handleGoogle} disabled={busy} aria-label="Google로 로그인">
+      {onApple && (
+        <button className="apple-btn" onClick={run(onApple)} disabled={busy} aria-label="Apple로 로그인">
+          <svg width="18" height="22" viewBox="0 0 17 20" aria-hidden="true">
+            <path fill="currentColor" d="M14.1 10.6c0-2.6 2.1-3.8 2.2-3.9-1.2-1.8-3.1-2-3.7-2-1.6-.2-3.1.9-3.9.9-.8 0-2.1-.9-3.4-.9C3.5 4.8 1.9 5.8 1 7.3c-1.9 3.2-.5 8 1.3 10.6.9 1.3 1.9 2.7 3.3 2.6 1.3-.1 1.8-.8 3.4-.8s2 .8 3.4.8c1.4 0 2.3-1.3 3.2-2.6 1-1.5 1.4-2.9 1.4-3-.1 0-2.9-1.1-2.9-4.3zM11.5 3c.7-.9 1.2-2 1.1-3.2-1 0-2.3.7-3 1.6-.7.8-1.3 2-1.1 3.1 1.1.1 2.3-.6 3-1.5z"/>
+          </svg>
+          Apple로 로그인
+        </button>
+      )}
+
+      <button className="g-btn" onClick={run(onGoogle)} disabled={busy} aria-label="Google로 로그인">
         <span className="g-ico" aria-hidden>
           {/* Google "G" mark */}
           <svg width="20" height="20" viewBox="0 0 48 48">

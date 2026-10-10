@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, lazy, Suspense } from 'react'
 import { Capacitor } from '@capacitor/core'
 import { doc, onSnapshot, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from './firebase'
-import { useAuth } from './hooks/useAuth'
+import { appleSignInAvailable, useAuth } from './hooks/useAuth'
 import { useLaunchUrl } from './hooks/useLaunchUrl'
 import { useFirstLaunchPairCode } from './hooks/useFirstLaunchPairCode'
 import { useMemos } from './hooks/useMemos'
@@ -107,7 +107,7 @@ function pairCodeFromUrl(): string | null {
 }
 
 function App() {
-  const { user: authUser, elder, ready, signInWithGoogle, signOut } = useAuth()
+  const { user: authUser, elder, ready, signInWithGoogle, signInWithApple, signOut } = useAuth()
   // An anonymous session exists only while a phone redeems a pairing code;
   // everywhere else it counts as signed out.
   const user = authUser && !authUser.isAnonymous ? authUser : null
@@ -406,6 +406,7 @@ function App() {
           <main>
             <SignIn
               onGoogle={signInWithGoogle}
+              onApple={appleSignInAvailable ? signInWithApple : undefined}
               invited={showAcceptInvite}
               parentButton={isSimple()}
               onEnterCode={isSimple() && Capacitor.isNativePlatform() ? () => setParentMode(true) : () => setPairCode('')}

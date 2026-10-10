@@ -523,6 +523,9 @@ nav.tabbar .tab.on .tab-avatar { box-shadow: 0 0 0 2px var(--coral2); }
 .signin-brand p { margin: 0; color: var(--ink-2); font-size: 15px; line-height: 1.5; max-width: 280px; }
 .g-btn { display: inline-flex; align-items: center; gap: 12px; padding: 14px 22px; border-radius: 14px; background: #fff; color: #1f1f1f; font-size: 17px; font-weight: 600; border: 1px solid var(--line); box-shadow: 0 4px 14px rgba(0,0,0,0.06); cursor: pointer; min-width: 260px; justify-content: center; font-family: inherit; }
 .g-btn:disabled { opacity: 0.6; cursor: default; }
+/* Apple's own look for its button: black, white mark, same size as Google's. */
+.apple-btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; padding: 14px 22px; border-radius: 14px; background: #000; color: #fff; font-size: 17px; font-weight: 600; border: none; cursor: pointer; min-width: 260px; font-family: inherit; margin-bottom: 12px; }
+.apple-btn:disabled { opacity: 0.6; cursor: default; }
 .g-btn .g-ico { display: inline-flex; }
 .signin-note { font-size: 13px; color: var(--muted); max-width: 280px; line-height: 1.5; margin: 0; }
 

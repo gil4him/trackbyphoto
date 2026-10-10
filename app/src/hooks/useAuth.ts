@@ -4,6 +4,7 @@ import { FirebaseAuthentication } from '@capacitor-firebase/authentication'
 import {
   getRedirectResult,
   GoogleAuthProvider,
+  OAuthProvider,
   onAuthStateChanged,
   signInAnonymously,
   signInWithCredential,
@@ -50,6 +51,10 @@ async function nativeGoogleSignIn() {
     throw err
   }
 }
+
+/** Sign in with Apple is offered in the iPhone app (App Store rule 4.8:
+ *  an app with Google sign-in must offer it too). */
+export const appleSignInAvailable = isNative && Capacitor.getPlatform() === 'ios'
 
 /** An elder phone linked by a pairing code: a worker-minted custom token
  *  carrying { elder: true, deviceId }. */
@@ -174,11 +179,26 @@ export function useAuth() {
     }
   }
 
+  // The native Apple sheet; its ID token and nonce sign in the Firebase JS
+  // SDK, like Google above.
+  const signInWithApple = async () => {
+    try {
+      const result = await FirebaseAuthentication.signInWithApple()
+      const idToken = result.credential?.idToken
+      if (!idToken) throw new Error('Apple sign-in returned no ID token')
+      const credential = new OAuthProvider('apple.com').credential({ idToken, rawNonce: result.credential?.nonce })
+      await signInWithCredential(auth, credential)
+    } catch (err) {
+      console.error('[auth] Apple sign-in failed', err)
+      throw err
+    }
+  }
+
   const signOut = async () => {
     // Also clear the native Google session so the account picker shows again.
     if (isNative) await FirebaseAuthentication.signOut().catch(() => {})
     await fbSignOut(auth)
   }
 
-  return { user, elder, ready, signInWithGoogle, signOut }
+  return { user, elder, ready, signInWithGoogle, signInWithApple, signOut }
 }
