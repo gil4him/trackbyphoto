@@ -45,7 +45,31 @@ node -e "
 
 cp "$PLIST" "$APP/ios/App/App/GoogleService-Info.plist"
 cp "$JSON" "$APP/android/app/google-services.json"
-echo "Native config -> $ED ($WANT, $p_bundle)"
+
+# The microphone is only for voice replies, which the simple edition doesn't
+# have, so its store builds don't ask for it. Full (the committed state) does.
+INFO="$APP/ios/App/App/Info.plist"
+MANIFEST="$APP/android/app/src/main/AndroidManifest.xml"
+MIC_TEXT='가족에게 목소리로 답장을 남기기 위해 마이크를 사용해요.'
+if [ "$ED" = simple ]; then
+  /usr/libexec/PlistBuddy -c 'Delete :NSMicrophoneUsageDescription' "$INFO" 2>/dev/null || true
+  MANIFEST="$MANIFEST" node -e "
+    const fs = require('fs'), f = process.env.MANIFEST
+    fs.writeFileSync(f, fs.readFileSync(f, 'utf8').replace(/ *<!-- Voice replies:[^\\n]*\\n *<uses-permission android:name=\"android.permission.RECORD_AUDIO\" \\/>\\n *<uses-permission android:name=\"android.permission.MODIFY_AUDIO_SETTINGS\" \\/>\\n/, ''))"
+else
+  /usr/libexec/PlistBuddy -c 'Print :NSMicrophoneUsageDescription' "$INFO" >/dev/null 2>&1 \
+    || /usr/libexec/PlistBuddy -c "Add :NSMicrophoneUsageDescription string $MIC_TEXT" "$INFO"
+  MANIFEST="$MANIFEST" node -e "
+    const fs = require('fs'), f = process.env.MANIFEST, s = fs.readFileSync(f, 'utf8')
+    if (!s.includes('RECORD_AUDIO')) fs.writeFileSync(f, s.replace(
+      /( *)(<uses-permission android:name=\"android.permission.ACCESS_FINE_LOCATION\" \\/>\\n)/,
+      '\$1\$2\$1<!-- Voice replies: the WebView\\'s microphone (getUserMedia) for 꾹 누르고 말하기. -->\\n' +
+      '\$1<uses-permission android:name=\"android.permission.RECORD_AUDIO\" />\\n' +
+      '\$1<uses-permission android:name=\"android.permission.MODIFY_AUDIO_SETTINGS\" />\\n'))"
+fi
+grep -q RECORD_AUDIO "$MANIFEST" && droid_mic=yes || droid_mic=no
+/usr/libexec/PlistBuddy -c 'Print :NSMicrophoneUsageDescription' "$INFO" >/dev/null 2>&1 && ios_mic=yes || ios_mic=no
+echo "Native config -> $ED ($WANT, $p_bundle); microphone: iOS $ios_mic, Android $droid_mic"
 (cd "$APP" && npx cap sync)
 if [ "$ED" != full ]; then
   echo "NOTE: the native Firebase configs now point at $WANT. Run 'npm run native:full' before committing."
