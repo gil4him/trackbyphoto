@@ -7,6 +7,7 @@
 
 import { doc, getDoc } from 'firebase/firestore'
 import { db } from '../firebase'
+import { isSimple } from './edition'
 import type { PlanEntitlements, Plans, PlanTier } from '../types'
 
 const CACHE_KEY = 'tbp.plans.v1'
@@ -43,6 +44,19 @@ export function entitlements(plans: Plans | null, tier: PlanTier | undefined): P
   return plans?.[tier ?? 'free'] ?? null
 }
 
-export function flagOn(plans: Plans | null, flag: keyof Plans['flags']): boolean {
+type Flag = keyof Plans['flags']
+
+/**
+ * Features the simple edition doesn't have, whatever the plans doc says
+ * (docs/Daylie-v3-Simple-Core.md §4): 다녀온 곳, plans and prices, voice
+ * replies, digests (in-app, e-mail, messenger), and family photos — the
+ * parent's camera screen has nowhere to show those.
+ */
+export const SIMPLE_FLAGS_OFF: ReadonlySet<Flag> = new Set<Flag>([
+  'trailMap', 'planSheet', 'voiceReplies', 'digest', 'emailDigest', 'messengerFree', 'familyPhotos',
+])
+
+export function flagOn(plans: Plans | null, flag: Flag): boolean {
+  if (isSimple() && SIMPLE_FLAGS_OFF.has(flag)) return false
   return plans?.flags?.[flag] === true
 }
