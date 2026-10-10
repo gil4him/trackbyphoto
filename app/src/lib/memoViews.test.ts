@@ -18,14 +18,10 @@ describe('mapLink', () => {
 })
 
 describe('detailActions', () => {
-  const base = { simple: true, readOnly: false, native: false, hasPhoto: true, hasMemo: true, rewriting: false }
+  const base = { simple: true, readOnly: false, hasPhoto: true, hasMemo: true, rewriting: false }
 
-  it('simple, browser: share, save, edit, rewrite, then delete', () => {
-    expect(detailActions(base)).toEqual(['share', 'save', 'edit', 'rewrite', 'delete'])
-  })
-
-  it('in the app the share sheet saves, so no separate save', () => {
-    expect(detailActions({ ...base, native: true })).toEqual(['share', 'edit', 'rewrite', 'delete'])
+  it('simple: share, edit, rewrite, then delete', () => {
+    expect(detailActions(base)).toEqual(['share', 'edit', 'rewrite', 'delete'])
   })
 
   it('full edition: no sharing', () => {
@@ -33,8 +29,8 @@ describe('detailActions', () => {
   })
 
   it('no editing while the memo is being written', () => {
-    expect(detailActions({ ...base, rewriting: true })).toEqual(['share', 'save', 'delete'])
-    expect(detailActions({ ...base, hasMemo: false })).toEqual(['share', 'save', 'delete'])
+    expect(detailActions({ ...base, rewriting: true })).toEqual(['share', 'delete'])
+    expect(detailActions({ ...base, hasMemo: false })).toEqual(['share', 'delete'])
   })
 
   it('nothing for someone who may only look', () => {

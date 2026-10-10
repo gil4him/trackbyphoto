@@ -8,18 +8,15 @@ export function mapLink(memo: Pick<Memo, 'lat' | 'lng' | 'place'>, simple: boole
     : `https://maps.apple.com/?ll=${memo.lat},${memo.lng}&q=${encodeURIComponent(memo.place || '위치')}`
 }
 
-export type DetailAction = 'share' | 'save' | 'edit' | 'rewrite' | 'delete'
+export type DetailAction = 'share' | 'edit' | 'rewrite' | 'delete'
 
 /** What a photo page's ⋯ menu offers, top to bottom (삭제 last, in red).
- *  Sharing is the simple edition's; saving is for a browser (the app's share
- *  sheet already saves). Nothing for someone who may only look. */
-export function detailActions(o: { simple: boolean; readOnly: boolean; native: boolean; hasPhoto: boolean; hasMemo: boolean; rewriting: boolean }): DetailAction[] {
+ *  Sharing is the simple edition's (its share sheet also saves the photo on
+ *  an iPhone). Nothing for someone who may only look. */
+export function detailActions(o: { simple: boolean; readOnly: boolean; hasPhoto: boolean; hasMemo: boolean; rewriting: boolean }): DetailAction[] {
   if (o.readOnly) return []
   const out: DetailAction[] = []
-  if (o.simple && o.hasPhoto) {
-    out.push('share')
-    if (!o.native) out.push('save')
-  }
+  if (o.simple && o.hasPhoto) out.push('share')
   if (o.hasMemo && !o.rewriting) out.push('edit', 'rewrite')
   out.push('delete')
   return out

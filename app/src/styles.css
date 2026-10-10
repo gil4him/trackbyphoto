@@ -977,14 +977,6 @@ nav.tabbar .tab.on .tab-avatar { box-shadow: 0 0 0 2px var(--coral2); }
 .trail-link { float: right; border: 0; background: none; padding: 0; color: var(--accent-ink); font-size: 14px; font-weight: 700; }
 .dg-trail { display: block; width: 100%; padding: 0; border: 1px solid var(--line); border-radius: 14px; background: #fff; overflow: hidden; text-align: left; }
 .dg-trail .dg-places { border: 0; border-top: 1px solid var(--line); border-radius: 0; }
-/* Simple edition: 공유하기 / 저장 under a photo (MemoDetail). */
-.detail-share { display: flex; gap: 10px; margin: 4px 0 14px; }
-.share-btn {
-  flex: 1; min-height: 52px; border: 0; border-radius: 16px; font: inherit; font-size: 17px; font-weight: 800;
-  background: linear-gradient(135deg, var(--coral1), var(--coral2)); color: #fff;
-}
-.share-btn.ghost { flex: 0 0 34%; background: var(--card); color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--line); }
-.share-btn:disabled { opacity: .5; }
 a.pair-btn { display: flex; align-items: center; justify-content: center; text-decoration: none; }
 .pair-web-link { min-height: 60px; font-size: 19px; }
 .pair-steps { margin: 0; padding-left: 26px; max-width: 330px; text-align: left; font-size: 19px; line-height: 1.55; color: var(--ink); }

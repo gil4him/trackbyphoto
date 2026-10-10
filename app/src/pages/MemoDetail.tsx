@@ -12,8 +12,7 @@ import type { Memo, MemoSource } from '../types'
 import { detailActions, mapLink, type DetailAction } from '../lib/memoViews'
 import { BottomSheet } from '../components/BottomSheet'
 import { isSimple } from '../lib/edition'
-import { Capacitor } from '@capacitor/core'
-import { downloadPhoto, sharePhoto } from '../lib/photoShare'
+import { sharePhoto } from '../lib/photoShare'
 
 // 'stored-only' has no badge on purpose: nothing says a step was skipped.
 const SOURCE_BADGES: Partial<Record<MemoSource, { label: string; tone: 'good' | 'neutral' | 'warn' }>> = {
@@ -36,8 +35,8 @@ const BODY_MAX = 200
  * sentences, then the place. Family can correct the text by hand or ask the
  * worker to write it again from the photo.
  * `readOnly` (an elder's linked phone): no delete, no edit.
- * The header holds back, the date and ⋯, which opens the rest (공유하기,
- * 저장, 수정, 다시 쓰기, 삭제) in a sheet; 공유하기 also stays under the photo.
+ * The header holds back, the date and ⋯, which opens the actions (공유하기,
+ * 수정, 다시 쓰기, 삭제) in a sheet.
  */
 export function MemoDetail({ memo, onBack, readOnly = false, rx }: { memo: Memo; onBack: () => void; readOnly?: boolean; rx?: ReactionsContext }) {
   const toast = useToast()
@@ -143,22 +142,19 @@ export function MemoDetail({ memo, onBack, readOnly = false, rx }: { memo: Memo;
     }
   }
   const onShare = () => passOn(() => sharePhoto(memo))
-  const onDownload = () => passOn(() => downloadPhoto(memo))
 
   const actions = detailActions({
-    simple: isSimple(), readOnly, native: Capacitor.isNativePlatform(),
+    simple: isSimple(), readOnly,
     hasPhoto: !!memo.photoUrl, hasMemo: !!memo.memo, rewriting,
   })
-  const ACTION_LABELS: Record<DetailAction, string> = { share: '공유하기', save: '사진 저장', edit: '직접 수정', rewrite: 'AI로 다시 쓰기', delete: '삭제' }
+  const ACTION_LABELS: Record<DetailAction, string> = { share: '공유하기', edit: '직접 수정', rewrite: 'AI로 다시 쓰기', delete: '삭제' }
   const runAction = (a: DetailAction) => {
     if (a === 'delete') return setSheet('confirm')
     setSheet(null)
     if (a === 'share') void onShare()
-    else if (a === 'save') void onDownload()
     else if (a === 'edit') startEdit()
     else void rewrite()
   }
-  const canShare = actions.includes('share')
 
   return (
     <section className="page detail">
@@ -177,7 +173,7 @@ export function MemoDetail({ memo, onBack, readOnly = false, rx }: { memo: Memo;
               key={a}
               type="button"
               className={`sheet-item${a === 'delete' ? ' danger sep' : ''}`}
-              disabled={(a === 'share' || a === 'save') ? sharing : (a !== 'delete' && saving)}
+              disabled={a === 'share' ? sharing : (a !== 'delete' && saving)}
               onClick={() => runAction(a)}
             >{ACTION_LABELS[a]}</button>
           ))}
@@ -208,13 +204,6 @@ export function MemoDetail({ memo, onBack, readOnly = false, rx }: { memo: Memo;
         {memo.activity && <span className="pill">{memo.activity}</span>}
         {memo.place && <span className="pill p">{memo.place}</span>}
       </div>
-
-      {/* Simple edition, family: pass the photo on (KakaoTalk, 이미지 저장). */}
-      {canShare && (
-        <div className="detail-share">
-          <button className="share-btn" disabled={sharing} onClick={() => void onShare()}>공유하기</button>
-        </div>
-      )}
 
       <div className="detail-section">
         <div className="d-label">

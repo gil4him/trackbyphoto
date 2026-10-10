@@ -5,7 +5,7 @@ import { fmtDate, fmtTime } from '../util'
 import type { Memo } from '../types'
 
 /**
- * 공유하기 / 저장 on a photo (MemoDetail, family only, simple edition).
+ * 공유하기 on a photo (MemoDetail's ⋯, family only, simple edition).
  * Phone app: the photo goes to the share sheet as a file — KakaoTalk, and on
  * an iPhone 이미지 저장. Phone browser: the browser's share sheet when it can
  * take files, else a download. Fetching the photo needs CORS on the Storage
@@ -84,9 +84,4 @@ export async function sharePhoto(memo: Memo): Promise<'shared' | 'downloaded' | 
   }
   downloadBlob(blob, name)
   return 'downloaded'
-}
-
-/** 저장 in a browser: download the photo. */
-export async function downloadPhoto(memo: Memo): Promise<void> {
-  downloadBlob(await photoBlob(memo.photoUrl), photoFileName(memo))
 }
