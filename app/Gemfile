@@ -3,3 +3,14 @@
 source "https://rubygems.org"
 
 gem "fastlane"
+
+# Ruby 3.5+ no longer ships these as default gems; fastlane still requires them.
+gem "ostruct"
+gem "logger"
+gem "benchmark"
+gem "abbrev"
+gem "mutex_m"
+gem "nkf"
+gem "csv"
+gem "bigdecimal"
+gem "base64"
