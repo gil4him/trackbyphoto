@@ -1,7 +1,13 @@
 import { useState } from 'react'
 import { useToast } from '../components/Toast'
 
-export function SignIn({ onGoogle, invited, onEnterCode }: { onGoogle: () => Promise<void>; invited?: boolean; onEnterCode?: () => void }) {
+export function SignIn({ onGoogle, invited, onEnterCode, parentButton = false }: {
+  onGoogle: () => Promise<void>
+  invited?: boolean
+  onEnterCode?: () => void
+  /** Simple edition: the parent's way in is a big button, not a small link. */
+  parentButton?: boolean
+}) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const toast = useToast()
@@ -47,11 +53,16 @@ export function SignIn({ onGoogle, invited, onEnterCode }: { onGoogle: () => Pro
 
       {error && <p className="signin-error">{error}</p>}
 
-      {onEnterCode && !invited && (
+      {onEnterCode && !invited && (parentButton ? (
+        <button className="signin-parent-btn" onClick={onEnterCode}>
+          <span className="signin-parent-title">부모님 휴대폰이에요</span>
+          <span className="signin-parent-sub">사진을 찍어 가족에게 보내요</span>
+        </button>
+      ) : (
         <button className="signin-code-btn" onClick={onEnterCode}>
           가족에게 받은 연결 코드가 있어요
         </button>
-      )}
+      ))}
 
       <p className="signin-note">
         {invited

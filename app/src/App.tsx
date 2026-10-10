@@ -4,6 +4,7 @@ import { doc, onSnapshot, setDoc, updateDoc, serverTimestamp } from 'firebase/fi
 import { db } from './firebase'
 import { useAuth } from './hooks/useAuth'
 import { useLaunchUrl } from './hooks/useLaunchUrl'
+import { useFirstLaunchPairCode } from './hooks/useFirstLaunchPairCode'
 import { useMemos } from './hooks/useMemos'
 import { useMemberships } from './hooks/useMemberships'
 import { useOutboxSync } from './hooks/useOutbox'
@@ -90,12 +91,15 @@ function App() {
   const [pairCode, setPairCode] = useState<string | null>(pairCodeFromUrl)
   // …or by a /pair link that opened the native app.
   useLaunchUrl(setPairCode)
+  // …or, on the simple app's first launch, by the code of the link it was
+  // installed from (Play referrer / copied link).
+  useFirstLaunchPairCode(isSimple() && ready && !authUser, setPairCode)
   // Simple edition, web: 앱 없이 이 화면에서 연결하기 on the /pair page links
   // the phone in the browser (?web=1 keeps it across a reload).
   const [webPair, setWebPair] = useState(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('web') === '1')
-  // Simple edition: a signed-out phone opens on the pairing camera
-  // (ElderPairStart) until 가족이에요 says it's the family's own phone.
-  const [familyMode, setFamilyMode] = useState(false)
+  // Simple edition: 부모님 휴대폰이에요 on sign-in opens the pairing camera
+  // (ElderPairStart) in the app; 가족이에요 there comes back.
+  const [parentMode, setParentMode] = useState(false)
   // Simple edition: 엄마 연결하기 opened from Home (ConnectParentCard).
   const [connectingParent, setConnectingParent] = useState(false)
   // The digest page: opened by a /digest/{id} link (push, e-mail, message) or
@@ -358,11 +362,11 @@ function App() {
     )
   }
 
-  if (!user && isSimple() && Capacitor.isNativePlatform() && !familyMode) {
+  if (!user && isSimple() && Capacitor.isNativePlatform() && parentMode) {
     return (
       <ElderPairStart
         onCode={setPairCode}
-        onFamily={() => setFamilyMode(true)}
+        onFamily={() => setParentMode(false)}
         onEnterCode={() => setPairCode('')}
       />
     )
@@ -379,7 +383,8 @@ function App() {
             <SignIn
               onGoogle={signInWithGoogle}
               invited={showAcceptInvite}
-              onEnterCode={() => setPairCode('')}
+              parentButton={isSimple()}
+              onEnterCode={isSimple() && Capacitor.isNativePlatform() ? () => setParentMode(true) : () => setPairCode('')}
             />
           </main>
         </div>

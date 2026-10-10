@@ -1,10 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { App as CapApp } from '@capacitor/app'
-import { Clipboard } from '@capacitor/clipboard'
 import { captureSampleBlob, startPreview, stopPreview } from '../lib/cameraPreview'
-import { firstTimeOnly, pairCodeFromText } from '../lib/pairing'
 import { startQrScan } from '../lib/qrScan'
-import { referrerPairCode } from '../lib/installReferrer'
 import type { CameraPhase } from './ElderCamera'
 import { ASK_CAMERA_TO_LINK, cameraPermission } from '../lib/permissions'
 import { ElderAsk } from '../components/ElderAsk'
@@ -15,9 +12,8 @@ import { ElderAsk } from '../components/ElderAsk'
  * phone up to it is all it takes — the code goes straight to PairDevice.
  * A parent on her own taps the family's link again (it opens the app) or
  * types its code (코드 입력).
- * A code copied by the /pair link page (PairLanding) is picked up from the
- * clipboard too, on the app's first launch only, so iOS asks to allow
- * pasting at most once.
+ * (A code from the family's link is picked up on the app's first launch,
+ * before this screen: hooks/useFirstLaunchPairCode.)
  * docs/Daylie-v3-Simple-Core.md §1.
  */
 
@@ -118,19 +114,6 @@ export function ElderPairStart({ onCode, onFamily, onEnterCode }: {
         setAsking(true)
       } else launch()
     })
-    // Installed from the family's link on Android: Play hands over its code.
-    if (firstTimeOnly('tbp.pair.referrerChecked')) {
-      void referrerPairCode().then((code) => { if (code) found(code) })
-    }
-    // A link copied by the /pair page — looked for on the first launch only.
-    if (firstTimeOnly('tbp.pair.clipboardChecked')) {
-      Clipboard.read()
-        .then(({ value }) => {
-          const code = pairCodeFromText(value ?? '')
-          if (code) found(code)
-        })
-        .catch(() => {}) // empty clipboard, or pasting not allowed — just scan
-    }
     const sub = CapApp.addListener('appStateChange', ({ isActive }) => {
       if (done.current || askingRef.current) return
       if (isActive) restart()
