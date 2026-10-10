@@ -48,6 +48,19 @@ export function pairCodeFromText(text: string): string | null {
 }
 
 /**
+ * The pair code in a Play install referrer: "c=CODE" as the /pair page puts
+ * it (a whole /pair link is accepted too). Same strictness as
+ * pairCodeFromText: exactly 8 letters/digits, or null.
+ */
+export function pairCodeFromReferrer(referrer: string): string | null {
+  const fromLink = pairCodeFromText(referrer)
+  if (fromLink) return fromLink
+  const raw = new URLSearchParams(referrer.trim()).get('c') ?? ''
+  const code = raw.toUpperCase()
+  return /^[0-9A-Z]{8}$/.test(code) ? code : null
+}
+
+/**
  * True exactly once per phone for this key (then remembered): the first-launch
  * checks for a pair code — clipboard, Play install referrer — run only once,
  * so iOS's 붙여넣기 허용 question never comes back. Storage that can't be

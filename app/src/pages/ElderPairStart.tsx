@@ -4,6 +4,7 @@ import { Clipboard } from '@capacitor/clipboard'
 import { captureSampleBlob, startPreview, stopPreview } from '../lib/cameraPreview'
 import { firstTimeOnly, pairCodeFromText } from '../lib/pairing'
 import { startQrScan } from '../lib/qrScan'
+import { referrerPairCode } from '../lib/installReferrer'
 import type { CameraPhase } from './ElderCamera'
 
 /**
@@ -101,6 +102,10 @@ export function ElderPairStart({ onCode, onFamily, onEnterCode }: {
   useEffect(() => {
     alive.current = true
     launch()
+    // Installed from the family's link on Android: Play hands over its code.
+    if (firstTimeOnly('tbp.pair.referrerChecked')) {
+      void referrerPairCode().then((code) => { if (code) found(code) })
+    }
     // A link copied by the /pair page — looked for on the first launch only.
     if (firstTimeOnly('tbp.pair.clipboardChecked')) {
       Clipboard.read()

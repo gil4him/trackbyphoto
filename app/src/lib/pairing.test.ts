@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 
 vi.mock('./worker', () => ({ callWorker: vi.fn() }))
 
-import { firstTimeOnly, pairCodeFromText } from './pairing'
+import { firstTimeOnly, pairCodeFromReferrer, pairCodeFromText } from './pairing'
 import { PUBLIC_ORIGIN } from './publicUrl'
 
 describe('pairCodeFromText — only our /pair links count', () => {
@@ -50,5 +50,21 @@ describe('firstTimeOnly', () => {
     const broken = { getItem: () => { throw new Error('blocked') }, setItem: () => {} }
     expect(firstTimeOnly('a', broken)).toBe(true)
     expect(firstTimeOnly('a', undefined)).toBe(true)
+  })
+})
+
+describe('pairCodeFromReferrer', () => {
+  it('reads c=CODE from the Play referrer, or a whole /pair link', () => {
+    expect(pairCodeFromReferrer('c=ABCD2345')).toBe('ABCD2345')
+    expect(pairCodeFromReferrer('utm_source=x&c=abcd2345')).toBe('ABCD2345')
+    expect(pairCodeFromReferrer(`${PUBLIC_ORIGIN}/pair?c=ABCD2345`)).toBe('ABCD2345')
+  })
+
+  it('ignores ordinary referrers and anything not exactly 8 letters/digits', () => {
+    expect(pairCodeFromReferrer('utm_source=google-play&utm_medium=organic')).toBeNull()
+    expect(pairCodeFromReferrer('')).toBeNull()
+    expect(pairCodeFromReferrer('c=ABC')).toBeNull()
+    expect(pairCodeFromReferrer('c=ABCD-2345')).toBeNull()
+    expect(pairCodeFromReferrer('c=ABCD23456789')).toBeNull()
   })
 })
