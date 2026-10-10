@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { App as CapApp } from '@capacitor/app'
 import { Haptics, ImpactStyle } from '@capacitor/haptics'
 import { capturePhoto, startPreview, stopPreview } from '../lib/cameraPreview'
@@ -6,6 +6,7 @@ import { savePhoto } from '../lib/capture'
 import { askLocation, warmUpLocation } from '../lib/location'
 import { ASK_CAMERA, ASK_LOCATION, cameraPermission, locationPermission } from '../lib/permissions'
 import { ElderAsk } from '../components/ElderAsk'
+import { ElderInstallButton } from '../components/ElderInstallButton'
 import { markRead } from '../lib/reactions'
 import { sentToName } from '../lib/people'
 import { S } from '../lib/strings'
@@ -30,8 +31,10 @@ const OVERLAY_MS = 1500
 export type CameraPhase = 'starting' | 'live' | 'denied'
 export type Overlay = { ok: true; text: string } | { ok: false; text: string; sub: string }
 
-export function ElderCameraView({ phase, busy, overlay, news, photos = null, ask = null, onShutter, onDismissNews, onOpenRecords, onRetry, onOpenPhotos = () => {}, onAskNext = () => {} }: {
+export function ElderCameraView({ phase, busy, overlay, news, photos = null, ask = null, corner = null, onShutter, onDismissNews, onOpenRecords, onRetry, onOpenPhotos = () => {}, onAskNext = () => {} }: {
   phase: CameraPhase
+  /** Bottom-right of the bar, opposite 내 사진: the web's 아이콘 만들기. */
+  corner?: ReactNode
   /** "민수가 사진을 보냈어요" while a photo from family is new, else null. */
   photos?: string | null
   onOpenPhotos?: () => void
@@ -95,7 +98,7 @@ export function ElderCameraView({ phase, busy, overlay, news, photos = null, ask
           disabled={phase !== 'live' || busy}
           onClick={onShutter}
         />
-        <span className="elder-cam-bar-spacer" aria-hidden="true" />
+        <span className="elder-cam-bar-spacer">{corner}</span>
       </div>}
     </div>
   )
@@ -227,6 +230,7 @@ export function ElderCamera({ uid, reactions, photos = null, onOpenRecords, onOp
       onOpenRecords={onOpenRecords}
       onRetry={restart}
       photos={photos}
+      corner={<ElderInstallButton compact />}
       onOpenPhotos={() => { void stopPreview(); onOpenPhotos?.() }}
       ask={ask === 'camera' ? ASK_CAMERA : ask === 'location' ? ASK_LOCATION : null}
       onAskNext={onAskNext}

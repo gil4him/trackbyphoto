@@ -980,6 +980,11 @@ html:not(.camera-live) .elder-cam { background: #000; }
   padding: 0 24px calc(var(--safe-bot) + 28px);
 }
 .elder-cam-records, .elder-cam-bar-spacer { width: 84px; }
+.elder-cam-bar-spacer { display: flex; justify-content: flex-end; }
+.elder-cam-install {
+  width: 84px; min-height: 60px; padding: 0 6px; border: 0; border-radius: 18px;
+  background: rgba(0, 0, 0, .45); color: #fff; font: inherit; font-size: 15px; font-weight: 700; line-height: 1.25;
+}
 .elder-cam-records {
   min-height: 60px; border: 0; border-radius: 18px;
   background: rgba(0, 0, 0, .45); color: #fff; font: inherit; font-size: 18px; font-weight: 700;

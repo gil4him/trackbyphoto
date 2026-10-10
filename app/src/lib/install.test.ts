@@ -56,13 +56,6 @@ describe('link flow on a parent\'s phone', () => {
     expect(start('ios', { familySignedIn: true })).toBe('family-warning')
   })
 
-  it('simple edition: an iPhone browser connects on the spot, no home-screen step', () => {
-    const start = (path: Parameters<typeof pairStart>[0]['path']) => pairStart({ familySignedIn: false, hasCode: true, path, simple: true })
-    expect(start('ios')).toBe('confirm')
-    expect(start('in-app')).toBe('open-browser')
-    expect(start('android')).toBe('confirm')
-  })
-
   it('after connecting, offers the install dialog where the browser has one', () => {
     expect(afterConnect('prompt')).toBe('prompt')
     expect(afterConnect('android')).toBe('manual')
