@@ -58,7 +58,7 @@ async function copyLink(code: string): Promise<void> {
 export function PairLanding({ initialCode, onWebPair }: { initialCode: string; onWebPair?: () => void }) {
   const [code] = useState(() => normalizePairCode(initialCode))
   const [kind] = useState(() => storeKind(navigator.userAgent))
-  const storeUrl = storeUrlFor(kind)
+  const storeUrl = storeUrlFor(kind, undefined, code)
 
   useEffect(() => {
     // Without a tap most browsers refuse; 앱 설치하기 tries again.

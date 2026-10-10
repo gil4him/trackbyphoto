@@ -13,9 +13,18 @@ export function storeKind(ua: string): StoreKind {
   return 'other'
 }
 
+/**
+ * The Play page carrying the pair code as the install referrer: Play hands it
+ * to the app on its first launch (lib/installReferrer.ts), so a parent who
+ * installs from the link is connected without copying or a second tap.
+ */
+export function playStoreUrl(code?: string): string {
+  return code && code.length === 8 ? `${PLAY_STORE_URL}&referrer=${encodeURIComponent(`c=${code}`)}` : PLAY_STORE_URL
+}
+
 /** The store page for this phone, or null (a computer, or no App Store link yet). */
-export function storeUrlFor(kind: StoreKind, appStoreUrl = APP_STORE_URL): string | null {
-  if (kind === 'android') return PLAY_STORE_URL
+export function storeUrlFor(kind: StoreKind, appStoreUrl = APP_STORE_URL, code?: string): string | null {
+  if (kind === 'android') return playStoreUrl(code)
   if (kind === 'ios') return appStoreUrl || null
   return null
 }
