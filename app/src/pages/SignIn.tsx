@@ -1,12 +1,22 @@
-import { useState } from 'react'
+import { useState, type FormEvent } from 'react'
 import { useToast } from '../components/Toast'
 import { LegalLinks } from '../components/LegalLinks'
 import { isSimple } from '../lib/edition'
 
-export function SignIn({ onGoogle, onApple, invited, onEnterCode, parentButton = false }: {
+/** What a failed email sign-in says, in place of Firebase's code. */
+export function emailSignInError(err: unknown): string {
+  const code = String((err as { code?: string })?.code ?? '')
+  if (/invalid-credential|wrong-password|user-not-found|invalid-email/.test(code)) return '이메일 또는 비밀번호가 맞지 않아요.'
+  if (/too-many-requests/.test(code)) return '잠시 후 다시 시도해 주세요.'
+  return '로그인에 실패했어요. 다시 시도해 주세요.'
+}
+
+export function SignIn({ onGoogle, onApple, onEmail, invited, onEnterCode, parentButton = false }: {
   onGoogle: () => Promise<void>
   /** The iPhone app: Sign in with Apple above Google. */
   onApple?: () => Promise<void>
+  /** Simple edition: a small 이메일로 로그인 for accounts made by hand. */
+  onEmail?: (email: string, password: string) => Promise<void>
   invited?: boolean
   onEnterCode?: () => void
   /** Simple edition: the parent's way in is a big button, not a small link. */
@@ -15,6 +25,23 @@ export function SignIn({ onGoogle, onApple, invited, onEnterCode, parentButton =
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const toast = useToast()
+  const [emailOpen, setEmailOpen] = useState(false)
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+
+  const submitEmail = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!onEmail || !email.trim() || !password) return
+    setBusy(true)
+    setError(null)
+    try {
+      await onEmail(email, password)
+    } catch (err) {
+      console.error('[auth] email sign-in failed', err)
+      setError(emailSignInError(err))
+      setBusy(false)
+    }
+  }
 
   const run = (signIn: () => Promise<void>) => async () => {
     setBusy(true)
@@ -87,6 +114,17 @@ export function SignIn({ onGoogle, onApple, invited, onEnterCode, parentButton =
           ? '가족초대를 받으셨어요. 로그인하면 바로 참여할 수 있어요.'
           : '가족과 메모를 공유하기 위해 로그인해 주세요. 사진과 메모는 본인 계정에만 저장됩니다.'}
       </p>
+      {onEmail && (emailOpen ? (
+        <form className="signin-email" onSubmit={submitEmail}>
+          <input className="text-input" type="email" autoComplete="username" placeholder="이메일" aria-label="이메일"
+            value={email} onChange={(e) => setEmail(e.target.value)} />
+          <input className="text-input" type="password" autoComplete="current-password" placeholder="비밀번호" aria-label="비밀번호"
+            value={password} onChange={(e) => setPassword(e.target.value)} />
+          <button className="linkbtn" type="submit" disabled={busy || !email.trim() || !password}>로그인</button>
+        </form>
+      ) : (
+        <button className="signin-code-btn signin-email-link" onClick={() => setEmailOpen(true)}>이메일로 로그인</button>
+      ))}
       {isSimple() && <LegalLinks />}
     </section>
   )

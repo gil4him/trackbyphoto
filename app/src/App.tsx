@@ -107,7 +107,7 @@ function pairCodeFromUrl(): string | null {
 }
 
 function App() {
-  const { user: authUser, elder, ready, signInWithGoogle, signInWithApple, signOut } = useAuth()
+  const { user: authUser, elder, ready, signInWithGoogle, signInWithApple, signInWithEmail, signOut } = useAuth()
   // An anonymous session exists only while a phone redeems a pairing code;
   // everywhere else it counts as signed out.
   const user = authUser && !authUser.isAnonymous ? authUser : null
@@ -407,6 +407,7 @@ function App() {
             <SignIn
               onGoogle={signInWithGoogle}
               onApple={appleSignInAvailable ? signInWithApple : undefined}
+              onEmail={isSimple() ? signInWithEmail : undefined}
               invited={showAcceptInvite}
               parentButton={isSimple()}
               onEnterCode={isSimple() && Capacitor.isNativePlatform() ? () => setParentMode(true) : () => setPairCode('')}

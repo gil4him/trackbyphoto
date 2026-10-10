@@ -56,6 +56,7 @@ heart, a comment or a photo.
 ## 3. 심사용 계정 / The demo account
 
 **한국어** 콘솔의 로그인 정보 칸에 적어 둔 계정은 **가족(자녀) 쪽 계정**입니다.
+로그인 화면 아래쪽의 **"이메일로 로그인"**을 눌러 입력합니다.
 이 계정에는 이미 데모 부모님이 연결되어 있고 예시 사진이 들어 있으므로, 로그인
 한 번으로 사진 목록, 사진 상세(시간·장소·자동 메모), 하트와 한마디, "부모님께
 사진 보내기"를 모두 확인할 수 있습니다. **휴대폰 두 대는 필요하지 않습니다.**
@@ -64,7 +65,8 @@ heart, a comment or a photo.
 **"코드 입력"** → 가족 계정의 *설정 → 부모님*에서 만든 8자리 연결 코드를 입력.
 
 **English** The account in the console's sign-in fields is a **family (adult
-child) account**. It is already linked to a demo parent and already holds sample
+child) account**, signed in through **"이메일로 로그인"** ("sign in with
+email") below the Google button. It is already linked to a demo parent and already holds sample
 photos, so one sign-in is enough to review the photo list, a photo's detail page
 (time, place, the automatically written memo), hearts and comments, and "send a
 photo to the parent". **A second device is not needed.**

@@ -9,6 +9,7 @@ import {
   signInAnonymously,
   signInWithCredential,
   signInWithCustomToken,
+  signInWithEmailAndPassword,
   signInWithPopup,
   signInWithRedirect,
   signOut as fbSignOut,
@@ -194,11 +195,17 @@ export function useAuth() {
     }
   }
 
+  // Email and password: only for accounts made by hand (the store reviewers'
+  // demo account). There is no sign-up in the app.
+  const signInWithEmail = async (email: string, password: string) => {
+    await signInWithEmailAndPassword(auth, email.trim(), password)
+  }
+
   const signOut = async () => {
     // Also clear the native Google session so the account picker shows again.
     if (isNative) await FirebaseAuthentication.signOut().catch(() => {})
     await fbSignOut(auth)
   }
 
-  return { user, elder, ready, signInWithGoogle, signInWithApple, signOut }
+  return { user, elder, ready, signInWithGoogle, signInWithApple, signInWithEmail, signOut }
 }
