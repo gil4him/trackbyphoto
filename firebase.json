@@ -3,7 +3,7 @@
     {
       "target": "app",
       "public": "app/dist",
-      "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+      "ignore": ["firebase.json", "**/._*", "**/.DS_Store", "**/node_modules/**"],
       "rewrites": [{ "source": "**", "destination": "/index.html" }],
       "headers": [
         {
@@ -24,6 +24,17 @@
         },
         {
           "source": "/push-sw.js",
+          "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+        },
+        {
+          "source": "/.well-known/apple-app-site-association",
+          "headers": [
+            { "key": "Content-Type", "value": "application/json" },
+            { "key": "Cache-Control", "value": "no-cache" }
+          ]
+        },
+        {
+          "source": "/.well-known/assetlinks.json",
           "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
         }
       ]

@@ -1,10 +1,31 @@
-import { defineConfig } from 'vite'
+import { readFileSync } from 'node:fs'
+import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
-export default defineConfig({
+// Universal/App Links files (well-known/README.md). Only the simple site may
+// claim /pair for the shared app id, so the full build never ships them.
+function wellKnown(mode: string): Plugin {
+  return {
+    name: 'daylie-well-known',
+    apply: 'build',
+    generateBundle() {
+      if (mode !== 'simple') return
+      for (const name of ['apple-app-site-association', 'assetlinks.json']) {
+        this.emitFile({
+          type: 'asset',
+          fileName: `.well-known/${name}`,
+          source: readFileSync(new URL(`./well-known/${name}`, import.meta.url)),
+        })
+      }
+    },
+  }
+}
+
+export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
+    wellKnown(mode),
     VitePWA({
       // Parents use the website from a home-screen icon, so the app's own
       // files are kept on the phone: it opens at once, on a weak connection
@@ -57,4 +78,4 @@ export default defineConfig({
     host: true,        // expose on LAN so iPhone can connect
     port: 5173
   }
-})
+}))

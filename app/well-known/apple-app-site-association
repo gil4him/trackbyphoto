@@ -1,0 +1,13 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appIDs": ["8LH5JSLM82.com.zymer.daylie"],
+        "appID": "8LH5JSLM82.com.zymer.daylie",
+        "components": [{ "/": "/pair" }, { "/": "/pair/*" }],
+        "paths": ["/pair", "/pair/*"]
+      }
+    ]
+  }
+}
