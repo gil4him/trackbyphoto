@@ -29,6 +29,8 @@ import { cert, initializeApp } from 'firebase-admin/app'
 import { logger } from './log.js'
 import { ollamaAvailable, resolveModel } from './llm/ollama.js'
 import { MemoScheduler, watchPendingMemos } from './handlers/memo.js'
+import { startDailyNotices } from './handlers/dailyNotice.js'
+import { edition } from './config.js'
 import { watchGeocodeRequests } from './handlers/place.js'
 import { purgeStaleRequests, requeueInterruptedRequests, watchRequests } from './handlers/requests.js'
 import { SettingsCache, watchUserSettings } from './handlers/audit.js'
@@ -77,6 +79,8 @@ async function main() {
     startDigests(),
     startHousekeeping(),
     watchFamilyPhotos(),
+    // Simple edition: one notice a day instead of one per photo.
+    ...(edition() === 'simple' ? [startDailyNotices()] : []),
   ]
   const purgeTimer = setInterval(() => {
     purgeStaleRequests().catch((err) => logger.warn('[request] purge failed', { err: String(err) }))
