@@ -802,6 +802,13 @@ nav.tabbar .tab.on .tab-avatar { box-shadow: 0 0 0 2px var(--coral2); }
 .rx-reply { flex: none; margin-left: auto; height: 40px; padding: 0 16px; border-radius: 999px; border: 1.5px solid var(--coral2); background: #fff; color: var(--coral2); font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; }
 /* 가족 소식 card on the regular app's home sits under the two tiles. */
 .home .news-card { margin-top: 16px; }
+/* Simple edition, no parent linked yet (components/SimpleStart.tsx). */
+.simple-start { gap: 22px; justify-content: center; }
+.simple-start-steps {
+  margin: 0; padding: 20px 22px 20px 44px; max-width: 340px; text-align: left;
+  border-radius: 20px; background: var(--card); font-size: 18px; line-height: 1.9;
+}
+.simple-start-go { max-width: 340px; }
 
 /* ── v2 phase 2: home-screen hint, notification centre ──────────────── */
 .install-hint { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; padding: 12px 14px; border-radius: 16px; background: #FFF1E9; border: 1px solid #FFD3BD; font-size: 15px; }
