@@ -1017,8 +1017,20 @@ html:not(.camera-live) .elder-cam { background: #000; }
   width: min(68vw, 300px); aspect-ratio: 1; border-radius: 28px;
   border: 4px solid rgba(255, 255, 255, .9); box-shadow: 0 0 0 4000px rgba(0, 0, 0, .25);
 }
+/* The plain sentence before a permission question (components/ElderAsk.tsx). */
+.elder-ask {
+  position: absolute; inset: 0; z-index: 1;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px;
+  padding: 24px; text-align: center; background: #FFF8EE; color: var(--ink);
+}
+.elder-ask-text { margin: 0; max-width: 320px; font-size: 26px; font-weight: 800; line-height: 1.45; }
+.elder-ask-next {
+  width: 100%; max-width: 320px; min-height: 72px; border: 0; border-radius: 22px;
+  background: linear-gradient(135deg, var(--coral1), var(--coral2)); color: #fff;
+  font: inherit; font-size: 26px; font-weight: 800;
+}
 .elder-pair-bar {
-  position: absolute; left: 0; right: 0; bottom: 0;
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 2;
   display: flex; flex-direction: column; align-items: center; gap: 10px;
   padding: 16px 20px calc(var(--safe-bot) + 18px);
   background: linear-gradient(transparent, rgba(0, 0, 0, .6) 30%);

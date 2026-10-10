@@ -3,7 +3,9 @@ import { App as CapApp } from '@capacitor/app'
 import { Haptics, ImpactStyle } from '@capacitor/haptics'
 import { capturePhoto, startPreview, stopPreview } from '../lib/cameraPreview'
 import { savePhoto } from '../lib/capture'
-import { warmUpLocation } from '../lib/location'
+import { askLocation, warmUpLocation } from '../lib/location'
+import { ASK_CAMERA, ASK_LOCATION, cameraPermission, locationPermission } from '../lib/permissions'
+import { ElderAsk } from '../components/ElderAsk'
 import { markRead } from '../lib/reactions'
 import { sentToName } from '../lib/people'
 import { S } from '../lib/strings'
@@ -28,8 +30,11 @@ const OVERLAY_MS = 1500
 export type CameraPhase = 'starting' | 'live' | 'denied'
 export type Overlay = { ok: true; text: string } | { ok: false; text: string; sub: string }
 
-export function ElderCameraView({ phase, busy, overlay, news, onShutter, onDismissNews, onOpenRecords, onRetry }: {
+export function ElderCameraView({ phase, busy, overlay, news, ask = null, onShutter, onDismissNews, onOpenRecords, onRetry, onAskNext = () => {} }: {
   phase: CameraPhase
+  /** A plain sentence before a permission question (ElderAsk), or null. */
+  ask?: string | null
+  onAskNext?: () => void
   busy: boolean
   overlay: Overlay | null
   news: ElderNews | null
@@ -68,7 +73,9 @@ export function ElderCameraView({ phase, busy, overlay, news, onShutter, onDismi
         </div>
       )}
 
-      <div className="elder-cam-bar">
+      {ask && <ElderAsk text={ask} onNext={onAskNext} />}
+
+      {!ask && <div className="elder-cam-bar">
         <button type="button" className="elder-cam-records" onClick={onOpenRecords}>내 사진</button>
         <button
           type="button"
@@ -78,7 +85,7 @@ export function ElderCameraView({ phase, busy, overlay, news, onShutter, onDismi
           onClick={onShutter}
         />
         <span className="elder-cam-bar-spacer" aria-hidden="true" />
-      </div>
+      </div>}
     </div>
   )
 }
@@ -98,16 +105,37 @@ export function ElderCamera({ uid, reactions, onOpenRecords }: {
   const { caregivers } = useMemberships(uid, { withPatients: false })
   const toName = sentToName(caregivers)
   const alive = useRef(true)
+  // The plain-sentence screen before the phone's camera / location question.
+  const [ask, setAsk_] = useState<'camera' | 'location' | null>(null)
+  const asking = useRef<'camera' | 'location' | null>(null)
+  const setAsk = useCallback((a: 'camera' | 'location' | null) => {
+    asking.current = a
+    setAsk_(a)
+  }, [])
+
+  // Once the camera is on: location next — its plain sentence first if the
+  // phone hasn't asked yet, else just start locating for the first shot.
+  const afterLive = useCallback(() => {
+    void locationPermission().then((s) => {
+      if (!alive.current) return
+      if (s === 'prompt') setAsk('location')
+      else warmUpLocation()
+    })
+  }, [setAsk])
 
   // Only sets state once the camera answers, so the mount effect may call it.
   const launch = useCallback(() => {
     startPreview(FEED_ID)
-      .then(() => { if (alive.current) setPhase('live') })
+      .then(() => {
+        if (!alive.current) return
+        setPhase('live')
+        afterLive()
+      })
       .catch((err) => {
         console.warn('[ElderCamera] preview failed', err)
         if (alive.current) setPhase('denied')
       })
-  }, [])
+  }, [afterLive])
   const restart = useCallback(() => {
     setPhase('starting')
     launch()
@@ -118,10 +146,14 @@ export function ElderCamera({ uid, reactions, onOpenRecords }: {
   // tab visibility the same way). Off in the background and on leaving.
   useEffect(() => {
     alive.current = true
-    launch()
-    warmUpLocation()
+    // The camera's plain sentence first if the phone hasn't asked yet.
+    void cameraPermission().then((s) => {
+      if (!alive.current) return
+      if (s === 'prompt') setAsk('camera')
+      else launch()
+    })
     const sub = CapApp.addListener('appStateChange', ({ isActive }) => {
-      if (isActive) restart()
+      if (isActive) { if (asking.current !== 'camera') restart() }
       else void stopPreview()
     })
     return () => {
@@ -129,7 +161,17 @@ export function ElderCamera({ uid, reactions, onOpenRecords }: {
       void sub.then((h) => h.remove())
       void stopPreview()
     }
-  }, [launch, restart])
+  }, [launch, restart, setAsk])
+
+  const onAskNext = () => {
+    if (asking.current === 'camera') {
+      setAsk(null)
+      restart() // the phone asks now
+    } else if (asking.current === 'location') {
+      setAsk(null)
+      void askLocation() // denial is fine: photos then just have no place
+    }
+  }
 
   const onShutter = async () => {
     if (busy || phase !== 'live') return
@@ -170,6 +212,8 @@ export function ElderCamera({ uid, reactions, onOpenRecords }: {
       onDismissNews={onDismissNews}
       onOpenRecords={onOpenRecords}
       onRetry={restart}
+      ask={ask === 'camera' ? ASK_CAMERA : ask === 'location' ? ASK_LOCATION : null}
+      onAskNext={onAskNext}
     />
   )
 }

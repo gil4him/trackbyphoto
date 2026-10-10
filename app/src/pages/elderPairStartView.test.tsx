@@ -35,4 +35,11 @@ describe('ElderPairStartView', () => {
     expect(html).toContain('코드 입력')
     expect(html).toContain('가족이에요')
   })
+
+  it('asks for the camera in one plain sentence, code entry still there', () => {
+    const html = renderToString(<ElderPairStartView phase="starting" asking onFamily={() => {}} onEnterCode={() => {}} onRetry={() => {}} onAskNext={() => {}} />)
+    expect(html).toContain('가족과 연결하려면 카메라를 허용해 주세요')
+    expect(html).toContain('다음')
+    expect(html).toContain('코드 입력')
+  })
 })

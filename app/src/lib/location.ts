@@ -93,6 +93,15 @@ export function warmUpLocation(): void {
   void alreadyAllowed().then((ok) => { if (ok) void preciseOrApproximate() })
 }
 
+/**
+ * Ask for location now — after the parent's 다음 on the plain-sentence screen
+ * — so the phone's question comes then and not mid-photo. Getting a first
+ * fix is what makes the phone ask, on the web and natively alike.
+ */
+export async function askLocation(): Promise<void> {
+  await preciseOrApproximate()
+}
+
 /** A fix from the last couple of minutes, if there is one. No waiting. */
 export function recentFix(): Geo | null {
   return lastFix && Date.now() - lastFix.at <= FRESH_MS ? { lat: lastFix.lat, lng: lastFix.lng } : null

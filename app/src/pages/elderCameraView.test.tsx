@@ -69,4 +69,14 @@ describe('ElderCameraView', () => {
     expect(out).toContain('카메라를 사용할 수 없어요')
     expect(out).toContain('다시 시도')
   })
+
+  it('asks in one plain sentence before the phone does, with no shutter', () => {
+    const html = renderToString(
+      <ElderCameraView phase="live" busy={false} overlay={null} news={null} ask="사진에 장소를 남기려면 위치를 허용해 주세요"
+        onShutter={() => {}} onDismissNews={() => {}} onOpenRecords={() => {}} onRetry={() => {}} onAskNext={() => {}} />,
+    )
+    expect(html).toContain('사진에 장소를 남기려면 위치를 허용해 주세요')
+    expect(html).toContain('다음')
+    expect(html).not.toContain('사진 찍기')
+  })
 })

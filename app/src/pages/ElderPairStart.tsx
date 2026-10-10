@@ -6,6 +6,8 @@ import { firstTimeOnly, pairCodeFromText } from '../lib/pairing'
 import { startQrScan } from '../lib/qrScan'
 import { referrerPairCode } from '../lib/installReferrer'
 import type { CameraPhase } from './ElderCamera'
+import { ASK_CAMERA_TO_LINK, cameraPermission } from '../lib/permissions'
+import { ElderAsk } from '../components/ElderAsk'
 
 /**
  * The simple edition's first screen on a phone that isn't linked yet: the
@@ -21,8 +23,11 @@ import type { CameraPhase } from './ElderCamera'
 
 const FEED_ID = 'elder-pair-feed'
 
-export function ElderPairStartView({ phase, onFamily, onEnterCode, onRetry }: {
+export function ElderPairStartView({ phase, asking = false, onFamily, onEnterCode, onRetry, onAskNext = () => {} }: {
   phase: CameraPhase
+  /** The camera's plain sentence before the phone asks (ElderAsk). */
+  asking?: boolean
+  onAskNext?: () => void
   onFamily: () => void
   onEnterCode: () => void
   onRetry: () => void
@@ -47,6 +52,8 @@ export function ElderPairStartView({ phase, onFamily, onEnterCode, onRetry }: {
         </>
       )}
 
+      {asking && <ElderAsk text={ASK_CAMERA_TO_LINK} onNext={onAskNext} />}
+
       {/* A parent on her own: the link from the family, or its code. */}
       <div className="elder-pair-bar">
         <p className="elder-pair-again">가족이 보낸 링크를 한 번 더 눌러주세요</p>
@@ -68,6 +75,9 @@ export function ElderPairStart({ onCode, onFamily, onEnterCode }: {
   const alive = useRef(true)
   const done = useRef(false)
   const stopScan = useRef<(() => void) | null>(null)
+  // The camera's plain sentence, shown until 다음 when the phone hasn't asked yet.
+  const [asking, setAsking] = useState(false)
+  const askingRef = useRef(false)
 
   const found = useCallback((code: string) => {
     if (done.current || !alive.current) return
@@ -101,7 +111,13 @@ export function ElderPairStart({ onCode, onFamily, onEnterCode }: {
 
   useEffect(() => {
     alive.current = true
-    launch()
+    void cameraPermission().then((s) => {
+      if (!alive.current || done.current) return
+      if (s === 'prompt') {
+        askingRef.current = true
+        setAsking(true)
+      } else launch()
+    })
     // Installed from the family's link on Android: Play hands over its code.
     if (firstTimeOnly('tbp.pair.referrerChecked')) {
       void referrerPairCode().then((code) => { if (code) found(code) })
@@ -116,7 +132,7 @@ export function ElderPairStart({ onCode, onFamily, onEnterCode }: {
         .catch(() => {}) // empty clipboard, or pasting not allowed — just scan
     }
     const sub = CapApp.addListener('appStateChange', ({ isActive }) => {
-      if (done.current) return
+      if (done.current || askingRef.current) return
       if (isActive) restart()
       else pause()
     })
@@ -134,12 +150,20 @@ export function ElderPairStart({ onCode, onFamily, onEnterCode }: {
     void stopPreview().finally(next)
   }
 
+  const onAskNext = () => {
+    askingRef.current = false
+    setAsking(false)
+    restart() // the phone asks now
+  }
+
   return (
     <ElderPairStartView
       phase={phase}
+      asking={asking}
       onFamily={leave(onFamily)}
       onEnterCode={leave(onEnterCode)}
       onRetry={restart}
+      onAskNext={onAskNext}
     />
   )
 }
