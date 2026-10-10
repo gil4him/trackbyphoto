@@ -16,6 +16,7 @@ import { unlinkedFrom } from '../lib/device'
 import { resetIfAccountGone } from '../hooks/useAuth'
 import { isSimple } from '../lib/edition'
 import type { Memo, Reaction, TextReplies } from '../types'
+import { todayMemos } from '../lib/memoViews'
 
 /**
  * Everything a family-managed elder's phone shows: the capture screen, one
@@ -108,7 +109,8 @@ export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn
         ) : view === 'records' ? (
           <>
             <button className="elder-back" onClick={() => setView('home')}>‹ 처음으로</button>
-            <Today memos={memos} onOpen={setOpenId} uid={uid} readOnly />
+            {/* Simple: 오늘 찍은 사진 (docs §2). */}
+            <Today memos={isSimple() ? todayMemos(memos) : memos} onOpen={setOpenId} uid={uid} readOnly />
           </>
         ) : isSimple() ? (
           <ElderCamera uid={uid} reactions={reactions} onOpenRecords={() => setView('records')} />

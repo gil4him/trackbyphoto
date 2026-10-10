@@ -9,6 +9,8 @@ import { useWorkerStatus } from '../hooks/useWorkerStatus'
 import { Reactions, type ReactionsContext } from '../components/Reactions'
 import { markRead } from '../lib/reactions'
 import type { Memo, MemoSource } from '../types'
+import { mapLink } from '../lib/memoViews'
+import { isSimple } from '../lib/edition'
 
 // 'stored-only' has no badge on purpose: nothing says a step was skipped.
 const SOURCE_BADGES: Partial<Record<MemoSource, { label: string; tone: 'good' | 'neutral' | 'warn' }>> = {
@@ -117,9 +119,7 @@ export function MemoDetail({ memo, onBack, readOnly = false, rx }: { memo: Memo;
       })
   }
 
-  const mapUrl = memo.lat != null && memo.lng != null
-    ? `https://maps.apple.com/?ll=${memo.lat},${memo.lng}&q=${encodeURIComponent(memo.place || '위치')}`
-    : null
+  const mapUrl = mapLink(memo, isSimple())
 
   return (
     <section className="page detail">
