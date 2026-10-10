@@ -33,8 +33,11 @@ html, body {
   overscroll-behavior: none;
   user-select: none;
 }
+/* At least the screen plus the status-bar area: an iPhone home-screen app
+   measures a page that doesn't scroll as the screen minus the status bar,
+   which lifts the fixed tab bar off the bottom (홈 scrolled, 사진 didn't). */
 body {
-  min-height: 100svh; display: flex; flex-direction: column;
+  min-height: calc(100svh + var(--safe-top)); display: flex; flex-direction: column;
   background: radial-gradient(1200px 700px at 50% -8%, #FFF1E8 0%, #FBF4FF 42%, #EEF4FF 100%) fixed;
 }
 #root { display: contents; }
