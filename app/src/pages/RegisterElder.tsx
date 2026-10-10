@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import QRCode from 'qrcode'
 import { useToast } from '../components/Toast'
 import { isWorkerOffline, WorkerError, WORKER_OFFLINE_MESSAGE } from '../lib/worker'
-import { createManagedElder, createPairingLink, deleteManagedElder, formatPairCode, type PairingLink } from '../lib/pairing'
+import { canShareRemotely, createManagedElder, createPairingLink, deleteManagedElder, formatPairCode, type PairingLink } from '../lib/pairing'
+import { isSimple } from '../lib/edition'
 import { nameTaken } from '../lib/people'
 import { buildPairMessage, openSMS, sharePairToKakao } from '../lib/share'
 import { deviceGeoLang } from '../util'
@@ -12,11 +13,19 @@ import type { UserSettings } from '../types'
  * 부모님 등록하기 — the family sets up everything so the elder only has to tap
  * one link: name → settings → consent on the parent's behalf → send the
  * phone-linking link (KakaoTalk / text message / QR in person).
+ *
+ * Simple edition (엄마 연결하기): name → consent → the QR right away, with
+ * 카카오톡으로 보내기 for a parent who isn't nearby. Phone settings keep their
+ * defaults.
  */
 
 const NAME_CHOICES = ['엄마', '아빠', '어머니', '아버지', '할머니', '할아버지']
 
 type Step = 'name' | 'settings' | 'consent' | 'send'
+
+const simple = isSimple()
+const TITLE = simple ? '엄마 연결하기' : '부모님 등록하기'
+const TOTAL = simple ? 2 : 3
 
 export function RegisterElder({ onClose, onRegistered, takenNames = [] }: {
   /** Names of the people this family member already looks after: a second
@@ -75,7 +84,7 @@ export function RegisterElder({ onClose, onRegistered, takenNames = [] }: {
       <div className="modal">
         {step === 'name' && (
           <>
-            <div className="modal-title">부모님 등록하기 <span className="step-no">1/3</span></div>
+            <div className="modal-title">{TITLE} <span className="step-no">1/{TOTAL}</span></div>
             <div className="modal-body">
               <p>부모님을 어떻게 부르시나요? 가족 알림에 이 이름이 보여요.</p>
               <div className="name-chips">
@@ -99,7 +108,7 @@ export function RegisterElder({ onClose, onRegistered, takenNames = [] }: {
             </div>
             <div className="modal-actions">
               <button className="signin-secondary" onClick={onClose}>취소</button>
-              <button className="linkbtn" disabled={!name.trim() || !!clash} onClick={() => setStep('settings')}>
+              <button className="linkbtn" disabled={!name.trim() || !!clash} onClick={() => setStep(simple ? 'consent' : 'settings')}>
                 <span>다음</span><span aria-hidden="true">→</span>
               </button>
             </div>
@@ -139,7 +148,7 @@ export function RegisterElder({ onClose, onRegistered, takenNames = [] }: {
 
         {step === 'consent' && (
           <>
-            <div className="modal-title">부모님을 대신해 동의 <span className="step-no">3/3</span></div>
+            <div className="modal-title">부모님을 대신해 동의 <span className="step-no">{TOTAL}/{TOTAL}</span></div>
             <div className="modal-body">
               <p>{name.trim()}님을 대신해 아래 내용에 동의합니다.</p>
               <ul className="consent-list">
@@ -152,7 +161,7 @@ export function RegisterElder({ onClose, onRegistered, takenNames = [] }: {
               </div>
             </div>
             <div className="modal-actions">
-              <button className="signin-secondary" onClick={() => setStep('settings')}>이전</button>
+              <button className="signin-secondary" onClick={() => setStep(simple ? 'name' : 'settings')}>이전</button>
               <button className="linkbtn" disabled={busy} onClick={register}>
                 <span>{busy ? '등록하는 중…' : '동의하고 등록하기'}</span><span aria-hidden="true">→</span>
               </button>
@@ -210,7 +219,8 @@ export function PairingSender({ patientUid, patientName, onClose, onCancelRegist
 
   const onKakao = async () => {
     setShowPhone(false)
-    const l = await ensureLink('remote')
+    // Simple: the QR on screen usually onboards, so the same link can go out.
+    const l = simple && link && canShareRemotely(link) ? link : await ensureLink('remote')
     if (!l) return
     try {
       if ((await sharePairToKakao(message(l), l.url)) === 'copied') {
@@ -234,6 +244,16 @@ export function PairingSender({ patientUid, patientName, onClose, onCancelRegist
     await ensureLink('qr')
   }
 
+  // Simple edition: the QR is the main way, so it's made straight away.
+  const qrAsked = useRef(false)
+  useEffect(() => {
+    if (!simple || qrAsked.current) return
+    qrAsked.current = true
+    void Promise.resolve().then(() => ensureLink('qr'))
+    // Only on opening.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   useEffect(() => {
     if (link?.mode !== 'qr') { setQr(''); return }
     QRCode.toDataURL(link.url, { width: 260, margin: 1 }).then(setQr).catch(() => setQr(''))
@@ -243,10 +263,14 @@ export function PairingSender({ patientUid, patientName, onClose, onCancelRegist
     <>
       <div className="modal-title">{patientName}님 휴대폰 연결</div>
       <div className="modal-body">
-        <p>{patientName}님 휴대폰으로 연결 링크를 보내주세요. 받은 링크를 누르고 ‘연결하기’만 누르면 끝나요.</p>
+        {simple ? (
+          <p>{patientName}님 휴대폰에서 오늘하루 앱을 열고 이 QR을 비춰주세요. 떨어져 계시면 카카오톡으로 보내주세요.</p>
+        ) : (
+          <p>{patientName}님 휴대폰으로 연결 링크를 보내주세요. 받은 링크를 누르고 ‘연결하기’만 누르면 끝나요.</p>
+        )}
         <div className="invite-send">
           <button className="invite-btn invite-kakao" disabled={busy} onClick={onKakao}>카카오톡으로 보내기</button>
-          {showPhone ? (
+          {simple ? null : showPhone ? (
             <div className="invite-phone">
               <label htmlFor="pair-phone">{patientName}님 전화번호</label>
               <input
@@ -265,7 +289,9 @@ export function PairingSender({ patientUid, patientName, onClose, onCancelRegist
           ) : (
             <button className="invite-btn invite-sms" disabled={busy} onClick={() => setShowPhone(true)}>문자로 보내기</button>
           )}
-          <button className="invite-btn invite-qr" disabled={busy} onClick={onQr}>옆에 계시면 QR 보여주기</button>
+          {(!simple || link?.mode !== 'qr') && (
+            <button className="invite-btn invite-qr" disabled={busy} onClick={onQr}>옆에 계시면 QR 보여주기</button>
+          )}
         </div>
 
         {link?.mode === 'qr' && (

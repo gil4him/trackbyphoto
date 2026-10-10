@@ -81,6 +81,16 @@ export async function createPairingLink(patientUid: string, mode: 'remote' | 'qr
   return callWorker('createPairingLink', { patientUid, mode }, { timeoutMs: PAIR_TIMEOUT_MS })
 }
 
+/**
+ * Whether a link may also go out by KakaoTalk / text message. A remote link
+ * may; so may a QR link that onboards a parent's first phone, which links
+ * straight away whichever way it arrives. A QR link that re-links skips the
+ * family's approval, so it is for in person only.
+ */
+export function canShareRemotely(link: Pick<PairingLink, 'purpose'> & { mode: 'remote' | 'qr' }): boolean {
+  return link.mode === 'remote' || link.purpose === 'onboard'
+}
+
 export type PairResult =
   | { status: 'paired'; customToken: string; patientUid: string; deviceId: string }
   | { status: 'awaiting-approval'; pairingId: string }
