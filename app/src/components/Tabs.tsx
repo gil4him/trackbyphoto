@@ -1,5 +1,3 @@
-import { isSimple } from '../lib/edition'
-
 export type TabKey = 'home' | 'today' | 'ask' | 'alerts' | 'settings'
 
 // Bottom nav — frosted bar at the bottom of every main page. Hidden when a
@@ -8,8 +6,7 @@ export type TabKey = 'home' | 'today' | 'ask' | 'alerts' | 'settings'
 // Icons are inline SVGs rather than emoji so the active-tab tint actually
 // applies (emoji ignore color). The four tabs mirror the prototype:
 //   사진 (Home) · 오늘 (Today) · 물어보기 (Ask) · 설정 (Settings)
-// plus 알림 (notification centre) once family push is rolled out. The simple
-// edition has no 물어보기.
+// plus 알림 (notification centre) once family push is rolled out.
 const ICONS = {
   home: (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -76,7 +73,7 @@ export function Tabs({
   const badgeTab: TabKey = showAlerts ? 'alerts' : 'home'
   return (
     <nav className="tabbar" aria-label="주 메뉴">
-      {TABS.filter((t) => (t.key !== 'alerts' || showAlerts) && (t.key !== 'ask' || !isSimple())).map((t) => (
+      {TABS.filter((t) => t.key !== 'alerts' || showAlerts).map((t) => (
         <button
           key={t.key}
           className={`tab ${active === t.key ? 'on' : ''}`}
