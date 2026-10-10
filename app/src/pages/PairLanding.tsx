@@ -25,19 +25,23 @@ export function PairLandingView({ code, kind, storeUrl, onInstall, onWebPair }: 
   return (
     <section className="pair">
       <div className="signin-dot" />
-      <h1 className="pair-title">오늘하루 앱으로<br />연결해요</h1>
+      <h1 className="pair-title">{storeUrl ? <>오늘하루 앱으로<br />연결해요</> : <>휴대폰을 가족과<br />연결해요</>}</h1>
       {storeUrl ? (
         <>
           <p className="pair-sub">앱을 설치해 주세요.<br /><b>설치 후 이 링크를 한 번 더 눌러주세요.</b></p>
           <button className="pair-btn" onClick={onInstall}>앱 설치하기</button>
+          {onWebPair && code.length === 8 && (
+            <button className="pair-link pair-web-link" onClick={onWebPair}>앱 없이 이 화면에서 연결하기</button>
+          )}
         </>
-      ) : kind === 'ios' ? (
-        <p className="pair-sub">App Store에서 ‘오늘하루’를 찾아 설치해 주세요.<br /><b>설치 후 이 링크를 한 번 더 눌러주세요.</b></p>
+      ) : kind !== 'other' && onWebPair && code.length === 8 ? (
+        // Not in this phone's store yet: connect right here in the browser.
+        <>
+          <p className="pair-sub">아래 버튼을 한 번 눌러 주세요.</p>
+          <button className="pair-btn" onClick={onWebPair}>연결하기</button>
+        </>
       ) : (
         <p className="pair-sub">연결할 휴대폰에서 이 링크를 열어 주세요.</p>
-      )}
-      {onWebPair && code.length === 8 && kind !== 'other' && (
-        <button className="pair-link pair-web-link" onClick={onWebPair}>앱 없이 이 화면에서 연결하기</button>
       )}
       {code.length === 8 && (
         <div className="pair-code-box">

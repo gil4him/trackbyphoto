@@ -20,6 +20,7 @@ import type { Memo } from '../types'
 import { fmtTime, isSameDay } from '../util'
 import { PUBLIC_ORIGIN } from './publicUrl'
 import { isSimple } from './edition'
+import { inAnyStore } from './storeLinks'
 
 // ────────────────────────────────────────────────────────────────────────────
 // Phone formatting
@@ -262,6 +263,16 @@ export function sendInviteSMS(phone: string, patientName: string, code: string):
 
 export function buildPairMessage(patientName: string, url: string, code: string, hours: number): string {
   const who = patientName.trim() || '부모님'
+  if (isSimple() && !inAnyStore()) {
+    // Before the store release the link connects the phone in its browser.
+    return [
+      `[오늘하루] ${who}님 휴대폰을 연결해요.`,
+      `아래 링크를 누르고 '연결하기'를 눌러주세요. (${hours}시간 유효)`,
+      url,
+      '',
+      `연결 코드: ${code.slice(0, 4)} ${code.slice(4)}`,
+    ].join('\n')
+  }
   if (isSimple()) {
     // The simple edition is an app from the store: the link page installs it,
     // and a second tap of the same link opens the app and connects.

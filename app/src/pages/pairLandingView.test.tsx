@@ -18,20 +18,22 @@ describe('PairLandingView', () => {
     expect(html).toContain('ABCD 2345')
   })
 
-  it('without an App Store link yet, tells iPhone users to search for it', () => {
-    const html = render('ios', null)
-    expect(html).not.toContain('앱 설치하기')
-    expect(html).toContain('App Store에서 ‘오늘하루’를 찾아 설치해 주세요.')
+  it('before the store release, connects right here in the phone browser', () => {
+    for (const kind of ['ios', 'android'] as const) {
+      const html = render(kind, null)
+      expect(html).not.toContain('앱 설치하기')
+      expect(html).toContain('>연결하기</button>')
+      expect(html).toContain('휴대폰을 가족과')
+    }
   })
 
   it('on a computer, asks to open the link on the phone', () => {
     expect(render('other', null)).toContain('연결할 휴대폰에서 이 링크를 열어 주세요.')
   })
 
-  it('offers to link right here in a phone browser, not on a computer', () => {
+  it('with the app in the store, still offers to link without it', () => {
     expect(render('android', 'x')).toContain('앱 없이 이 화면에서 연결하기')
-    expect(render('ios', null)).toContain('앱 없이 이 화면에서 연결하기')
-    expect(render('other', null)).not.toContain('앱 없이 이 화면에서 연결하기')
+    expect(render('other', null)).not.toContain('연결하기</button>')
     expect(render('android', 'x', '')).not.toContain('앱 없이 이 화면에서 연결하기')
   })
 
