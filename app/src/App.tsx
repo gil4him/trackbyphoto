@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, lazy, Suspense } from 'react'
 import { Capacitor } from '@capacitor/core'
 import { doc, onSnapshot, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from './firebase'
@@ -16,7 +16,6 @@ import { usePatientDocs } from './hooks/usePatientNames'
 import { canSendFamilyPhoto } from './lib/familyPhotosModel'
 import { listedPeople, pickActivePatient } from './lib/people'
 import { useFamilyPhotos } from './hooks/useFamilyPhotos'
-import { SendFamilyPhoto, SentFamilyPhotos } from './components/SendFamilyPhoto'
 import { normalizeInviteCode, syncCaregiverName } from './lib/caregiver'
 import { setFaviconBadge } from './lib/favicon'
 import { Tabs, type TabKey } from './components/Tabs'
@@ -24,31 +23,17 @@ import { ToastProvider } from './components/Toast'
 import { PatientSwitcher } from './components/PatientSwitcher'
 import { Home } from './pages/Home'
 import { Today } from './pages/Today'
-import { Settings } from './pages/Settings'
-import { MemoDetail } from './pages/MemoDetail'
 import { SignIn } from './pages/SignIn'
 import { AcceptInvite, PENDING_INVITE_KEY } from './pages/AcceptInvite'
-import { PairDevice } from './pages/PairDevice'
-import { ElderPairStart } from './pages/ElderPairStart'
-import { PairLanding } from './pages/PairLanding'
-import { RegisterElder } from './pages/RegisterElder'
 import { ConnectParentCard } from './components/ConnectParentCard'
 import { appTitle, isSimple } from './lib/edition'
-import { ElderApp } from './pages/ElderApp'
 import { SuperAdmin, ADMIN_EMAIL } from './pages/SuperAdmin'
-import { Ask } from './components/Ask'
 import { usePlans } from './hooks/usePlans'
 import { useReactions } from './hooks/useReactions'
 import { useElderNews, type OpenNews } from './hooks/useElderNews'
-import { FamilyNews } from './pages/FamilyNews'
 import { FamilyNewsCard } from './components/FamilyNewsCard'
 import { InstallHint } from './components/InstallHint'
-import { Notifications } from './pages/Notifications'
-import { DigestPage } from './pages/DigestPage'
 import { digestIdFromPath } from './lib/digest'
-import { Trail } from './pages/Trail'
-import { VoiceAlbum } from './pages/VoiceAlbum'
-import { PlanSheet } from './components/PlanSheet'
 import { TIER_NAME, fromTier, type PlanReason } from './lib/plan'
 import { homeFor } from './lib/trail'
 import { deviceGeoLang, relativeDateLabel } from './util'
@@ -59,6 +44,44 @@ import { entitlements, flagOn } from './lib/plans'
 import { byMemo } from './lib/reactionsModel'
 import type { ReactionsContext } from './components/Reactions'
 import type { UserSettings } from './types'
+
+// Pages most visits never open load when first needed, so the first screen
+// (sign-in, the /pair page, the parent's camera) downloads less. Shortly
+// after the app is up they are fetched in the background (AppRoot), so
+// opening one later doesn't wait.
+const pages = {
+  sendFamilyPhoto: () => import('./components/SendFamilyPhoto'),
+  settings: () => import('./pages/Settings'),
+  memoDetail: () => import('./pages/MemoDetail'),
+  pairDevice: () => import('./pages/PairDevice'),
+  elderPairStart: () => import('./pages/ElderPairStart'),
+  pairLanding: () => import('./pages/PairLanding'),
+  registerElder: () => import('./pages/RegisterElder'),
+  elderApp: () => import('./pages/ElderApp'),
+  ask: () => import('./components/Ask'),
+  familyNews: () => import('./pages/FamilyNews'),
+  notifications: () => import('./pages/Notifications'),
+  digestPage: () => import('./pages/DigestPage'),
+  trail: () => import('./pages/Trail'),
+  voiceAlbum: () => import('./pages/VoiceAlbum'),
+  planSheet: () => import('./components/PlanSheet'),
+}
+const SendFamilyPhoto = lazy(() => pages.sendFamilyPhoto().then((m) => ({ default: m.SendFamilyPhoto })))
+const SentFamilyPhotos = lazy(() => pages.sendFamilyPhoto().then((m) => ({ default: m.SentFamilyPhotos })))
+const Settings = lazy(() => pages.settings().then((m) => ({ default: m.Settings })))
+const MemoDetail = lazy(() => pages.memoDetail().then((m) => ({ default: m.MemoDetail })))
+const PairDevice = lazy(() => pages.pairDevice().then((m) => ({ default: m.PairDevice })))
+const ElderPairStart = lazy(() => pages.elderPairStart().then((m) => ({ default: m.ElderPairStart })))
+const PairLanding = lazy(() => pages.pairLanding().then((m) => ({ default: m.PairLanding })))
+const RegisterElder = lazy(() => pages.registerElder().then((m) => ({ default: m.RegisterElder })))
+const ElderApp = lazy(() => pages.elderApp().then((m) => ({ default: m.ElderApp })))
+const Ask = lazy(() => pages.ask().then((m) => ({ default: m.Ask })))
+const FamilyNews = lazy(() => pages.familyNews().then((m) => ({ default: m.FamilyNews })))
+const Notifications = lazy(() => pages.notifications().then((m) => ({ default: m.Notifications })))
+const DigestPage = lazy(() => pages.digestPage().then((m) => ({ default: m.DigestPage })))
+const Trail = lazy(() => pages.trail().then((m) => ({ default: m.Trail })))
+const VoiceAlbum = lazy(() => pages.voiceAlbum().then((m) => ({ default: m.VoiceAlbum })))
+const PlanSheet = lazy(() => pages.planSheet().then((m) => ({ default: m.PlanSheet })))
 
 const DEFAULT_SETTINGS: UserSettings = {
   patientName: '엄마',
@@ -732,4 +755,22 @@ function useMembershipsWrapped(uid: string | undefined) {
   return { memberships: { caregivers: m.caregivers, patients: m.patients }, loading: m.loading }
 }
 
-export default App
+function AppRoot() {
+  useEffect(() => {
+    const t = setTimeout(() => { for (const load of Object.values(pages)) void load().catch(() => {}) }, 2500)
+    return () => clearTimeout(t)
+  }, [])
+  return (
+    <Suspense fallback={(
+      <div className="app">
+        <main style={{ display: 'grid', placeItems: 'center', minHeight: '60vh' }}>
+          <div style={{ color: 'var(--ink-2)' }}>준비 중이에요…</div>
+        </main>
+      </div>
+    )}>
+      <App />
+    </Suspense>
+  )
+}
+
+export default AppRoot

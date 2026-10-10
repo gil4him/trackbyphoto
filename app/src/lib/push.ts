@@ -13,7 +13,9 @@
 
 import { Capacitor } from '@capacitor/core'
 import { FirebaseMessaging } from '@capacitor-firebase/messaging'
-import { deleteToken, getMessaging, getToken, isSupported } from 'firebase/messaging'
+// The web push SDK is only needed once push is looked at, so it loads then
+// rather than with the first screen.
+const webMessaging = () => import('firebase/messaging')
 import { app } from '../firebase'
 import { isStandalone } from './install'
 import { callWorker } from './worker'
@@ -54,7 +56,7 @@ export async function pushState(): Promise<PushState> {
   }
   const ios = /iPhone|iPad|iPod/i.test(navigator.userAgent)
   if (ios && !isStandalone()) return 'needs-install'
-  if (!('Notification' in window) || !('serviceWorker' in navigator) || !(await isSupported().catch(() => false))) return 'unsupported'
+  if (!('Notification' in window) || !('serviceWorker' in navigator) || !(await webMessaging().then((m) => m.isSupported()).catch(() => false))) return 'unsupported'
   if (Notification.permission === 'denied') return 'blocked'
   return Notification.permission === 'granted' && remembered() ? 'on' : 'off'
 }
@@ -71,6 +73,7 @@ async function nativeToken(): Promise<string> {
 async function currentToken(): Promise<string> {
   if (isNative) return nativeToken()
   const registration = await navigator.serviceWorker.register(SW_URL, { scope: SW_SCOPE })
+  const { getMessaging, getToken } = await webMessaging()
   return getToken(getMessaging(app), { serviceWorkerRegistration: registration, ...(VAPID_KEY ? { vapidKey: VAPID_KEY } : {}) })
 }
 
@@ -112,7 +115,7 @@ export async function disablePush(): Promise<void> {
   if (!token) return
   await callWorker('registerFcmToken', { token, remove: true }).catch((err) => console.warn('[push] token not removed on the server', err))
   if (isNative) await FirebaseMessaging.deleteToken().catch(() => {})
-  else await deleteToken(getMessaging(app)).catch(() => {})
+  else await webMessaging().then(({ deleteToken, getMessaging }) => deleteToken(getMessaging(app))).catch(() => {})
 }
 
 /** What a push carries besides its words: enough to open the right place. */

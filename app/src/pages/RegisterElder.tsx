@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import QRCode from 'qrcode'
 import { useToast } from '../components/Toast'
 import { isWorkerOffline, WorkerError, WORKER_OFFLINE_MESSAGE } from '../lib/worker'
 import { canShareRemotely, createManagedElder, createPairingLink, deleteManagedElder, formatPairCode, type PairingLink } from '../lib/pairing'
@@ -263,7 +262,8 @@ export function PairingSender({ patientUid, patientName, onClose, onCancelRegist
 
   useEffect(() => {
     if (link?.mode !== 'qr') { setQr(''); return }
-    QRCode.toDataURL(link.url, { width: 260, margin: 1 }).then(setQr).catch(() => setQr(''))
+    // The QR maker loads only when a QR is shown.
+    import('qrcode').then(({ default: QRCode }) => QRCode.toDataURL(link.url, { width: 260, margin: 1 })).then(setQr).catch(() => setQr(''))
   }, [link])
 
   return (
