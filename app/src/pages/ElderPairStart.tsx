@@ -10,6 +10,8 @@ import type { CameraPhase } from './ElderCamera'
  * The simple edition's first screen on a phone that isn't linked yet: the
  * camera is already on, looking for the family's 엄마 연결하기 QR. Holding the
  * phone up to it is all it takes — the code goes straight to PairDevice.
+ * A parent on her own taps the family's link again (it opens the app) or
+ * types its code (코드 입력).
  * A code copied by the /pair link page (PairLanding) is picked up from the
  * clipboard too, once per opening of this screen; this screen exists only
  * before pairing, so that's the only place iOS asks to allow pasting.
@@ -37,15 +39,17 @@ export function ElderPairStartView({ phase, onFamily, onEnterCode, onRetry }: {
       ) : (
         <>
           <div className="elder-pair-hint" role="status">
-            <span className="elder-pair-hint-title">가족 휴대폰의 QR을 비춰주세요</span>
-            <span className="elder-pair-hint-sub">가족이 ‘엄마 연결하기’를 누르면 QR이 나와요</span>
+            <span className="elder-pair-hint-title">가족이 보낸 링크를 누르거나 QR을 비춰주세요</span>
+            <span className="elder-pair-hint-sub">가족이 옆에 있다면 가족 휴대폰의 QR을 여기에 비춰요</span>
           </div>
           <div className="elder-pair-frame" aria-hidden="true" />
         </>
       )}
 
+      {/* A parent on her own: the link from the family, or its code. */}
       <div className="elder-pair-bar">
-        <button type="button" className="elder-pair-link" onClick={onEnterCode}>코드 입력</button>
+        <p className="elder-pair-again">가족이 보낸 링크를 한 번 더 눌러주세요</p>
+        <button type="button" className="elder-pair-code" onClick={onEnterCode}>코드 입력</button>
         <button type="button" className="elder-pair-link" onClick={onFamily}>가족이에요</button>
       </div>
     </div>

@@ -17,9 +17,10 @@ const render = (phase: CameraPhase) => renderToString(
 )
 
 describe('ElderPairStartView', () => {
-  it('asks to point the camera at the family QR, with code entry and 가족이에요', () => {
+  it('offers the family link, the QR and code entry, with 가족이에요', () => {
     const html = render('live')
-    expect(html).toContain('가족 휴대폰의 QR을 비춰주세요')
+    expect(html).toContain('가족이 보낸 링크를 누르거나 QR을 비춰주세요')
+    expect(html).toContain('가족이 보낸 링크를 한 번 더 눌러주세요')
     expect(html).toContain('elder-pair-frame')
     expect(html).toContain('코드 입력')
     expect(html).toContain('가족이에요')
