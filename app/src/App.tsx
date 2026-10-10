@@ -31,7 +31,7 @@ import { PairDevice } from './pages/PairDevice'
 import { ElderPairStart } from './pages/ElderPairStart'
 import { PairLanding } from './pages/PairLanding'
 import { RegisterElder } from './pages/RegisterElder'
-import { SimpleStart } from './components/SimpleStart'
+import { ConnectParentCard } from './components/ConnectParentCard'
 import { appTitle, isSimple } from './lib/edition'
 import { ElderApp } from './pages/ElderApp'
 import { SuperAdmin, ADMIN_EMAIL } from './pages/SuperAdmin'
@@ -96,7 +96,7 @@ function App() {
   // Simple edition: a signed-out phone opens on the pairing camera
   // (ElderPairStart) until 가족이에요 says it's the family's own phone.
   const [familyMode, setFamilyMode] = useState(false)
-  // Simple edition: 엄마 연결하기 opened from Home (SimpleStart).
+  // Simple edition: 엄마 연결하기 opened from Home (ConnectParentCard).
   const [connectingParent, setConnectingParent] = useState(false)
   // The digest page: opened by a /digest/{id} link (push, e-mail, message) or
   // from the 알림 list.
@@ -460,8 +460,6 @@ function App() {
 
   const isSelf = activePatientUid === user.uid
   const selfLabel = user.displayName?.split(' ')[0] || user.email?.split('@')[0] || '나'
-  // Simple edition before a parent is linked: Home is SimpleStart.
-  const simpleUnlinked = isSimple() && isSelf && patients.length === 0
 
   // Switching to ask/today from elsewhere also drops the detail view so the
   // tab feels like the canonical owner of its screen.
@@ -649,9 +647,7 @@ function App() {
             <>
               {tab === 'home'     && pushOn && <InstallHint />}
               {tab === 'alerts'   && <Notifications uid={user.uid} onOpen={openNotice} digestOn={digestOn} emailOffered={flagOn(plans, 'emailDigest')} messengerIncluded={flagOn(plans, 'messengerFree') || ent?.messenger === true} messengerFrom={fromTier(plans, 'messenger')} />}
-              {/* Simple edition, no parent linked yet: just how to start. */}
-              {tab === 'home'     && simpleUnlinked && !membershipsLoading && <SimpleStart name={selfLabel} onConnect={() => setConnectingParent(true)} />}
-              {tab === 'home'     && !simpleUnlinked && <Home uid={activePatientUid || user.uid} patientName={settings.patientName} greetingName={isSelf ? selfLabel : settings.patientName} memos={memos} onOpenAsk={openAsk} onOpen={setSelectedMemoId} canCapture={isSelf} notifications={bannerNotices} onDismissNotification={dismissNotification} topCard={pushOn && patients.length > 0 ? <PushNudge /> : undefined} onSendPhoto={canSendPhoto ? () => setSendTarget({ uid: activePatientUid!, name: settings.patientName }) : undefined} sendTargets={isSelf ? sendTargets : undefined} onSendTo={setSendTarget} sentPhotos={familyPhotosOn && !isSelf ? <SentFamilyPhotos photos={familyPhotos} myUid={user.uid} /> : undefined} newsCard={ownNews && <FamilyNewsCard news={ownNews} onOpen={() => { if (ownNews.state !== 'none') openFamilyNews(ownNews) }} />} />}
+              {tab === 'home'     && <Home uid={activePatientUid || user.uid} patientName={settings.patientName} greetingName={isSelf ? selfLabel : settings.patientName} memos={memos} onOpenAsk={openAsk} onOpen={setSelectedMemoId} canCapture={isSelf} notifications={bannerNotices} onDismissNotification={dismissNotification} topCard={isSimple() && isSelf && !membershipsLoading && patients.length === 0 ? <ConnectParentCard onOpen={() => setConnectingParent(true)} /> : pushOn && patients.length > 0 ? <PushNudge /> : undefined} onSendPhoto={canSendPhoto ? () => setSendTarget({ uid: activePatientUid!, name: settings.patientName }) : undefined} sendTargets={isSelf ? sendTargets : undefined} onSendTo={setSendTarget} sentPhotos={familyPhotosOn && !isSelf ? <SentFamilyPhotos photos={familyPhotos} myUid={user.uid} /> : undefined} newsCard={ownNews && <FamilyNewsCard news={ownNews} onOpen={() => { if (ownNews.state !== 'none') openFamilyNews(ownNews) }} />} />}
               {connectingParent && (
                 <RegisterElder
                   onClose={() => setConnectingParent(false)}
