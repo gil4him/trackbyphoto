@@ -26,8 +26,7 @@ import { Today } from './pages/Today'
 import { SignIn } from './pages/SignIn'
 import { AcceptInvite, PENDING_INVITE_KEY } from './pages/AcceptInvite'
 import { ConnectParentCard } from './components/ConnectParentCard'
-import { CameraFab } from './components/CameraFab'
-import { useCapture } from './hooks/useCapture'
+import { FamilyCamera } from './components/CameraFab'
 import { appTitle, isSimple } from './lib/edition'
 import { SuperAdmin, ADMIN_EMAIL } from './pages/SuperAdmin'
 import { usePlans } from './hooks/usePlans'
@@ -185,11 +184,6 @@ function App() {
   const familyPhotos = useFamilyPhotos(familyPhotosOn && viewingParent ? activePatientUid! : undefined)
   // Whom the 사진 보내기 sheet is open for (from the parent's home, or from one's own).
   const [sendTarget, setSendTarget] = useState<{ uid: string; name: string } | null>(null)
-  // The floating camera: a photo for the family member's own record, from
-  // any page — also while looking at a parent's.
-  const capture = useCapture(user?.uid ?? '', {
-    savedSub: activePatientUid && user && activePatientUid !== user.uid ? '내 기록으로 저장했어요' : '가족에게 보내는 중이에요',
-  })
   const sendTargetPhotos = useFamilyPhotos(sendTarget?.uid)
   // Parents this family member may send photos to, offered on their own home.
   const sendTargets = useMemo(() => (familyPhotosFlag && !elder
@@ -740,11 +734,11 @@ function App() {
           />
         )}
 
-        {capture.inputEl}
-        {capture.processing}
-        {(tab !== 'home' || selectedMemo || trail || voiceAlbum || digestId || openNews) && !sendTarget && !planSheet && !connectingParent && (
-          <CameraFab onClick={capture.takePhoto} disabled={capture.busy} />
-        )}
+        <FamilyCamera
+          uid={user.uid}
+          viewingOther={activePatientUid !== null && activePatientUid !== user.uid}
+          show={(tab !== 'home' || !!selectedMemo || !!trail || voiceAlbum || !!digestId || !!openNews) && !sendTarget && !planSheet && !connectingParent}
+        />
         <Tabs active={tab} onChange={onTabChange} avatarUrl={user.photoURL ?? undefined} unreadCount={notifications.length} showAlerts={pushOn || digestOn} />
       </div>
     </ToastProvider>
