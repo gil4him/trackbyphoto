@@ -8,7 +8,7 @@ import { PairLandingView } from './PairLanding'
 import type { StoreKind } from '../lib/storeLinks'
 
 const render = (kind: StoreKind, storeUrl: string | null, code = 'ABCD2345') =>
-  renderToString(<PairLandingView code={code} kind={kind} storeUrl={storeUrl} onInstall={() => {}} />)
+  renderToString(<PairLandingView code={code} kind={kind} storeUrl={storeUrl} onInstall={() => {}} onWebPair={() => {}} />)
 
 describe('PairLandingView', () => {
   it('offers 앱 설치하기 and says to tap the link again', () => {
@@ -26,6 +26,13 @@ describe('PairLandingView', () => {
 
   it('on a computer, asks to open the link on the phone', () => {
     expect(render('other', null)).toContain('연결할 휴대폰에서 이 링크를 열어 주세요.')
+  })
+
+  it('offers to link right here in a phone browser, not on a computer', () => {
+    expect(render('android', 'x')).toContain('앱 없이 이 화면에서 연결하기')
+    expect(render('ios', null)).toContain('앱 없이 이 화면에서 연결하기')
+    expect(render('other', null)).not.toContain('앱 없이 이 화면에서 연결하기')
+    expect(render('android', 'x', '')).not.toContain('앱 없이 이 화면에서 연결하기')
   })
 
   it('hides the code box without a whole code', () => {

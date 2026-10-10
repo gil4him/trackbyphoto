@@ -140,11 +140,13 @@ export type PairStart =
   | 'enter'           // no code in the link: type it
 
 /** Where the link flow starts on this phone. */
-export function pairStart(a: { familySignedIn: boolean; hasCode: boolean; path: InstallPath }): PairStart {
+export function pairStart(a: { familySignedIn: boolean; hasCode: boolean; path: InstallPath; simple?: boolean }): PairStart {
   if (a.familySignedIn) return 'family-warning'
   if (!a.hasCode) return 'enter'
   if (a.path === 'in-app') return 'open-browser'
-  if (a.path === 'ios') return 'add-ios'
+  // The simple edition's real app comes from the store; its browser path
+  // connects on the spot, without the home-screen icon first.
+  if (a.path === 'ios') return a.simple ? 'confirm' : 'add-ios'
   return 'confirm'
 }
 

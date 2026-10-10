@@ -90,6 +90,9 @@ function App() {
   const [pairCode, setPairCode] = useState<string | null>(pairCodeFromUrl)
   // …or by a /pair link that opened the native app.
   useLaunchUrl(setPairCode)
+  // Simple edition, web: 앱 없이 이 화면에서 연결하기 on the /pair page links
+  // the phone in the browser (?web=1 keeps it across a reload).
+  const [webPair, setWebPair] = useState(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('web') === '1')
   // Simple edition: a signed-out phone opens on the pairing camera
   // (ElderPairStart) until 가족이에요 says it's the family's own phone.
   const [familyMode, setFamilyMode] = useState(false)
@@ -313,13 +316,22 @@ function App() {
     )
   }
 
-  // The simple edition is a store app: on the web, a /pair link only helps
-  // the parent's phone install it (PairLanding).
-  if (pairCode !== null && isSimple() && !Capacitor.isNativePlatform()) {
+  // The simple edition is a store app: on the web, a /pair link first helps
+  // the parent's phone install it (PairLanding), or links it right here in
+  // the browser (webPair). A code typed in (가족에게 받은 연결 코드가 있어요)
+  // goes straight to the web pairing screen.
+  if (pairCode && isSimple() && !Capacitor.isNativePlatform() && !webPair) {
+    const code = pairCode
     return (
       <div className="app">
         <main>
-          <PairLanding initialCode={pairCode} />
+          <PairLanding
+            initialCode={code}
+            onWebPair={() => {
+              window.history.replaceState(null, '', `/pair?c=${encodeURIComponent(code)}&web=1`)
+              setWebPair(true)
+            }}
+          />
         </main>
       </div>
     )
@@ -328,6 +340,7 @@ function App() {
   if (pairCode !== null) {
     const closePair = () => {
       setPairCode(null)
+      setWebPair(false)
       window.history.replaceState(null, '', '/')
     }
     return (

@@ -88,6 +88,7 @@ export function PairDevice({ initialCode, alreadyLinked = false, autoConnect = f
       familySignedIn: !!u && !u.isAnonymous,
       hasCode: normalizePairCode(initialCode).length === PAIR_CODE_LEN,
       path: currentInstallPath(),
+      simple: isSimple(),
     })
   })
   const externalUrl = step === 'open-browser' ? externalBrowserUrl(window.location.href, navigator.userAgent) : null
