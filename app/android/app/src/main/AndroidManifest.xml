@@ -22,6 +22,17 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+            <!-- Pairing links from the simple edition's site open the app
+                 (App Links; verified by /.well-known/assetlinks.json there,
+                 app/well-known/). Unverified, Android offers the browser,
+                 where the /pair page copies the code for the app. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="dayliesimple.web.app" android:pathPrefix="/pair" />
+            </intent-filter>
+
         </activity>
 
         <!-- Family push notifications (@capacitor-firebase/messaging).
