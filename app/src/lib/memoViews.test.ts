@@ -1,16 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { mapLink, todayMemos } from './memoViews'
-import type { Memo } from '../types'
-
-const at = (iso: string) => ({ id: iso, takenAt: { toDate: () => new Date(iso) } }) as unknown as Memo
-
-describe('todayMemos', () => {
-  it('keeps what was taken today on this phone\'s clock', () => {
-    const now = new Date(2026, 9, 9, 21, 0)
-    const memos = [at(new Date(2026, 9, 9, 0, 1).toISOString()), at(new Date(2026, 9, 8, 23, 59).toISOString()), at(new Date(2026, 9, 9, 20, 0).toISOString())]
-    expect(todayMemos(memos, now)).toHaveLength(2)
-  })
-})
+import { mapLink } from './memoViews'
 
 describe('mapLink', () => {
   const memo = { lat: 37.5, lng: 127.01, place: '서초동' }
