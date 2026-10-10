@@ -491,7 +491,7 @@ service cloud.firestore {
                          'createInvite', 'acceptInvite', 'revokeMembership', 'setMembershipRole',
                          'syncCaregiverName', 'regenerateMemo', 'backfillMemoSchema', 'backfillPatientUid',
                          'createManagedElder', 'createPairingLink', 'approvePairing', 'unlinkDevice', 'deleteManagedElder',
-                         'pairDevice', 'completePairing',
+                         'pairDevice', 'completePairing', 'deleteMyAccount',
                          'registerFcmToken', 'setChannels', 'setDigest', 'changePlan', 'searchAddress'
                        ]
                     // An elder's phone makes no requests; an anonymous

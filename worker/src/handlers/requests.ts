@@ -25,6 +25,7 @@ import {
   syncCaregiverName,
 } from './caregiver.js'
 import { backfillMemoSchema, backfillPatientUid, regenerateMemo } from './admin.js'
+import { deleteMyAccount } from './account.js'
 import {
   approvePairing,
   completePairing,
@@ -59,6 +60,7 @@ export const HANDLERS: Record<string, Handler> = {
   completePairing,
   unlinkDevice,
   deleteManagedElder,
+  deleteMyAccount,
   registerFcmToken,
   setChannels,
   setDigest,

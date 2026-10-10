@@ -16,7 +16,9 @@ import {
 import { sendInviteSMS, shareInviteToKakao } from '../lib/share'
 import { RegisterElder } from './RegisterElder'
 import { ElderDevices } from '../components/ElderDevices'
+import { BottomSheet } from '../components/BottomSheet'
 import { deleteManagedElder } from '../lib/pairing'
+import { deleteMyAccount } from '../lib/account'
 import { getGeo, searchAddress, type AddressCandidate } from '../lib/location'
 import { DEFAULT_DIGEST, DIGEST_HOURS, noticeHourChoices, noticeHourLabel, saveDigestSettings } from '../lib/digest'
 import type { PlanReason } from '../lib/plan'
@@ -112,6 +114,25 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
       toast.show('삭제하지 못했어요', isWorkerOffline(err) ? WORKER_OFFLINE_MESSAGE : '잠시 후 다시 시도해 주세요')
     } finally {
       setDeleteBusy(false)
+    }
+  }
+  // 계정 삭제 — this person erasing their own account (App Store 5.1.1(v)).
+  // Only a real sign-in has one to delete; a parent's phone never gets here.
+  const canDeleteMe = !!user.email
+  const [deleteMeOpen, setDeleteMeOpen] = useState(false)
+  const [deleteMeBusy, setDeleteMeBusy] = useState(false)
+  const onDeleteMyAccount = async () => {
+    setDeleteMeBusy(true)
+    try {
+      await deleteMyAccount(user.uid)
+      setDeleteMeOpen(false)
+      // The account itself is already gone; this clears the sign-in off the
+      // phone so the app lands back on the first screen.
+      await onSignOut()
+    } catch (err) {
+      console.error('[account] delete failed', err)
+      toast.show('삭제하지 못했어요', isWorkerOffline(err) ? WORKER_OFFLINE_MESSAGE : '잠시 후 다시 시도해 주세요')
+      setDeleteMeBusy(false)
     }
   }
   // 가족초대 modal. Two steps in one overlay: (1) a single consent screen,
@@ -747,6 +768,29 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
             잘못 등록했거나 더 이상 쓰지 않을 때만 사용하세요. 사진과 기록이 모두 지워지고 되돌릴 수 없어요.
           </div>
         </div>
+      )}
+      {canDeleteMe && (
+        <div className="sect">
+          <div className="sect-lab">계정 삭제</div>
+          <button className="linkbtn danger-btn" onClick={() => setDeleteMeOpen(true)}>
+            <span>계정 삭제하기</span>
+          </button>
+          <div className="help">
+            내 사진과 기록, 가족 연결이 모두 지워지고 되돌릴 수 없어요.
+          </div>
+        </div>
+      )}
+      {deleteMeOpen && (
+        <BottomSheet title="계정을 삭제할까요?" onClose={() => { if (!deleteMeBusy) setDeleteMeOpen(false) }}>
+          <p className="sheet-sub">내 사진과 기록, 가족 연결이 모두 지워지고 되돌릴 수 없어요.</p>
+          <div className="help" style={{ textAlign: 'center', margin: '-8px 0 14px' }}>
+            부모님 기록은 지워지지 않아요 — 지우려면 먼저 부모님 관리에서 삭제해 주세요.
+          </div>
+          <button type="button" className="sheet-danger-btn" disabled={deleteMeBusy} onClick={onDeleteMyAccount}>
+            {deleteMeBusy ? '삭제하는 중…' : '계정 삭제'}
+          </button>
+          <button type="button" className="sheet-cancel" disabled={deleteMeBusy} onClick={() => setDeleteMeOpen(false)}>취소</button>
+        </BottomSheet>
       )}
       {voiceOpen && (
         <div className="modal-backdrop" role="dialog" aria-modal="true">

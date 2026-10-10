@@ -32,7 +32,7 @@ const html = renderToString(
 
 describe('Settings for a parent (simple)', () => {
   it('keeps the core sections', () => {
-    for (const s of ['계정', '기기 관리', '사용자 이름', '글자 크기', '부모님 삭제']) expect(html).toContain(s)
+    for (const s of ['계정', '기기 관리', '사용자 이름', '글자 크기', '부모님 삭제', '계정 삭제']) expect(html).toContain(s)
   })
 
   it('lets the family pick when the daily notice comes', () => {

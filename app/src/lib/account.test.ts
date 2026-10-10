@@ -1,5 +1,8 @@
 // A phone signs out only when the account is really gone, never on a weak connection.
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+
+vi.mock('./worker', () => ({ callWorker: vi.fn() }))
+
 import { accountGone, forgetAccountKeys } from './account'
 import { Outbox, memoryStore, type OutboxBackend, type OutboxItem } from './outbox'
 
