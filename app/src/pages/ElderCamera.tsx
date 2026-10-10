@@ -3,6 +3,7 @@ import { App as CapApp } from '@capacitor/app'
 import { Haptics, ImpactStyle } from '@capacitor/haptics'
 import { capturePhoto, flipCamera, startPreview, stopPreview } from '../lib/cameraPreview'
 import { savePhoto } from '../lib/capture'
+import { keepInPhotos } from '../lib/gallery'
 import { askLocation, warmUpLocation } from '../lib/location'
 import { ASK_CAMERA, ASK_LOCATION, cameraPermission, locationPermission } from '../lib/permissions'
 import { ElderAsk } from '../components/ElderAsk'
@@ -209,6 +210,7 @@ export function ElderCamera({ uid, reactions, photos = null, onOpenRecords, onOp
     let result: Overlay
     try {
       const { file, nativePath } = await capturePhoto()
+      void keepInPhotos(nativePath) // a copy in the phone's photos too
       await savePhoto({ uid, file, nativePath })
       result = { ok: true, text: `${toName}에게 보냈어요 ♥` }
     } catch (err) {

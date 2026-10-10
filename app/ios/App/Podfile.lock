@@ -22,6 +22,9 @@ PODS:
     - Capacitor
   - CapacitorCommunityCameraPreview (8.0.2):
     - Capacitor
+  - CapacitorCommunityMedia (9.1.0):
+    - Capacitor
+    - SDWebImage
   - CapacitorCordova (8.5.2)
   - CapacitorFilesystem (8.1.4):
     - Capacitor
@@ -130,6 +133,9 @@ PODS:
   - PromisesSwift (2.4.1):
     - PromisesObjC (= 2.4.1)
   - RecaptchaInterop (101.0.0)
+  - SDWebImage (5.21.7):
+    - SDWebImage/Core (= 5.21.7)
+  - SDWebImage/Core (5.21.7)
 
 DEPENDENCIES:
   - "Capacitor (from `../../node_modules/@capacitor/ios`)"
@@ -137,6 +143,7 @@ DEPENDENCIES:
   - "CapacitorCamera (from `../../node_modules/@capacitor/camera`)"
   - "CapacitorClipboard (from `../../node_modules/@capacitor/clipboard`)"
   - "CapacitorCommunityCameraPreview (from `../../node_modules/@capacitor-community/camera-preview`)"
+  - "CapacitorCommunityMedia (from `../../node_modules/@capacitor-community/media`)"
   - "CapacitorCordova (from `../../node_modules/@capacitor/ios`)"
   - "CapacitorFilesystem (from `../../node_modules/@capacitor/filesystem`)"
   - "CapacitorFirebaseAuthentication (from `../../node_modules/@capacitor-firebase/authentication`)"
@@ -171,6 +178,7 @@ SPEC REPOS:
     - PromisesObjC
     - PromisesSwift
     - RecaptchaInterop
+    - SDWebImage
 
 EXTERNAL SOURCES:
   Capacitor:
@@ -183,6 +191,8 @@ EXTERNAL SOURCES:
     :path: "../../node_modules/@capacitor/clipboard"
   CapacitorCommunityCameraPreview:
     :path: "../../node_modules/@capacitor-community/camera-preview"
+  CapacitorCommunityMedia:
+    :path: "../../node_modules/@capacitor-community/media"
   CapacitorCordova:
     :path: "../../node_modules/@capacitor/ios"
   CapacitorFilesystem:
@@ -208,6 +218,7 @@ SPEC CHECKSUMS:
   CapacitorCamera: 8f6acf83664118321111e76acef86390211ccb08
   CapacitorClipboard: c75fdaa6e622111119f35e7914ecfc67b05efecb
   CapacitorCommunityCameraPreview: ba64c49cecfe02a6633f6d519e9abcb95da50db6
+  CapacitorCommunityMedia: 862ba42957f75b74e403fc3a35bb1b286bfe9410
   CapacitorCordova: 5bec5648cbd09a176ce34ce5e7b6cdabb2c8a327
   CapacitorFilesystem: 17ee1862a45ef2e5012311a87e18de1d45a6811b
   CapacitorFirebaseAuthentication: 826e1dae433819492daff947f3d674d1579a6ee7
@@ -236,7 +247,8 @@ SPEC CHECKSUMS:
   PromisesObjC: 752c3227f599e3467650e47ea36f433eeb10c273
   PromisesSwift: 217dea0fd5d2ad65222a109c48698add13cc1c5b
   RecaptchaInterop: 11e0b637842dfb48308d242afc3f448062325aba
+  SDWebImage: e9fc87c1aab89a8ab1bbd74eba378c6f53be8abf
 
-PODFILE CHECKSUM: 1216fde82074ec0bedc4c9e6e2b94768b6554284
+PODFILE CHECKSUM: aabc60e53569cc1a931c3eb80c682d179b85da2f
 
 COCOAPODS: 1.16.2
