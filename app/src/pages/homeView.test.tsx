@@ -23,10 +23,10 @@ const render = (props: Partial<Parameters<typeof Home>[0]> = {}) => renderToStri
 const count = (html: string, s: string) => html.split(s).length - 1
 
 describe('Home', () => {
-  it('has no 사진 보내기 row on one\'s own home: the camera is for one\'s own record', () => {
+  it('has no 사진 보내기 row and no help line under the buttons on one\'s own home', () => {
     const out = render()
     expect(out).not.toContain('사진 보내기')
-    expect(out).toContain('자동으로 기록돼요')
+    expect(out).not.toContain('기록돼요')
   })
 
   it('on a parent\'s home, points at the floating camera button for sending them a photo', () => {

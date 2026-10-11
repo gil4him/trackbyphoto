@@ -122,13 +122,6 @@ export function Home({ uid, patientName, greetingName, memos, onOpenAsk, onOpen,
           </div>
         )}
 
-        {canCapture && (
-          <div className="cap-help">
-            버튼을 누르면 사진이 찍히고<br />
-            자동으로 기록돼요
-          </div>
-        )}
-
         {capture.inputEl}
       </div>
 
