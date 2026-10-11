@@ -6,6 +6,7 @@ import { isWorkerOffline, WORKER_OFFLINE_MESSAGE } from '../lib/worker'
 import { approvePairing, unlinkDevice } from '../lib/pairing'
 import { PairingSender } from '../pages/RegisterElder'
 import type { ElderDevice, Pairing } from '../types'
+import { SectLab } from './SectLab'
 
 /**
  * 기기 관리 for a family-managed elder (Settings, family view): linked phones
@@ -69,7 +70,7 @@ export function ElderDevices({ patientUid, patientName }: { patientUid: string; 
 
   return (
     <div className="sect">
-      <div className="sect-lab">{patientName}님 휴대폰</div>
+      <SectLab info="휴대폰을 잃어버렸다면 바로 ‘연결 해제’를 눌러주세요. 새 휴대폰을 원격으로 연결할 때는 여기서 승인해야 연결돼요.">{patientName}님 휴대폰</SectLab>
 
       {requests.map((p) => (
         <div className="row approval-row" key={p.id}>
@@ -100,9 +101,6 @@ export function ElderDevices({ patientUid, patientName }: { patientUid: string; 
         <span>{devices.length === 0 ? '휴대폰 연결 링크 보내기' : '새 휴대폰 연결'}</span>
         <span aria-hidden="true">→</span>
       </button>
-      <div className="help">
-        휴대폰을 잃어버렸다면 바로 ‘연결 해제’를 눌러주세요. 새 휴대폰을 원격으로 연결할 때는 여기서 승인해야 연결돼요.
-      </div>
 
       {sending && (
         <div className="modal-backdrop" role="dialog" aria-modal="true">

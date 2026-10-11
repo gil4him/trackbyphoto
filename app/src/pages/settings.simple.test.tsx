@@ -38,7 +38,8 @@ describe('Settings for a parent (simple)', () => {
   it('lets the family pick when the daily notice comes', () => {
     expect(html).toContain('알림 시간')
     expect(html).toContain('저녁 8시')
-    expect(html).toContain('매일 이 시간에 오늘 사진 몇 장인지 알려드려요')
+    // The explanation is behind ⓘ by the label, not on the page.
+    expect(html).not.toContain('매일 이 시간에 오늘 사진 몇 장인지 알려드려요')
   })
 
   it('has the full family sections, without the developer note', () => {

@@ -31,7 +31,9 @@ describe('계정 삭제 in Settings', () => {
   it('is offered on my own account, with what it erases', () => {
     const html = render({ uid: 'me', email: 'me@example.com', displayName: '지은' })
     expect(html).toContain('계정 삭제')
-    expect(html).toContain('내 사진과 기록, 가족 연결이 모두 지워지고 되돌릴 수 없어요')
+    // What it erases sits behind the ⓘ by the label, not on the page.
+    expect(html).not.toContain('내 사진과 기록, 가족 연결이 모두 지워지고 되돌릴 수 없어요')
+    expect(html).toContain('aria-label="설명 보기"')
     // Nothing is deleted until the confirmation sheet says so.
     expect(html).not.toContain('부모님 기록은 지워지지 않아요')
   })

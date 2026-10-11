@@ -26,6 +26,7 @@ import { S } from '../lib/strings'
 import type { PlanTier } from '../types'
 import { isSimple } from '../lib/edition'
 import { LegalLinks } from '../components/LegalLinks'
+import { SectLab } from '../components/SectLab'
 
 /** Version of the 음성 답장 consent text shown below. */
 const VOICE_CONSENT_VERSION = 'voice-v1'
@@ -349,7 +350,7 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
       {/* Account — kept so the user can sign out / see which Google account
           is in use. Not in the visual prototype but functionally important. */}
       <div className="sect">
-        <div className="sect-lab">계정</div>
+        <SectLab>계정</SectLab>
         <div className="row">
           <div className="account-row" style={{ flex: 1 }}>
             {user.photoURL && <img className="avatar" src={user.photoURL} alt="" referrerPolicy="no-referrer" />}
@@ -370,14 +371,11 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
 
       {isSelf && (
         <div className="sect">
-          <div className="sect-lab">부모님</div>
+          <SectLab info="부모님은 로그인할 필요가 없어요. 여기서 설정을 마치고 링크를 보내면, 부모님은 링크를 눌러 ‘연결하기’만 누르면 돼요.">부모님</SectLab>
           <button className="linkbtn" onClick={() => setRegistering(true)}>
             <span>부모님 등록하기</span>
             <span aria-hidden="true">→</span>
           </button>
-          <div className="help">
-            부모님은 로그인할 필요가 없어요. 여기서 설정을 마치고 링크를 보내면, 부모님은 링크를 눌러 ‘연결하기’만 누르면 돼요.
-          </div>
         </div>
       )}
       {registering && (
@@ -386,7 +384,7 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
 
       {isSelf && people.length > 0 && (
         <div className="sect">
-          <div className="sect-lab">함께 보는 가족</div>
+          <SectLab info="화면 위쪽에서 고르는 이름 목록과 같아요. ‘삭제’는 내가 등록한 부모님의 계정과 사진·기록을 모두 지워요. ‘✕’는 다른 가족이 등록한 분을 내 목록에서만 빼요.">함께 보는 가족</SectLab>
           {people.map((p) => {
             const mine = p.membership.role === 'guardian'
             return (
@@ -404,9 +402,6 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
               </div>
             )
           })}
-          <div className="help">
-            화면 위쪽에서 고르는 이름 목록과 같아요. ‘삭제’는 내가 등록한 부모님의 계정과 사진·기록을 모두 지워요. ‘✕’는 다른 가족이 등록한 분을 내 목록에서만 빼요.
-          </div>
         </div>
       )}
 
@@ -420,7 +415,7 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
         const senders = fp.senders === 'admins' ? 'admins' : 'all'
         return (
           <div className="sect">
-            <div className="sect-lab">가족 사진</div>
+            <SectLab info={!enabled ? `${settings.patientName}님 휴대폰에 가족이 보낸 사진이 카드로 보여요. 사진을 보면 하트나 짧은 답장을 보낼 수 있어요.` : senders === 'admins' ? '대표 가족과 관리자만 사진을 보낼 수 있어요.' : '함께 보는 가족 모두 사진을 보낼 수 있어요. 한 사람이 하루 10장까지예요.'}>가족 사진</SectLab>
             <div className="row">
               <div className="who"><b>가족이 보낸 사진 받기</b><br /><span>{settings.patientName}님 휴대폰에 카드로 보여요. 사진을 보면 하트나 짧은 답장을 보낼 수 있어요.</span></div>
               <button
@@ -437,7 +432,6 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
                   <button className={senders === 'all' ? 'on' : ''} onClick={() => update('familyPhotos', { ...fp, senders: 'all' })}>모든 가족</button>
                   <button className={senders === 'admins' ? 'on' : ''} onClick={() => update('familyPhotos', { ...fp, senders: 'admins' })}>관리자만</button>
                 </div>
-                <div className="help">{senders === 'admins' ? '대표 가족과 관리자만 사진을 보낼 수 있어요.' : '함께 보는 가족 모두 사진을 보낼 수 있어요. 한 사람이 하루 10장까지예요.'}</div>
               </>
             )}
           </div>
@@ -445,7 +439,7 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
       })()}
 
       <div className="sect">
-        <div className="sect-lab">사용자 이름</div>
+        <SectLab>사용자 이름</SectLab>
         <div className="row">
           <div className="who"><b>표시되는 이름</b><br /><span>가족 알림에 사용돼요</span></div>
           <input
@@ -458,15 +452,10 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
 
       {canManageHere && (
         <div className="sect">
-          <div className="sect-lab">집 위치</div>
+          <SectLab info="집에서 멀리 있을 때 찍은 사진은 여행·출장으로 기록해요. 정하지 않으면 사진을 가장 자주 찍는 곳을 집으로 봐요. 주소나 건물 이름으로 찾을 수도 있고, 앞으로 찍는 사진부터 적용돼요.">집 위치</SectLab>
           <div className="row">
             <div className="who">
-              <b>{settings.home ? settings.home.label : '자동으로 추정해요'}</b><br />
-              <span>
-                {settings.home
-                  ? '집에서 멀리 있을 때 찍은 사진은 여행·출장으로 기록해요'
-                  : '사진을 가장 자주 찍는 곳을 집으로 봐요'}
-              </span>
+              <b>{settings.home ? settings.home.label : '자동으로 추정해요'}</b>
             </div>
             {settings.home && <button className="signout-btn" onClick={() => update('home', null)}>지우기</button>}
           </div>
@@ -484,7 +473,6 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
               </div>
             </>
           )}
-          <div className="help">주소나 건물 이름으로 찾을 수도 있어요. 앞으로 찍는 사진부터 적용돼요.</div>
           <div className="home-search">
             <input
               value={homeQuery}
@@ -517,8 +505,7 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
 
       {canManageHere && (
         <div className="sect">
-          <div className="sect-lab">언어</div>
-          <div className="help">사진을 찍은 장소와 주소를 이 언어로 적어요. 앞으로 찍는 사진부터 적용돼요.</div>
+          <SectLab info="사진을 찍은 장소와 주소를 이 언어로 적어요. 앞으로 찍는 사진부터 적용돼요.">언어</SectLab>
           <div className="seg">
             <button className={geoLang === 'ko' ? 'on' : ''} onClick={() => update('geoLang', 'ko')}>한국어</button>
             <button className={geoLang === 'en' ? 'on' : ''} onClick={() => update('geoLang', 'en')}>English</button>
@@ -531,7 +518,7 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
           don't get to invite or revoke from the patient's perspective. */}
       {canManageHere && (
         <div className="sect">
-          <div className="sect-lab">가족 관리</div>
+          <SectLab info="카카오톡이나 문자로 초대 링크를 보낼 수 있어요. 링크는 24시간 동안 유효해요. 관리자는 설정을 바꿀 수 있고, 뷰어는 보기만 해요.">가족 관리</SectLab>
           {caregivers.length === 0 ? (
             <div className="row">
               <div className="who"><span>아직 함께하는 가족이 없어요.</span></div>
@@ -578,15 +565,12 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
             <span>가족초대</span>
             <span aria-hidden="true">→</span>
           </button>
-          <div className="help">
-            카카오톡이나 문자로 초대 링크를 보낼 수 있어요. 링크는 24시간 동안 유효해요.
-          </div>
         </div>
       )}
 
       {onOpenPlans && (
         <div className="sect">
-          <div className="sect-lab">요금제</div>
+          <SectLab info="가족이 함께 보는 방법과 사진을 보관하는 기간이 요금제마다 달라요.">요금제</SectLab>
           <div className="row">
             <div className="who"><b>{S.planCurrent}</b><br /><span>{planName ?? ''}</span></div>
           </div>
@@ -594,13 +578,12 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
             <span>{S.planTitle}</span>
             <span aria-hidden="true">→</span>
           </button>
-          <div className="help">가족이 함께 보는 방법과 사진을 보관하는 기간이 요금제마다 달라요.</div>
         </div>
       )}
 
       {digestRollout && canManageHere && (
         <div className="sect">
-          <div className="sect-lab">하루 요약</div>
+          <SectLab info={`${settings.patientName}님의 하루를 두세 문장으로 정리해 가족에게 보내요. 사진이 없는 날은 보내지 않아요. 받는 방법은 알림 탭에서 고를 수 있어요.`}>하루 요약</SectLab>
           <div className="seg">
             <button className={digest.cadence === 'daily' ? 'on' : ''} disabled={digestBusy} onClick={() => changeDigest({ cadence: 'daily' })}>매일 저녁</button>
             <button className={digest.cadence === 'weekly' ? 'on' : ''} disabled={digestBusy || !weeklyIncluded} onClick={() => changeDigest({ cadence: 'weekly' })}>
@@ -627,14 +610,11 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
               <button className={digest.tz === deviceTz ? 'on' : ''} disabled={digestBusy} onClick={() => changeDigest({ tz: deviceTz })}>이 기기의 시간</button>
             </div>
           )}
-          <div className="help">
-            {settings.patientName}님의 하루를 두세 문장으로 정리해 가족에게 보내요. 사진이 없는 날은 보내지 않아요. 받는 방법은 알림 탭에서 고를 수 있어요.
-          </div>
         </div>
       )}
 
       {!digestRollout && <div className="sect">
-        <div className="sect-lab">전송 시점</div>
+        <SectLab info={cadenceHint}>전송 시점</SectLab>
         <div className="seg">
           <button
             className={settings.cadence === 'realtime' ? 'on' : ''}
@@ -649,11 +629,10 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
             onClick={() => update('cadence', 'weekly')}
           >매주</button>
         </div>
-        <div className="help">{cadenceHint}</div>
       </div>}
 
       <div className="sect">
-        <div className="sect-lab">자동 기록</div>
+        <SectLab info="끄면 보내기 전에 가족이 한 번 확인할 수 있어요.">자동 기록</SectLab>
         <div className="row">
           <div className="who"><b>자동으로 기록·전송</b><br /><span>사진을 찍으면 바로 기록하고 보냅니다</span></div>
           <button
@@ -664,28 +643,24 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
             aria-label="자동 기록 전환"
           ><span className="knob" /></button>
         </div>
-        <div className="help">끄면 보내기 전에 가족이 한 번 확인할 수 있어요</div>
       </div>
 
       {reactionsRollout && canManageHere && (
         <div className="sect">
-          <div className="sect-lab">글로 답장</div>
+          <SectLab info={textReplies === 'off' ? `${settings.patientName}님은 하트${settings.voiceEnabled ? '와 목소리' : ''}로만 답해요.`
+              : textReplies === 'full' ? `${settings.patientName}님이 직접 써서 답해요. “고마워” 같은 짧은 답장도 바로 아래에 있어요.`
+              : `${settings.patientName}님이 “고마워”, “밥 먹었어” 같은 짧은 답장을 한 번 눌러 보낼 수 있어요. 자판은 나오지 않아요.`}>글로 답장</SectLab>
           <div className="seg">
             <button className={textReplies === 'off' ? 'on' : ''} onClick={() => update('textReplies', 'off')}>끄기</button>
             <button className={textReplies === 'quick' ? 'on' : ''} onClick={() => update('textReplies', 'quick')}>짧은 답장만</button>
             <button className={textReplies === 'full' ? 'on' : ''} onClick={() => update('textReplies', 'full')}>직접 쓰기</button>
-          </div>
-          <div className="help">
-            {textReplies === 'off' ? `${settings.patientName}님은 하트${settings.voiceEnabled ? '와 목소리' : ''}로만 답해요.`
-              : textReplies === 'full' ? `${settings.patientName}님이 직접 써서 답해요. “고마워” 같은 짧은 답장도 바로 아래에 있어요.`
-              : `${settings.patientName}님이 “고마워”, “밥 먹었어” 같은 짧은 답장을 한 번 눌러 보낼 수 있어요. 자판은 나오지 않아요.`}
           </div>
         </div>
       )}
 
       {voiceRollout && canManageHere && (
         <div className="sect">
-          <div className="sect-lab">음성 답장</div>
+          <SectLab info={`처음 말할 때 ${settings.patientName}님 휴대폰이 마이크 사용을 한 번 물어봐요.`}>음성 답장</SectLab>
           <div className="row">
             <div className="who"><b>목소리로 답장 받기</b><br /><span>{settings.patientName}님이 버튼을 꾹 누르고 말하면 가족에게 전해져요</span></div>
             <button
@@ -696,7 +671,6 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
               aria-label="음성 답장 전환"
             ><span className="knob" /></button>
           </div>
-          <div className="help">처음 말할 때 {settings.patientName}님 휴대폰이 마이크 사용을 한 번 물어봐요.</div>
         </div>
       )}
 
@@ -704,7 +678,7 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
           (worker/src/handlers/dailyNotice.ts reads digest.hourLocal). */}
       {simple && !isSelf && canManageHere && (
         <div className="sect">
-          <div className="sect-lab">알림 시간</div>
+          <SectLab info="매일 이 시간에 오늘 사진 몇 장인지 알려드려요.">알림 시간</SectLab>
           <div className="seg">
             {noticeHourChoices(digest.hourLocal).map((h) => (
               <button key={h} className={digest.hourLocal === h ? 'on' : ''} disabled={digestBusy} onClick={() => changeDigest({ hourLocal: h })}>
@@ -712,12 +686,11 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
               </button>
             ))}
           </div>
-          <div className="help">매일 이 시간에 오늘 사진 몇 장인지 알려드려요</div>
         </div>
       )}
 
       <div className="sect">
-        <div className="sect-lab">글자 크기</div>
+        <SectLab>글자 크기</SectLab>
         <div className="seg">
           <button
             className={!settings.bigText ? 'on' : ''}
@@ -731,7 +704,7 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
       </div>
 
       {!onOpenPlans && <div className="sect">
-        <div className="sect-lab">사진 보관</div>
+        <SectLab info="기간이 지난 사진은 자동 삭제됩니다.">사진 보관</SectLab>
         <div className="seg">
           <button
             className={settings.retention === '30' ? 'on' : ''}
@@ -746,7 +719,6 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
             onClick={() => update('retention', 'forever')}
           >계속</button>
         </div>
-        <div className="help">기간이 지난 사진은 자동 삭제됩니다.</div>
       </div>}
 
       {!simple && <div className="proto-note">
@@ -761,24 +733,18 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
           Step 2 (send): KakaoTalk or text message — nothing else. */}
       {isGuardian && (
         <div className="sect">
-          <div className="sect-lab">부모님 삭제</div>
+          <SectLab info="잘못 등록했거나 더 이상 쓰지 않을 때만 사용하세요. 사진과 기록이 모두 지워지고 되돌릴 수 없어요.">부모님 삭제</SectLab>
           <button className="linkbtn danger-btn" onClick={() => setDeleteTarget({ patientUid: activePatientUid, name: settings.patientName })}>
             <span>{settings.patientName}님 삭제하기</span>
           </button>
-          <div className="help">
-            잘못 등록했거나 더 이상 쓰지 않을 때만 사용하세요. 사진과 기록이 모두 지워지고 되돌릴 수 없어요.
-          </div>
         </div>
       )}
       {canDeleteMe && (
         <div className="sect">
-          <div className="sect-lab">계정 삭제</div>
+          <SectLab info="내 사진과 기록, 가족 연결이 모두 지워지고 되돌릴 수 없어요.">계정 삭제</SectLab>
           <button className="linkbtn danger-btn" onClick={() => setDeleteMeOpen(true)}>
             <span>계정 삭제하기</span>
           </button>
-          <div className="help">
-            내 사진과 기록, 가족 연결이 모두 지워지고 되돌릴 수 없어요.
-          </div>
         </div>
       )}
       {isSimple() && <LegalLinks />}

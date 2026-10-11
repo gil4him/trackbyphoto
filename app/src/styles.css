@@ -1268,3 +1268,9 @@ html:not(.camera-live) .elder-cam { background: #000; }
 .admin-more { margin-top: 10px; }
 .admin-more summary { cursor: pointer; }
 .admin-danger { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; border: 1px solid #F3C2B8; background: #FFF7F5; border-radius: 14px; padding: 14px 16px; }
+
+/* ---------- Settings: a section's explanation behind ⓘ (SectLab) ---------- */
+.sect-lab-row { display: flex; align-items: center; gap: 7px; }
+.info-btn { width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid var(--muted); background: transparent; color: var(--muted); font: italic 700 12px/1 Georgia, "Times New Roman", serif; display: inline-grid; place-items: center; padding: 0; cursor: pointer; }
+.info-btn.on { background: var(--muted); color: #fff; }
+.sect-info { margin: -2px 6px 10px; }
