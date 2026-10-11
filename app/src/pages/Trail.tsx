@@ -76,12 +76,16 @@ export function Trail({ title, memos, home, onBack, onOpenMemo, keys = MAP_KEYS 
   const located = stops.reduce((n, s) => n + s.memos.length, 0)
   return (
     <section className="page trail">
-      <button className="back" onClick={onBack} aria-label="뒤로가기">‹ 뒤로</button>
-      <div className="h-eyebrow">
+      {/* The same frosted header as the photo page: back, the title, a spacer. */}
+      <div className="detail-head">
+        <button type="button" className="head-btn" onClick={onBack} aria-label="뒤로가기">‹</button>
+        <div className="detail-head-when">{title}</div>
+        <span className="head-btn-space" aria-hidden="true" />
+      </div>
+      <div className="h-eyebrow trail-summary">
         {stops.length > 0 ? `${stops.length}곳${summary.text ? ` · ${summary.text}` : ''}` : '위치가 있는 사진이 없어요'}
         {summary.away && <span className="trail-badge">여행 중</span>}
       </div>
-      <h2 className="h-title">{title}</h2>
 
       {stops.length === 0 ? (
         <div className="empty"><div>이 날은 위치가 기록된 사진이 없어요.</div></div>
