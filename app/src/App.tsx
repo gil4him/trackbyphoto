@@ -28,7 +28,7 @@ import { AcceptInvite, PENDING_INVITE_KEY } from './pages/AcceptInvite'
 import { ConnectParentCard } from './components/ConnectParentCard'
 import { FamilyCamera } from './components/CameraFab'
 import { appTitle, isSimple } from './lib/edition'
-import { SuperAdmin, ADMIN_EMAIL } from './pages/SuperAdmin'
+import { isAdminUser } from './lib/admin'
 import { usePlans } from './hooks/usePlans'
 import { useReactions } from './hooks/useReactions'
 import { useElderNews, type OpenNews } from './hooks/useElderNews'
@@ -67,6 +67,8 @@ const pages = {
   voiceAlbum: () => import('./pages/VoiceAlbum'),
   planSheet: () => import('./components/PlanSheet'),
 }
+// The admin dashboard is not prefetched: one person opens it.
+const AdminPage = lazy(() => import('./pages/admin/AdminPage').then((m) => ({ default: m.AdminPage })))
 const SendFamilyPhoto = lazy(() => pages.sendFamilyPhoto().then((m) => ({ default: m.SendFamilyPhoto })))
 const SentFamilyPhotos = lazy(() => pages.sendFamilyPhoto().then((m) => ({ default: m.SentFamilyPhotos })))
 const Settings = lazy(() => pages.settings().then((m) => ({ default: m.Settings })))
@@ -329,8 +331,9 @@ function App() {
     document.title = n > 0 ? `(${n}) ${appTitle()}` : appTitle()
   }, [notifications.length])
 
+  // /admin is the dashboard; /superadmin was its old address (now the AI tab).
   const isAdminRoute =
-    typeof window !== 'undefined' && window.location.pathname === '/superadmin'
+    typeof window !== 'undefined' && (window.location.pathname === '/admin' || window.location.pathname === '/superadmin')
 
   if (!ready) {
     return (
@@ -419,13 +422,18 @@ function App() {
   }
 
   if (isAdminRoute) {
+    if (window.location.pathname === '/superadmin') window.history.replaceState(null, '', '/admin?tab=ai')
+    if (isAdminUser(user)) {
+      return (
+        <ToastProvider>
+          <AdminPage user={user} onSignOut={signOut} />
+        </ToastProvider>
+      )
+    }
     return (
       <ToastProvider>
         <div className="app">
           <main>
-            {user.email === ADMIN_EMAIL ? (
-              <SuperAdmin onSignOut={signOut} />
-            ) : (
               <div style={{ padding: 32, textAlign: 'center', color: 'var(--ink-2)' }}>
                 <h2 style={{ marginBottom: 8 }}>접근 권한이 없습니다</h2>
                 <p>이 페이지는 관리자만 사용할 수 있어요.</p>
@@ -437,7 +445,6 @@ function App() {
                   style={{ marginTop: 24, padding: '10px 20px', border: '1px solid var(--line)', borderRadius: 12, background: '#fff' }}
                 >홈으로 이동</button>
               </div>
-            )}
           </main>
         </div>
       </ToastProvider>

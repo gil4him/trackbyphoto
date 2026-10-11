@@ -1115,6 +1115,29 @@ describe('voice clips (storage)', () => {
   })
 })
 
+describe('admin dashboard (/admin)', () => {
+  const admin = () => authedDb(ADMIN_UID, { email: ADMIN_EMAIL, name: 'Shawn' })
+
+  it('only the admin reads admin_log, and nobody writes it from the app', async () => {
+    await assertSucceeds(getDocs(collection(admin(), 'admin_log')))
+    await assertFails(getDocs(collection(authedDb(STRANGER), 'admin_log')))
+    await assertFails(getDocs(collection(authedDb(CAREGIVER_ACTIVE_ADMIN), 'admin_log')))
+    await assertFails(setDoc(doc(admin(), 'admin_log', 'x'), { action: 'account.delete' }))
+  })
+
+  it('the admin can queue the people requests; a family member cannot pose as the admin', async () => {
+    const adminReq = (type: string, payload: Record<string, unknown> = {}) => ({
+      type, uid: ADMIN_UID, email: ADMIN_EMAIL, name: 'Shawn', payload, status: 'pending', createdAt: serverTimestamp(),
+    })
+    for (const type of ['adminListPeople', 'adminGetPerson', 'adminDeleteAccount', 'adminUnlinkDevice', 'adminSetMembership', 'adminSetPlan', 'adminUpdateSettings', 'adminSetDisabled']) {
+      await assertSucceeds(setDoc(doc(admin(), 'requests', `r-${type}`), adminReq(type, { uid: PATIENT })))
+    }
+    await assertFails(setDoc(doc(authedDb(STRANGER, { email: 'x@example.com' }), 'requests', 'forged'), {
+      type: 'adminDeleteAccount', uid: STRANGER, email: ADMIN_EMAIL, name: null, payload: { uid: PATIENT }, status: 'pending', createdAt: serverTimestamp(),
+    }))
+  })
+})
+
 describe('plans', () => {
   it('any signed-in app reads the plan table; a pairing-only session and the rest of admin_config stay closed', async () => {
     await assertSucceeds(getDoc(doc(authedDb(STRANGER), 'admin_config', 'plans')))

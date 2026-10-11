@@ -28,8 +28,6 @@ interface BackfillMemoResult {
   skippedEmpty: number
 }
 
-/** Single source of truth for the admin email. Mirrored in firestore.rules. */
-export const ADMIN_EMAIL = 'zymer4him@gmail.com'
 
 /** Local models the Mac mini worker can run. Must stay in sync with
  *  LOCAL_MODELS in worker/src/llm/ollama.ts (the worker ignores any other
@@ -88,7 +86,9 @@ function fmtInt(n: number | undefined): string {
   return (n ?? 0).toLocaleString('en-US')
 }
 
-export function SuperAdmin({ onSignOut }: { onSignOut: () => Promise<void> }) {
+/** AI · 통계: memo stats, the model picker and the one-shot migrations.
+ *  Rendered as a tab of AdminPage, which owns the header. */
+export function SuperAdmin() {
   const [totals, setTotals] = useState<Totals | null>(null)
   const [daily, setDaily] = useState<DailyDoc[]>([])
   const [recent, setRecent] = useState<Memo[]>([])
@@ -265,14 +265,6 @@ export function SuperAdmin({ onSignOut }: { onSignOut: () => Promise<void> }) {
 
   return (
     <div className="admin">
-      <header className="admin-bar">
-        <div>
-          <h1>관리자 대시보드</h1>
-          <p className="muted">trackbyphoto.web.app / superadmin</p>
-        </div>
-        <button className="admin-signout" onClick={() => onSignOut()}>로그아웃</button>
-      </header>
-
       {error && <div className="admin-error">{error}</div>}
 
       <section className="admin-section">
