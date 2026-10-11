@@ -490,6 +490,8 @@ service cloud.firestore {
                     && request.resource.data.type in [
                          'createInvite', 'acceptInvite', 'revokeMembership', 'setMembershipRole',
                          'syncCaregiverName', 'regenerateMemo', 'backfillMemoSchema', 'backfillPatientUid',
+                         'adminListPeople', 'adminGetPerson', 'adminDeleteAccount', 'adminUnlinkDevice',
+                         'adminSetMembership', 'adminSetPlan', 'adminUpdateSettings', 'adminSetDisabled',
                          'createManagedElder', 'createPairingLink', 'approvePairing', 'unlinkDevice', 'deleteManagedElder',
                          'pairDevice', 'completePairing', 'deleteMyAccount',
                          'registerFcmToken', 'setChannels', 'setDigest', 'changePlan', 'searchAddress'
@@ -510,6 +512,12 @@ service cloud.firestore {
       allow write: if false;
     }
     match /admin_daily/{doc} {
+      allow read:  if isAdmin();
+      allow write: if false;
+    }
+    // What the admin did on the dashboard (worker-written). Kept apart from
+    // auditLogs because a deleted account takes its auditLogs with it.
+    match /admin_log/{doc} {
       allow read:  if isAdmin();
       allow write: if false;
     }

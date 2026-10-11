@@ -25,6 +25,16 @@ import {
   syncCaregiverName,
 } from './caregiver.js'
 import { backfillMemoSchema, backfillPatientUid, regenerateMemo } from './admin.js'
+import {
+  adminDeleteAccount,
+  adminGetPerson,
+  adminListPeople,
+  adminSetDisabled,
+  adminSetMembership,
+  adminSetPlan,
+  adminUnlinkDevice,
+  adminUpdateSettings,
+} from './adminPeople.js'
 import { deleteMyAccount } from './account.js'
 import {
   approvePairing,
@@ -53,6 +63,14 @@ export const HANDLERS: Record<string, Handler> = {
   regenerateMemo,
   backfillMemoSchema,
   backfillPatientUid,
+  adminListPeople,
+  adminGetPerson,
+  adminDeleteAccount,
+  adminUnlinkDevice,
+  adminSetMembership,
+  adminSetPlan,
+  adminUpdateSettings,
+  adminSetDisabled,
   createManagedElder,
   createPairingLink,
   pairDevice,

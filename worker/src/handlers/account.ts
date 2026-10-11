@@ -81,6 +81,20 @@ export async function deleteMyAccount(caller: Caller): Promise<{ ok: true }> {
     throw new HttpsError('failed-precondition', 'a family-managed account is deleted by its guardian')
   }
 
+  const strayFiles = await eraseFamilyAccount(uid)
+  logger.info('[account] account deleted', { uid, strayFiles })
+  return { ok: true }
+}
+
+/**
+ * The erase itself, with no permission check: the person's own call above
+ * and the admin dashboard (adminDeleteAccount) both end here. Returns how
+ * many files it removed from other people's folders.
+ */
+export async function eraseFamilyAccount(uid: string): Promise<number> {
+  const db = getFirestore()
+  const userRef = db.collection('users').doc(uid)
+
   // Files this account left under someone else's prefix (a voice reply on a
   // parent's memo, a photo sent to them): the prefix sweep below can't see
   // them, so collect them while the docs that name them still exist.
@@ -124,7 +138,5 @@ export async function deleteMyAccount(caller: Caller): Promise<{ ok: true }> {
   await getAuth().deleteUser(uid).catch((err) => {
     if ((err as { code?: string }).code !== 'auth/user-not-found') throw err
   })
-
-  logger.info('[account] account deleted', { uid, strayFiles: strays.size })
-  return { ok: true }
+  return strays.size
 }

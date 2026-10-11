@@ -122,7 +122,7 @@ async function canManageElder(callerUid: string, patientUid: string): Promise<bo
   return m?.status === 'active' && (m.role === 'guardian' || m.role === 'admin')
 }
 
-async function activeFamilyUids(patientUid: string): Promise<string[]> {
+export async function activeFamilyUids(patientUid: string): Promise<string[]> {
   const snap = await getFirestore()
     .collection('memberships')
     .where('patientUid', '==', patientUid)
@@ -131,7 +131,7 @@ async function activeFamilyUids(patientUid: string): Promise<string[]> {
   return snap.docs.map((d) => (d.data() as { caregiverUid: string }).caregiverUid)
 }
 
-function familyNotice(recipientUid: string, patientUid: string, actorUid: string, type: string, message: string) {
+export function familyNotice(recipientUid: string, patientUid: string, actorUid: string, type: string, message: string) {
   return {
     recipientUid,
     patientUid,
@@ -143,7 +143,7 @@ function familyNotice(recipientUid: string, patientUid: string, actorUid: string
   }
 }
 
-async function elderName(patientUid: string): Promise<string> {
+export async function elderName(patientUid: string): Promise<string> {
   const snap = await getFirestore().collection('users').doc(patientUid).get()
   const name = (snap.data() as { patientName?: unknown } | undefined)?.patientName
   return (typeof name === 'string' && name.trim()) || '부모님'
@@ -558,6 +558,13 @@ export async function unlinkDevice(caller: Caller, data: { patientUid?: string; 
   if (!(await canManageElder(callerUid, patientUid))) {
     throw new HttpsError('permission-denied', 'only a guardian or admin family member can unlink a phone')
   }
+  await revokeDevice(patientUid, deviceId, callerUid)
+  return { ok: true }
+}
+
+/** The unlink itself, no permission check: family (unlinkDevice) and the
+ *  admin dashboard (adminUnlinkDevice) both end here. */
+export async function revokeDevice(patientUid: string, deviceId: string, actorUid: string): Promise<void> {
   const db = getFirestore()
   const devices = db.collection('users').doc(patientUid).collection('devices')
   const ref = devices.doc(deviceId)
@@ -568,18 +575,18 @@ export async function unlinkDevice(caller: Caller, data: { patientUid?: string; 
   const name = await elderName(patientUid)
   const family = await activeFamilyUids(patientUid)
   const batch = db.batch()
-  batch.update(ref, { status: 'revoked', revokedAt: FieldValue.serverTimestamp(), revokedBy: callerUid })
+  batch.update(ref, { status: 'revoked', revokedAt: FieldValue.serverTimestamp(), revokedBy: actorUid })
   batch.set(db.collection('auditLogs').doc(), {
     patientUid,
-    actorUid: callerUid,
+    actorUid,
     action: 'device.unlink',
     details: { deviceId, name: device.name ?? null },
     timestamp: FieldValue.serverTimestamp(),
   })
-  for (const uid of family.filter((u) => u !== callerUid)) {
+  for (const uid of family.filter((u) => u !== actorUid)) {
     batch.set(
       db.collection('notifications').doc(),
-      familyNotice(uid, patientUid, callerUid, 'device.unlink', `${name}님 휴대폰(${device.name ?? '휴대폰'}) 연결이 해제되었어요.`),
+      familyNotice(uid, patientUid, actorUid, 'device.unlink', `${name}님 휴대폰(${device.name ?? '휴대폰'}) 연결이 해제되었어요.`),
     )
   }
   await batch.commit()
@@ -590,12 +597,11 @@ export async function unlinkDevice(caller: Caller, data: { patientUid?: string; 
   if (stillActive.empty) await getAuth().revokeRefreshTokens(patientUid).catch((err) =>
     logger.warn('[pairing] revokeRefreshTokens failed', { patientUid, err: String(err) }))
 
-  logger.info('[pairing] device unlinked', { patientUid, deviceId, callerUid })
-  return { ok: true }
+  logger.info('[pairing] device unlinked', { patientUid, deviceId, actorUid })
 }
 
 // Every top-level collection whose docs belong to one patient (by patientUid).
-const PATIENT_COLLECTIONS = ['memos', 'reactions', 'familyPhotos', 'consents', 'memberships', 'pairings', 'invites', 'auditLogs', 'notifications']
+export const PATIENT_COLLECTIONS = ['memos', 'reactions', 'familyPhotos', 'consents', 'memberships', 'pairings', 'invites', 'auditLogs', 'notifications']
 
 /**
  * 부모님 삭제: the guardian (the family member who registered the parent)
@@ -620,12 +626,22 @@ export async function deleteManagedElder(caller: Caller, data: { patientUid?: st
     throw new HttpsError('permission-denied', 'only the guardian can delete this account')
   }
 
+  await eraseManagedElder(patientUid)
+  logger.info('[pairing] managed elder deleted', { patientUid, callerUid })
+  return { ok: true }
+}
+
+/** The erase itself, no permission check: the guardian (deleteManagedElder)
+ *  and the admin dashboard (adminDeleteAccount) both end here. */
+export async function eraseManagedElder(patientUid: string): Promise<void> {
   // Auth first: once the elder's user is gone no phone can refresh a token,
   // and the devices doc removal below fails every rules check immediately.
   await getAuth().deleteUser(patientUid).catch((err) => {
     if ((err as { code?: string }).code !== 'auth/user-not-found') throw err
   })
 
+  const db = getFirestore()
+  const userRef = db.collection('users').doc(patientUid)
   const writer = db.bulkWriter()
   for (const name of PATIENT_COLLECTIONS) {
     const snap = await db.collection(name).where('patientUid', '==', patientUid).get()
@@ -642,7 +658,4 @@ export async function deleteManagedElder(caller: Caller, data: { patientUid?: st
         logger.warn('[pairing] file cleanup failed', { patientUid, prefix, err: String(err) }))
     }
   }
-
-  logger.info('[pairing] managed elder deleted', { patientUid, callerUid })
-  return { ok: true }
 }

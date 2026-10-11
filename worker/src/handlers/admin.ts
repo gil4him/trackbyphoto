@@ -18,7 +18,7 @@ import { homeHintFor, localTimeHint } from '../travel.js'
 
 export const ADMIN_EMAIL = 'zymer4him@gmail.com'
 
-function requireAdmin(caller: Caller) {
+export function requireAdmin(caller: Caller) {
   if (caller.email !== ADMIN_EMAIL) {
     throw new HttpsError('permission-denied', 'admin only')
   }
