@@ -225,6 +225,9 @@ main { padding: 18px 22px calc(110px + var(--safe-bot)); }
   display: grid; place-items: center; cursor: pointer; padding: 0 0 2px;
 }
 .head-btn:active { background: rgba(0,0,0,.1); }
+/* ‹ 뒤로 on 다녀온 곳, the summary and the voice album: a soft pill. */
+.back { border: none; border-radius: 999px; background: rgba(0,0,0,.05); font: inherit; font-size: 15px; font-weight: 700; color: var(--ink-2); padding: 8px 14px 8px 11px; margin: 0 0 12px; cursor: pointer; }
+.back:active { background: rgba(0,0,0,.1); }
 .detail-head-when { flex: 1; min-width: 0; text-align: center; font-size: 15px; font-weight: 700; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* Photo header: real photo when available, gradient as caption strip when not. */
@@ -520,7 +523,7 @@ nav.tabbar .tab.on .tab-avatar { box-shadow: 0 0 0 2px var(--coral2); }
 .signin-parent-sub { font-size: 15px; opacity: .92; }
 .signin-dot { width: 64px; height: 64px; border-radius: 16px; background: url(/favicon.svg) center / cover no-repeat; box-shadow: 0 10px 30px rgba(255,138,31,.3); margin-bottom: 8px; }
 .signin-brand h1 { margin: 0; font-size: 28px; letter-spacing: -0.02em; }
-.signin-brand p { margin: 0; color: var(--ink-2); font-size: 15px; line-height: 1.5; max-width: 280px; }
+.signin-brand p { margin: 0; color: var(--ink-2); font-size: 15px; line-height: 1.5; max-width: 280px; word-break: keep-all; }
 .g-btn { display: inline-flex; align-items: center; gap: 12px; padding: 14px 22px; border-radius: 14px; background: #fff; color: #1f1f1f; font-size: 17px; font-weight: 600; border: 1px solid var(--line); box-shadow: 0 4px 14px rgba(0,0,0,0.06); cursor: pointer; min-width: 260px; justify-content: center; font-family: inherit; }
 .g-btn:disabled { opacity: 0.6; cursor: default; }
 /* Apple's own look for its button: black, white mark, same size as Google's. */
