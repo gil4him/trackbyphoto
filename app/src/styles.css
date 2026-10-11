@@ -145,7 +145,7 @@ main { padding: 18px 22px calc(110px + var(--safe-bot)); }
 .tl-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .tl-body { display: flex; flex-direction: column; min-width: 0; flex: 1; }
 .tl-item .when { font-size: 14.5px; color: var(--muted); font-weight: 700; }
-.tl-item .act { font-size: 19px; font-weight: 700; letter-spacing: -.3px; margin-top: 1px; }
+.tl-item .act { font-size: 17px; font-weight: 700; letter-spacing: -.3px; margin-top: 1px; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
 .tl-item .desc { font-size: 14.5px; color: var(--ink-2); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .del-btn {
@@ -461,7 +461,7 @@ main { padding: 18px 22px calc(110px + var(--safe-bot)); }
 .text-scaled .d-address, .text-scaled .d-map-link { font-size: calc(14px * var(--text-scale)); }
 .text-scaled .q-datehdr { font-size: calc(16px * var(--text-scale)); }
 .text-scaled .tl-item .when { font-size: calc(14.5px * var(--text-scale)); }
-.text-scaled .tl-item .act { font-size: calc(19px * var(--text-scale)); }
+.text-scaled .tl-item .act { font-size: calc(17px * var(--text-scale)); }
 /* Bigger text wraps instead of being cut off. */
 .text-scaled .tl-item .desc { font-size: calc(14.5px * var(--text-scale)); white-space: normal; }
 .text-scaled .detail-memo, .text-scaled .d-scene, .text-scaled .d-place, .text-scaled .tl-item .act, .text-scaled .tl-item .desc { transition: font-size .15s ease; overflow-wrap: anywhere; }

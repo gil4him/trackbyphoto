@@ -107,12 +107,14 @@ export function Today({ memos, onOpen, uid, readOnly = false, rx, onOpenTrail, o
                 <MemoThumb memo={m} />
                 <div className="tl-body">
                   <div className="when">{fmtTime(m.takenAt.toDate())}</div>
-                  <div className="act">{m.activity || '기록'}</div>
-                  <div className="desc">
-                    {m.place ? `${m.place} · ` : ''}
-                    {m.status !== 'pending' ? m.memo
+                  {/* The memo's subject line is the title; where and what kind, under it. */}
+                  <div className="act">
+                    {m.status !== 'pending' ? (m.memo || m.activity || '기록')
                       : serverDown ? '메모 서버가 쉬는 중이에요. 켜지면 써 드려요.'
                       : '메모 작성 중…'}
+                  </div>
+                  <div className="desc">
+                    {[m.place, m.activity].filter(Boolean).join(' · ')}
                   </div>
                 </div>
                 {!readOnly && <span
