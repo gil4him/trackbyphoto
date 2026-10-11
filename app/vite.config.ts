@@ -25,7 +25,7 @@ function wellKnown(mode: string): Plugin {
 // 개인정보처리방침 and 이용약관 (legal/README.md). Plain static HTML, no JS,
 // served at /privacy and /terms by the rewrites in firebase.json. They
 // describe the simple edition only, so the full build never ships them.
-const LEGAL_PAGES = ['privacy', 'terms'] as const
+const LEGAL_PAGES = ['privacy', 'terms', 'delete-account'] as const
 
 function legalPages(mode: string): Plugin {
   return {
@@ -80,7 +80,7 @@ export default defineConfig(({ mode }) => ({
         // Firebase's sign-in helper pages live under /__/ and must come from
         // the server. /privacy and /terms are their own static pages — the app
         // shell must not answer for them (legalPages above).
-        navigateFallbackDenylist: [/^\/__\//, /^\/(privacy|terms)\/?$/],
+        navigateFallbackDenylist: [/^\/__\//, /^\/(privacy|terms|delete-account)\/?$/],
         cleanupOutdatedCaches: true,
         // A new version takes over as soon as it has arrived instead of
         // waiting for every tab to close; reloadToLatest (src/lib/sw.ts)

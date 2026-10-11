@@ -1,5 +1,5 @@
-// The two legal pages (legal/README.md): shipped by the simple build only,
-// served at /privacy and /terms as their own static HTML, and never answered
+// The legal pages (legal/README.md) and the account-deletion page: shipped by the simple build only,
+// served at /privacy, /terms and /delete-account as their own static HTML, and never answered
 // from the cached app shell.
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
@@ -48,8 +48,8 @@ function emitted(mode: string, pluginName: string): string[] {
 }
 
 describe('legal pages in the build', () => {
-  it('the simple build emits both pages', () => {
-    expect(emitted('simple', 'daylie-legal')).toEqual(['privacy.html', 'terms.html'])
+  it('the simple build emits all three pages', () => {
+    expect(emitted('simple', 'daylie-legal')).toEqual(['privacy.html', 'terms.html', 'delete-account.html'])
   })
 
   it('the full build (TrackByPhoto) ships neither', () => {
@@ -60,15 +60,15 @@ describe('legal pages in the build', () => {
     const pwa = plugins('simple').find((p) => p.name === 'vite-plugin-pwa')
     // The plugin's own options aren't readable from the instance, so assert on
     // the denylist we hand it; keep this in step with vite.config.ts.
-    const denylist = [/^\/__\//, /^\/(privacy|terms)\/?$/]
+    const denylist = [/^\/__\//, /^\/(privacy|terms|delete-account)\/?$/]
     expect(pwa).toBeTruthy()
-    for (const path of ['/privacy', '/privacy/', '/terms', '/terms/']) {
+    for (const path of ['/privacy', '/privacy/', '/terms', '/terms/', '/delete-account']) {
       expect(denylist.some((re) => re.test(path))).toBe(true)
     }
     expect(denylist.some((re) => re.test('/'))).toBe(false)
     expect(denylist.some((re) => re.test('/pair'))).toBe(false)
     expect(readFileSync(new URL('../../vite.config.ts', import.meta.url), 'utf8'))
-      .toContain('/^\\/(privacy|terms)\\/?$/')
+      .toContain('/^\\/(privacy|terms|delete-account)\\/?$/')
   })
 })
 
@@ -84,6 +84,8 @@ describe('hosting serves them as their own pages', () => {
       ['/privacy/', '/privacy.html'],
       ['/terms', '/terms.html'],
       ['/terms/', '/terms.html'],
+      ['/delete-account', '/delete-account.html'],
+      ['/delete-account/', '/delete-account.html'],
     ]) {
       const at = rewrites.findIndex((r) => r.source === source)
       expect(at, `${source} is rewritten`).toBeGreaterThanOrEqual(0)
@@ -161,5 +163,16 @@ describe('what each page has to say', () => {
 
   it('marks what is still open with 확인 필요', () => {
     for (const html of [privacy, terms]) expect(html).toContain('[확인 필요]')
+  })
+})
+
+describe('the account-deletion page (Google Play Data safety link)', () => {
+  const page = read('delete-account.html')
+  it('names the app and shows the in-app, website and email routes', () => {
+    expect(page).toContain('Daylie')
+    for (const step of ['설정', '계정 삭제', 'dayliesimple.web.app', 'mailto:']) expect(page).toContain(step)
+  })
+  it('says what is deleted and what is kept, in Korean and English', () => {
+    for (const s of ['지워지는 정보', '남는 정보', 'Deleted:', 'Kept:']) expect(page).toContain(s)
   })
 })
