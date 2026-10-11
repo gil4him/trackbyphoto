@@ -20,7 +20,6 @@ export const S = {
   elderReplyTextPlaceholder: '하고 싶은 말을 쓰세요',
   elderReplyRecording: '손을 떼면 보내요',
   elderReplySent: (name: string) => `보냈어요 ✓ ${name}에게 전해드릴게요`,
-  elderReading: '읽어 주는 중…',
   commentPlaceholder: '짧게 남겨 주세요 (60자)',
   voiceLocked: (patientName: string) => `${patientName} 목소리로 답장을 받아보세요 · Basic`,
   voicePending: '음성 답장을 받아쓰는 중…',

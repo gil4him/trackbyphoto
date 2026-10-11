@@ -10,10 +10,8 @@ import { S } from '../lib/strings'
 import { fmtTime } from '../util'
 import type { Memo, Reaction, TextReplies } from '../types'
 
-const canSpeak = typeof window !== 'undefined' && 'speechSynthesis' in window
-
 /**
- * 가족 소식: the newest message from family in large type, read aloud, and
+ * 가족 소식: the newest message from family in large type, and
  * ways to answer: a heart, holding a button and talking, or a written reply
  * (typing, with ready-made phrases to tap underneath; phrases only when family
  * chose 짧은 답장 for this parent). The same screen on a parent's linked phone and in the regular app
@@ -36,37 +34,20 @@ export function FamilyNews({ uid, patientName, item, unreadIds, memo, voiceOn, t
   const toast = useToast()
   const [phase, setPhase] = useState<'view' | 'recording' | 'text' | 'sent'>('view')
   const typed = useRef<HTMLInputElement>(null)
-  const [reading, setReading] = useState(canSpeak)
   const [hint, setHint] = useState('')
   const mic = useRef<Mic | null>(null)
   const held = useRef(false)
 
   const text = item.kind === 'comment' ? item.text ?? '' : S.elderCardHeart(item.actorName)
 
-  const speak = () => {
-    if (!canSpeak) return
-    const u = new SpeechSynthesisUtterance(item.kind === 'comment' ? `${item.actorName}. ${text}` : text)
-    u.lang = 'ko-KR'
-    u.rate = 0.9
-    u.onend = () => setReading(false)
-    u.onerror = () => setReading(false)
-    window.speechSynthesis.cancel()
-    window.speechSynthesis.speak(u)
-  }
-
-  // Read the message aloud once, stamp everything unread as seen, and let go
-  // of the microphone and the voice on the way out.
+  // Stamp everything unread as seen, and let go of the microphone on the way out.
   const opened = useRef(false)
   useEffect(() => {
     if (!opened.current) {
       opened.current = true
-      speak()
       markRead(unreadIds, 'elder')
     }
-    return () => {
-      if (canSpeak) window.speechSynthesis.cancel()
-      mic.current?.close()
-    }
+    return () => { mic.current?.close() }
     // Runs once for the message this screen was opened with.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -91,8 +72,6 @@ export function FamilyNews({ uid, patientName, item, unreadIds, memo, voiceOn, t
     setPhase('sent')
   }
   const openText = () => {
-    if (canSpeak) window.speechSynthesis.cancel()
-    setReading(false)
     // Render the text box now and focus it inside this tap, so the keyboard opens.
     flushSync(() => setPhase('text'))
     typed.current?.focus()
@@ -108,8 +87,6 @@ export function FamilyNews({ uid, patientName, item, unreadIds, memo, voiceOn, t
 
   const onHold = async () => {
     held.current = true
-    if (canSpeak) window.speechSynthesis.cancel()
-    setReading(false)
     mic.current ??= new Mic()
     if (!mic.current.ready) {
       try {
@@ -153,11 +130,6 @@ export function FamilyNews({ uid, patientName, item, unreadIds, memo, voiceOn, t
 
       <div className="news-text">{text}</div>
       <div className="news-from">{item.actorName} · {fmtTime(new Date(item.createdAtMs))}</div>
-      {canSpeak && (
-        <button className="news-speak" onClick={() => { setReading(true); speak() }} aria-label="다시 읽어 주기">
-          <span aria-hidden="true">🔊</span> {reading ? S.elderReading : '다시 듣기'}
-        </button>
-      )}
 
       <div className="news-actions">
         <button className="news-btn primary" onClick={sendHeart}>{S.elderReplyHeart}</button>

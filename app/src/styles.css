@@ -875,7 +875,6 @@ nav.tabbar .tab.on .tab-avatar { box-shadow: 0 0 0 2px var(--coral2); }
 .news-photo .tl-thumb, .news-photo img { width: 100%; height: 100%; object-fit: cover; }
 .news-text { font-size: 30px; font-weight: 700; line-height: 1.4; letter-spacing: -.4px; text-align: center; word-break: keep-all; margin-top: 8px; }
 .news-from { font-size: 22px; color: var(--ink-3); text-align: center; }
-.news-speak { align-self: center; background: none; border: none; font: inherit; font-size: 20px; color: var(--ink-2); padding: 8px 12px; cursor: pointer; }
 .news-actions { margin-top: auto; display: flex; flex-direction: column; gap: 14px; padding-bottom: 12px; }
 .news-btn {
   width: 100%; min-height: 76px; border-radius: 22px; font: inherit; font-size: 26px; font-weight: 700; cursor: pointer;
