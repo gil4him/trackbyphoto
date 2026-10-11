@@ -37,7 +37,7 @@ describe('DigestView', () => {
     expect(out).toContain('하트 1개 · 음성 답장 1개')
     expect(out).toContain('괜찮아, 오늘 많이 걸었어')
     expect(out).toContain('서초동 → 방배동')
-    expect(out).toContain('오늘하루 · Daylie AI')
+    expect(out).toContain('Daylie AI')
   })
 
   it('leaves out what a quiet day does not have', () => {

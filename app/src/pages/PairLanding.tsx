@@ -25,7 +25,7 @@ export function PairLandingView({ code, kind, storeUrl, onInstall, onWebPair }: 
   return (
     <section className="pair">
       <div className="signin-dot" />
-      <h1 className="pair-title">{storeUrl ? <>오늘하루 앱으로<br />연결해요</> : <>휴대폰을 가족과<br />연결해요</>}</h1>
+      <h1 className="pair-title">{storeUrl ? <>Daylie 앱으로<br />연결해요</> : <>휴대폰을 가족과<br />연결해요</>}</h1>
       {storeUrl ? (
         <>
           <p className="pair-sub">앱을 설치해 주세요.<br /><b>설치 후 이 링크를 한 번 더 눌러주세요.</b></p>

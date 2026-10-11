@@ -211,7 +211,7 @@ describe('daily digest', () => {
     expect(f.pushes[0].message).toMatchObject({ body: '어머니님의 오늘 하루 요약이 도착했어요', path: 'digest/p1_daily_20261003' })
 
     expect(f.mails).toHaveLength(1)
-    expect(f.mails[0]).toMatchObject({ to: 'cg1@example.com', subject: '[오늘하루] 어머니님의 10월 3일 토요일' })
+    expect(f.mails[0]).toMatchObject({ to: 'cg1@example.com', subject: '[Daylie] 어머니님의 10월 3일 토요일' })
     expect(f.mails[0].text).toContain(SUMMARY)
     expect(f.mails[0].text).toContain('사진 3장 · 어머니님이 하트 1개, 글 답장 1개, 음성 답장 1개를 남기셨어요')
     expect(f.mails[0].text).toContain('/digest/p1_daily_20261003')
@@ -464,7 +464,7 @@ describe('messenger providers', () => {
     const body = calls[0].init.body as URLSearchParams
     expect(body.get('To')).toBe('+14155550100')
     expect(body.get('Body')).toBe(renderText('digest', VARS))
-    expect(renderText('digest', VARS)).toBe('[오늘하루] 어머니님의 10월 3일 토요일 요약이 도착했어요.\nhttps://example.test/digest/d1')
+    expect(renderText('digest', VARS)).toBe('[Daylie] 어머니님의 10월 3일 토요일 요약이 도착했어요.\nhttps://example.test/digest/d1')
   })
 
   it('WhatsApp sends the approved template with its variables in order', async () => {

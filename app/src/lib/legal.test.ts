@@ -102,7 +102,7 @@ describe('what each page has to say', () => {
     for (const html of [privacy, terms]) {
       expect(html).toContain('<html lang="ko">')
       expect(html).toContain('name="viewport"')
-      expect(html).toContain('오늘하루')
+      expect(html).toContain('Daylie')
       expect(html).toContain('2026년 10월 10일')
     }
   })

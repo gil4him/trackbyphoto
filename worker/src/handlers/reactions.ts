@@ -172,7 +172,7 @@ export async function processReaction(reactionId: string, attempt: number, deps:
   // family comments stay in the app.
   if (finished && fromElder && (kind === 'voice' || kind === 'comment')) {
     await (deps.push ?? pushToUsers)(recipients, {
-      title: '오늘하루',
+      title: 'Daylie',
       body: message,
       data: { type: `reaction.${kind}`, patientUid, memoId: String(data.memoId ?? ''), reactionId },
     })

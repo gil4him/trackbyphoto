@@ -14,11 +14,11 @@ const memo = (extra: Partial<Memo> = {}) => ({
 
 describe('photo share', () => {
   it('names the file by when it was taken', () => {
-    expect(photoFileName(memo())).toBe('오늘하루_20261009_1405.jpg')
+    expect(photoFileName(memo())).toBe('Daylie_20261009_1405.jpg')
   })
 
   it('sends the time, place and memo along', () => {
-    expect(photoShareText(memo())).toBe('[오늘하루] 10월 9일 (금) 오후 2:05 · 서초동, 서초구\n공원 산책길')
-    expect(photoShareText(memo({ place: '', memo: '' }))).toBe('[오늘하루] 10월 9일 (금) 오후 2:05')
+    expect(photoShareText(memo())).toBe('[Daylie] 10월 9일 (금) 오후 2:05 · 서초동, 서초구\n공원 산책길')
+    expect(photoShareText(memo({ place: '', memo: '' }))).toBe('[Daylie] 10월 9일 (금) 오후 2:05')
   })
 })

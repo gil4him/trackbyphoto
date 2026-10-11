@@ -22,7 +22,7 @@ describe('simple pairing message', () => {
 
   it('with the app in a store: install, then tap the same link again', () => {
     const text = buildPairMessage('엄마', 'https://dayliesimple.web.app/pair?c=ABCD2345', 'ABCD2345', 24)
-    expect(text).toContain('[오늘하루] 엄마님 휴대폰을 연결해요.')
+    expect(text).toContain('[Daylie] 엄마님 휴대폰을 연결해요.')
     expect(text).toContain('앱을 설치해 주세요. (24시간 유효)')
     expect(text).toContain('https://dayliesimple.web.app/pair?c=ABCD2345')
     expect(text).toContain('설치 후 이 링크를 한 번 더 눌러주세요.')

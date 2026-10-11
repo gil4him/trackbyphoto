@@ -1,7 +1,7 @@
 # Shipping the app with Fastlane
 
 Fastlane is a tool that does the tedious "build → sign → upload to the store"
-steps for you with one command. This folder configures it for **오늘하루 /
+steps for you with one command. This folder configures it for **Daylie /
 TrackByPhoto** (bundle ID `com.zymer.daylie`).
 
 > You'll need a Mac with Xcode (for iOS) and Android Studio (for Android), plus a
@@ -21,7 +21,7 @@ TrackByPhoto** (bundle ID `com.zymer.daylie`).
 
 ## Which edition am I shipping? (`EDITION`)
 
-Two apps are built from this one codebase: **simple** (오늘하루, Firebase project
+Two apps are built from this one codebase: **simple** (Daylie, Firebase project
 `daylie-simple-4df13`) and **full** (TrackByPhoto, `trackbyphoto-app`). Every lane
 defaults to **simple**. Override it either way:
 
@@ -40,7 +40,7 @@ and runs `npx cap sync`.
 > purpose. Run `npm run native:full` before you commit. No lane here ever runs
 > `git add` or `git commit` — the tree is yours to clean up.
 
-## Shipping the simple edition (오늘하루) the first time
+## Shipping the simple edition (Daylie) the first time
 
 Google will not accept the very first production release over the API, so it's a
 manual upload once and automated after that:

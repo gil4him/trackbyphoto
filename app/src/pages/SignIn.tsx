@@ -70,7 +70,7 @@ export function SignIn({ onGoogle, onApple, onEmail, invited, onEnterCode, paren
     <section className="signin">
       <div className="signin-brand">
         <div className="signin-dot" />
-        <h1>오늘하루</h1>
+        <h1>Daylie</h1>
         <p>한 번의 터치로 오늘의 순간을 가족에게 전합니다.</p>
       </div>
 

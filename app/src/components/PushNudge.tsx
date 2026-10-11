@@ -38,7 +38,7 @@ export function PushNudge({ state: forced }: { /** For tests; otherwise detected
         toast.show('알림을 켰어요', '새 사진이나 답장이 오면 알려드려요')
         dismiss()
       } else if (next === 'blocked') {
-        toast.show('알림이 꺼져 있어요', '휴대폰 설정에서 오늘하루 알림을 허용해 주세요')
+        toast.show('알림이 꺼져 있어요', '휴대폰 설정에서 Daylie 알림을 허용해 주세요')
         dismiss()
       }
       setState(next)

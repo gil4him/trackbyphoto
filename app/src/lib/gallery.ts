@@ -2,7 +2,7 @@ import { Capacitor } from '@capacitor/core'
 import { Media } from '@capacitor-community/media'
 
 /**
- * Keep a copy of a photo just taken in the phone's own photos (the 오늘하루
+ * Keep a copy of a photo just taken in the phone's own photos (the Daylie
  * album on Android, the camera roll on an iPhone), so it can always be found
  * there. Phone app only: a browser can't put a photo in the gallery without
  * the share sheet. Never throws — a declined permission just skips the copy.
@@ -10,7 +10,7 @@ import { Media } from '@capacitor-community/media'
  * for mom's camera, which takes photos from the live preview.)
  */
 
-export const ALBUM = '오늘하루'
+export const ALBUM = 'Daylie'
 
 /** A local path as a file:// URL, which both platforms' savePhoto read. */
 export function fileUrl(path: string): string {

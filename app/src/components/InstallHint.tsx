@@ -18,7 +18,7 @@ const STEPS: Record<Exclude<InstallPath, 'none' | 'desktop' | 'prompt'>, { title
     steps: [
       'Safari 아래쪽의 공유 버튼(네모에서 화살표가 올라가는 모양)을 눌러요.',
       '목록을 내려 “홈 화면에 추가”를 눌러요.',
-      '오른쪽 위 “추가”를 누르면 홈 화면에 오늘하루 아이콘이 생겨요.',
+      '오른쪽 위 “추가”를 누르면 홈 화면에 Daylie 아이콘이 생겨요.',
       '앞으로는 그 아이콘으로 열어 주세요. 알림도 거기서 켤 수 있어요.',
     ],
   },
@@ -27,7 +27,7 @@ const STEPS: Record<Exclude<InstallPath, 'none' | 'desktop' | 'prompt'>, { title
     steps: [
       '브라우저 오른쪽 위의 ⋮ 메뉴를 눌러요.',
       '“홈 화면에 추가” 또는 “앱 설치”를 눌러요.',
-      '홈 화면에 생긴 오늘하루 아이콘으로 열어 주세요.',
+      '홈 화면에 생긴 Daylie 아이콘으로 열어 주세요.',
     ],
   },
 }

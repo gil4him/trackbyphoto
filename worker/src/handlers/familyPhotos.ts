@@ -77,7 +77,7 @@ export async function announceFamilyPhotoReply(id: string, deps: FamilyPhotoDeps
     return true
   })
   if (!told) return false
-  await (deps.push ?? pushToUsers)([senderUid], { title: '오늘하루', body: message, data: { type: 'familyPhoto.reply', patientUid, familyPhotoId: id } })
+  await (deps.push ?? pushToUsers)([senderUid], { title: 'Daylie', body: message, data: { type: 'familyPhoto.reply', patientUid, familyPhotoId: id } })
   logger.info('[familyPhoto] reply announced', { id, patientUid, senderUid, kind: reply.kind })
   return true
 }

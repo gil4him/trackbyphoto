@@ -372,7 +372,7 @@ async function deliver(ref: FirebaseFirestore.DocumentReference, digest: Firebas
     } catch (err) {
       if ((err as { code?: number }).code !== 6) throw err // 6 = already exists
     }
-    if (await deps.push([uid], { title: '오늘하루', body: notice, data: { type: 'digest.ready', patientUid: a.patientUid, digestId: ref.id }, path })) via.push('push')
+    if (await deps.push([uid], { title: 'Daylie', body: notice, data: { type: 'digest.ready', patientUid: a.patientUid, digestId: ref.id }, path })) via.push('push')
 
     const channels = ((await db.doc(`users/${uid}`).get()).data()?.channels ?? {}) as { email?: boolean; messenger?: boolean }
     // E-mail has its own switch: until a mail account is set up and
@@ -381,7 +381,7 @@ async function deliver(ref: FirebaseFirestore.DocumentReference, digest: Firebas
       const to = await deps.emailOf(uid)
       const sent = to && await deps.mail.send({
         to,
-        subject: `[오늘하루] ${a.name}님의 ${a.period.label}`,
+        subject: `[Daylie] ${a.name}님의 ${a.period.label}`,
         text: [
           digest.summary as string,
           '',
@@ -389,7 +389,7 @@ async function deliver(ref: FirebaseFirestore.DocumentReference, digest: Firebas
           '',
           `자세히 보기: ${link}`,
           '',
-          '오늘하루 · Daylie AI',
+          'Daylie AI',
         ].join('\n'),
       })
       if (sent) {

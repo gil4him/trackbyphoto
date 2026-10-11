@@ -209,7 +209,7 @@ export function PairDevice({ initialCode, alreadyLinked = false, autoConnect = f
           <h1 className="pair-title">인터넷 앱에서<br />열어 주세요</h1>
           {externalUrl ? (
             <>
-              <p className="pair-sub">아래 버튼을 누르면 인터넷 앱으로 넘어가요. 거기서 연결하면 홈 화면에 오늘하루 아이콘을 만들 수 있어요.</p>
+              <p className="pair-sub">아래 버튼을 누르면 인터넷 앱으로 넘어가요. 거기서 연결하면 홈 화면에 Daylie 아이콘을 만들 수 있어요.</p>
               <a className="pair-btn" href={externalUrl}>계속하기</a>
             </>
           ) : (
@@ -230,7 +230,7 @@ export function PairDevice({ initialCode, alreadyLinked = false, autoConnect = f
             <li>아래쪽의 공유 버튼(네모에서 화살표가 올라가는 모양)을 눌러요.</li>
             <li>목록을 내려 “홈 화면에 추가”를 눌러요.</li>
             <li>오른쪽 위 “추가”를 눌러요.</li>
-            <li>홈 화면에 생긴 <b>오늘하루</b> 아이콘을 누르면 연결이 이어져요.</li>
+            <li>홈 화면에 생긴 <b>Daylie</b> 아이콘을 누르면 연결이 이어져요.</li>
           </ol>
           <button className="pair-link" onClick={() => setStep('confirm')}>아이콘 없이 여기서 연결하기</button>
         </>
@@ -315,7 +315,7 @@ export function PairDevice({ initialCode, alreadyLinked = false, autoConnect = f
       {step === 'installed' && (
         <>
           <h1 className="pair-title">홈 화면에<br />아이콘이 생겨요</h1>
-          <p className="pair-notice">다음부터는 홈 화면의 오늘하루 아이콘을 눌러 주세요.</p>
+          <p className="pair-notice">다음부터는 홈 화면의 Daylie 아이콘을 눌러 주세요.</p>
           <button className="pair-btn" onClick={onDone}>확인</button>
         </>
       )}
@@ -326,7 +326,7 @@ export function PairDevice({ initialCode, alreadyLinked = false, autoConnect = f
           <ol className="pair-steps">
             <li>화면 오른쪽 위(또는 아래)의 ⋮ 메뉴를 눌러요.</li>
             <li>“홈 화면에 추가” 또는 “앱 설치”를 눌러요.</li>
-            <li>다음부터는 홈 화면의 <b>오늘하루</b> 아이콘을 눌러 주세요.</li>
+            <li>다음부터는 홈 화면의 <b>Daylie</b> 아이콘을 눌러 주세요.</li>
           </ol>
           <button className="pair-btn" onClick={onDone}>확인</button>
         </>

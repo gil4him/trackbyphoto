@@ -46,7 +46,7 @@ function legalPages(mode: string): Plugin {
 
 // Each edition's own name in the tab title and the web-app manifest
 // (src/lib/edition.ts appTitle at runtime).
-const titleFor = (mode: string) => (mode === 'simple' ? '오늘하루' : '오늘하루 · TrackByPhoto')
+const titleFor = (mode: string) => (mode === 'simple' ? 'Daylie' : 'Daylie · TrackByPhoto')
 
 function editionTitle(mode: string): Plugin {
   return {
@@ -91,7 +91,7 @@ export default defineConfig(({ mode }) => ({
       includeAssets: ['favicon.svg', 'favicon.ico', 'apple-touch-icon.png'],
       manifest: {
         name: titleFor(mode),
-        short_name: '오늘하루',
+        short_name: 'Daylie',
         description: '한 번의 터치로 오늘의 순간을 가족에게 전합니다.',
         lang: 'ko',
         theme_color: '#FFB84D',

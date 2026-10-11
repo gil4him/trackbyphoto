@@ -14,16 +14,16 @@ import type { Memo } from '../types'
 
 const pad = (n: number) => String(n).padStart(2, '0')
 
-/** "오늘하루_20261009_1430.jpg", from when it was taken. */
+/** "Daylie_20261009_1430.jpg", from when it was taken. */
 export function photoFileName(memo: Pick<Memo, 'takenAt'>): string {
   const d = memo.takenAt.toDate()
-  return `오늘하루_${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}.jpg`
+  return `Daylie_${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}.jpg`
 }
 
-/** The line that goes with it: "[오늘하루] 10월 9일 (금) 오후 2:30 · 서초동" + the memo. */
+/** The line that goes with it: "[Daylie] 10월 9일 (금) 오후 2:30 · 서초동" + the memo. */
 export function photoShareText(memo: Pick<Memo, 'takenAt' | 'place' | 'memo'>): string {
   const d = memo.takenAt.toDate()
-  const head = `[오늘하루] ${fmtDate(d)} ${fmtTime(d)}${memo.place ? ` · ${memo.place}` : ''}`
+  const head = `[Daylie] ${fmtDate(d)} ${fmtTime(d)}${memo.place ? ` · ${memo.place}` : ''}`
   return memo.memo ? `${head}\n${memo.memo}` : head
 }
 

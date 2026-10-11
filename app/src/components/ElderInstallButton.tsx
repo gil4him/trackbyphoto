@@ -3,7 +3,7 @@ import { currentInstallPath, onInstallChange, promptInstall, type InstallPath } 
 
 /**
  * On a parent's phone that is connected in a browser tab: one button that
- * puts the 오늘하루 icon on the home screen. Shown only while the browser
+ * puts the Daylie icon on the home screen. Shown only while the browser
  * offers its own install dialog (Android), so one tap is all it takes; it
  * disappears once the icon exists. Nothing is shown on an iPhone: an icon
  * added there would not be connected.

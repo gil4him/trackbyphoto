@@ -276,7 +276,7 @@ export function PairingSender({ patientUid, patientName, initialLink = null, onC
       <div className="modal-title">{patientName}님 휴대폰 연결</div>
       <div className="modal-body">
         {simple ? (
-          <p>{patientName}님 휴대폰에서 오늘하루 앱을 열고 이 QR을 비춰주세요. 떨어져 계시면 카카오톡으로 보내주세요.</p>
+          <p>{patientName}님 휴대폰에서 Daylie 앱을 열고 이 QR을 비춰주세요. 떨어져 계시면 카카오톡으로 보내주세요.</p>
         ) : (
           <p>{patientName}님 휴대폰으로 연결 링크를 보내주세요. 받은 링크를 누르고 ‘연결하기’만 누르면 끝나요.</p>
         )}

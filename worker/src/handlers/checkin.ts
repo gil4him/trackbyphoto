@@ -51,7 +51,7 @@ export async function checkIn({ patientUid, patientName, dayKey, dayStart, now, 
     }
   }
   if (told.length) {
-    await push(told, { title: '오늘하루', body: message, data: { type: 'checkin.no_photo', patientUid } })
+    await push(told, { title: 'Daylie', body: message, data: { type: 'checkin.no_photo', patientUid } })
     logger.info('[checkin] no photo today', { patientUid, told: told.length })
   }
   return told.length

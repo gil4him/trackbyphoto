@@ -1,4 +1,4 @@
-# 심사 안내 / Review notes — 오늘하루 (com.zymer.daylie, simple edition)
+# 심사 안내 / Review notes — Daylie (com.zymer.daylie, simple edition)
 
 What to paste where, for the two stores. **No credentials live in this file.**
 The demo account's email and password go only into the store consoles:

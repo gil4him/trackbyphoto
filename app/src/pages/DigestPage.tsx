@@ -62,7 +62,7 @@ export function DigestView({ digest, memos, onOpenMemo, onMore, onOpenTrail }: {
         </div>
       )}
 
-      <div className="dg-foot">오늘하루 · Daylie AI</div>
+      <div className="dg-foot">Daylie AI</div>
     </>
   )
 }

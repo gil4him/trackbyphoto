@@ -80,7 +80,7 @@ export async function runDailyNotices(now: Date = new Date(), deps: DailyNoticeD
       }
       if (told.length) {
         // No memoId: opening it lands on the 사진 timeline.
-        await deps.push(told, { title: '오늘하루', body: message, data: { type: 'daily.photos', patientUid } })
+        await deps.push(told, { title: 'Daylie', body: message, data: { type: 'daily.photos', patientUid } })
         logger.info('[daily] notice sent', { patientUid, photos, told: told.length })
         parents++
       }

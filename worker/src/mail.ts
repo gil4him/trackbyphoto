@@ -1,6 +1,6 @@
 // E-mail delivery of the digest, over any SMTP account.
 // Env: SMTP_URL (e.g. smtps://user:app-password@smtp.gmail.com) and MAIL_FROM
-// ("오늘하루 <name@example.com>"). Without both, no e-mail is sent.
+// ("Daylie <name@example.com>"). Without both, no e-mail is sent.
 
 import nodemailer from 'nodemailer'
 import { logger } from './log.js'

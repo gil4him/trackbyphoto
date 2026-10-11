@@ -17,7 +17,7 @@ self.addEventListener('push', (event) => {
   const n = payload.notification || {}
   const data = payload.data || {}
   const link = (payload.fcmOptions && payload.fcmOptions.link) || data.link || '/'
-  event.waitUntil(self.registration.showNotification(n.title || '오늘하루', {
+  event.waitUntil(self.registration.showNotification(n.title || 'Daylie', {
     body: n.body || '새 소식이 있어요',
     icon: '/icon-192.png',
     badge: '/icon-192.png',

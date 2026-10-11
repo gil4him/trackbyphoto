@@ -43,7 +43,7 @@ export type Env = Record<string, string | undefined>
 export function renderText(template: MessageTemplate, vars: Record<string, string>): string {
   switch (template) {
     case 'digest':
-      return `[오늘하루] ${vars.name}님의 ${vars.date} 요약이 도착했어요.\n${vars.link}`
+      return `[Daylie] ${vars.name}님의 ${vars.date} 요약이 도착했어요.\n${vars.link}`
   }
 }
 

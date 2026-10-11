@@ -9,7 +9,7 @@ How they reach the web:
 
 - `vite.config.ts` (`legalPages(mode)` / `LEGAL_PAGES`) copies them into
   `dist/privacy.html` and `dist/terms.html` when `mode === 'simple'`. The full
-  build (TrackByPhoto) never ships them: they describe 오늘하루 only.
+  build (TrackByPhoto) never ships them: they describe Daylie only.
 - `firebase.json` rewrites `/privacy` and `/terms` to those files, ahead of
   the `**` → `/index.html` catch-all.
 - The same `vite.config.ts` lists them in the service worker's
@@ -24,7 +24,7 @@ together, and keep `[확인 필요]` on anything not yet confirmed. The open ite
 as of 2026-10-10:
 
 1. Legal entity (상호 · 대표자 · 사업자등록번호 · 주소) and the named
-   개인정보 보호책임자 — both pages say only "오늘하루 운영자".
+   개인정보 보호책임자 — both pages say only "Daylie 운영자".
 2. The 국외 이전 clause: 보호법 제28조의8 notice/consent wording, and each
    recipient's exact address (Google LLC, Kakao, OSMF/Nominatim).
 3. Settled 2026-10-10: the simple worker has no Kakao key and no Gemini key,
@@ -34,7 +34,7 @@ as of 2026-10-10:
    enforced**: `worker/src/handlers/retention.ts` deletes on the plan's
    `retentionDays` and only while the `retentionJob` flag is on. The policy
    says so plainly; tighten it once the picker actually drives deletion.
-5. 위치정보법: whether 오늘하루 must register as a 위치기반서비스 사업자.
+5. 위치정보법: whether Daylie must register as a 위치기반서비스 사업자.
 6. The liability limits (제9조) and the governing-law/venue clause (제11조)
    under 약관의 규제에 관한 법률.
 7. Statutory retention duties, if any, and whether a cloud AI provider's own

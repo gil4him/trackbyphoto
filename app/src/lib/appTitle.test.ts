@@ -3,7 +3,7 @@ import { appTitle } from './edition'
 
 describe('appTitle', () => {
   it('names each edition', () => {
-    expect(appTitle(true)).toBe('오늘하루')
-    expect(appTitle(false)).toBe('오늘하루 · TrackByPhoto')
+    expect(appTitle(true)).toBe('Daylie')
+    expect(appTitle(false)).toBe('Daylie · TrackByPhoto')
   })
 })

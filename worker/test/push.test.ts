@@ -11,7 +11,7 @@ import { resetPlansCache } from '../src/plans'
 import { resetHomeCache, setTravelGeocoder } from '../src/travel'
 import { db, clearFirestore, seedMembership, count } from './setup'
 
-const MSG: PushMessage = { title: '오늘하루', body: '어머니님이 새 사진을 올렸어요', data: { type: 'photo.new' } }
+const MSG: PushMessage = { title: 'Daylie', body: '어머니님이 새 사진을 올렸어요', data: { type: 'photo.new' } }
 const KID = { uid: 'cg1', email: 'kid@example.com', name: '민수' }
 
 function fcm(dead: string[] = []): PushDeps & { sent: Array<{ tokens: string[]; message: PushMessage }> } {
@@ -42,9 +42,9 @@ beforeEach(async () => {
 
 describe('the message sent to FCM', () => {
   it('carries the words, what the installed apps need to open the right place, and a link for browsers', () => {
-    const m = fcmMessage([TOKEN(1)], { title: '오늘하루', body: '요약이 도착했어요', data: { type: 'digest.ready', patientUid: 'p1', digestId: 'd1' }, path: 'digest/d1' })
+    const m = fcmMessage([TOKEN(1)], { title: 'Daylie', body: '요약이 도착했어요', data: { type: 'digest.ready', patientUid: 'p1', digestId: 'd1' }, path: 'digest/d1' })
     expect(m.tokens).toEqual([TOKEN(1)])
-    expect(m.notification).toEqual({ title: '오늘하루', body: '요약이 도착했어요' })
+    expect(m.notification).toEqual({ title: 'Daylie', body: '요약이 도착했어요' })
     expect(m.data).toEqual({ type: 'digest.ready', patientUid: 'p1', digestId: 'd1' })
     expect(m.webpush?.fcmOptions?.link).toMatch(/\/digest\/d1$/)
     // iPhone app: the banner makes a sound.
@@ -161,7 +161,7 @@ describe('what gets pushed', () => {
     await processMemo('m1', 1, deps)
     await db.doc('memos/m1').update({ status: 'pending' }) // a re-write
     await processMemo('m1', 1, deps)
-    expect(pushes).toEqual([{ uids: ['cg1'], message: { title: '오늘하루', body: '어머니님이 새 사진을 올렸어요', data: { type: 'photo.new', patientUid: 'p1', memoId: 'm1' } } }])
+    expect(pushes).toEqual([{ uids: ['cg1'], message: { title: 'Daylie', body: '어머니님이 새 사진을 올렸어요', data: { type: 'photo.new', patientUid: 'p1', memoId: 'm1' } } }])
   })
 
   it('a voice reply is pushed; hearts and comments are not', async () => {

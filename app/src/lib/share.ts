@@ -220,7 +220,7 @@ export function inviteLink(code: string): string {
 
 export function buildInviteMessage(patientName: string, code: string): string {
   const who = patientName.trim() || '가족'
-  return `[오늘하루] ${who}님이 가족으로 초대했어요.\n아래 링크를 눌러 참여해주세요 (24시간 유효)\n${inviteLink(code)}`
+  return `[Daylie] ${who}님이 가족으로 초대했어요.\n아래 링크를 눌러 참여해주세요 (24시간 유효)\n${inviteLink(code)}`
 }
 
 /**
@@ -242,7 +242,7 @@ export async function shareInviteToKakao(patientName: string, code: string): Pro
   }
   if ((await Share.canShare()).value) {
     try {
-      await Share.share({ title: '오늘하루 가족초대', text, dialogTitle: '카카오톡으로 초대' })
+      await Share.share({ title: 'Daylie 가족초대', text, dialogTitle: '카카오톡으로 초대' })
     } catch {
       // The user closed the sheet without picking an app; nothing to do.
     }
@@ -266,7 +266,7 @@ export function buildPairMessage(patientName: string, url: string, code: string,
   if (isSimple() && !inAnyStore()) {
     // Before the store release the link connects the phone in its browser.
     return [
-      `[오늘하루] ${who}님 휴대폰을 연결해요.`,
+      `[Daylie] ${who}님 휴대폰을 연결해요.`,
       `아래 링크를 누르고 '연결하기'를 눌러주세요. (${hours}시간 유효)`,
       url,
       '',
@@ -277,8 +277,8 @@ export function buildPairMessage(patientName: string, url: string, code: string,
     // The simple edition is an app from the store: the link page installs it,
     // and a second tap of the same link opens the app and connects.
     return [
-      `[오늘하루] ${who}님 휴대폰을 연결해요.`,
-      `아래 링크를 눌러 오늘하루 앱을 설치해 주세요. (${hours}시간 유효)`,
+      `[Daylie] ${who}님 휴대폰을 연결해요.`,
+      `아래 링크를 눌러 Daylie 앱을 설치해 주세요. (${hours}시간 유효)`,
       url,
       '설치 후 이 링크를 한 번 더 눌러주세요.',
       '',
@@ -287,7 +287,7 @@ export function buildPairMessage(patientName: string, url: string, code: string,
     ].join('\n')
   }
   return [
-    `[오늘하루] ${who}님 휴대폰을 연결해요.`,
+    `[Daylie] ${who}님 휴대폰을 연결해요.`,
     `아래 링크를 누르고 '연결하기'를 눌러주세요. (${hours}시간 유효)`,
     url,
     `앱에서는 코드 ${code.slice(0, 4)} ${code.slice(4)} 를 입력하세요.`,
@@ -306,7 +306,7 @@ export async function sharePairToKakao(text: string, url: string): Promise<'shar
   }
   if ((await Share.canShare()).value) {
     try {
-      await Share.share({ title: '오늘하루 휴대폰 연결', text, dialogTitle: '카카오톡으로 보내기' })
+      await Share.share({ title: 'Daylie 휴대폰 연결', text, dialogTitle: '카카오톡으로 보내기' })
     } catch {
       // Sheet closed without picking an app.
     }

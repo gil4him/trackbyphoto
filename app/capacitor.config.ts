@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.zymer.daylie',
-  appName: '오늘하루',
+  appName: 'Daylie',
   webDir: 'dist',
   plugins: {
     // Native Google (and, on iPhone, Apple) sign-in; the ID token is handed to the Firebase JS

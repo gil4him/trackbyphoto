@@ -331,7 +331,7 @@ export async function processMemo(memoId: string, attempt: number, deps: MemoDep
         })
         await notifyBatch.commit()
         await (deps.push ?? pushToUsers)(cgs.docs.map((d) => d.data().caregiverUid as string), {
-          title: '오늘하루',
+          title: 'Daylie',
           body: `${patientName}님이 새 사진을 올렸어요`,
           data: { type: 'photo.new', patientUid, memoId },
         })
