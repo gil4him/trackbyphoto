@@ -14,10 +14,11 @@ export function fmtTime(d: Date): string {
   return `${ampm} ${h}:${m}`
 }
 
-/** The phone's language as a place-name language: English unless it's Korean. */
+/** The language of place names on new accounts: the app's own (Korean),
+ *  whatever the phone is set to — a family reading Korean screens shouldn't
+ *  get English street names. 설정 → 언어 can still switch one account. */
 export function deviceGeoLang(): GeoLang {
-  const lang = (typeof navigator !== 'undefined' && navigator.language) || 'ko'
-  return lang.toLowerCase().startsWith('ko') ? 'ko' : 'en'
+  return 'ko'
 }
 
 export function greeting(name: string): string {
