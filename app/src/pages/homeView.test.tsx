@@ -1,5 +1,5 @@
 // The home screen, rendered without a browser: the stacked buttons, the
-// sideways photo row and 사진 보내기 on one's own home.
+// sideways photo row and the parent's-home note about 사진 보내기.
 import { describe, it, expect, vi } from 'vitest'
 import { renderToString } from 'react-dom/server'
 
@@ -23,23 +23,17 @@ const render = (props: Partial<Parameters<typeof Home>[0]> = {}) => renderToStri
 const count = (html: string, s: string) => html.split(s).length - 1
 
 describe('Home', () => {
-  it('offers 사진 보내기 for each parent on one\'s own home, and says the camera is for one\'s own record', () => {
-    const out = render({ sendTargets: [{ uid: 'p1', name: '아버지' }, { uid: 'p2', name: '어머니' }], onSendTo: () => {} })
-    expect(out).toContain('아버지님께 사진 보내기')
-    expect(out).toContain('어머니님께 사진 보내기')
-    expect(out).toContain('내 기록으로 저장돼요')
-  })
-
-  it('folds three or more parents into one button', () => {
-    const out = render({ sendTargets: [{ uid: 'a', name: '가' }, { uid: 'b', name: '나' }, { uid: 'c', name: '다' }], onSendTo: () => {} })
-    expect(out).toContain('부모님께 사진 보내기')
-    expect(out).not.toContain('가님께 사진 보내기')
-  })
-
-  it('shows no send button without parents, and the usual help line', () => {
+  it('has no 사진 보내기 row on one\'s own home: the camera is for one\'s own record', () => {
     const out = render()
     expect(out).not.toContain('사진 보내기')
     expect(out).toContain('자동으로 기록돼요')
+  })
+
+  it('on a parent\'s home, points at the floating camera button for sending them a photo', () => {
+    const out = render({ canCapture: false, canSendPhoto: true })
+    expect(out).toContain('아래 카메라 버튼으로 승희님께 사진을 보내 드릴 수 있어요')
+    expect(out).not.toContain('class="capbtn"')
+    expect(render({ canCapture: false })).toContain('사진 찍기는 본인 계정에서만 가능해요')
   })
 
   it('puts the last 10 photos in one row and labels 지난 기록 on one line', () => {

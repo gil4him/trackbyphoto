@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { useToast } from '../components/Toast'
 import { warmUpLocation } from '../lib/location'
 import { useOutbox } from '../hooks/useOutbox'
@@ -16,7 +16,7 @@ import type { Memo, AppNotification } from '../types'
  * recent upload finishes processing (caregiver sees the result without
  * having to leave the home screen).
  */
-export function Home({ uid, patientName, greetingName, memos, onOpenAsk, onOpen, canCapture = true, notifications = [], onDismissNotification, recordsLabel, newsCard, topCard, onSendPhoto, sentPhotos, sendTargets, onSendTo }: { /** Family on their own home: parents they may send a photo to. */ sendTargets?: { uid: string; name: string }[]; onSendTo?: (t: { uid: string; name: string }) => void; /** The parent's 가족 소식 card, shown under the buttons. */ newsCard?: React.ReactNode; /** A one-off card above the greeting (family's 알림 켜기). */ topCard?: React.ReactNode; /** Family: send the parent a photo (when switched on for them). */ onSendPhoto?: () => void; /** Family: what has been sent, with the parent's answers. */ sentPhotos?: React.ReactNode; recordsLabel?: boolean; uid: string; patientName: string; greetingName: string; memos: Memo[]; onOpenAsk: () => void; onOpen: (id: string) => void; canCapture?: boolean; notifications?: AppNotification[]; onDismissNotification?: (id: string) => void }) {
+export function Home({ uid, patientName, greetingName, memos, onOpenAsk, onOpen, canCapture = true, notifications = [], onDismissNotification, recordsLabel, newsCard, topCard, canSendPhoto = false, sentPhotos }: { /** The parent's 가족 소식 card, shown under the buttons. */ newsCard?: React.ReactNode; /** A one-off card above the greeting (family's 알림 켜기). */ topCard?: React.ReactNode; /** Family on a parent's home: the floating camera button sends the parent a photo. */ canSendPhoto?: boolean; /** Family: what has been sent, with the parent's answers. */ sentPhotos?: React.ReactNode; recordsLabel?: boolean; uid: string; patientName: string; greetingName: string; memos: Memo[]; onOpenAsk: () => void; onOpen: (id: string) => void; canCapture?: boolean; notifications?: AppNotification[]; onDismissNotification?: (id: string) => void }) {
   const toast = useToast()
   const capture = useCapture(uid)
   const lastReadyId = useRef<string | null>(null)
@@ -81,13 +81,8 @@ export function Home({ uid, patientName, greetingName, memos, onOpenAsk, onOpen,
         {!canCapture && (
           <div className="caregiver-note" role="status">
             <b>{patientName}님의 기록을 보고 있어요.</b>
-            <span>{onSendPhoto ? `${patientName}님께 사진을 보내 드릴 수 있어요.` : '사진 찍기는 본인 계정에서만 가능해요.'}</span>
+            <span>{canSendPhoto ? `아래 카메라 버튼으로 ${patientName}님께 사진을 보내 드릴 수 있어요.` : '사진 찍기는 본인 계정에서만 가능해요.'}</span>
           </div>
-        )}
-        {!canCapture && onSendPhoto && (
-          <button type="button" className="linkbtn fp-send-btn" onClick={onSendPhoto}>
-            <span>📷 {patientName}님께 사진 보내기</span><span aria-hidden="true">→</span>
-          </button>
         )}
         {/* Take-photo and Ask sit side by side as equal tiles. In caregiver
             mode (no capture) the Ask tile stretches to fill the row alone. */}
@@ -116,10 +111,6 @@ export function Home({ uid, patientName, greetingName, memos, onOpenAsk, onOpen,
           </button>
         </div>
 
-        {canCapture && sendTargets && sendTargets.length > 0 && onSendTo && (
-          <SendTargets targets={sendTargets} onSendTo={onSendTo} />
-        )}
-
         {newsCard}
         {sentPhotos}
 
@@ -134,7 +125,7 @@ export function Home({ uid, patientName, greetingName, memos, onOpenAsk, onOpen,
         {canCapture && (
           <div className="cap-help">
             버튼을 누르면 사진이 찍히고<br />
-            {sendTargets && sendTargets.length > 0 ? '내 기록으로 저장돼요' : '자동으로 기록돼요'}
+            자동으로 기록돼요
           </div>
         )}
 
@@ -159,27 +150,5 @@ export function Home({ uid, patientName, greetingName, memos, onOpenAsk, onOpen,
 
       {capture.processing}
     </section>
-  )
-}
-
-/** 사진 보내기 on one's own home: a button per parent (the name is the
- *  choice); with three or more, one button that opens the list. */
-function SendTargets({ targets, onSendTo }: { targets: { uid: string; name: string }[]; onSendTo: (t: { uid: string; name: string }) => void }) {
-  const [open, setOpen] = useState(false)
-  const button = (t: { uid: string; name: string }) => (
-    <button key={t.uid} type="button" className="linkbtn fp-send-btn" onClick={() => onSendTo(t)}>
-      <span>📷 {t.name}님께 사진 보내기</span><span aria-hidden="true">→</span>
-    </button>
-  )
-  return (
-    <div className="fp-send-stack">
-      {targets.length <= 2 || open
-        ? targets.map(button)
-        : (
-          <button type="button" className="linkbtn fp-send-btn" onClick={() => setOpen(true)}>
-            <span>📷 부모님께 사진 보내기</span><span aria-hidden="true">→</span>
-          </button>
-        )}
-    </div>
   )
 }

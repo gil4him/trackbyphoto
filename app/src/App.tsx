@@ -146,7 +146,7 @@ function App() {
   const { memberships: { patients }, loading: membershipsLoading } = useMembershipsWrapped(user?.uid)
   // The people this user looks after, as every list shows them (the switcher,
   // 설정 → 함께 보는 가족, the name check in 부모님 등록하기).
-  const { names: patientNames, familyPhotos: parentPhotoSettings } = usePatientDocs(useMemo(() => patients.map((p) => p.patientUid), [patients]))
+  const { names: patientNames } = usePatientDocs(useMemo(() => patients.map((p) => p.patientUid), [patients]))
   const people = useMemo(() => listedPeople(patients, patientNames), [patients, patientNames])
   // Elder safeguard notices live on the signed-in user's own account (§8).
   const { unread: notifications, dismiss: dismissNotification } = useNotifications(user?.uid)
@@ -184,15 +184,9 @@ function App() {
   const familyPhotosOn = familyPhotosFlag && settings.familyPhotos?.enabled !== false
   const viewingParent = !!user && !elder && !!activePatientUid && activePatientUid !== user.uid
   const familyPhotos = useFamilyPhotos(familyPhotosOn && viewingParent ? activePatientUid! : undefined)
-  // Whom the 사진 보내기 sheet is open for (from the parent's home, or from one's own).
+  // Whom the 사진 보내기 sheet is open for (the parent whose pages are open).
   const [sendTarget, setSendTarget] = useState<{ uid: string; name: string } | null>(null)
   const sendTargetPhotos = useFamilyPhotos(sendTarget?.uid)
-  // Parents this family member may send photos to, offered on their own home.
-  const sendTargets = useMemo(() => (familyPhotosFlag && !elder
-    ? people
-        .filter((p) => canSendFamilyPhoto(parentPhotoSettings[p.patientUid], p.membership.role))
-        .map((p) => ({ uid: p.patientUid, name: p.name }))
-    : []), [familyPhotosFlag, elder, people, parentPhotoSettings])
   useEffect(() => {
     if (pushOn && familyUid) void refreshPush()
   }, [pushOn, familyUid])
@@ -582,6 +576,11 @@ function App() {
   const ent = entitlements(plans, settings.plan?.tier)
   // Whoever manages these records may change the plan; other family only look.
   const myRole = patients.find((p) => p.patientUid === activePatientUid)?.role
+  // On a parent's pages the floating camera sends them a photo (when they
+  // receive family photos, and this member may send).
+  const sendToParent = viewingParent && familyPhotosFlag && canSendFamilyPhoto(settings.familyPhotos, myRole)
+    ? { uid: activePatientUid!, name: settings.patientName }
+    : null
   const canChangePlan = isSelf ? settings.accountType !== 'managed' : myRole === 'admin' || myRole === 'guardian'
   // 목소리 앨범: family only, on a plan that includes it.
   const voiceAlbumOn = planOn && !isSelf && flagOn(plans, 'voiceReplies') && ent?.voiceAlbum === true
@@ -683,7 +682,7 @@ function App() {
             <>
               {tab === 'home'     && pushOn && <InstallHint />}
               {tab === 'alerts'   && <Notifications uid={user.uid} onOpen={openNotice} digestOn={digestOn} emailOffered={flagOn(plans, 'emailDigest')} messengerIncluded={flagOn(plans, 'messengerFree') || ent?.messenger === true} messengerFrom={fromTier(plans, 'messenger')} />}
-              {tab === 'home'     && <Home uid={activePatientUid || user.uid} patientName={settings.patientName} greetingName={isSelf ? selfLabel : settings.patientName} memos={memos} onOpenAsk={openAsk} onOpen={setSelectedMemoId} canCapture={isSelf} notifications={bannerNotices} onDismissNotification={dismissNotification} topCard={isSimple() && isSelf && !membershipsLoading && patients.length === 0 ? <ConnectParentCard onOpen={() => setConnectingParent(true)} /> : pushOn && patients.length > 0 ? <PushNudge /> : undefined} sendTargets={isSelf ? sendTargets : undefined} onSendTo={setSendTarget} sentPhotos={familyPhotosOn && !isSelf ? <SentFamilyPhotos photos={familyPhotos} myUid={user.uid} /> : undefined} newsCard={ownNews && <FamilyNewsCard news={ownNews} onOpen={() => { if (ownNews.state !== 'none') openFamilyNews(ownNews) }} />} />}
+              {tab === 'home'     && <Home uid={activePatientUid || user.uid} patientName={settings.patientName} greetingName={isSelf ? selfLabel : settings.patientName} memos={memos} onOpenAsk={openAsk} onOpen={setSelectedMemoId} canCapture={isSelf} notifications={bannerNotices} onDismissNotification={dismissNotification} topCard={isSimple() && isSelf && !membershipsLoading && patients.length === 0 ? <ConnectParentCard onOpen={() => setConnectingParent(true)} /> : pushOn && patients.length > 0 ? <PushNudge /> : undefined} canSendPhoto={!!sendToParent} sentPhotos={familyPhotosOn && !isSelf ? <SentFamilyPhotos photos={familyPhotos} myUid={user.uid} /> : undefined} newsCard={ownNews && <FamilyNewsCard news={ownNews} onOpen={() => { if (ownNews.state !== 'none') openFamilyNews(ownNews) }} />} />}
               {connectingParent && (
                 <RegisterElder
                   onClose={() => setConnectingParent(false)}
@@ -743,8 +742,9 @@ function App() {
 
         <FamilyCamera
           uid={user.uid}
-          viewingOther={activePatientUid !== null && activePatientUid !== user.uid}
-          show={(tab !== 'home' || !!trail || voiceAlbum || !!digestId || !!openNews) && !selectedMemo && !sendTarget && !planSheet && !connectingParent}
+          onSend={sendToParent ? () => setSendTarget(sendToParent) : undefined}
+          show={(viewingParent ? !!sendToParent : (tab !== 'home' || !!trail || voiceAlbum || !!digestId || !!openNews))
+            && !selectedMemo && !sendTarget && !planSheet && !connectingParent}
         />
         <Tabs active={tab} onChange={onTabChange} avatarUrl={user.photoURL ?? undefined} unreadCount={notifications.length} showAlerts={pushOn || digestOn} />
       </div>

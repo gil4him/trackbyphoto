@@ -22,9 +22,16 @@ describe('CameraFab', () => {
   })
 
   it('the family camera renders inside the app\'s ToastProvider', () => {
-    const html = renderToString(<ToastProvider><FamilyCamera uid="me" viewingOther={false} show /></ToastProvider>)
+    const html = renderToString(<ToastProvider><FamilyCamera uid="me" show /></ToastProvider>)
     expect(html).toContain('class="cam-fab"')
+    expect(html).toContain('aria-label="사진 찍기"')
     expect(html).toContain('type="file"')
-    expect(renderToString(<ToastProvider><FamilyCamera uid="me" viewingOther show={false} /></ToastProvider>)).not.toContain('cam-fab')
+    expect(renderToString(<ToastProvider><FamilyCamera uid="me" show={false} /></ToastProvider>)).not.toContain('cam-fab')
+  })
+
+  it('on a parent\'s pages it sends that parent a photo', () => {
+    const html = renderToString(<ToastProvider><FamilyCamera uid="me" show onSend={() => {}} /></ToastProvider>)
+    expect(html).toContain('aria-label="사진 보내기"')
+    expect(html).not.toContain('aria-label="사진 찍기"')
   })
 })

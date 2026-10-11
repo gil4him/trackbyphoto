@@ -1042,9 +1042,6 @@ button.rx-voice.locked { width: 100%; padding: 10px 12px; border: 1px solid #FFD
 .fp-view .fp-broken { color: #fff; font-size: 24px; padding: 24px; text-align: center; }
 .fp-replied { font-size: 24px; color: var(--ink-2); text-align: center; }
 .news-btn.quiet { background: transparent; color: var(--ink-2); border-color: var(--line); }
-.fp-send-btn { margin-top: 12px; }
-.fp-send-stack { width: 100%; max-width: 320px; display: flex; flex-direction: column; gap: 10px; }
-.fp-send-stack .fp-send-btn { margin-top: 0; }
 .fp-send { display: flex; flex-direction: column; gap: 10px; }
 .fp-pick { width: 100%; min-height: 120px; border: 2px dashed var(--line); border-radius: 16px; background: var(--surface, #fff); font: inherit; font-size: 18px; font-weight: 600; color: var(--ink-2); cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; overflow: hidden; padding: 0; }
 .fp-pick.has { border-style: solid; }

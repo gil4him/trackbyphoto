@@ -23,17 +23,20 @@ export function CameraFab({ onClick, disabled = false, label = '사진 찍기' }
 }
 
 /**
- * The family app's floating camera: a photo for the family member's own
- * record from any page — also while looking at a parent's. Must sit inside
- * ToastProvider (useCapture toasts).
+ * The family app's floating camera. On one's own pages: a photo for one's
+ * own record. On a parent's pages (`onSend` given): send that parent a photo
+ * — the one thing family does for a parent, right where they're looking at
+ * them. Must sit inside ToastProvider (useCapture toasts).
  */
-export function FamilyCamera({ uid, viewingOther, show }: { uid: string; viewingOther: boolean; show: boolean }) {
-  const capture = useCapture(uid, { savedSub: viewingOther ? '내 기록으로 저장했어요' : '가족에게 보내는 중이에요' })
+export function FamilyCamera({ uid, show, onSend }: { uid: string; show: boolean; onSend?: () => void }) {
+  const capture = useCapture(uid, { savedSub: '가족에게 보내는 중이에요' })
   return (
     <>
       {capture.inputEl}
       {capture.processing}
-      {show && <CameraFab onClick={capture.takePhoto} disabled={capture.busy} />}
+      {show && (onSend
+        ? <CameraFab onClick={onSend} label="사진 보내기" />
+        : <CameraFab onClick={capture.takePhoto} disabled={capture.busy} />)}
     </>
   )
 }
