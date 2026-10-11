@@ -226,6 +226,13 @@ end
 
 # ── iOS lanes ─────────────────────────────────────────────────────────────────
 
+# Make a fresh App Store profile in the match repo, after the App ID gains a
+# capability (Sign in with Apple, Associated Domains): an old profile doesn't
+# carry it and the build fails to sign. Writes to Apple and the match repo.
+lane :refresh_ios_profile do
+  match(type: "appstore", readonly: false, force: true, api_key: asc_api_key)
+end
+
 lane :beta_ios do |options|
   sync_web("ios", options)
   key = asc_api_key
