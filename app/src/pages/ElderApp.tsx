@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { doc, onSnapshot } from 'firebase/firestore'
 import { db } from '../firebase'
 import { Home } from './Home'
@@ -12,6 +12,8 @@ import { FamilyPhotosCard } from '../components/FamilyPhotosCard'
 import { FamilyPhotoViewer } from './FamilyPhotoViewer'
 import { useFamilyPhotos } from '../hooks/useFamilyPhotos'
 import { useElderNews, type OpenNews } from '../hooks/useElderNews'
+import { byMemo } from '../lib/reactionsModel'
+import type { ReactionsContext } from '../components/Reactions'
 import { unlinkedFrom } from '../lib/device'
 import { resetIfAccountGone } from '../hooks/useAuth'
 import { isSimple } from '../lib/edition'
@@ -56,6 +58,18 @@ export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn
   // The news the parent opened, kept as it was when they tapped the card.
   const [openNews, setOpenNews] = useState<OpenNews | null>(null)
   const news = useElderNews(reactions, uid)
+  // The family's hearts and words under each of the parent's photos. The
+  // parent never reacts from the photo page; 답장 opens 가족 소식.
+  const rx = useMemo<ReactionsContext | undefined>(() => reactions ? {
+    byMemo: byMemo(reactions),
+    me: { uid, name: patientName },
+    patientUid: uid,
+    patientName,
+    canReact: false,
+    voiceOn,
+    voiceAllowed: true,
+    onReply: (item, unreadIds) => setOpenNews({ state: 'new', item, unreadIds }),
+  } : undefined, [reactions, uid, patientName, voiceOn])
   const familyPhotos = useFamilyPhotos(familyPhotosOn ? uid : undefined)
   const [photosOpen, setPhotosOpen] = useState(false)
 
@@ -128,7 +142,7 @@ export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn
           <FamilyPhotoViewer photos={familyPhotos} textMode={textMode} onDone={() => setPhotosOpen(false)} />
         ) : open ? (
           <div className="text-scaled" style={textStyle}>
-            <MemoDetail memo={open} onBack={() => setOpenId(null)} readOnly />
+            <MemoDetail memo={open} onBack={() => setOpenId(null)} readOnly rx={rx} />
             {isSimple() && <TextSizeFab level={textLevel} onNext={biggerText} />}
             <CameraFab label="카메라로 돌아가기" onClick={backToCamera} />
           </div>
