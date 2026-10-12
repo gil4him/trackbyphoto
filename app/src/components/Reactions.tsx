@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useToast } from './Toast'
-import { COMMENT_MAX, familyActor, removeReaction, sendComment, sendFamilyHeart } from '../lib/reactions'
-import { myHeart, replyTarget } from '../lib/reactionsModel'
+import { COMMENT_MAX, familyActor, removeReaction, sendComment } from '../lib/reactions'
+import { replyTarget } from '../lib/reactionsModel'
 import { S } from '../lib/strings'
 import { fmtTime } from '../util'
 import type { Reaction } from '../types'
@@ -53,9 +53,12 @@ function VoiceBubble({ r, ctx }: { r: Reaction; ctx: ReactionsContext }) {
 }
 
 /**
- * Hearts, comments and the parent's replies under one photo, as bubbles:
- * the family's on the right (orange tint), the parent's on the left
- * (white). `max` limits the thread; the photo page shows it all.
+ * Comments and the parent's replies under one photo, as bubbles: the
+ * family's on the right (orange tint), the parent's on the left (white).
+ * Family write words; the parent answers with a heart or words. (The
+ * family's own heart button was dropped 2026-10-12 as confusing; hearts
+ * given before still show.) `max` limits the thread; the photo page shows
+ * it all.
  */
 export function Reactions({ memoId, ctx, max }: { memoId: string; ctx: ReactionsContext; max?: number }) {
   const toast = useToast()
@@ -63,7 +66,6 @@ export function Reactions({ memoId, ctx, max }: { memoId: string; ctx: Reactions
   const [busy, setBusy] = useState(false)
 
   const items = ctx.byMemo.get(memoId) ?? []
-  const mine = myHeart(items, ctx.me.uid)
   const familyHearts = items.filter((r) => r.kind === 'heart' && r.actorUid !== ctx.patientUid)
   const thread = items.filter((r) =>
     r.kind === 'comment'
@@ -72,16 +74,6 @@ export function Reactions({ memoId, ctx, max }: { memoId: string; ctx: Reactions
 
   if (!ctx.canReact && items.length === 0) return null
   const target = ctx.onReply ? replyTarget(items, ctx.patientUid) : null
-
-  const toggleHeart = async () => {
-    try {
-      if (mine) await removeReaction(mine.id)
-      else await sendFamilyHeart(memoId, ctx.patientUid, await familyActor(ctx.me.name))
-    } catch (err) {
-      console.error('[reactions] heart failed', err)
-      toast.show('하트를 보내지 못했어요', '잠시 후 다시 시도해 주세요')
-    }
-  }
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -125,13 +117,6 @@ export function Reactions({ memoId, ctx, max }: { memoId: string; ctx: Reactions
 
       {ctx.canReact ? (
         <form className="rx-bar" onSubmit={submit}>
-          <button
-            type="button"
-            className={`rx-heart ${mine ? 'on' : ''}`}
-            onClick={toggleHeart}
-            aria-pressed={!!mine}
-            aria-label={mine ? '하트 취소' : '하트 보내기'}
-          >{mine ? '❤️' : '🤍'}{familyHearts.length > 0 && <span className="rx-count">{familyHearts.length}</span>}</button>
           <input
             className="rx-input"
             value={draft}

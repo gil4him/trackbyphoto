@@ -329,11 +329,10 @@ await step('an upload that dies quietly is given up on and retried, without clos
   return `both photos delivered ${Math.round((Date.now() - t0) / 1000)}s after the upload went quiet`
 }, { skip: process.env.E2E_SKIP_STALL === '1' ? 'E2E_SKIP_STALL=1' : undefined })
 
-await step('family sends a heart and a comment → the parent\'s 가족 소식 card lights up', async () => {
+await step('family sends a comment → the parent\'s 가족 소식 card lights up', async () => {
   await tab(family, '사진')
   await family.waitForSelector('.tl-item:not(.waiting)', { timeout: 20_000 })
   await family.click('.tl-item:not(.waiting)')
-  await click(family, '하트 보내기')
   await family.type('input[aria-label="글 남기기"]', '사진 잘 봤어요')
   await click(family, '보내기', { selector: 'button.rx-send' })
   await waitText(family, '사진 잘 봤어요', 20_000)

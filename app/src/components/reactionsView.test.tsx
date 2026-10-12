@@ -40,11 +40,12 @@ describe('FamilyNewsCard', () => {
 })
 
 describe('Reactions (family feed)', () => {
-  it('offers family a heart and a 60-character comment field', () => {
+  it('offers family a 60-character comment field and no heart button', () => {
     const out = html(ctx([]))
     expect(out).toContain('짧게 남겨 주세요 (60자)')
     expect(out).toContain('maxLength="60"')
-    expect(out).toContain('하트 보내기')
+    expect(out).not.toContain('하트 보내기')
+    expect(out).not.toContain('rx-heart')
   })
 
   it('plays the parent\'s voice reply with its transcript when the plan includes it', () => {
@@ -81,7 +82,7 @@ describe('Reactions (family feed)', () => {
     expect(out.indexOf('rx-item family')).toBeLessThan(out.indexOf('rx-item elder'))
     expect(out).toContain('❤️ 고마워요')
     expect(out).toMatch(/<button type="submit" class="rx-send" disabled=""/)
-    expect(out).toContain('aria-label="하트 보내기"')
+    expect(out).not.toContain('하트 보내기')
   })
 
   it('is read-only for the patient looking at their own feed', () => {
