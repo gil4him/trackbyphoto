@@ -33,30 +33,58 @@ const html = renderToString(
 )
 
 describe('Settings for a parent (simple)', () => {
-  it('keeps the core sections', () => {
-    for (const s of ['계정', '기기 관리', '사용자 이름', '글자 크기', '부모님 삭제', '계정 삭제']) expect(html).toContain(s)
+  it('has only 계정 · 부모님 · 알림 · 도움말·약관 · 로그아웃 · 계정 삭제, in that order', () => {
+    const order = ['>계정<', '>부모님<', '>알림<', '도움말·약관', '>로그아웃<', '>계정 삭제<']
+    const at = order.map((s) => html.indexOf(s))
+    for (const [i, s] of order.entries()) expect(at[i], s).toBeGreaterThan(-1)
+    for (let i = 1; i < at.length; i++) expect(at[i]).toBeGreaterThan(at[i - 1])
+    for (const s of ['집 위치', '표시되는 이름', '요금제', '음성 답장', '글자 크기', '자동 기록', '전송 시점', '사진 보관', '>언어<', 'Phase 1 안내', '부모님 삭제']) expect(html, s).not.toContain(s)
   })
 
-  it('has the 앱 알림 switch under 알림 (moved from the 알림 tab)', () => {
-    expect(html).toContain('앱 알림')
+  it("부모님: the parent's phone, 함께 보는 가족 with ⋯ (no red button inline), and 가족 초대하기", () => {
+    expect(html).toContain('기기 관리')
+    expect(html).toContain('함께 보는 가족')
+    expect(html).toContain('가족 초대하기')
+    expect(html).not.toContain('send-del')
+    expect(html).not.toContain('danger-btn')
+  })
+
+  it('알림: the 앱 알림 switch, then 알림 시간', () => {
     expect(html).toContain('aria-label="앱 알림 전환"')
-    expect(html.indexOf('>알림<')).toBeLessThan(html.indexOf('앱 알림'))
-  })
-
-  it('lets the family pick when the daily notice comes', () => {
-    expect(html).toContain('알림 시간')
+    expect(html.indexOf('앱 알림')).toBeLessThan(html.indexOf('알림 시간'))
     expect(html).toContain('저녁 8시')
-    // The explanation is behind ⓘ by the label, not on the page.
     expect(html).not.toContain('매일 이 시간에 오늘 사진 몇 장인지 알려드려요')
   })
 
-  it('has the full family sections, without the developer note', () => {
-    for (const s of ['가족 관리', '언어', '자동 기록', '전송 시점', '사진 보관']) expect(html).toContain(s)
-    expect(html).not.toContain('Phase 1 안내')
-  })
-
-  it('links the privacy policy and terms', () => {
+  it('links the privacy policy and terms as rows; 계정 삭제 is a muted link', () => {
     expect(html).toContain('/privacy')
     expect(html).toContain('/terms')
+    expect(html).toContain('class="quiet-link"')
+  })
+})
+
+describe('Settings for oneself (simple)', () => {
+  const mine = renderToString(
+    <Settings
+      settings={{ patientName: '지은', cadence: 'daily', autoMode: true, bigText: true, retention: '90' } as unknown as UserSettings}
+      onChange={() => {}}
+      user={{ uid: 'me', email: 'me@example.com', displayName: '지은' } as unknown as User}
+      onSignOut={async () => {}}
+      memos={[]}
+      activePatientUid="me"
+      isSelf
+      onSwitchPatient={() => {}}
+      people={[{ patientUid: 'mom', name: '엄마', membership: { patientUid: 'mom', role: 'guardian', status: 'active' } }, { patientUid: 'dad', name: '아빠', membership: { patientUid: 'dad', role: 'viewer', status: 'active' } }] as never}
+      pushRollout
+    />,
+  )
+  it('부모님 등록하기, then 함께 보는 가족 with a ⋯ per person and no 삭제 button', () => {
+    expect(mine).toContain('부모님 등록하기')
+    expect(mine).toContain('aria-label="엄마님 더보기"')
+    expect(mine).toContain('aria-label="아빠님 더보기"')
+    expect(mine).not.toContain('>삭제<')
+    expect(mine).not.toContain('send-del')
+    expect(mine).not.toContain('표시되는 이름')
+    expect(mine).not.toContain('집 위치')
   })
 })

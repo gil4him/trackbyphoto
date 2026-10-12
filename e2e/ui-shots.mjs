@@ -95,6 +95,12 @@ const PHASES = {
     'alerts-history': { as: momUid, go: async (p) => { await home(p, '엄마'); await tab(p, '알림'); await waitText(p, '연결 기록'); await click(p, '연결 기록'); await waitText(p, '휴대폰(iPhone)이 연결되었어요') } },
     'settings-alerts': { as: momUid, go: async (p) => { await home(p, '엄마'); await tab(p, '설정'); await waitText(p, '앱 알림'); await p.evaluate(() => document.querySelector('.switch[aria-label="앱 알림 전환"]')?.scrollIntoView({ block: 'center' })); await sleep(300) } },
   },
+  A5: {
+    'settings-parent': { as: momUid, go: async (p) => { await home(p, '엄마'); await tab(p, '설정'); await waitText(p, '도움말') } },
+    'settings-self':   { as: self, go: async (p) => { await home(p, '안녕하세요'); await tab(p, '설정'); await waitText(p, '함께 보는 가족') } },
+    'settings-menu':   { as: self, go: async (p) => { await home(p, '안녕하세요'); await tab(p, '설정'); await waitText(p, '함께 보는 가족'); await click(p, '엄마님 더보기'); await waitText(p, '엄마님 삭제'); await sleep(400) } },
+    'settings-bottom': { as: self, go: async (p) => { await home(p, '안녕하세요'); await tab(p, '설정'); await waitText(p, '계정 삭제하기'); await p.evaluate(() => document.querySelector('.quiet-link')?.scrollIntoView({ block: 'end' })); await sleep(300) } },
+  },
 }
 const screens = PHASES[PHASE]
 if (!screens) throw new Error(`no screens defined for phase ${PHASE}`)

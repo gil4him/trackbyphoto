@@ -26,6 +26,7 @@ import { S } from '../lib/strings'
 import type { PlanTier } from '../types'
 import { isSimple } from '../lib/edition'
 import { LegalLinks } from '../components/LegalLinks'
+import { PUBLIC_ORIGIN } from '../lib/publicUrl'
 import { SectLab } from '../components/SectLab'
 import { PushToggle } from '../components/PushToggle'
 
@@ -344,6 +345,322 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
     : settings.cadence === 'weekly'
       ? '매주 일요일에 한 주를 모아 보내요'
       : '매일 저녁 8시에 하루 요약을 보내요'
+
+  // Dialogs shared by both layouts: 계정 삭제, 음성 답장 consent, 부모님 삭제, 가족초대.
+  const modals = (
+    <>
+      {deleteMeOpen && (
+        <BottomSheet title="계정을 삭제할까요?" onClose={() => { if (!deleteMeBusy) setDeleteMeOpen(false) }}>
+          <p className="sheet-sub">내 사진과 기록, 가족 연결이 모두 지워지고 되돌릴 수 없어요.</p>
+          <div className="help" style={{ textAlign: 'center', margin: '-8px 0 14px' }}>
+            부모님 기록은 지워지지 않아요 — 지우려면 먼저 부모님 관리에서 삭제해 주세요.
+          </div>
+          <button type="button" className="sheet-danger-btn" disabled={deleteMeBusy} onClick={onDeleteMyAccount}>
+            {deleteMeBusy ? '삭제하는 중…' : '계정 삭제'}
+          </button>
+          <button type="button" className="sheet-cancel" disabled={deleteMeBusy} onClick={() => setDeleteMeOpen(false)}>취소</button>
+        </BottomSheet>
+      )}
+      {voiceOpen && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <div className="modal">
+            <div className="modal-title">음성 답장 동의</div>
+            <div className="modal-body">
+              <p>{isSelf ? '아래 내용에 동의합니다.' : `${settings.patientName}님을 대신해 아래 내용에 동의합니다.`}</p>
+              <ul className="consent-list">
+                <li>{settings.patientName}님이 남기는 음성 답장(15초 이내 녹음)을 저장해요.</li>
+                <li>녹음을 글로 받아쓰고, 녹음과 글을 가족에게 보여줘요.</li>
+                <li>받아쓰기는 외부 서비스로 보내지 않고 우리 서버에서만 해요.</li>
+              </ul>
+              <div className="help">동의는 기록으로 남아요. 언제든 다시 끌 수 있어요.</div>
+            </div>
+            <div className="modal-actions">
+              <button className="signin-secondary" disabled={voiceBusy} onClick={() => setVoiceOpen(false)}>취소</button>
+              <button className="linkbtn" disabled={voiceBusy} onClick={agreeToVoice}>
+                <span>{voiceBusy ? '켜는 중…' : '동의하고 켜기'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {deleteTarget && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <div className="modal">
+            <div className="modal-title">{deleteTarget.name}님을 삭제할까요?</div>
+            <div className="modal-body">
+              <p>{deleteTarget.name}님의 사진·기록·설정이 모두 지워지고, 연결된 휴대폰과 가족 모두 더 이상 볼 수 없어요. 되돌릴 수 없어요.</p>
+            </div>
+            <div className="modal-actions">
+              <button className="signin-secondary" disabled={deleteBusy} onClick={() => setDeleteTarget(null)}>취소</button>
+              <button className="linkbtn danger-btn" disabled={deleteBusy} onClick={onDeleteElder}>
+                <span>{deleteBusy ? '삭제하는 중…' : '삭제하기'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {inviteOpen && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <div className="modal">
+            {inviteStep === 'confirm' ? (
+              <>
+                <div className="modal-title">가족초대</div>
+                <div className="modal-body">
+                  <p>가족을 초대하면 내 일상 기록(메모·사진·위치)을 초대한 가족이 함께 볼 수 있어요.</p>
+                  <div className="help" style={{ marginTop: 10 }}>
+                    아래 버튼을 누르면 민감정보(메모·사진) 처리와 가족에게 제공(제3자 제공)에 동의하는 것으로 기록돼요.
+                  </div>
+                </div>
+                <div className="modal-actions">
+                  <button className="signin-secondary" onClick={closeInvite}>취소</button>
+                  <button
+                    className="linkbtn"
+                    disabled={inviteBusy}
+                    onClick={onCreateInvite}
+                  >
+                    <span>{inviteBusy ? '만드는 중…' : '동의하고 초대하기'}</span>
+                    <span aria-hidden="true">→</span>
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="modal-title">초대 보내기</div>
+                <div className="modal-body">
+                  <div className="invite-send">
+                    <button className="invite-btn invite-kakao" onClick={onKakaoInvite}>
+                      카카오톡으로 초대
+                    </button>
+                    {showPhoneField ? (
+                      <div className="invite-phone">
+                        <label htmlFor="invite-phone">받는 사람 전화번호</label>
+                        <input
+                          id="invite-phone"
+                          type="tel"
+                          inputMode="tel"
+                          autoComplete="tel"
+                          placeholder="010-1234-5678"
+                          value={invitePhone}
+                          onChange={(e) => setInvitePhone(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === 'Enter') onSmsInvite() }}
+                          autoFocus
+                        />
+                        <button
+                          className="invite-btn invite-sms"
+                          onClick={onSmsInvite}
+                          disabled={phoneDigits.length < 9}
+                        >
+                          문자 보내기
+                        </button>
+                      </div>
+                    ) : (
+                      <button className="invite-btn invite-sms" onClick={() => setShowPhoneField(true)}>
+                        전화번호로 초대
+                      </button>
+                    )}
+                  </div>
+                  <div className="help" style={{ textAlign: 'center', marginTop: 12 }}>
+                    초대 링크는 24시간 동안 1명만 사용할 수 있어요.
+                  </div>
+                </div>
+                <div className="modal-actions">
+                  <button className="signin-secondary" onClick={closeInvite}>완료</button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </>
+  )
+
+  // ── Simple edition (docs/DAYLIE_V3_UI_FIX.md A5) ──────────────────────────
+  // Only 계정 · 부모님 · 알림 · 도움말·약관 · 로그아웃 · 계정 삭제, in that order.
+  // A family member's 삭제 / 빼기 / 접근 해제 sits under ⋯ with a confirm sheet.
+  const [rowMenu, setRowMenu] = useState<null | { kind: 'person'; patientUid: string; name: string; mine: boolean } | { kind: 'member'; caregiverUid: string; label: string; role: string; canSetRole: boolean; canRevoke: boolean }>(null)
+  const [ask, setAsk] = useState<null | { title: string; sub?: string; label: string; run: () => Promise<void> | void }>(null)
+  const [askBusy, setAskBusy] = useState(false)
+  const runAsk = async () => {
+    if (!ask) return
+    setAskBusy(true)
+    try { await ask.run() } finally { setAskBusy(false); setAsk(null) }
+  }
+  const leaveQuietly = async (patientUid: string, name: string) => {
+    try {
+      await revokeMembership({ patientUid, caregiverUid: user.uid })
+      toast.show(`${name}님을 목록에서 뺐어요`)
+    } catch (err) {
+      console.error('[leave] failed', err)
+      toast.show('빼지 못했어요', isWorkerOffline(err) ? WORKER_OFFLINE_MESSAGE : '잠시 후 다시 시도해 주세요')
+    }
+  }
+  const revokeQuietly = async (caregiverUid: string) => {
+    try {
+      await revokeMembership({ patientUid: activePatientUid, caregiverUid })
+      toast.show('가족 접근을 해제했어요')
+    } catch (err) {
+      console.error('[revoke] failed', err)
+      toast.show('해제에 실패했어요', isWorkerOffline(err) ? WORKER_OFFLINE_MESSAGE : undefined)
+    }
+  }
+
+  if (simple) {
+    return (
+      <section className="page settings-simple">
+        <div className="h-eyebrow">가족 설정</div>
+        <h2 className="h-title">설정</h2>
+
+        <div className="sect">
+          <SectLab>계정</SectLab>
+          <div className="row">
+            <div className="account-row" style={{ flex: 1 }}>
+              {user.photoURL && <img className="avatar" src={user.photoURL} alt="" referrerPolicy="no-referrer" />}
+              <div className="account-info">
+                <div className="name">{user.displayName || '이름 없음'}</div>
+                <div className="email">{user.email}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="sect">
+          <SectLab info={isSelf
+            ? '부모님은 로그인할 필요가 없어요. 등록을 마치고 링크를 보내면, 부모님은 링크를 눌러 ‘연결하기’만 누르면 돼요. 목록의 ⋯에서 보기·삭제·빼기를 할 수 있어요.'
+            : '휴대폰을 잃어버렸다면 바로 ‘연결 해제’를 눌러주세요. 가족을 초대하면 함께 볼 수 있고, 관리자는 설정을 바꿀 수 있어요.'}>부모님</SectLab>
+          {isSelf && (
+            <button className="linkbtn" onClick={() => setRegistering(true)}>
+              <span>부모님 등록하기</span>
+              <span aria-hidden="true">→</span>
+            </button>
+          )}
+          {isSelf && people.length > 0 && (
+            <>
+              <div className="sub-lab">함께 보는 가족</div>
+              {people.map((p) => {
+                const mine = p.membership.role === 'guardian'
+                return (
+                  <div className="row" key={p.patientUid}>
+                    <div className="who">
+                      <b>{p.name}</b>
+                      <span> · {mine ? '내가 등록한 부모님' : p.membership.role === 'viewer' ? '뷰어' : '관리자'}</span>
+                    </div>
+                    <button type="button" className="more-btn" aria-label={`${p.name}님 더보기`} aria-haspopup="dialog" onClick={() => setRowMenu({ kind: 'person', patientUid: p.patientUid, name: p.name, mine })}>⋯</button>
+                  </div>
+                )
+              })}
+            </>
+          )}
+          {isManaged && !isSelf && canManageHere && (
+            <ElderDevices patientUid={activePatientUid} patientName={settings.patientName} />
+          )}
+          {!isSelf && canManageHere && (
+            <>
+              <div className="sub-lab">함께 보는 가족</div>
+              {caregivers.length === 0 ? (
+                <div className="row"><div className="who"><span>아직 함께하는 가족이 없어요.</span></div></div>
+              ) : caregivers.map((m) => {
+                const isMe = m.caregiverUid === user.uid
+                const label = (m.caregiverName || (m.caregiverUid.slice(0, 6) + '…')) + (isMe ? ' (나)' : '')
+                const statusLabel = m.status === 'invited' ? '초대됨' : m.status === 'active' ? '활성' : '해제됨'
+                const canSetRole = m.status === 'active' && m.role !== 'guardian' && !isMe
+                const canRevoke = m.status !== 'revoked' && !isMe && m.role !== 'guardian'
+                return (
+                  <div className="row" key={m.id}>
+                    <div className="who">
+                      <b>{label}</b>
+                      <span> · {m.role === 'guardian' ? '대표 가족' : m.role === 'viewer' ? '뷰어' : '관리자'} · {statusLabel}</span>
+                    </div>
+                    {(canSetRole || canRevoke) && (
+                      <button type="button" className="more-btn" aria-label={`${label} 더보기`} aria-haspopup="dialog" onClick={() => setRowMenu({ kind: 'member', caregiverUid: m.caregiverUid, label, role: m.role, canSetRole, canRevoke })}>⋯</button>
+                    )}
+                  </div>
+                )
+              })}
+              <button className="linkbtn" onClick={openInvite}>
+                <span>가족 초대하기</span>
+                <span aria-hidden="true">→</span>
+              </button>
+            </>
+          )}
+        </div>
+        {registering && (
+          <RegisterElder onClose={() => setRegistering(false)} onRegistered={onSwitchPatient} takenNames={people.map((p) => p.name)} />
+        )}
+
+        {(pushRollout || (!isSelf && canManageHere)) && (
+          <div className="sect">
+            <SectLab>알림</SectLab>
+            {pushRollout && <PushToggle uid={user.uid} />}
+            {!isSelf && canManageHere && (
+              <>
+                <SectLab info="매일 이 시간에 오늘 사진 몇 장인지 알려드려요.">알림 시간</SectLab>
+                <div className="seg">
+                  {noticeHourChoices(digest.hourLocal).map((h) => (
+                    <button key={h} className={digest.hourLocal === h ? 'on' : ''} disabled={digestBusy} onClick={() => changeDigest({ hourLocal: h })}>
+                      {noticeHourLabel(h)}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        <div className="sect">
+          <SectLab>도움말·약관</SectLab>
+          <a className="linkbtn" href={`${PUBLIC_ORIGIN}/privacy`} target="_blank" rel="noreferrer"><span>개인정보처리방침</span><span aria-hidden="true">→</span></a>
+          <a className="linkbtn" href={`${PUBLIC_ORIGIN}/terms`} target="_blank" rel="noreferrer"><span>이용약관</span><span aria-hidden="true">→</span></a>
+        </div>
+
+        <div className="sect">
+          <button className="linkbtn" onClick={() => setAsk({ title: '로그아웃할까요?', label: '로그아웃', run: async () => { try { await onSignOut() } catch (e) { console.error(e); toast.show('로그아웃에 실패했어요') } } })}>
+            <span>로그아웃</span>
+          </button>
+        </div>
+
+        {canDeleteMe && (
+          <div className="sect">
+            <SectLab info="내 사진과 기록, 가족 연결이 모두 지워지고 되돌릴 수 없어요.">계정 삭제</SectLab>
+            <button type="button" className="quiet-link" onClick={() => setDeleteMeOpen(true)}>계정 삭제하기</button>
+          </div>
+        )}
+
+        {rowMenu && (
+          <BottomSheet onClose={() => setRowMenu(null)}>
+            {rowMenu.kind === 'person' ? (
+              <>
+                <button type="button" className="sheet-item" onClick={() => { setRowMenu(null); onSwitchPatient(rowMenu.patientUid) }}>{rowMenu.name}님 기록 보기</button>
+                {rowMenu.mine
+                  ? <button type="button" className="sheet-item danger sep" onClick={() => { setRowMenu(null); setDeleteTarget({ patientUid: rowMenu.patientUid, name: rowMenu.name }) }}>{rowMenu.name}님 삭제</button>
+                  : <button type="button" className="sheet-item danger sep" onClick={() => { const { patientUid, name } = rowMenu; setRowMenu(null); setAsk({ title: `${name}님을 내 목록에서 뺄까요?`, sub: `${name}님의 사진과 기록은 그대로 남고, 나만 더 이상 볼 수 없게 돼요.`, label: '빼기', run: () => leaveQuietly(patientUid, name) }) }}>내 목록에서 빼기</button>}
+              </>
+            ) : (
+              <>
+                {rowMenu.canSetRole && (
+                  <button type="button" className="sheet-item" onClick={() => { const { caregiverUid, role } = rowMenu; setRowMenu(null); void onSetRole(caregiverUid, role === 'admin' ? 'viewer' : 'admin') }}>
+                    {rowMenu.role === 'admin' ? '뷰어로 바꾸기 (보기만)' : '관리자로 바꾸기 (편집 가능)'}
+                  </button>
+                )}
+                {rowMenu.canRevoke && (
+                  <button type="button" className="sheet-item danger sep" onClick={() => { const { caregiverUid, label } = rowMenu; setRowMenu(null); setAsk({ title: `${label}님의 접근을 해제할까요?`, label: '해제', run: () => revokeQuietly(caregiverUid) }) }}>가족 접근 해제</button>
+                )}
+              </>
+            )}
+            <button type="button" className="sheet-cancel" onClick={() => setRowMenu(null)}>취소</button>
+          </BottomSheet>
+        )}
+        {ask && (
+          <BottomSheet title={ask.title} onClose={() => { if (!askBusy) setAsk(null) }}>
+            {ask.sub && <p className="sheet-sub">{ask.sub}</p>}
+            <button type="button" className="sheet-danger-btn" disabled={askBusy} onClick={() => { void runAsk() }}>{askBusy ? '잠시만요…' : ask.label}</button>
+            <button type="button" className="sheet-cancel" disabled={askBusy} onClick={() => setAsk(null)}>취소</button>
+          </BottomSheet>
+        )}
+        {modals}
+      </section>
+    )
+  }
 
   return (
     <section className="page">
@@ -758,129 +1075,7 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
         </div>
       )}
       {isSimple() && <LegalLinks />}
-      {deleteMeOpen && (
-        <BottomSheet title="계정을 삭제할까요?" onClose={() => { if (!deleteMeBusy) setDeleteMeOpen(false) }}>
-          <p className="sheet-sub">내 사진과 기록, 가족 연결이 모두 지워지고 되돌릴 수 없어요.</p>
-          <div className="help" style={{ textAlign: 'center', margin: '-8px 0 14px' }}>
-            부모님 기록은 지워지지 않아요 — 지우려면 먼저 부모님 관리에서 삭제해 주세요.
-          </div>
-          <button type="button" className="sheet-danger-btn" disabled={deleteMeBusy} onClick={onDeleteMyAccount}>
-            {deleteMeBusy ? '삭제하는 중…' : '계정 삭제'}
-          </button>
-          <button type="button" className="sheet-cancel" disabled={deleteMeBusy} onClick={() => setDeleteMeOpen(false)}>취소</button>
-        </BottomSheet>
-      )}
-      {voiceOpen && (
-        <div className="modal-backdrop" role="dialog" aria-modal="true">
-          <div className="modal">
-            <div className="modal-title">음성 답장 동의</div>
-            <div className="modal-body">
-              <p>{isSelf ? '아래 내용에 동의합니다.' : `${settings.patientName}님을 대신해 아래 내용에 동의합니다.`}</p>
-              <ul className="consent-list">
-                <li>{settings.patientName}님이 남기는 음성 답장(15초 이내 녹음)을 저장해요.</li>
-                <li>녹음을 글로 받아쓰고, 녹음과 글을 가족에게 보여줘요.</li>
-                <li>받아쓰기는 외부 서비스로 보내지 않고 우리 서버에서만 해요.</li>
-              </ul>
-              <div className="help">동의는 기록으로 남아요. 언제든 다시 끌 수 있어요.</div>
-            </div>
-            <div className="modal-actions">
-              <button className="signin-secondary" disabled={voiceBusy} onClick={() => setVoiceOpen(false)}>취소</button>
-              <button className="linkbtn" disabled={voiceBusy} onClick={agreeToVoice}>
-                <span>{voiceBusy ? '켜는 중…' : '동의하고 켜기'}</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      {deleteTarget && (
-        <div className="modal-backdrop" role="dialog" aria-modal="true">
-          <div className="modal">
-            <div className="modal-title">{deleteTarget.name}님을 삭제할까요?</div>
-            <div className="modal-body">
-              <p>{deleteTarget.name}님의 사진·기록·설정이 모두 지워지고, 연결된 휴대폰과 가족 모두 더 이상 볼 수 없어요. 되돌릴 수 없어요.</p>
-            </div>
-            <div className="modal-actions">
-              <button className="signin-secondary" disabled={deleteBusy} onClick={() => setDeleteTarget(null)}>취소</button>
-              <button className="linkbtn danger-btn" disabled={deleteBusy} onClick={onDeleteElder}>
-                <span>{deleteBusy ? '삭제하는 중…' : '삭제하기'}</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {inviteOpen && (
-        <div className="modal-backdrop" role="dialog" aria-modal="true">
-          <div className="modal">
-            {inviteStep === 'confirm' ? (
-              <>
-                <div className="modal-title">가족초대</div>
-                <div className="modal-body">
-                  <p>가족을 초대하면 내 일상 기록(메모·사진·위치)을 초대한 가족이 함께 볼 수 있어요.</p>
-                  <div className="help" style={{ marginTop: 10 }}>
-                    아래 버튼을 누르면 민감정보(메모·사진) 처리와 가족에게 제공(제3자 제공)에 동의하는 것으로 기록돼요.
-                  </div>
-                </div>
-                <div className="modal-actions">
-                  <button className="signin-secondary" onClick={closeInvite}>취소</button>
-                  <button
-                    className="linkbtn"
-                    disabled={inviteBusy}
-                    onClick={onCreateInvite}
-                  >
-                    <span>{inviteBusy ? '만드는 중…' : '동의하고 초대하기'}</span>
-                    <span aria-hidden="true">→</span>
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="modal-title">초대 보내기</div>
-                <div className="modal-body">
-                  <div className="invite-send">
-                    <button className="invite-btn invite-kakao" onClick={onKakaoInvite}>
-                      카카오톡으로 초대
-                    </button>
-                    {showPhoneField ? (
-                      <div className="invite-phone">
-                        <label htmlFor="invite-phone">받는 사람 전화번호</label>
-                        <input
-                          id="invite-phone"
-                          type="tel"
-                          inputMode="tel"
-                          autoComplete="tel"
-                          placeholder="010-1234-5678"
-                          value={invitePhone}
-                          onChange={(e) => setInvitePhone(e.target.value)}
-                          onKeyDown={(e) => { if (e.key === 'Enter') onSmsInvite() }}
-                          autoFocus
-                        />
-                        <button
-                          className="invite-btn invite-sms"
-                          onClick={onSmsInvite}
-                          disabled={phoneDigits.length < 9}
-                        >
-                          문자 보내기
-                        </button>
-                      </div>
-                    ) : (
-                      <button className="invite-btn invite-sms" onClick={() => setShowPhoneField(true)}>
-                        전화번호로 초대
-                      </button>
-                    )}
-                  </div>
-                  <div className="help" style={{ textAlign: 'center', marginTop: 12 }}>
-                    초대 링크는 24시간 동안 1명만 사용할 수 있어요.
-                  </div>
-                </div>
-                <div className="modal-actions">
-                  <button className="signin-secondary" onClick={closeInvite}>완료</button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
+      {modals}
     </section>
   )
 }
