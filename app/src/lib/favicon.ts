@@ -47,8 +47,8 @@ export function setFaviconBadge(count: number): void {
     drawBadge()
   }
   img.onerror = () => {
-    // Fallback base when the SVG won't rasterize: a coral rounded square.
-    ctx.fillStyle = '#FF6B6B'
+    // Fallback base when the SVG won't rasterize: an orange rounded square (--accent).
+    ctx.fillStyle = '#FF8A1F'
     const rad = 14
     ctx.beginPath()
     ctx.moveTo(rad, 0)

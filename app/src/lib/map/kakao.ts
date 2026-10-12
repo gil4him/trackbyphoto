@@ -49,7 +49,7 @@ export async function renderKakaoMap(el: HTMLElement, key: string, pins: MapPin[
     const bounds = new kakao.maps.LatLngBounds()
     pins.forEach((p) => bounds.extend(at(p)))
     map.setBounds(bounds, 56, 40, 40, 40)
-    new kakao.maps.Polyline({ map, path: pins.map(at), strokeWeight: 4, strokeColor: '#FF6B2C', strokeOpacity: 0.9 })
+    new kakao.maps.Polyline({ map, path: pins.map(at), strokeWeight: 4, strokeColor: '#FF8A1F' /* --accent */, strokeOpacity: 0.9 })
   }
   if (home) {
     const el = document.createElement('div')

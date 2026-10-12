@@ -604,7 +604,7 @@ function App() {
   return (
     <ToastProvider>
       <PushOpener pushed={pushed} ready={!membershipsLoading} onOpen={openPush} />
-      <div className={`app${isSelf ? '' : ' caregiver-mode'}`}>
+      <div className="app">
         {updateReady && (
           <button className="update-prompt" onClick={() => { void reloadToLatest() }}>
             새 버전이 있어요 <span className="update-go">새로고침</span>
