@@ -210,7 +210,10 @@ def android_signing
     "android.injected.signing.store.password" => ENV["ANDROID_KEYSTORE_PASSWORD"],
     "android.injected.signing.key.alias"      => ENV["ANDROID_KEY_ALIAS"],
     "android.injected.signing.key.password"   => ENV["ANDROID_KEY_PASSWORD"],
-    "android.injected.version.code"           => (Time.now.to_i / 60)
+    # Read by android/app/build.gradle (the old android.injected.version.code
+    # property is ignored by current Android Gradle plugins, which left every
+    # upload at versionCode 1 — Play rejects a code it has seen before).
+    "versionCode"                             => unique_build_number
   }
 end
 

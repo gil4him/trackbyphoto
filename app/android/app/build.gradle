@@ -7,7 +7,9 @@ android {
         applicationId "com.zymer.daylie"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
+        // Store uploads pass a fresh, always-increasing code (fastlane:
+        // -PversionCode=<minutes since 1970>); local builds fall back to 1.
+        versionCode project.hasProperty('versionCode') ? project.versionCode.toInteger() : 1
         versionName "1.0.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
