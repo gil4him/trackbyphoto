@@ -13,7 +13,9 @@ import { initializeApp } from 'firebase-admin/app'
 import { FieldValue, getFirestore, Timestamp } from 'firebase-admin/firestore'
 import { serveSite } from './servers.mjs'
 import { seedDemoFamily, seedTodayMemos } from './demo-seed.mjs'
-import { click, familyAccount, launchBrowser, openPage, settle, sleep, tab, waitText } from './shot-kit.mjs'
+import { spawn } from 'node:child_process'
+import { click, elderSession, FAKE_CAMERA_ARGS, familyAccount, launchBrowser, openPage, settle, sleep, tab, waitText } from './shot-kit.mjs'
+import { serveFakeModel } from './servers.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const OUT = join(HERE, '..', 'docs', 'v3-ui')
@@ -102,6 +104,132 @@ const PHASES = {
     'settings-bottom': { as: self, go: async (p) => { await home(p, '안녕하세요'); await tab(p, '설정'); await waitText(p, '계정 삭제하기'); await p.evaluate(() => document.querySelector('.quiet-link')?.scrollIntoView({ block: 'end' })); await sleep(300) } },
   },
 }
+// ── A6: the parent's phone. Pairing needs the worker, so it runs here with
+// the fake model; the camera screens use a fake camera. ──────────────────
+const shotFile = (name) => join(OUT, `${PHASE}-${name}.png`)
+const snap = async (p, name, { quick = false } = {}) => { if (!quick) await settle(p); await p.screenshot({ path: shotFile(name) }); console.log('  ', `${PHASE}-${name}.png`) }
+
+/** Runs a worker handler in a child process (the worker's own firebase-admin). */
+function workerCall(env, script) {
+  return new Promise((resolve, reject) => {
+    const run = spawn(process.execPath, ['--input-type=module', '-e', script], { env, cwd: join(HERE, '..', 'worker'), stdio: ['ignore', 'pipe', 'pipe'] })
+    let out = ''
+    run.stdout.on('data', (c) => { out += c })
+    run.stderr.on('data', (c) => { out += c })
+    run.on('exit', (code) => {
+      const line = out.trim().split('\n').filter((l) => l.startsWith('{')).pop()
+      if (code === 0 && line) resolve(JSON.parse(line)); else reject(new Error(`worker call failed (${code})\n${out.slice(-600)}`))
+    })
+  })
+}
+
+async function shootA6() {
+  const MODEL_PORT = 5231
+  const model = await serveFakeModel(MODEL_PORT)
+  const env = {
+    ...process.env, GCLOUD_PROJECT: PROJECT, GOOGLE_CLOUD_PROJECT: PROJECT,
+    FIREBASE_STORAGE_BUCKET: `${PROJECT}.appspot.com`, WORKER_STATE_DIR: join(HERE, '.tmp', 'ui-state'),
+    APP_URL: `${SITE}/`, OLLAMA_BASE_URL: `http://127.0.0.1:${MODEL_PORT}`, EDITION: 'simple',
+  }
+  for (const k of ['GOOGLE_APPLICATION_CREDENTIALS', 'KAKAO_REST_KEY', 'GEMINI_API_KEY', 'SMTP_URL']) delete env[k]
+  const worker = spawn(process.execPath, [join(HERE, '..', 'worker', 'dist', 'index.js')], { env, stdio: ['ignore', 'pipe', 'pipe'] })
+  let log = ''
+  await new Promise((resolve, reject) => {
+    const onData = (c) => { log += c; if (log.includes('[worker] listening')) resolve() }
+    worker.stdout.on('data', onData); worker.stderr.on('data', onData)
+    worker.on('exit', (code) => reject(new Error(`worker exited (${code})\n${log.slice(-600)}`)))
+    setTimeout(() => reject(new Error(`worker did not start\n${log.slice(-600)}`)), 30_000)
+  })
+  const link = (mode) => workerCall(env, `
+    import { initializeApp } from 'firebase-admin/app'
+    initializeApp({ projectId: '${PROJECT}', storageBucket: '${PROJECT}.appspot.com' })
+    const { createPairingLink } = await import('./dist/handlers/pairing.js')
+    console.log(JSON.stringify(await createPairingLink({ uid: '${self}', email: '${KID.email}', name: '${KID.name}', emailVerified: true }, { patientUid: '${momUid}', mode: '${mode}' })))
+    process.exit(0)`)
+  const plain = await launchBrowser(process.env.UI_HEADFUL === '1')
+  const camera = await launchBrowser(process.env.UI_HEADFUL === '1', FAKE_CAMERA_ARGS)
+  try {
+    // 1. Sign-in: 부모님 휴대폰이에요 under Google.
+    {
+      const p = await openPage(plain, { device: 'iphone', signedIn: false })
+      await p.goto(SITE, { waitUntil: 'load' })
+      await waitText(p, '부모님 휴대폰이에요')
+      await snap(p, 'signin')
+      await p.browserContext().close()
+    }
+    // 2. The link opened on the parent's phone → 연결하기 → the consent screen → camera's plain sentence.
+    {
+      const { url } = await link('qr')
+      const p = await openPage(plain, { device: 'iphone', signedIn: false })
+      const u = new URL(url)
+      // web=1: link right here in the browser (no app-install page); on an
+      // iPhone the page first offers the home-screen icon — skip it.
+      await p.goto(`${SITE}${u.pathname}${u.search}&web=1${u.hash}`, { waitUntil: 'load' })
+      try {
+        await click(p, '아이콘 없이 여기서 연결하기', 'button.pair-link')
+      } catch { /* already on 연결하기 */ }
+      try {
+        await click(p, '연결하기', 'button.pair-btn')
+        await waitText(p, '가족에게 오늘 하루를 보여드릴까요?', 60_000)
+        await snap(p, 'consent')
+        await click(p, '네, ', 'button.pair-btn')
+        await waitText(p, '카메라', 60_000)
+        await snap(p, 'ask')
+      } catch (err) {
+        await p.screenshot({ path: shotFile('FAIL-pair') }).catch(() => {})
+        throw err
+      }
+      await p.browserContext().close()
+    }
+    // 3. A second phone, linked in-process (QR, no approval), with a fake camera: viewfinder, bubble, overlay.
+    {
+      const { code } = await link('qr')
+      const anon = `anon-${Date.now()}`
+      const paired = await workerCall(env, `
+        import { initializeApp } from 'firebase-admin/app'
+        initializeApp({ projectId: '${PROJECT}', storageBucket: '${PROJECT}.appspot.com' })
+        const { pairDevice } = await import('./dist/handlers/pairing.js')
+        console.log(JSON.stringify(await pairDevice({ uid: '${anon}', email: null, name: null }, { code: '${code}', device: { name: 'iPhone', platform: 'web' } })))
+        process.exit(0)`)
+      const session = await elderSession(paired.customToken, momUid)
+      const p = await openPage(camera, { device: 'iphone', session })
+      await p.goto(SITE, { waitUntil: 'load' })
+      try {
+        // Headless Chrome reports the camera as not asked yet even with the
+        // fake one: the plain sentence comes first — tap 다음 to let it start.
+        await p.waitForSelector('.elder-cam, .signin', { timeout: 60_000 })
+        const next = await p.waitForSelector('.elder-ask-next', { timeout: 8_000 }).catch(() => null)
+        if (next) await next.click()
+        await p.waitForSelector('.elder-cam-shutter:not([disabled])', { timeout: 60_000 })
+      } catch (err) {
+        await p.screenshot({ path: shotFile('FAIL-camera') }).catch(() => {})
+        throw err
+      }
+      await snap(p, 'camera')
+      const memoIds = await seedTodayMemos({ momUid, kidUid: self, kidName: KID.name, count: 1 })
+      await waitText(p, '글을 남겼어요', 30_000)
+      await snap(p, 'bubble')
+      await click(p, '글을 남겼어요')
+      await sleep(600)
+      await p.click('.elder-cam-shutter')
+      await p.waitForSelector('.elder-cam-overlay', { timeout: 30_000 })
+      await snap(p, 'overlay', { quick: true })
+      await p.browserContext().close()
+      console.log(`   (memos seeded: ${memoIds.length})`)
+    }
+  } finally {
+    worker.kill('SIGTERM')
+    model.close()
+    await plain.close().catch(() => {})
+    await camera.close().catch(() => {})
+  }
+}
+
+if (PHASE === 'A6') {
+  try { await shootA6(); console.log(`pictures in ${OUT}`) } finally { await browser.close(); site.close() }
+  process.exit(0)
+}
+
 const screens = PHASES[PHASE]
 if (!screens) throw new Error(`no screens defined for phase ${PHASE}`)
 

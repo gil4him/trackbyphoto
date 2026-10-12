@@ -61,7 +61,9 @@ describe('ElderCameraView', () => {
   })
 
   it('says who the photo went to', () => {
-    expect(render({ overlay: { ok: true, text: '지은에게 보냈어요 ♥' } })).toContain('지은에게 보냈어요 ♥')
+    const ok = render({ overlay: { ok: true, text: '지은에게 보냈어요 ♥' } })
+    expect(ok).toContain('지은에게 보냈어요')
+    expect(ok).toContain('<span class="elder-cam-heart" aria-hidden="true">♥</span>')
   })
 
   it('asks to allow the camera, with a big retry', () => {

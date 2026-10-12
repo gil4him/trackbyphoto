@@ -34,13 +34,32 @@ export async function familyAccount(kid) {
   return acct
 }
 
-export function launchBrowser(headful = false) {
-  return puppeteer.launch({ executablePath: CHROME, headless: !headful, args: ['--no-first-run', '--hide-scrollbars'] })
+export function launchBrowser(headful = false, extraArgs = []) {
+  return puppeteer.launch({ executablePath: CHROME, headless: !headful, args: ['--no-first-run', '--hide-scrollbars', ...extraArgs] })
+}
+
+/** A fake camera for the parent's viewfinder (no permission prompt). */
+export const FAKE_CAMERA_ARGS = ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream']
+
+/** The SDK's stored session for a parent's linked phone (a custom token with
+ *  the elder claim, exchanged at the Auth emulator). */
+export async function elderSession(customToken, uid) {
+  const res = await fetch(`http://${process.env.FIREBASE_AUTH_EMULATOR_HOST}/identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=${API_KEY}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: customToken, returnSecureToken: true }),
+  })
+  const t = await res.json()
+  if (!t.idToken) throw new Error(`no elder session: ${JSON.stringify(t).slice(0, 200)}`)
+  return {
+    uid, email: null, emailVerified: false, displayName: null, isAnonymous: false, providerData: [],
+    stsTokenManager: { refreshToken: t.refreshToken, accessToken: t.idToken, expirationTime: Date.now() + 3500_000 },
+    createdAt: String(Date.now()), lastLoginAt: String(Date.now()), apiKey: API_KEY, appName: '[DEFAULT]',
+  }
 }
 
 /** A fresh page on one device; signed in as `acct` (with the SDK's session
  *  put where it keeps it) unless signedIn is false. */
-export async function openPage(browser, { device, acct, kid, signedIn = true, activePatient, extraStorage = [] }) {
+export async function openPage(browser, { device, acct, kid, signedIn = true, activePatient, extraStorage = [], session = null }) {
   const ctx = await browser.createBrowserContext()
   const p = await ctx.newPage()
   await p.setViewport(DEVICES[device])
@@ -48,7 +67,9 @@ export async function openPage(browser, { device, acct, kid, signedIn = true, ac
   await p.emulateTimezone('Asia/Seoul')
   p.on('pageerror', (e) => console.log(`  [${device} page error]`, String(e).split('\n')[0]))
   const entries = [...extraStorage]
-  if (signedIn) {
+  if (session) {
+    entries.push([`firebase:authUser:${API_KEY}:[DEFAULT]`, JSON.stringify(session)])
+  } else if (signedIn) {
     const session = {
       uid: acct.localId, email: kid.email, emailVerified: true, displayName: kid.name, isAnonymous: false,
       providerData: [{ providerId: 'google.com', uid: `g-${kid.email}`, displayName: kid.name, email: kid.email, phoneNumber: null, photoURL: null }],

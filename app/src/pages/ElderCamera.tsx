@@ -85,7 +85,10 @@ export function ElderCameraView({ phase, busy, overlay, news, photos = null, ask
 
       {overlay && (
         <div className={`elder-cam-overlay ${overlay.ok ? 'ok' : 'fail'}`} role="status">
-          <span>{overlay.text}</span>
+          {/* "지은에게 보냈어요 ♥": the heart in the brand's orange. */}
+          {overlay.ok && overlay.text.endsWith('♥')
+            ? <span>{overlay.text.slice(0, -1).trimEnd()} <span className="elder-cam-heart" aria-hidden="true">♥</span></span>
+            : <span>{overlay.text}</span>}
           {!overlay.ok && <span className="elder-cam-overlay-sub">{overlay.sub}</span>}
         </div>
       )}

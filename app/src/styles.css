@@ -595,13 +595,13 @@ nav.tabbar .tab.on .tab-avatar { box-shadow: 0 0 0 2px var(--coral2); }
 /* The app icon (Shutter Heart, public/favicon.svg) above sign-in and pairing. */
 .signin-parent-btn {
   display: flex; flex-direction: column; align-items: center; gap: 4px;
-  width: 100%; max-width: 340px; min-height: 76px; margin-top: 14px; padding: 14px 20px;
+  width: 100%; max-width: 340px; min-height: 72px; margin-top: 0; padding: 12px 20px;
   border: 0; border-radius: var(--radius-btn); background: var(--accent); color: var(--ink);
   font: inherit; box-shadow: var(--shadow);
 }
 .signin-parent-btn:active { background: var(--accent-pressed); }
-.signin-parent-title { font-size: 22px; font-weight: 800; }
-.signin-parent-sub { font-size: 15px; opacity: .92; }
+.signin-parent-title { font-size: 24px; font-weight: 800; }
+.signin-parent-sub { font-size: 16px; font-weight: 700; opacity: .85; }
 .signin-dot { width: 64px; height: 64px; border-radius: 16px; background: url(/favicon.svg) center / cover no-repeat; box-shadow: 0 10px 30px rgba(255,138,31,.3); margin-bottom: 8px; }
 .signin-brand h1 { margin: 0; font-size: 28px; letter-spacing: -0.02em; }
 .signin-brand p { margin: 0; color: var(--ink-2); font-size: 15px; line-height: 1.5; max-width: 280px; word-break: keep-all; }
@@ -889,10 +889,13 @@ nav.tabbar .tab.on .tab-avatar { box-shadow: 0 0 0 2px var(--coral2); }
   display: flex; flex-direction: column; align-items: center; gap: 20px; width: 100%;
 }
 .simple-consent-title { margin: 0; font-size: 30px; line-height: 1.35; font-weight: 800; letter-spacing: -0.02em; }
-.simple-consent-text { margin: 0; max-width: 340px; font-size: 23px; line-height: 1.5; }
+.simple-consent-text { margin: 0; max-width: 340px; font-size: 24px; line-height: 1.5; }
+.simple-consent .pair-btn { min-height: 72px; }
+/* 자세한 내용 보기: the secondary, outlined. */
 .simple-consent-more {
-  min-height: 60px; padding: 0 20px; border: 0; background: none;
-  font: inherit; font-size: 20px; color: var(--ink-2); text-decoration: underline;
+  width: 100%; max-width: 340px; min-height: 60px; padding: 0 20px;
+  border: 2px solid var(--line); border-radius: var(--radius-btn); background: var(--surface);
+  font: inherit; font-size: 22px; font-weight: 700; color: var(--ink); cursor: pointer;
 }
 .simple-consent-details {
   margin: 0; padding: 18px 20px 18px 38px; max-width: 340px; text-align: left;
@@ -1144,29 +1147,36 @@ html.camera-live, html.camera-live body, html.camera-live .app, html.camera-live
 html:not(.camera-live) .elder-cam { background: #000; }
 .elder-cam-feed { position: absolute; inset: 0; overflow: hidden; }
 .elder-cam-video { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* The bubble over the viewfinder (a heart, a word, a photo from family):
+   white, orange-tinted border, big text, at most two lines each. */
 .elder-cam-bubble {
   position: absolute; left: 16px; right: 16px; top: calc(var(--safe-top) + 16px);
-  display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 14px 18px;
-  border: 0; border-radius: 22px; background: rgba(255, 255, 255, .94); color: var(--ink);
-  font: inherit; font-size: 20px; font-weight: 700; text-align: left;
+  display: flex; align-items: center; gap: 12px; min-height: 72px; padding: 14px 18px;
+  border: 2px solid var(--accent-line); border-radius: 22px; background: rgba(255, 255, 255, .94); color: var(--ink);
+  font: inherit; font-size: 26px; font-weight: 700; line-height: 1.3; text-align: left;
   box-shadow: 0 10px 30px rgba(0, 0, 0, .25);
 }
-.elder-cam-bubble-icon { font-size: 28px; }
-.elder-cam-bubble-body { display: flex; flex-direction: column; gap: 4px; }
-.elder-cam-bubble-text { font-weight: 400; font-size: 19px; color: var(--ink-2); }
+.elder-cam-bubble-icon { font-size: 32px; flex: none; }
+.elder-cam-bubble-body { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.elder-cam-bubble-body > span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.elder-cam-bubble-text { font-weight: 400; font-size: 24px; color: var(--ink-2); }
+/* Three columns — 내 사진 · shutter · camera switch — the shutter centred
+   whatever the pills measure. */
 .elder-cam-bar {
   position: absolute; left: 0; right: 0; bottom: 0;
-  display: flex; align-items: center; justify-content: space-between;
+  display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
   padding: 0 24px calc(var(--safe-bot) + 28px);
 }
-.elder-cam-records, .elder-cam-bar-spacer { width: 84px; }
-.elder-cam-bar-spacer { display: flex; justify-content: flex-end; }
+.elder-cam-records { justify-self: start; white-space: nowrap; }
+.elder-cam-bar-spacer { width: 84px; justify-self: end; display: flex; justify-content: flex-end; }
 /* Right of the shutter: the camera switch, with 아이콘 만들기 above it. */
-.elder-cam-bar-side { position: relative; width: 84px; display: flex; justify-content: center; }
+.elder-cam-bar-side { position: relative; justify-self: end; display: flex; justify-content: center; }
 .elder-cam-bar-side .elder-cam-install { position: absolute; bottom: calc(100% + 12px); right: 0; }
+/* 내 사진 and the camera switch: white pills, dark text, 60px or more. */
 .elder-cam-flip {
   width: 64px; height: 64px; border-radius: 50%; border: 0; padding: 16px;
-  background: rgba(0, 0, 0, .45); color: #fff;
+  background: rgba(255, 255, 255, .92); color: var(--ink);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .25);
 }
 .elder-cam-flip svg { width: 100%; height: 100%; display: block; }
 .elder-cam-flip:disabled { opacity: .5; }
@@ -1175,25 +1185,29 @@ html:not(.camera-live) .elder-cam { background: #000; }
   background: rgba(0, 0, 0, .45); color: #fff; font: inherit; font-size: 15px; font-weight: 700; line-height: 1.25;
 }
 .elder-cam-records {
-  min-height: 60px; border: 0; border-radius: 18px;
-  background: rgba(0, 0, 0, .45); color: #fff; font: inherit; font-size: 18px; font-weight: 700;
+  min-height: 60px; min-width: 60px; border: 0; border-radius: 999px; padding: 0 18px;
+  background: rgba(255, 255, 255, .92); color: var(--ink); font: inherit; font-size: 22px; font-weight: 700;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .25);
 }
+/* The 104px white ring stays (camera convention); a 6px orange ring inside
+   it says whose camera this is. */
 .elder-cam-shutter {
   width: 104px; height: 104px; border-radius: 50%; padding: 0;
   border: 6px solid rgba(255, 255, 255, .9); background: #fff;
-  box-shadow: 0 0 0 4px rgba(0, 0, 0, .25), 0 10px 30px rgba(0, 0, 0, .35);
+  box-shadow: inset 0 0 0 6px var(--accent), 0 0 0 4px rgba(0, 0, 0, .25), 0 10px 30px rgba(0, 0, 0, .35);
   transition: transform .12s ease;
 }
 .elder-cam-shutter:active:not(:disabled) { transform: scale(.92); }
 .elder-cam-shutter:disabled { opacity: .55; }
+/* "지은에게 보냈어요 ♥": a dark card, the heart in orange. */
 .elder-cam-overlay {
   position: absolute; left: 24px; right: 24px; top: 50%; transform: translateY(-50%);
   display: flex; flex-direction: column; align-items: center; gap: 8px;
   padding: 28px 20px; border-radius: 26px; text-align: center;
-  background: rgba(0, 0, 0, .66); font-size: 26px; font-weight: 800;
+  background: rgba(44, 58, 51, .86); color: #fff; font-size: 30px; font-weight: 800; line-height: 1.3;
 }
-.elder-cam-overlay.ok { background: rgba(255, 107, 107, .92); }
-.elder-cam-overlay-sub { font-size: 20px; font-weight: 400; }
+.elder-cam-heart { color: var(--accent); }
+.elder-cam-overlay-sub { font-size: 22px; font-weight: 400; }
 .elder-cam-denied {
   position: absolute; inset: 0; display: flex; flex-direction: column;
   align-items: center; justify-content: center; gap: 10px; padding: 24px; text-align: center;
@@ -1224,9 +1238,9 @@ html:not(.camera-live) .elder-cam { background: #000; }
 .elder-ask {
   position: absolute; inset: 0; z-index: 1;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px;
-  padding: 24px; text-align: center; background: #FFF8EE; color: var(--ink);
+  padding: 24px; text-align: center; background: var(--ground); color: var(--ink);
 }
-.elder-ask-text { margin: 0; max-width: 320px; font-size: 26px; font-weight: 800; line-height: 1.45; }
+.elder-ask-text { margin: 0; max-width: 320px; font-size: 30px; font-weight: 800; line-height: 1.4; }
 .elder-ask-next {
   width: 100%; max-width: 320px; min-height: 72px; border: 0; border-radius: var(--radius-btn);
   background: var(--accent); color: var(--ink);

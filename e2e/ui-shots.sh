@@ -18,4 +18,10 @@ echo "[ui-shots] building the simple site for the emulators…"
   VITE_FIREBASE_APP_ID=demo \
   npx vite build --mode simple --outDir ../e2e/.tmp/ui-site --emptyOutDir >/dev/null)
 
+# The parent's screens (A6) link a phone, which needs the worker.
+if [ "$UI_PHASE" = "A6" ]; then
+  echo "[ui-shots] building the worker…"
+  (cd worker && npm run build >/dev/null)
+fi
+
 firebase emulators:exec --only auth,firestore,storage --project demo-trackbyphoto "node e2e/ui-shots.mjs"
