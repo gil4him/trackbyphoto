@@ -24,8 +24,11 @@ fail() { echo "native-config: $*" >&2; exit 1; }
 [ -f "$PLIST" ] || fail "missing $PLIST"
 [ -f "$JSON" ] || fail "missing $JSON"
 
-p_proj=$(/usr/libexec/PlistBuddy -c 'Print PROJECT_ID' "$PLIST")
-p_bundle=$(/usr/libexec/PlistBuddy -c 'Print BUNDLE_ID' "$PLIST")
+# Plist reads/edits go through scripts/plist.cjs (not PlistBuddy, which only
+# exists on a Mac — CI builds the Android app on Linux).
+plist() { node "$APP/scripts/plist.cjs" "$@"; }
+p_proj=$(plist get "$PLIST" PROJECT_ID)
+p_bundle=$(plist get "$PLIST" BUNDLE_ID)
 j_proj=$(node -p "require('$JSON').project_info.project_id")
 [ "$p_proj" = "$WANT" ] || fail "$PLIST is for project $p_proj, expected $WANT"
 [ "$j_proj" = "$WANT" ] || fail "$JSON is for project $j_proj, expected $WANT"
@@ -51,23 +54,19 @@ cp "$JSON" "$APP/android/app/google-services.json"
 # entry under CFBundleURLTypes), so switching editions must rewrite it too, or
 # sign-in on the shipped build never comes back to the app.
 INFO="$APP/ios/App/App/Info.plist"
-reversed=$(/usr/libexec/PlistBuddy -c 'Print REVERSED_CLIENT_ID' "$PLIST")
-[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleURLTypes:0:CFBundleURLName' "$INFO")" = google-signin ] \
-  || fail "Info.plist: CFBundleURLTypes[0] is not the google-signin entry"
-/usr/libexec/PlistBuddy -c "Set :CFBundleURLTypes:0:CFBundleURLSchemes:0 $reversed" "$INFO"
+plist set-url-scheme "$INFO" google-signin "$(plist get "$PLIST" REVERSED_CLIENT_ID)"
 
 # The microphone is only for voice replies, which the simple edition doesn't
 # have, so its store builds don't ask for it. Full (the committed state) does.
 MANIFEST="$APP/android/app/src/main/AndroidManifest.xml"
 MIC_TEXT='가족에게 목소리로 답장을 남기기 위해 마이크를 사용해요.'
 if [ "$ED" = simple ]; then
-  /usr/libexec/PlistBuddy -c 'Delete :NSMicrophoneUsageDescription' "$INFO" 2>/dev/null || true
+  plist delete "$INFO" NSMicrophoneUsageDescription
   MANIFEST="$MANIFEST" node -e "
     const fs = require('fs'), f = process.env.MANIFEST
     fs.writeFileSync(f, fs.readFileSync(f, 'utf8').replace(/ *<!-- Voice replies:[^\\n]*\\n *<uses-permission android:name=\"android.permission.RECORD_AUDIO\" \\/>\\n *<uses-permission android:name=\"android.permission.MODIFY_AUDIO_SETTINGS\" \\/>\\n/, ''))"
 else
-  /usr/libexec/PlistBuddy -c 'Print :NSMicrophoneUsageDescription' "$INFO" >/dev/null 2>&1 \
-    || /usr/libexec/PlistBuddy -c "Add :NSMicrophoneUsageDescription string $MIC_TEXT" "$INFO"
+  plist set "$INFO" NSMicrophoneUsageDescription "$MIC_TEXT"
   MANIFEST="$MANIFEST" node -e "
     const fs = require('fs'), f = process.env.MANIFEST, s = fs.readFileSync(f, 'utf8')
     if (!s.includes('RECORD_AUDIO')) fs.writeFileSync(f, s.replace(
@@ -77,7 +76,7 @@ else
       '\$1<uses-permission android:name=\"android.permission.MODIFY_AUDIO_SETTINGS\" />\\n'))"
 fi
 grep -q RECORD_AUDIO "$MANIFEST" && droid_mic=yes || droid_mic=no
-/usr/libexec/PlistBuddy -c 'Print :NSMicrophoneUsageDescription' "$INFO" >/dev/null 2>&1 && ios_mic=yes || ios_mic=no
+plist has "$INFO" NSMicrophoneUsageDescription && ios_mic=yes || ios_mic=no
 echo "Native config -> $ED ($WANT, $p_bundle); microphone: iOS $ios_mic, Android $droid_mic"
 (cd "$APP" && npx cap sync)
 if [ "$ED" != full ]; then
