@@ -103,6 +103,11 @@ const PHASES = {
     'settings-menu':   { as: self, go: async (p) => { await home(p, '안녕하세요'); await tab(p, '설정'); await waitText(p, '함께 보는 가족'); await click(p, '엄마님 더보기'); await waitText(p, '엄마님 삭제'); await sleep(400) } },
     'settings-bottom': { as: self, go: async (p) => { await home(p, '안녕하세요'); await tab(p, '설정'); await waitText(p, '계정 삭제하기'); await p.evaluate(() => document.querySelector('.quiet-link')?.scrollIntoView({ block: 'end' })); await sleep(300) } },
   },
+  A7: {
+    'home-trail':  { as: momUid, prepare: () => seedTodayMemos({ momUid, kidUid: self, kidName: KID.name, count: 9 }), go: (p) => home(p, '다녀온 곳') },
+    'trail':       { as: momUid, go: async (p) => { await home(p, '다녀온 곳'); await click(p, '다녀온 곳', '.day-trail'); await waitText(p, '오늘 다녀온 곳'); await sleep(4000) } },
+    'photos-link': { as: momUid, go: async (p) => { await home(p, '엄마'); await tab(p, '사진'); await waitText(p, '다녀온 곳 ›') } },
+  },
 }
 // ── A6: the parent's phone. Pairing needs the worker, so it runs here with
 // the fake model; the camera screens use a fake camera. ──────────────────

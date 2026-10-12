@@ -7,7 +7,9 @@ import { fmtDate, fmtTime } from '../util'
 import { MemoThumb } from '../components/MemoThumb'
 import { useWorkerStatus } from '../hooks/useWorkerStatus'
 import { cardMeta, cardTitle, clock, dayCaption, dayEyebrow, farthestKm, memosOnDay } from '../lib/memoViews'
-import type { LatLng } from '../lib/trail'
+import { trailStops, trailSummary, type LatLng } from '../lib/trail'
+import { placesVisited } from '../lib/digest'
+import { TrailSketch } from '../components/TrailSketch'
 import type { Memo, AppNotification, Reaction } from '../types'
 
 /**
@@ -40,7 +42,7 @@ function Notices({ notifications, onDismiss }: { notifications: AppNotification[
  * (docs/DAYLIE_V3_UI_FIX.md A1, option C). Newest photo at the top; each
  * card opens the photo page. The child's own camera is the floating button.
  */
-export function ParentDayHome({ parentName, memos, byMemo, home, onOpen, onYesterday, onSendPhoto, notifications = [], onDismissNotification, topCard, sentPhotos, now = new Date() }: {
+export function ParentDayHome({ parentName, memos, byMemo, home, onOpen, onYesterday, onOpenTrail, onSendPhoto, notifications = [], onDismissNotification, topCard, sentPhotos, now = new Date() }: {
   parentName: string
   memos: Memo[]
   /** Hearts and words per memo (the reactions feed), when rolled out. */
@@ -50,6 +52,9 @@ export function ParentDayHome({ parentName, memos, byMemo, home, onOpen, onYeste
   onOpen: (id: string) => void
   /** 어제 보기 ›: the 사진 tab scrolled to yesterday. */
   onYesterday: () => void
+  /** 다녀온 곳 for today — the trail map (App passes it only while the trail
+   *  map is rolled out). The card shows once a photo today has a location. */
+  onOpenTrail?: (day: Date) => void
   /** 사진 보내기: send this parent a photo (when the parent receives them and
    *  this family member may send). Inline here — the floating camera never
    *  sits over a parent's view (A2). */
@@ -65,6 +70,11 @@ export function ParentDayHome({ parentName, memos, byMemo, home, onOpen, onYeste
 }) {
   const todays = memosOnDay(memos, now)
   const serverDown = useWorkerStatus(todays.some((m) => m.status === 'pending')) === 'down'
+  // Where the day went: the stops in the order they were visited, drawn small.
+  const stops = onOpenTrail ? trailStops(todays, home) : []
+  const summary = trailSummary(stops)
+  const places = placesVisited(stops.flatMap((s) => s.memos)).join(' → ')
+  const trailSub = places || summary.text
   return (
     <section className="page home-day" aria-label={`${parentName}님의 하루`}>
       <Notices notifications={notifications} onDismiss={onDismissNotification} />
@@ -74,6 +84,22 @@ export function ParentDayHome({ parentName, memos, byMemo, home, onOpen, onYeste
         <h1 className="day-title">{parentName}의 하루</h1>
         <div className="day-caption">{dayCaption(todays.length, farthestKm(todays, home))}</div>
       </header>
+
+      {stops.length > 0 && (
+        <button type="button" className="day-trail" onClick={() => onOpenTrail?.(now)}>
+          <span className="day-trail-map" aria-hidden="true"><TrailSketch stops={stops} /></span>
+          <span className="day-trail-body">
+            <span className="day-trail-title">다녀온 곳 {stops.length}곳</span>
+            {(summary.away || trailSub) && (
+              <span className="day-trail-sub">
+                {summary.away && <span className="trail-badge">여행 중</span>}
+                {trailSub}
+              </span>
+            )}
+          </span>
+          <span className="day-trail-chev" aria-hidden="true">›</span>
+        </button>
+      )}
 
       {todays.length === 0 ? (
         <div className="day-empty" role="status">오늘 아직 사진이 없어요</div>

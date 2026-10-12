@@ -700,6 +700,7 @@ function App() {
                   home={homeFor(settings.home, memos)}
                   onOpen={setSelectedMemoId}
                   onYesterday={openYesterday}
+                  onOpenTrail={trailOn ? openDayTrail : undefined}
                   onSendPhoto={sendToParent ? () => setSendTarget(sendToParent) : undefined}
                   notifications={bannerNotices}
                   onDismissNotification={dismissNotification}

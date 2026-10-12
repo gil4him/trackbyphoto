@@ -6,7 +6,6 @@ import { useWorkerStatus } from '../hooks/useWorkerStatus'
 import type { OutboxItem } from '../lib/outbox'
 import type { ReactionsContext } from '../components/Reactions'
 import { cardTitle, rowCounts } from '../lib/memoViews'
-import { isSimple } from '../lib/edition'
 import { S } from '../lib/strings'
 import type { Memo } from '../types'
 
@@ -67,9 +66,6 @@ export function Today({ memos, onOpen, uid, rx, onOpenTrail, onOpenVoiceAlbum, f
     onFocused?.()
   }, [focusDay, onFocused, groups])
 
-  // 다녀온 곳 › stays in the full edition only.
-  const trailLink = isSimple() ? undefined : onOpenTrail
-
   return (
     <section className="page">
       <div className="h-eyebrow">최근 기록</div>
@@ -96,8 +92,8 @@ export function Today({ memos, onOpen, uid, rx, onOpenTrail, onOpenVoiceAlbum, f
           <div key={g.date.toISOString()} data-day={dayKey(g.date)}>
             <div className="tl-day">
               {relativeDateLabel(g.date)}
-              {trailLink && g.items.some((m) => typeof m.lat === 'number' && typeof m.lng === 'number') && (
-                <button type="button" className="trail-link" onClick={() => trailLink(g.date)}>다녀온 곳 ›</button>
+              {onOpenTrail && g.items.some((m) => typeof m.lat === 'number' && typeof m.lng === 'number') && (
+                <button type="button" className="trail-link" onClick={() => onOpenTrail(g.date)}>다녀온 곳 ›</button>
               )}
             </div>
             {g.items.map((m) => {

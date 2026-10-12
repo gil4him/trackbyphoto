@@ -48,7 +48,8 @@ describe('Home', () => {
 
 describe("ParentDayHome (simple edition: the parent's day)", () => {
   const now = new Date(2026, 9, 4, 20, 0)
-  const at = (h: number, mi: number, dayOffset = 0) => ({ toDate: () => new Date(2026, 9, 4 + dayOffset, h, mi) })
+  const at = (h: number, mi: number, dayOffset = 0) => { const d = new Date(2026, 9, 4 + dayOffset, h, mi); return { toDate: () => d, toMillis: () => d.getTime() } }
+  const HOME = { lat: 37.5, lng: 127.0 }
   const dayMemo = (id: string, h: number, mi: number, extra: Record<string, unknown> = {}) => ({
     id, patientUid: 'mom', photoPath: `photos/mom/${id}.jpg`, status: 'ready', memo: `${id} 메모`, activity: '산책', place: '석촌호수', lat: 37.5, lng: 127.0, takenAt: at(h, mi), ...extra,
   }) as unknown as Memo
@@ -80,6 +81,39 @@ describe("ParentDayHome (simple edition: the parent's day)", () => {
     expect(out).not.toContain('지난 기록')
     expect(out).not.toContain('안녕하세요')
     expect(out).not.toContain('recent-strip')
+  })
+
+  it('다녀온 곳: a card between the header and the timeline once a photo today has a location', () => {
+    const memos = [dayMemo('b', 15, 30, { lat: 37.518, place: '어린이대공원 · 능동, 광진구' }), dayMemo('a', 9, 5, { place: '석촌호수 · 잠실동, 송파구' })]
+    const out = render({ memos, home: HOME, onOpenTrail: () => {} })
+    expect(out).toContain('class="day-trail"')
+    expect(out).toContain('다녀온 곳 2곳')
+    expect(out).toContain('잠실동 → 능동')
+    expect(out).toContain('trail-sketch')
+    expect(out).not.toContain('여행 중')
+    expect(out.indexOf('day-trail')).toBeGreaterThan(out.indexOf('day-caption'))
+    expect(out.indexOf('day-trail')).toBeLessThan(out.indexOf('day-tl'))
+    expect(out).toContain('사진 2장 · 집에서 최대 2.0km')
+  })
+
+  it('no 다녀온 곳 card without the trail map, without a located photo, or with no photo today', () => {
+    const memos = [dayMemo('a', 9, 5, { place: '석촌호수 · 잠실동, 송파구' })]
+    expect(render({ memos, home: HOME })).not.toContain('다녀온 곳')
+    expect(render({ memos: [dayMemo('a', 9, 5, { lat: null, lng: null })], onOpenTrail: () => {} })).not.toContain('day-trail')
+    const empty = render({ memos: [dayMemo('old', 10, 0, { takenAt: at(10, 0, -1) })], onOpenTrail: () => {} })
+    expect(empty).not.toContain('day-trail')
+    expect(empty).toContain('오늘 아직 사진이 없어요')
+  })
+
+  it('far from home: 여행 중 on the card; no place names: the distance line; neither: no second line', () => {
+    const trip = render({ memos: [dayMemo('t', 12, 0, { lat: 35.17, lng: 136.88, place: '나고야' })], home: HOME, onOpenTrail: () => {} })
+    expect(trip).toContain('여행 중')
+    expect(trip).toContain('다녀온 곳 1곳')
+    expect(trip).toContain('나고야')
+    expect(render({ memos: [dayMemo('h', 12, 0, { place: '' })], home: HOME, onOpenTrail: () => {} })).toContain('집 근처')
+    const bare = render({ memos: [dayMemo('h', 12, 0, { place: '' })], home: null, onOpenTrail: () => {} })
+    expect(bare).toContain('다녀온 곳 1곳')
+    expect(bare).not.toContain('day-trail-sub')
   })
 
   it('no photo today: one dim card, still 어제 보기', () => {

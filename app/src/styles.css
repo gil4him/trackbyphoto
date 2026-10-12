@@ -79,6 +79,21 @@ main { padding: 18px 22px calc(110px + var(--safe-bot)); }
 .day-head { margin: 2px 0 14px; }
 .day-title { margin: 2px 0 4px; font-size: 34px; font-weight: 800; letter-spacing: -.6px; line-height: 1.2; }
 .day-caption { font-size: 15px; color: var(--muted); }
+/* 다녀온 곳: a row card under the header — the route drawn small, the places
+   in the order they were visited, and the door to the map. */
+.day-trail {
+  display: flex; align-items: center; gap: 12px; width: 100%; margin: 0 0 14px; padding: 10px;
+  background: var(--surface); border: 2px solid var(--line); border-radius: 16px;
+  font: inherit; color: var(--ink); text-align: left; cursor: pointer; appearance: none; -webkit-appearance: none;
+}
+.day-trail:active { background: var(--accent-tint); }
+.day-trail-map { flex: none; width: 128px; height: 80px; border-radius: 12px; overflow: hidden; background: var(--surface-dim); }
+.day-trail-map .trail-sketch { width: 100%; height: 100%; }
+.day-trail-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.day-trail-title { font-size: 17px; font-weight: 700; line-height: 1.3; }
+.day-trail-sub { font-size: 15px; color: var(--muted); line-height: 1.35; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.day-trail-sub .trail-badge { margin: 0 6px 0 0; }
+.day-trail-chev { flex: none; font-size: 24px; font-weight: 700; color: var(--muted); line-height: 1; padding-right: 2px; }
 .day-tl { list-style: none; margin: 0; padding: 0; }
 .day-item { display: flex; gap: 10px; align-items: stretch; }
 .day-rail { flex: none; width: 56px; position: relative; display: flex; flex-direction: column; align-items: flex-end; padding-right: 16px; }
@@ -1054,7 +1069,9 @@ nav.tabbar .tab.on .tab-avatar { box-shadow: 0 0 0 2px var(--coral2); }
 .trail-sketch { display: block; width: 100%; height: auto; }
 .trail-badge { display: inline-block; margin-left: 8px; padding: 1px 9px; border-radius: 999px; background: var(--accent-tint); color: var(--accent-ink); font-size: 13px; font-weight: 800; vertical-align: middle; }
 .trail-list { list-style: none; margin: 14px 0 0; padding: 0; }
-.trail-stop { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 4px; border: 0; border-bottom: 1px solid var(--line); background: none; text-align: left; }
+.trail-stop { display: flex; align-items: center; gap: 10px; width: 100%; padding: 12px 4px; border: 0; border-bottom: 2px solid var(--line); background: none; text-align: left; font: inherit; color: var(--ink); }
+/* 지도로 보기 on the trail page (the digest keeps its own .dg-more). */
+.trail .dg-more { min-height: 48px; border: 2px solid var(--line); border-radius: 16px; background: var(--surface); font: inherit; font-size: 17px; font-weight: 700; color: var(--ink); }
 .trail-n { flex: none; width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: var(--ink); font-size: 13px; font-weight: 800; display: grid; place-items: center; }
 .trail-thumb { flex: none; width: 52px; height: 52px; border-radius: 12px; overflow: hidden; background: var(--surface-dim); }
 .trail-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }

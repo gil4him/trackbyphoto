@@ -102,7 +102,7 @@ Files: `pages/Today.tsx`, `pages/MemoDetail.tsx`, `components/Reactions.tsx`, `c
 
 - List row → card: thumbnail 88×88 radius 14 (was ~60), title 17/700, second line `place · time` 15 muted, right side `♥ 2 · 💬 1` in muted 15px.
 - **Remove the ⊗ delete button from every row.** Delete moves into the detail page's `⋯` menu with a confirm sheet (`이 사진을 지울까요?` / `지우기` in `var(--danger)` / `취소`).
-- Day headers (`어제`, `토요일`) 15/700 muted; `다녀온 곳 ›` link hidden in simple.
+- Day headers (`어제`, `토요일`) 15/700 muted; `다녀온 곳 ›` link shown in both editions (restored 2026-10-12; the simple home also gets a 다녀온 곳 card).
 - Reaction thread under a photo (this is where hearts and words live in option C, so give it room): family comment bubble `var(--accent-tint)` right-aligned; parent's heart/word bubble white with `var(--line)` left-aligned, both 17px.
   Composer: heart button 48px outline → filled orange when tapped; text field 48px tall placeholder `짧게 남겨 주세요 (60자)`; `보내기` orange with dark text, disabled = `var(--line)` bg + muted text.
 

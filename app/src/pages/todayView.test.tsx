@@ -60,7 +60,7 @@ describe('Today', () => {
     expect(render({ rx: rx({ a: [{ kind: 'heart', actorName: '지민', actorUid: 'me', status: 'ready' }] }) })).not.toContain('fresh')
   })
 
-  it('day headers are quiet captions; 다녀온 곳 › only in the full edition', () => {
+  it('day headers are quiet captions; 다녀온 곳 › on a day with a located photo, in both editions', () => {
     edition.simple = false
     const full = render({ onOpenTrail: () => {} })
     expect(full).toContain('<div class="tl-day">오늘')
@@ -68,6 +68,9 @@ describe('Today', () => {
     edition.simple = true
     const simple = render({ onOpenTrail: () => {} })
     expect(simple).toContain('<div class="tl-day">어제')
-    expect(simple).not.toContain('다녀온 곳')
+    expect(simple).toContain('다녀온 곳 ›')
+    // Not without the trail map, and not on a day whose photos have no location.
+    expect(render()).not.toContain('다녀온 곳')
+    expect(render({ memos: [memo('a', 0, 15, { lat: null, lng: null })], onOpenTrail: () => {} })).not.toContain('다녀온 곳')
   })
 })
