@@ -117,3 +117,42 @@ export async function seedDemoFamily({ kidUid, kidName, now = Date.now() }) {
 
   return { momUid: mom, memoIds: memoIds.map((m) => m.id), familyPhotoId: fid }
 }
+
+/**
+ * For the design-review screenshots (ui-shots.mjs): `count` photos taken
+ * today, spread over the day, newest with a heart and a comment from the
+ * family. Same finished shapes as seedDemoFamily.
+ */
+export async function seedTodayMemos({ momUid, kidUid, kidName, count = 9, now = Date.now() }) {
+  const db = getFirestore()
+  const bucket = getStorage().bucket()
+  const emulatorHost = process.env.FIREBASE_STORAGE_EMULATOR_HOST
+  const ts = (ms) => Timestamp.fromMillis(Math.round(ms))
+  const times = ['07:40', '08:55', '10:10', '11:30', '12:45', '14:05', '15:30', '17:15', '18:40', '19:50', '20:30']
+  // Home is set (석촌호수), so the day's caption can say how far she went.
+  await db.doc(`users/${momUid}`).set({ home: { lat: 37.5096, lng: 127.104, label: '잠실동' } }, { merge: true })
+  const ids = []
+  for (let i = 0; i < Math.min(count, times.length); i++) {
+    const src = MEMOS[i % MEMOS.length]
+    // Fixed daytime slots (even when the Korean clock has not reached them
+    // yet) so the review picture is the same whenever it is taken.
+    const t = kst(now, 0, times[i])
+    const id = `${t}_${rand()}`
+    const photoPath = `photos/${momUid}/${id}.jpg`
+    const photoUrl = await upload(bucket, photoPath, src.file, emulatorHost)
+    await db.doc(`memos/${id}`).set({
+      patientUid: momUid, photoPath, photoUrl, takenAt: ts(t), createdAt: ts(t + 5000), tzOffsetMin: 540,
+      lat: src.lat, lng: src.lng, place: src.place, address: src.address, activity: src.activity,
+      memo: i % 4 === 3 ? '사진을 남겼어요' : src.memo, scene: src.scene,
+      status: 'ready', memoSource: i % 4 === 3 ? 'stub' : 'local-llm', model: 'gemma4:e4b', notifiedAt: ts(t + 30000),
+    })
+    ids.push({ id, t })
+  }
+  const newest = ids[ids.length - 1]
+  if (newest) {
+    const reaction = { memoId: newest.id, patientUid: momUid, actorUid: kidUid, actorName: kidName, status: 'ready', notified: true }
+    await db.doc(`reactions/${newest.id}_${kidUid}`).set({ ...reaction, kind: 'heart', createdAt: ts(newest.t + 60e3) })
+    await db.collection('reactions').add({ ...reaction, kind: 'comment', text: '엄마 산책 잘하셨어요!', createdAt: ts(newest.t + 120e3) })
+  }
+  return ids.map((m) => m.id)
+}

@@ -52,16 +52,23 @@ export function consentButtonLabel(caregivers: { status: string; caregiverName?:
 
 /**
  * Whose records the app opens on: the stored choice while it is still
- * reachable (yourself, or a parent whose account still exists), else
- * yourself.
+ * reachable (yourself, or a parent whose account still exists); with
+ * nothing stored, the first parent whose name is known when `preferParent`
+ * (the simple edition: the child opens the app to see the parent's day),
+ * else yourself.
  */
-export function pickActivePatient({ stored, selfUid, patientUids, names }: {
+export function pickActivePatient({ stored, selfUid, patientUids, names, preferParent = false }: {
   stored: string | null
   selfUid: string
   patientUids: string[]
   names: Record<string, NameState>
+  preferParent?: boolean
 }): string {
   const reachable = patientUids.filter((uid) => names[uid] !== null)
   if (stored && (stored === selfUid || reachable.includes(stored))) return stored
+  if (preferParent) {
+    const listed = patientUids.find((uid) => typeof names[uid] === 'string')
+    if (listed) return listed
+  }
   return selfUid
 }

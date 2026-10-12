@@ -10,6 +10,8 @@ import { Reactions, type ReactionsContext } from '../components/Reactions'
 import { S } from '../lib/strings'
 import type { Memo } from '../types'
 
+const dayKey = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
+
 /** A photo still on this phone, waiting to be sent. */
 function WaitingPhoto({ item }: { item: OutboxItem }) {
   const url = useMemo(() => URL.createObjectURL(item.blob), [item.blob])
@@ -35,7 +37,7 @@ function WaitingPhoto({ item }: { item: OutboxItem }) {
  * phone are listed first. `readOnly` (an elder's linked phone) hides the
  * delete buttons.
  */
-export function Today({ memos, onOpen, uid, readOnly = false, rx, onOpenTrail, onOpenVoiceAlbum }: { memos: Memo[]; onOpen: (id: string) => void; uid?: string; readOnly?: boolean; /** Hearts and comments under each photo (family feed). */ rx?: ReactionsContext; /** 다녀온 곳 for one day (shown on days that have a located photo). */ onOpenTrail?: (day: Date) => void; /** 목소리 앨범, on a plan that includes it (family only). */ onOpenVoiceAlbum?: () => void }) {
+export function Today({ memos, onOpen, uid, readOnly = false, rx, onOpenTrail, onOpenVoiceAlbum, focusDay, onFocused }: { memos: Memo[]; onOpen: (id: string) => void; uid?: string; readOnly?: boolean; /** Hearts and comments under each photo (family feed). */ rx?: ReactionsContext; /** 다녀온 곳 for one day (shown on days that have a located photo). */ onOpenTrail?: (day: Date) => void; /** 목소리 앨범, on a plan that includes it (family only). */ onOpenVoiceAlbum?: () => void; /** Open scrolled to this day's photos (어제 보기 on the home), once. */ focusDay?: Date | null; onFocused?: () => void }) {
   const toast = useToast()
   // Hide a waiting photo once its memo shows up from the server.
   const memoIds = useMemo(() => new Set(memos.map((m) => m.id)), [memos])
@@ -50,12 +52,20 @@ export function Today({ memos, onOpen, uid, readOnly = false, rx, onOpenTrail, o
     const map = new Map<string, { date: Date; items: Memo[] }>()
     for (const m of memos) {
       const d = m.takenAt.toDate()
-      const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
+      const key = dayKey(d)
       if (!map.has(key)) map.set(key, { date: d, items: [] })
       map.get(key)!.items.push(m)
     }
     return Array.from(map.values())
   }, [memos])
+
+  // 어제 보기: land on that day's header, then forget the request.
+  useEffect(() => {
+    if (!focusDay) return
+    const el = document.querySelector(`[data-day="${dayKey(focusDay)}"]`)
+    el?.scrollIntoView({ block: 'start' })
+    onFocused?.()
+  }, [focusDay, onFocused, groups])
 
   const onDelete = (m: Memo) => (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -89,7 +99,7 @@ export function Today({ memos, onOpen, uid, readOnly = false, rx, onOpenTrail, o
         </div>
       ) : (
         groups.map((g) => (
-          <div key={g.date.toISOString()}>
+          <div key={g.date.toISOString()} data-day={dayKey(g.date)}>
             <div className="q-datehdr">
               {relativeDateLabel(g.date)}
               {onOpenTrail && g.items.some((m) => typeof m.lat === 'number' && typeof m.lng === 'number') && (

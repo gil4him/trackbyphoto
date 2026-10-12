@@ -65,4 +65,13 @@ describe('pickActivePatient', () => {
     expect(pickActivePatient({ ...base, stored: 'gone' })).toBe('me')
     expect(pickActivePatient({ ...base, names: { mom: '엄마', dad: null }, stored: 'dad' })).toBe('me')
   })
+
+  it('simple edition: with nothing stored, the first parent whose name is known', () => {
+    expect(pickActivePatient({ ...base, stored: null, preferParent: true })).toBe('mom')
+    expect(pickActivePatient({ ...base, names: { mom: null, dad: '아빠' }, stored: null, preferParent: true })).toBe('dad')
+    expect(pickActivePatient({ ...base, names: {}, stored: null, preferParent: true })).toBe('me')
+    expect(pickActivePatient({ ...base, patientUids: [], names: {}, stored: null, preferParent: true })).toBe('me')
+    // A stored choice (내 계정 included) still wins.
+    expect(pickActivePatient({ ...base, stored: 'me', preferParent: true })).toBe('me')
+  })
 })

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, lazy, Suspense } from 'react'
+import { useEffect, useMemo, useState, lazy, Suspense, useCallback } from 'react'
 import { Capacitor } from '@capacitor/core'
 import { doc, onSnapshot, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from './firebase'
@@ -21,7 +21,7 @@ import { setFaviconBadge } from './lib/favicon'
 import { Tabs, type TabKey } from './components/Tabs'
 import { ToastProvider } from './components/Toast'
 import { PatientSwitcher } from './components/PatientSwitcher'
-import { Home } from './pages/Home'
+import { Home, ParentDayHome } from './pages/Home'
 import { Today } from './pages/Today'
 import { SignIn } from './pages/SignIn'
 import { AcceptInvite, PENDING_INVITE_KEY } from './pages/AcceptInvite'
@@ -139,6 +139,9 @@ function App() {
   // a patient they're an active caregiver on. `activePatientUid` is the
   // patientUid we're currently rendering — defaults to the signed-in user.
   const [activePatientUid, setActivePatientUid] = useState<string | null>(null)
+  // 어제 보기 › on the parent's day: the 사진 tab opens scrolled to this day, once.
+  const [todayFocus, setTodayFocus] = useState<Date | null>(null)
+  const clearTodayFocus = useCallback(() => setTodayFocus(null), [])
   // /accept is its own URL: the 가족초대 link sent by KakaoTalk or text message
   // is trackbyphoto.web.app/accept?code=123456.
   const [showAcceptInvite, setShowAcceptInvite] = useState(false)
@@ -209,6 +212,8 @@ function App() {
       selfUid: user.uid,
       patientUids: patients.map((p) => p.patientUid),
       names: patientNames,
+      // The simple edition opens on the parent's day, not one's own home.
+      preferParent: isSimple(),
     }))
     // Re-evaluate when the patients list arrives — a revoked membership
     // should bounce us back to self automatically.
@@ -505,6 +510,12 @@ function App() {
   // Tapping the askbtn from Home jumps to the Ask tab — that way it has a
   // place in the nav and back-by-tab works naturally.
   const openAsk = () => onTabChange('ask')
+  // 어제 보기 › on the parent's day: the 사진 tab, scrolled to yesterday.
+  const openYesterday = () => {
+    const d = new Date(); d.setDate(d.getDate() - 1)
+    setTodayFocus(d)
+    onTabChange('today')
+  }
 
   // The card replaces the plain banner lines for family reactions; opening
   // 가족 소식 clears those notices.
@@ -681,7 +692,22 @@ function App() {
             <>
               {tab === 'home'     && pushOn && <InstallHint />}
               {tab === 'alerts'   && <Notifications uid={user.uid} onOpen={openNotice} digestOn={digestOn} emailOffered={flagOn(plans, 'emailDigest')} messengerIncluded={flagOn(plans, 'messengerFree') || ent?.messenger === true} messengerFrom={fromTier(plans, 'messenger')} />}
-              {tab === 'home'     && <Home uid={activePatientUid || user.uid} patientName={settings.patientName} greetingName={isSelf ? selfLabel : settings.patientName} memos={memos} onOpenAsk={openAsk} onOpen={setSelectedMemoId} canCapture={isSelf} notifications={bannerNotices} onDismissNotification={dismissNotification} topCard={isSimple() && isSelf && !membershipsLoading && patients.length === 0 ? <ConnectParentCard onOpen={() => setConnectingParent(true)} /> : pushOn && patients.length > 0 ? <PushNudge /> : undefined} canSendPhoto={!!sendToParent} sentPhotos={familyPhotosOn && !isSelf ? <SentFamilyPhotos photos={familyPhotos} myUid={user.uid} /> : undefined} />}
+              {tab === 'home'     && (isSimple() && !isSelf ? (
+                <ParentDayHome
+                  parentName={settings.patientName}
+                  memos={memos}
+                  byMemo={rx?.byMemo}
+                  home={homeFor(settings.home, memos)}
+                  onOpen={setSelectedMemoId}
+                  onYesterday={openYesterday}
+                  notifications={bannerNotices}
+                  onDismissNotification={dismissNotification}
+                  topCard={pushOn ? <PushNudge /> : undefined}
+                  sentPhotos={familyPhotosOn ? <SentFamilyPhotos photos={familyPhotos} myUid={user.uid} /> : undefined}
+                />
+              ) : (
+                <Home uid={activePatientUid || user.uid} patientName={settings.patientName} greetingName={isSelf ? selfLabel : settings.patientName} memos={memos} onOpenAsk={openAsk} onOpen={setSelectedMemoId} canCapture={isSelf} notifications={bannerNotices} onDismissNotification={dismissNotification} topCard={isSimple() && isSelf && !membershipsLoading && patients.length === 0 ? <ConnectParentCard onOpen={() => setConnectingParent(true)} /> : pushOn && patients.length > 0 ? <PushNudge /> : undefined} canSendPhoto={!!sendToParent} sentPhotos={familyPhotosOn && !isSelf ? <SentFamilyPhotos photos={familyPhotos} myUid={user.uid} /> : undefined} connectOnly={isSimple() && isSelf && !membershipsLoading && patients.length === 0} />
+              ))}
               {connectingParent && (
                 <RegisterElder
                   onClose={() => setConnectingParent(false)}
@@ -689,7 +715,7 @@ function App() {
                   takenNames={people.map((p) => p.name)}
                 />
               )}
-              {tab === 'today'    && <Today memos={memos} onOpen={setSelectedMemoId} uid={activePatientUid || user.uid} rx={rx} onOpenTrail={trailOn ? openDayTrail : undefined} onOpenVoiceAlbum={voiceAlbumOn ? () => setVoiceAlbum(true) : undefined} />}
+              {tab === 'today'    && <Today memos={memos} onOpen={setSelectedMemoId} uid={activePatientUid || user.uid} rx={rx} onOpenTrail={trailOn ? openDayTrail : undefined} onOpenVoiceAlbum={voiceAlbumOn ? () => setVoiceAlbum(true) : undefined} focusDay={todayFocus} onFocused={clearTodayFocus} />}
               {tab === 'ask'      && <Ask memos={memos} onOpen={setSelectedMemoId} />}
               {tab === 'settings' && (
                 <Settings
