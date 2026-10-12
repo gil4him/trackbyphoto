@@ -14,6 +14,9 @@ service firebase.storage {
     }
 
     // Photos family send to a parent: familyPhotos/{patientUid}/{id}.jpg
+    // member() reads Firestore from Storage rules (cross-service): the
+    // project's Storage service agent needs roles/firebaserules.firestoreServiceAgent,
+    // which `firebase deploy --only storage` grants when it uploads these rules.
     // Uploaded by an active family member of that parent (the record's own
     // rules decide who may send); seen by the parent's phone and the family
     // through the worker's link. Removed by the sender through the record,
