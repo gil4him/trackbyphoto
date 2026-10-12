@@ -46,9 +46,18 @@ node -e "
 cp "$PLIST" "$APP/ios/App/App/GoogleService-Info.plist"
 cp "$JSON" "$APP/android/app/google-services.json"
 
+# Google sign-in on iPhone returns to the app through a URL scheme that is
+# the edition's REVERSED_CLIENT_ID. Info.plist hard-codes it (the google-signin
+# entry under CFBundleURLTypes), so switching editions must rewrite it too, or
+# sign-in on the shipped build never comes back to the app.
+INFO="$APP/ios/App/App/Info.plist"
+reversed=$(/usr/libexec/PlistBuddy -c 'Print REVERSED_CLIENT_ID' "$PLIST")
+[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleURLTypes:0:CFBundleURLName' "$INFO")" = google-signin ] \
+  || fail "Info.plist: CFBundleURLTypes[0] is not the google-signin entry"
+/usr/libexec/PlistBuddy -c "Set :CFBundleURLTypes:0:CFBundleURLSchemes:0 $reversed" "$INFO"
+
 # The microphone is only for voice replies, which the simple edition doesn't
 # have, so its store builds don't ask for it. Full (the committed state) does.
-INFO="$APP/ios/App/App/Info.plist"
 MANIFEST="$APP/android/app/src/main/AndroidManifest.xml"
 MIC_TEXT='가족에게 목소리로 답장을 남기기 위해 마이크를 사용해요.'
 if [ "$ED" = simple ]; then

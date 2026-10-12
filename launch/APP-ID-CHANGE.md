@@ -44,6 +44,11 @@ can't be changed).
     with that key, so without it sign-in fails for people who install from Play.
 - [ ] Download the new **google-services.json** → give it to Claude (it replaces
       `app/android/app/google-services.json`).
+- [ ] **Do the same in the `daylie-simple-4df13` project** — that is what the store build
+      (edition `simple`) ships against. As of 2026-10-12 its `config/simple/google-services.json`
+      has no OAuth client and no SHA fingerprint for `com.zymer.daylie`, so Google sign-in on
+      Android fails in the shipped build. Add the fingerprints above to the simple project's
+      Android app, re-download its `google-services.json` into `config/simple/`.
 
 ## 2. Firebase — new iOS app
 
@@ -51,9 +56,8 @@ can't be changed).
 - [ ] Download the new **GoogleService-Info.plist** → give it to Claude (it replaces
       `app/ios/App/App/GoogleService-Info.plist`).
   - Note: `app/ios/App/App/Info.plist` hard-codes the Google sign-in URL scheme
-    (`com.googleusercontent.apps.…`). If the new plist has a different
-    `REVERSED_CLIENT_ID`, Claude must update that line too, or Google sign-in on iPhone
-    won't come back to the app.
+    (`com.googleusercontent.apps.…`). `npm run native:<edition>` now rewrites it from that
+    edition's `REVERSED_CLIENT_ID`, so it is right for whichever edition is being built.
 - [ ] Cloud Messaging (push): Project settings → Cloud Messaging → the **new** iOS app →
       upload the APNs auth key (.p8) again. It's per app, so it doesn't carry over.
 - [ ] Once both new apps work, you can delete the old `com.gil4him.trackbyphoto` apps from
@@ -64,11 +68,12 @@ can't be changed).
 - [x] developer.apple.com → Certificates, IDs & Profiles → Identifiers → **+** → App IDs → App
   - Bundle ID (explicit): `com.zymer.daylie`
   - Capabilities: ☑ **Push Notifications**, ☑ **Sign in with Apple**
-- Heads-up: the iOS project currently has **no `.entitlements` file**, and the app only
-  signs in with Google (`providers: ['google.com']`). Turning the capabilities on in the
-  portal is enough for the profile; the app itself still needs an entitlements file
-  (`aps-environment`, and Sign in with Apple if you add it) before iPhone push or Apple
-  login will actually work. Ask Claude for that as a separate change.
+- [x] `app/ios/App/App/App.entitlements` asks for push (`aps-environment`), Sign in with
+      Apple and Associated Domains (`applinks:dayliesimple.web.app`).
+- [ ] The portal App ID also needs ☑ **Associated Domains**. The match profile on this Mac
+      (2026-10-12) carries push and Sign in with Apple but **not** Associated Domains, so
+      the next store build fails to sign until the profile is remade: turn the capability on,
+      then from `app/` run `bundle exec fastlane refresh_ios_profile`.
 
 ## 4. Signing — regenerate with match
 
