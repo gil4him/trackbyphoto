@@ -17,7 +17,7 @@ import type { ReactionsContext } from '../components/Reactions'
 import { unlinkedFrom } from '../lib/device'
 import { resetIfAccountGone } from '../hooks/useAuth'
 import { isSimple } from '../lib/edition'
-import type { FamilyPhoto, Memo, Reaction, TextReplies } from '../types'
+import type { Memo, Reaction, TextReplies } from '../types'
 import { cardLine } from '../lib/familyPhotosModel'
 import { CameraFab } from '../components/CameraFab'
 import { TextSizeFab } from '../components/TextSizeFab'
@@ -149,7 +149,7 @@ export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn
         ) : view === 'records' ? (
           <div className="text-scaled" style={textStyle}>
             <button className="elder-back" onClick={() => setView('home')}>‹ 처음으로</button>
-            <Today memos={memos} onOpen={setOpenId} uid={uid} readOnly />
+            <Today memos={memos} onOpen={setOpenId} uid={uid} readOnly rx={rx} />
             {isSimple() && <TextSizeFab level={textLevel} onNext={biggerText} />}
             <CameraFab label="카메라로 돌아가기" onClick={backToCamera} />
           </div>
@@ -157,7 +157,7 @@ export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn
           <ElderCamera
             uid={uid}
             reactions={reactions}
-            photos={familyPhotosOn ? newPhotosLine(familyPhotos) : null}
+            photos={familyPhotosOn ? cardLine(familyPhotos) : null}
             onOpenRecords={() => setView('records')}
             onOpenPhotos={() => setPhotosOpen(true)}
           />
@@ -183,10 +183,4 @@ export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn
       </main>
     </div>
   )
-}
-
-/** The camera's bubble line while a photo from family is new, else null. */
-function newPhotosLine(photos: FamilyPhoto[]): string | null {
-  const card = cardLine(photos)
-  return card?.lit ? card.line : null
 }

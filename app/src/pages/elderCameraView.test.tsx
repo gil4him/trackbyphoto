@@ -84,7 +84,7 @@ describe('ElderCameraView', () => {
 
   it('shows a new photo from family first, before hearts and comments', () => {
     const html = renderToString(
-      <ElderCameraView phase="live" busy={false} overlay={null} news={null} photos="지은이 사진을 보냈어요"
+      <ElderCameraView phase="live" busy={false} overlay={null} news={null} photos={{ line: '지은이 사진을 보냈어요', lit: true }}
         onShutter={() => {}} onDismissNews={() => {}} onOpenRecords={() => {}} onRetry={() => {}} />,
     )
     expect(html).toContain('지은이 사진을 보냈어요')
@@ -94,5 +94,17 @@ describe('ElderCameraView', () => {
   it('has a camera switch next to the shutter', () => {
     const html = render({ phase: 'live' })
     expect(html).toContain('aria-label="카메라 전환"')
+  })
+})
+
+describe('the family-photo bubble, looked at already', () => {
+  it('stays for the day, quiet, and still opens the photos', () => {
+    const out = renderToString(
+      <ElderCameraView phase="live" busy={false} overlay={null} news={null} photos={{ line: '가족 사진 다시 보기', lit: false }}
+        onShutter={() => {}} onDismissNews={() => {}} onOpenRecords={() => {}} onRetry={() => {}} />,
+    )
+    expect(out).toContain('class="elder-cam-bubble dim"')
+    expect(out).toContain('가족 사진 다시 보기')
+    expect(out).not.toContain('class="elder-cam-bubble"')
   })
 })

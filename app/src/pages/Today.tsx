@@ -101,7 +101,10 @@ export function Today({ memos, onOpen, uid, rx, onOpenTrail, onOpenVoiceAlbum, f
               )}
             </div>
             {g.items.map((m) => {
-              const counts = rowCounts(rx?.byMemo.get(m.id))
+              const items = rx?.byMemo.get(m.id)
+              const counts = rowCounts(items)
+              // On the parent's own phone: family left something they have not seen yet.
+              const fresh = !!rx && !rx.canReact && (items ?? []).some((r) => r.actorUid !== rx.patientUid && r.status === 'ready' && !r.readByElderAt)
               return (
                 <button
                   type="button"
@@ -116,7 +119,7 @@ export function Today({ memos, onOpen, uid, rx, onOpenTrail, onOpenVoiceAlbum, f
                     <div className="act">{cardTitle(m, serverDown)}</div>
                     <div className="desc">{[m.place, fmtTime(m.takenAt.toDate())].filter(Boolean).join(' · ')}</div>
                   </div>
-                  {counts && <span className="tl-rx">{counts}</span>}
+                  {counts && <span className={`tl-rx${fresh ? ' fresh' : ''}`}>{counts}{fresh && <span className="tl-rx-dot" aria-label="새 소식" />}</span>}
                 </button>
               )
             })}

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { TextReply } from '../components/TextReply'
 import { markFamilyPhotoSeen, replyToFamilyPhoto } from '../lib/familyPhotos'
+import { keepFamilyPhotoOnDevice } from '../lib/familyPhotoKeep'
 import { viewerOrder } from '../lib/familyPhotosModel'
 import { S } from '../lib/strings'
 import type { FamilyPhoto, TextReplies } from '../types'
@@ -12,13 +13,15 @@ import type { FamilyPhoto, TextReplies } from '../types'
  * or a written line). New photos come first. The order is fixed
  * when the screen opens, so a photo doesn't jump away as it is marked seen.
  */
-export function FamilyPhotoViewer({ photos, textMode = 'full', onDone, mark = markFamilyPhotoSeen, reply = replyToFamilyPhoto }: {
+export function FamilyPhotoViewer({ photos, textMode = 'full', onDone, mark = markFamilyPhotoSeen, reply = replyToFamilyPhoto, keep = keepFamilyPhotoOnDevice }: {
   photos: FamilyPhoto[]
   textMode?: TextReplies
   onDone: () => void
   /** Injected for tests. */
   mark?: (id: string) => Promise<void>
   reply?: typeof replyToFamilyPhoto
+  /** A copy on this phone, once (familyPhotoKeep). */
+  keep?: (p: FamilyPhoto) => Promise<void>
 }) {
   const [order] = useState(() => viewerOrder(photos))
   const [index, setIndex] = useState(0)
@@ -32,10 +35,12 @@ export function FamilyPhotoViewer({ photos, textMode = 'full', onDone, mark = ma
 
   useEffect(() => {
     const p = order[index]
-    if (!p || p.seenAtMs || seen.current.has(p.id)) return
+    if (!p) return
+    void keep(p) // its own once-per-photo memory
+    if (p.seenAtMs || seen.current.has(p.id)) return
     seen.current.add(p.id)
     mark(p.id).catch((err) => console.warn('[familyPhoto] not marked seen', err))
-  }, [order, index, mark])
+  }, [order, index, mark, keep])
 
   // "보냈어요 ✓" for a moment, then the next photo, or home when it was the last.
   useEffect(() => {

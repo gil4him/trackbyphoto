@@ -220,7 +220,10 @@ main { padding: 18px 22px calc(110px + var(--safe-bot)); }
 .tl-body { display: flex; flex-direction: column; min-width: 0; flex: 1; gap: 3px; }
 .tl-item .act { font-size: 17px; font-weight: 700; letter-spacing: -.3px; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
 .tl-item .desc { font-size: 15px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tl-rx { flex: none; align-self: center; font-size: 15px; color: var(--muted); white-space: nowrap; }
+.tl-rx { flex: none; align-self: center; font-size: 15px; color: var(--muted); white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
+/* The parent's phone: family left something not yet looked at. */
+.tl-rx.fresh { color: var(--ink); font-weight: 700; }
+.tl-rx-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); }
 
 .empty { text-align: center; color: var(--muted); padding: 50px 20px; }
 .empty .big { font-size: 48px; margin-bottom: 12px; }
@@ -1156,6 +1159,9 @@ html:not(.camera-live) .elder-cam { background: #000; }
   font: inherit; font-size: 26px; font-weight: 700; line-height: 1.3; text-align: left;
   box-shadow: 0 10px 30px rgba(0, 0, 0, .25);
 }
+/* Looked at already: the same bubble, quiet, for the rest of the day. */
+.elder-cam-bubble.dim { background: rgba(255, 255, 255, .82); border-color: var(--line); color: var(--muted); font-size: 22px; min-height: 60px; box-shadow: none; }
+.elder-cam-bubble.dim .elder-cam-bubble-icon { font-size: 26px; opacity: .8; }
 .elder-cam-bubble-icon { font-size: 32px; flex: none; }
 .elder-cam-bubble-body { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .elder-cam-bubble-body > span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }

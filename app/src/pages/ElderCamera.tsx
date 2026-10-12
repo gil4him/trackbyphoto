@@ -38,8 +38,9 @@ export function ElderCameraView({ phase, busy, overlay, news, photos = null, ask
   onFlip?: () => void
   /** Above the camera-switch button: the web's 아이콘 만들기. */
   corner?: ReactNode
-  /** "민수가 사진을 보냈어요" while a photo from family is new, else null. */
-  photos?: string | null
+  /** "민수가 사진을 보냈어요" while a photo from family is new (lit), the dim
+   *  "가족 사진 다시 보기" for the rest of that day, else null. */
+  photos?: { line: string; lit: boolean } | null
   onOpenPhotos?: () => void
   /** A plain sentence before a permission question (ElderAsk), or null. */
   ask?: string | null
@@ -59,9 +60,9 @@ export function ElderCameraView({ phase, busy, overlay, news, photos = null, ask
       <div id={FEED_ID} className="elder-cam-feed" />
 
       {photos && (
-        <button type="button" className="elder-cam-bubble" onClick={onOpenPhotos}>
+        <button type="button" className={`elder-cam-bubble${photos.lit ? '' : ' dim'}`} onClick={onOpenPhotos}>
           <span className="elder-cam-bubble-icon" aria-hidden="true">🖼️</span>
-          <span className="elder-cam-bubble-body"><span>{photos}</span></span>
+          <span className="elder-cam-bubble-body"><span>{photos.line}</span></span>
         </button>
       )}
 
@@ -124,8 +125,8 @@ export function ElderCamera({ uid, reactions, photos = null, onOpenRecords, onOp
   uid: string
   /** This parent's reactions; null while reactions aren't rolled out. */
   reactions: Reaction[] | null
-  /** The line for a new photo from family (familyPhotosModel cardLine), or null. */
-  photos?: string | null
+  /** The family-photo bubble (familyPhotosModel cardLine), or null. */
+  photos?: { line: string; lit: boolean } | null
   onOpenRecords: () => void
   onOpenPhotos?: () => void
 }) {

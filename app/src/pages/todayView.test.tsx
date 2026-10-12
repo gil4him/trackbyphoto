@@ -48,6 +48,18 @@ describe('Today', () => {
     expect(out).not.toContain('좋아요')
   })
 
+  it("on the parent's own phone, a heart or word they have not seen marks the card", () => {
+    const own = (items: Record<string, Partial<Reaction>[]>) => ({ ...rx(items), canReact: false, me: { uid: 'p1', name: '엄마' } }) as ReactionsContext
+    const fresh = render({ rx: own({ a: [{ kind: 'heart', actorName: '지민', actorUid: 'me', status: 'ready' }] }) })
+    expect(fresh).toContain('class="tl-rx fresh"')
+    expect(fresh).toContain('aria-label="새 소식"')
+    const seen = render({ rx: own({ a: [{ kind: 'heart', actorName: '지민', actorUid: 'me', status: 'ready', readByElderAt: {} as never }] }) })
+    expect(seen).toContain('class="tl-rx"')
+    expect(seen).not.toContain('새 소식')
+    // The family's own list never carries the mark.
+    expect(render({ rx: rx({ a: [{ kind: 'heart', actorName: '지민', actorUid: 'me', status: 'ready' }] }) })).not.toContain('fresh')
+  })
+
   it('day headers are quiet captions; 다녀온 곳 › only in the full edition', () => {
     edition.simple = false
     const full = render({ onOpenTrail: () => {} })

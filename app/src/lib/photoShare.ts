@@ -27,13 +27,13 @@ export function photoShareText(memo: Pick<Memo, 'takenAt' | 'place' | 'memo'>): 
   return memo.memo ? `${head}\n${memo.memo}` : head
 }
 
-async function photoBlob(url: string): Promise<Blob> {
+export async function photoBlob(url: string): Promise<Blob> {
   const res = await fetch(url)
   if (!res.ok) throw new Error(`photo ${res.status}`)
   return res.blob()
 }
 
-function blobToBase64(blob: Blob): Promise<string> {
+export function blobToBase64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = () => resolve(String(reader.result).replace(/^data:[^,]*,/, ''))
@@ -42,7 +42,7 @@ function blobToBase64(blob: Blob): Promise<string> {
   })
 }
 
-function downloadBlob(blob: Blob, name: string): void {
+export function downloadBlob(blob: Blob, name: string): void {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url

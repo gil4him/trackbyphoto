@@ -45,13 +45,20 @@ export function MemoDetail({ memo, onBack, readOnly = false, rx }: { memo: Memo;
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
 
-  // Family opening the page has seen the parent's replies on this photo.
+  // Family opening the page has seen the parent's replies on this photo; the
+  // parent opening their own photo has seen the family's hearts and words.
   const unseenReplies = rx?.canReact
     ? (rx.byMemo.get(memo.id) ?? []).filter((r) => r.actorUid === rx.patientUid && !r.readByFamilyAt && r.status === 'ready').map((r) => r.id).join(',')
+    : ''
+  const unseenByOwner = rx && !rx.canReact
+    ? (rx.byMemo.get(memo.id) ?? []).filter((r) => r.actorUid !== rx.patientUid && !r.readByElderAt && r.status === 'ready').map((r) => r.id).join(',')
     : ''
   useEffect(() => {
     if (unseenReplies) markRead(unseenReplies.split(','), 'family')
   }, [unseenReplies])
+  useEffect(() => {
+    if (unseenByOwner) markRead(unseenByOwner.split(','), 'elder')
+  }, [unseenByOwner])
 
   const takenAt = memo.takenAt.toDate()
   const badge = memo.memoSource ? SOURCE_BADGES[memo.memoSource] : null
