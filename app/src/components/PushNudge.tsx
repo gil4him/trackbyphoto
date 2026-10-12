@@ -2,21 +2,20 @@ import { useEffect, useState } from 'react'
 import { useToast } from './Toast'
 import { enablePush, pushState, type PushState } from '../lib/push'
 import { callWorker } from '../lib/worker'
-
-const DISMISS_KEY = 'tbp.pushNudge.dismissed'
+import { NUDGE_DISMISS_KEY as DISMISS_KEY, nudgeDismissed, nudgeDismissValue } from '../lib/nudge'
 
 /**
  * "새 사진이 오면 알려드릴까요?" for a family member whose device could get
  * pushes but hasn't been asked. The phone's own permission question appears
- * only after 알림 켜기 is tapped. Shown once: hidden for good after it is
- * closed or answered. Never rendered on a parent's linked phone.
+ * only after 알림 켜기 is tapped. Closing it (or answering) hides it for a
+ * week. Never rendered on a parent's linked phone.
  */
 export function PushNudge({ state: forced }: { /** For tests; otherwise detected. */ state?: PushState }) {
   const toast = useToast()
   const [state, setState] = useState<PushState | null>(forced ?? null)
   const [busy, setBusy] = useState(false)
   const [dismissed, setDismissed] = useState(() => {
-    try { return localStorage.getItem(DISMISS_KEY) === '1' } catch { return false }
+    try { return nudgeDismissed(localStorage.getItem(DISMISS_KEY)) } catch { return false }
   })
   useEffect(() => {
     if (forced === undefined) pushState().then(setState).catch(() => setState('unsupported'))
@@ -25,7 +24,7 @@ export function PushNudge({ state: forced }: { /** For tests; otherwise detected
   if (dismissed || state !== 'off') return null
 
   const dismiss = () => {
-    try { localStorage.setItem(DISMISS_KEY, '1') } catch { /* private mode */ }
+    try { localStorage.setItem(DISMISS_KEY, nudgeDismissValue()) } catch { /* private mode */ }
     setDismissed(true)
   }
   const turnOn = async () => {

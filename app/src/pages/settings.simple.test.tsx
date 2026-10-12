@@ -10,6 +10,7 @@ vi.mock('../hooks/useMemberships', () => ({
 }))
 vi.mock('../components/Toast', () => ({ useToast: () => ({ show: () => {} }) }))
 vi.mock('../components/ElderDevices', () => ({ ElderDevices: () => <div>기기 관리</div> }))
+vi.mock('../lib/push', () => ({ enablePush: vi.fn(), pushState: vi.fn(async () => 'off') }))
 
 import { Settings } from './Settings'
 import type { UserSettings } from '../types'
@@ -27,12 +28,19 @@ const html = renderToString(
     onSwitchPatient={() => {}}
     myRole="guardian"
     reactionsRollout
+    pushRollout
   />,
 )
 
 describe('Settings for a parent (simple)', () => {
   it('keeps the core sections', () => {
     for (const s of ['계정', '기기 관리', '사용자 이름', '글자 크기', '부모님 삭제', '계정 삭제']) expect(html).toContain(s)
+  })
+
+  it('has the 앱 알림 switch under 알림 (moved from the 알림 tab)', () => {
+    expect(html).toContain('앱 알림')
+    expect(html).toContain('aria-label="앱 알림 전환"')
+    expect(html.indexOf('>알림<')).toBeLessThan(html.indexOf('앱 알림'))
   })
 
   it('lets the family pick when the daily notice comes', () => {

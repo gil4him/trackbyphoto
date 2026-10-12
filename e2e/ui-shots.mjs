@@ -10,7 +10,7 @@ import { mkdir } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { initializeApp } from 'firebase-admin/app'
-import { FieldValue, getFirestore } from 'firebase-admin/firestore'
+import { FieldValue, getFirestore, Timestamp } from 'firebase-admin/firestore'
 import { serveSite } from './servers.mjs'
 import { seedDemoFamily, seedTodayMemos } from './demo-seed.mjs'
 import { click, familyAccount, launchBrowser, openPage, settle, sleep, tab, waitText } from './shot-kit.mjs'
@@ -43,6 +43,23 @@ const KID2 = { name: '수진', email: 'sujin@example.com' }
 let acct2 = null
 const newcomer = async () => (acct2 ??= await familyAccount(KID2))
 
+// A lived-in 알림 tab: today's photo and words, the evening count, a quiet
+// day, and the bookkeeping rows that fold into 연결 기록.
+async function seedNotices() {
+  const db = getFirestore()
+  const H = 3600e3
+  const at = (hoursAgo, extra = {}) => ({ recipientUid: self, patientUid: momUid, actorUid: momUid, read: true, createdAt: Timestamp.fromMillis(Date.now() - hoursAgo * H), ...extra })
+  const rows = [
+    at(0.3, { type: 'photo.new', message: '엄마님이 새 사진을 올렸어요', read: false }),
+    at(1.5, { type: 'reaction.comment', message: '엄마님이 글을 남겼어요: “고마워”', read: false }),
+    at(20, { type: 'daily.photos', message: '오늘 엄마님 사진 3장' }),
+    at(44, { type: 'checkin.no_photo', message: '오늘 아직 엄마님의 사진이 없어요' }),
+    at(70, { type: 'device.pair', message: '엄마님 휴대폰(iPhone)이 연결되었어요.' }),
+    at(71, { type: 'settings.update', message: '가족이 설정을 변경했어요.' }),
+  ]
+  for (const r of rows) await db.collection('notifications').add(r)
+}
+
 // Each phase: screen name → { as: whose records are open, go: how to get
 // there, prepare?: data to write first, account?: who is signed in }.
 const PHASES = {
@@ -72,6 +89,11 @@ const PHASES = {
     'photo-detail':   { as: momUid, go: async (p) => { await home(p, '엄마'); await tab(p, '사진'); await waitText(p, '♥'); await p.click('.tl-item'); await waitText(p, '가족 이야기') } },
     'photo-menu':     { as: momUid, go: async (p) => { await home(p, '엄마'); await tab(p, '사진'); await waitText(p, '♥'); await p.click('.tl-item'); await click(p, '더보기'); await waitText(p, '지우기') } },
     'photo-confirm':  { as: momUid, go: async (p) => { await home(p, '엄마'); await tab(p, '사진'); await waitText(p, '♥'); await p.click('.tl-item'); await click(p, '더보기'); await sleep(500); await click(p, '지우기', '.sheet-item'); await waitText(p, '이 사진을 지울까요?'); await sleep(400) } },
+  },
+  A4: {
+    'alerts':         { as: momUid, prepare: () => seedNotices(), go: async (p) => { await home(p, '엄마'); await tab(p, '알림'); await waitText(p, '연결 기록') } },
+    'alerts-history': { as: momUid, go: async (p) => { await home(p, '엄마'); await tab(p, '알림'); await waitText(p, '연결 기록'); await click(p, '연결 기록'); await waitText(p, '휴대폰(iPhone)이 연결되었어요') } },
+    'settings-alerts': { as: momUid, go: async (p) => { await home(p, '엄마'); await tab(p, '설정'); await waitText(p, '앱 알림'); await p.evaluate(() => document.querySelector('.switch[aria-label="앱 알림 전환"]')?.scrollIntoView({ block: 'center' })); await sleep(300) } },
   },
 }
 const screens = PHASES[PHASE]

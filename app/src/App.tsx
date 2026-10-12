@@ -691,7 +691,7 @@ function App() {
           ) : (
             <>
               {tab === 'home'     && pushOn && <InstallHint />}
-              {tab === 'alerts'   && <Notifications uid={user.uid} onOpen={openNotice} digestOn={digestOn} emailOffered={flagOn(plans, 'emailDigest')} messengerIncluded={flagOn(plans, 'messengerFree') || ent?.messenger === true} messengerFrom={fromTier(plans, 'messenger')} />}
+              {tab === 'alerts'   && <Notifications uid={user.uid} onOpen={openNotice} digestOn={digestOn} emailOffered={flagOn(plans, 'emailDigest')} messengerIncluded={flagOn(plans, 'messengerFree') || ent?.messenger === true} messengerFrom={fromTier(plans, 'messenger')} pushRollout={pushOn} />}
               {tab === 'home'     && (isSimple() && !isSelf ? (
                 <ParentDayHome
                   parentName={settings.patientName}
@@ -703,11 +703,11 @@ function App() {
                   onSendPhoto={sendToParent ? () => setSendTarget(sendToParent) : undefined}
                   notifications={bannerNotices}
                   onDismissNotification={dismissNotification}
-                  topCard={pushOn ? <PushNudge /> : undefined}
+                  topCard={undefined}
                   sentPhotos={familyPhotosOn ? <SentFamilyPhotos photos={familyPhotos} myUid={user.uid} /> : undefined}
                 />
               ) : (
-                <Home uid={activePatientUid || user.uid} patientName={settings.patientName} greetingName={isSelf ? selfLabel : settings.patientName} memos={memos} onOpenAsk={openAsk} onOpen={setSelectedMemoId} canCapture={isSelf} notifications={bannerNotices} onDismissNotification={dismissNotification} topCard={isSimple() && isSelf && !membershipsLoading && patients.length === 0 ? <ConnectParentCard onOpen={() => setConnectingParent(true)} /> : pushOn && patients.length > 0 ? <PushNudge /> : undefined} canSendPhoto={!!sendToParent} sentPhotos={familyPhotosOn && !isSelf ? <SentFamilyPhotos photos={familyPhotos} myUid={user.uid} /> : undefined} connectOnly={isSimple() && isSelf && !membershipsLoading && patients.length === 0} simple={isSimple()} />
+                <Home uid={activePatientUid || user.uid} patientName={settings.patientName} greetingName={isSelf ? selfLabel : settings.patientName} memos={memos} onOpenAsk={openAsk} onOpen={setSelectedMemoId} canCapture={isSelf} notifications={bannerNotices} onDismissNotification={dismissNotification} topCard={isSimple() && isSelf && !membershipsLoading && patients.length === 0 ? <ConnectParentCard onOpen={() => setConnectingParent(true)} /> : pushOn && patients.length > 0 && !isSimple() ? <PushNudge /> : undefined} canSendPhoto={!!sendToParent} sentPhotos={familyPhotosOn && !isSelf ? <SentFamilyPhotos photos={familyPhotos} myUid={user.uid} /> : undefined} connectOnly={isSimple() && isSelf && !membershipsLoading && patients.length === 0} simple={isSimple()} />
               ))}
               {connectingParent && (
                 <RegisterElder
@@ -739,6 +739,7 @@ function App() {
                   onOpenPlans={planOn && plans ? setPlanSheet : undefined}
                   planName={TIER_NAME[settings.plan?.tier ?? 'free']}
                   familyLimit={ent?.familyMembers ?? null}
+                  pushRollout={pushOn}
                 />
               )}
             </>

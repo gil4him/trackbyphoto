@@ -27,6 +27,7 @@ import type { PlanTier } from '../types'
 import { isSimple } from '../lib/edition'
 import { LegalLinks } from '../components/LegalLinks'
 import { SectLab } from '../components/SectLab'
+import { PushToggle } from '../components/PushToggle'
 
 /** Version of the 음성 답장 consent text shown below. */
 const VOICE_CONSENT_VERSION = 'voice-v1'
@@ -69,13 +70,15 @@ interface Props {
   planName?: string
   /** How many family members the plan shares with; null when it isn't known. */
   familyLimit?: number | null
+  /** Family push is rolled out: the simple edition's 설정 › 알림 has the 앱 알림 switch. */
+  pushRollout?: boolean
 }
 
 // The simple edition adds 알림 시간 (the evening photo count) and leaves out
 // the developer note.
 const simple = isSimple()
 
-export function Settings({ settings, onChange, user, onSignOut, memos, activePatientUid, isSelf, onSwitchPatient, myRole, voiceRollout = false, reactionsRollout = false, digestRollout = false, weeklyIncluded = false, weeklyFrom = null, people = [], familyPhotosRollout = false, onOpenPlans, planName, familyLimit = null }: Props) {
+export function Settings({ settings, onChange, user, onSignOut, memos, activePatientUid, isSelf, onSwitchPatient, myRole, voiceRollout = false, reactionsRollout = false, digestRollout = false, weeklyIncluded = false, weeklyFrom = null, people = [], familyPhotosRollout = false, onOpenPlans, planName, familyLimit = null, pushRollout = false }: Props) {
   const toast = useToast()
   // A family-managed elder (부모님 등록하기): family runs 가족 관리 and
   // 기기 관리 for them, since the elder's phone has no settings at all.
@@ -674,18 +677,25 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
         </div>
       )}
 
-      {/* Simple edition: when the daily "오늘 엄마님의 사진 n장" notice comes
+      {/* Simple edition: 알림 — the 앱 알림 switch (this device + the account),
+          and for a parent when the daily "오늘 엄마님의 사진 n장" notice comes
           (worker/src/handlers/dailyNotice.ts reads digest.hourLocal). */}
-      {simple && !isSelf && canManageHere && (
+      {simple && (pushRollout || (!isSelf && canManageHere)) && (
         <div className="sect">
-          <SectLab info="매일 이 시간에 오늘 사진 몇 장인지 알려드려요.">알림 시간</SectLab>
-          <div className="seg">
-            {noticeHourChoices(digest.hourLocal).map((h) => (
-              <button key={h} className={digest.hourLocal === h ? 'on' : ''} disabled={digestBusy} onClick={() => changeDigest({ hourLocal: h })}>
-                {noticeHourLabel(h)}
-              </button>
-            ))}
-          </div>
+          <SectLab>알림</SectLab>
+          {pushRollout && <PushToggle uid={user.uid} />}
+          {!isSelf && canManageHere && (
+            <>
+              <SectLab info="매일 이 시간에 오늘 사진 몇 장인지 알려드려요.">알림 시간</SectLab>
+              <div className="seg">
+                {noticeHourChoices(digest.hourLocal).map((h) => (
+                  <button key={h} className={digest.hourLocal === h ? 'on' : ''} disabled={digestBusy} onClick={() => changeDigest({ hourLocal: h })}>
+                    {noticeHourLabel(h)}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       )}
 
