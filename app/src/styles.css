@@ -196,16 +196,18 @@ main { padding: 18px 22px calc(110px + var(--safe-bot)); }
 /* 어제 보기 › lands on a day's header, clear of the sticky account bar. */
 [data-day] { scroll-margin-top: calc(var(--safe-top) + 84px); }
 
+/* One photo as a card: 88px thumbnail, title, place · time, and on the
+   right what family left on it. Day headers are quiet captions. */
+.tl-day { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin: 18px 2px 10px; font-size: 15px; font-weight: 700; color: var(--muted); }
 .tl-item {
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: 18px;
-  padding: 12px;
-  margin-bottom: 13px;
+  background: var(--surface);
+  border: 2px solid var(--line);
+  border-radius: 16px;
+  padding: 10px;
+  margin-bottom: 10px;
   display: flex;
-  gap: 13px;
+  gap: 12px;
   align-items: center;
-  box-shadow: 0 8px 20px -16px rgba(0,0,0,.3);
   width: 100%;
   appearance: none; -webkit-appearance: none; font: inherit; color: inherit;
   text-align: left; cursor: pointer;
@@ -213,20 +215,12 @@ main { padding: 18px 22px calc(110px + var(--safe-bot)); }
 }
 .tl-item:active { background: var(--accent-tint); }
 .tl-thumb { width: 64px; height: 64px; border-radius: 14px; flex-shrink: 0; object-fit: cover; overflow: hidden; background: var(--surface-dim); }
+.tl-item .tl-thumb { width: 88px; height: 88px; }
 .tl-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.tl-body { display: flex; flex-direction: column; min-width: 0; flex: 1; }
-.tl-item .when { font-size: 15px; color: var(--muted); font-weight: 700; }
-.tl-item .act { font-size: 17px; font-weight: 700; letter-spacing: -.3px; margin-top: 1px; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
-.tl-item .desc { font-size: 15px; color: var(--ink-2); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-.del-btn {
-  position: absolute; top: 6px; right: 6px;
-  width: 26px; height: 26px; border: none; border-radius: 50%;
-  background: rgba(0,0,0,.5); color: #fff;
-  font-size: 14px; font-weight: 700; line-height: 1; padding: 0;
-  cursor: pointer; display: grid; place-items: center;
-}
-.del-btn:active { transform: scale(0.9); }
+.tl-body { display: flex; flex-direction: column; min-width: 0; flex: 1; gap: 3px; }
+.tl-item .act { font-size: 17px; font-weight: 700; letter-spacing: -.3px; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.tl-item .desc { font-size: 15px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tl-rx { flex: none; align-self: center; font-size: 15px; color: var(--muted); white-space: nowrap; }
 
 .empty { text-align: center; color: var(--muted); padding: 50px 20px; }
 .empty .big { font-size: 48px; margin-bottom: 12px; }
@@ -532,10 +526,10 @@ main { padding: 18px 22px calc(110px + var(--safe-bot)); }
 .text-scaled .d-place { font-size: calc(16px * var(--text-scale)); }
 .text-scaled .d-address, .text-scaled .d-map-link { font-size: calc(15px * var(--text-scale)); }
 .text-scaled .q-datehdr { font-size: calc(16px * var(--text-scale)); }
-.text-scaled .tl-item .when { font-size: calc(15px * var(--text-scale)); }
 .text-scaled .tl-item .act { font-size: calc(17px * var(--text-scale)); }
 /* Bigger text wraps instead of being cut off. */
 .text-scaled .tl-item .desc { font-size: calc(15px * var(--text-scale)); white-space: normal; }
+.text-scaled .tl-rx { font-size: calc(15px * var(--text-scale)); }
 .text-scaled .detail-memo, .text-scaled .d-scene, .text-scaled .d-place, .text-scaled .tl-item .act, .text-scaled .tl-item .desc { transition: font-size .15s ease; overflow-wrap: anywhere; }
 
 nav.tabbar {
@@ -959,24 +953,28 @@ nav.tabbar .tab.on .tab-avatar { box-shadow: 0 0 0 2px var(--coral2); }
 .news-check { width: 120px; height: 120px; border-radius: 50%; background: var(--green); color: #fff; font-size: 70px; line-height: 120px; }
 .news-sent { font-size: 28px; font-weight: 700; line-height: 1.4; word-break: keep-all; }
 
-/* ── v2: hearts, comments and replies under a photo (family feed) ─────── */
-.tl-wrap { border-bottom: 1px solid var(--line); }
-.tl-wrap .tl-item { border-bottom: none; }
-.rx { padding: 2px 4px 12px; }
-.rx-thread { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.rx-item { background: var(--surface-dim); border-radius: 14px; padding: 8px 12px; font-size: 15px; }
-.rx-item.elder { background: var(--accent-tint); }
-.rx-who { font-weight: 700; margin-right: 6px; }
+/* ── Hearts, comments and replies under a photo (the photo page) ──────────
+   Bubbles: the family's on the right on the orange tint, the parent's on
+   the left in white; the composer is a 48px heart, field and 보내기. */
+.rx-section { padding-bottom: 10px; }
+.rx { padding: 2px 0 4px; }
+.rx-thread { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.rx-item { max-width: 86%; padding: 10px 14px; border-radius: 16px; font-size: 17px; line-height: 1.4; }
+.rx-item.family { align-self: flex-end; background: var(--accent-tint); border: 2px solid var(--accent-line); border-bottom-right-radius: 6px; }
+.rx-item.elder { align-self: flex-start; background: var(--surface); border: 2px solid var(--line); border-bottom-left-radius: 6px; }
+.rx-meta { display: flex; gap: 8px; align-items: baseline; margin-bottom: 2px; }
+.rx-who { font-size: 15px; font-weight: 700; color: var(--muted); }
 .rx-when { color: var(--muted); font-size: 15px; }
-.rx-text { margin-top: 2px; line-height: 1.45; word-break: break-word; }
+.rx-text { line-height: 1.4; word-break: break-word; }
 .rx-del { margin-left: 8px; background: none; border: none; font: inherit; font-size: 15px; color: var(--muted); text-decoration: underline; cursor: pointer; padding: 0; }
 .rx-bar { display: flex; align-items: center; gap: 8px; }
-.rx-heart { flex: none; min-width: 44px; height: 40px; border-radius: 999px; border: 2px solid var(--line); background: var(--surface); font-size: 18px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 4px; padding: 0 10px; }
-.rx-heart.on { border-color: var(--accent-line); background: var(--accent-tint); }
-.rx-count { font-size: 15px; font-weight: 700; color: var(--ink-2); }
-.rx-input { flex: 1; min-width: 0; height: 40px; border-radius: 999px; border: 2px solid var(--line); padding: 0 14px; font: inherit; font-size: 15px; background: var(--surface); }
-.rx-send { flex: none; height: 40px; padding: 0 14px; border-radius: 999px; border: none; background: var(--accent); color: var(--ink); font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; }
-.rx-send:disabled { opacity: .4; cursor: default; }
+.rx-heart { flex: none; min-width: 48px; height: 48px; border-radius: 999px; border: 2px solid var(--accent); background: var(--surface); color: var(--ink); font-size: 22px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 4px; padding: 0 12px; }
+.rx-heart.on { background: var(--accent); border-color: var(--accent); }
+.rx-count { font-size: 15px; font-weight: 700; color: var(--ink); }
+.rx-input { flex: 1; min-width: 0; height: 48px; border-radius: 999px; border: 2px solid var(--line); padding: 0 16px; font: inherit; font-size: 17px; background: var(--surface); }
+.rx-send { flex: none; height: 48px; padding: 0 18px; border-radius: 999px; border: none; background: var(--accent); color: var(--ink); font: inherit; font-size: 17px; font-weight: 700; cursor: pointer; }
+.rx-send:active:not(:disabled) { background: var(--accent-pressed); }
+.rx-send:disabled { background: var(--line); color: var(--muted); cursor: default; }
 .rx-hearts { font-size: 15px; color: var(--ink-2); }
 .rx-voice { margin-top: 6px; }
 .rx-voice audio { width: 100%; height: 36px; }
@@ -985,7 +983,7 @@ nav.tabbar .tab.on .tab-avatar { box-shadow: 0 0 0 2px var(--coral2); }
 .rx-voice.locked { display: flex; align-items: center; gap: 8px; color: var(--ink-2); font-weight: 600; }
 .rx-wave { flex: none; width: 64px; height: 22px; border-radius: 6px; background: var(--accent-line); }
 .rx-bar .rx-hearts { flex: 1; min-width: 0; }
-.rx-reply { flex: none; margin-left: auto; height: 40px; padding: 0 16px; border-radius: 999px; border: 2px solid var(--accent); background: var(--surface); color: var(--ink); font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; }
+.rx-reply { flex: none; margin-left: auto; height: 48px; padding: 0 16px; border-radius: 999px; border: 2px solid var(--accent); background: var(--surface); color: var(--ink); font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; }
 /* 가족 소식 card on the regular app's home sits under the two tiles. */
 .home .news-card { margin-top: 16px; }
 

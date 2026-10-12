@@ -58,6 +58,12 @@ export function cardTitle(m: Pick<Memo, 'status' | 'memo' | 'activity'>, serverD
   return serverDown ? '메모 서버가 쉬는 중이에요. 켜지면 써 드려요.' : '메모 작성 중…'
 }
 
+/** `♥ 2 · 💬 1` for a list card; '' when nothing was left on the photo. */
+export function rowCounts(items: Reaction[] | undefined): string {
+  const { hearts, words } = reactionSummary(items)
+  return [hearts.length ? `♥ ${hearts.length}` : '', words ? `💬 ${words}` : ''].filter(Boolean).join(' · ')
+}
+
 /** `place · category · ♥ 지민, 민수 · 💬 2` — only the parts that exist. */
 export function cardMeta(m: Pick<Memo, 'place' | 'activity'>, items: Reaction[] | undefined): string {
   const { hearts, words } = reactionSummary(items)

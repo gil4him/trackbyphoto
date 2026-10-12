@@ -53,8 +53,9 @@ function VoiceBubble({ r, ctx }: { r: Reaction; ctx: ReactionsContext }) {
 }
 
 /**
- * Hearts, comments and the parent's replies under one memo. `max` limits the
- * thread in a list; the detail page shows it all.
+ * Hearts, comments and the parent's replies under one photo, as bubbles:
+ * the family's on the right (orange tint), the parent's on the left
+ * (white). `max` limits the thread; the photo page shows it all.
  */
 export function Reactions({ memoId, ctx, max }: { memoId: string; ctx: ReactionsContext; max?: number }) {
   const toast = useToast()
@@ -102,9 +103,11 @@ export function Reactions({ memoId, ctx, max }: { memoId: string; ctx: Reactions
       {shown.length > 0 && (
         <ul className="rx-thread">
           {shown.map((r) => (
-            <li key={r.id} className={r.actorUid === ctx.patientUid ? 'rx-item elder' : 'rx-item'}>
-              <span className="rx-who">{r.actorUid === ctx.patientUid ? ctx.patientName : r.actorName}</span>
-              <span className="rx-when">{fmtTime(new Date(r.createdAtMs))}</span>
+            <li key={r.id} className={r.actorUid === ctx.patientUid ? 'rx-item elder' : 'rx-item family'}>
+              <div className="rx-meta">
+                <span className="rx-who">{r.actorUid === ctx.patientUid ? ctx.patientName : r.actorName}</span>
+                <span className="rx-when">{fmtTime(new Date(r.createdAtMs))}</span>
+              </div>
               {r.kind === 'comment' && (
                 <div className="rx-text">
                   {r.text}

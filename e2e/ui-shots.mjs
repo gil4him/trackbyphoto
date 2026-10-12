@@ -13,7 +13,7 @@ import { initializeApp } from 'firebase-admin/app'
 import { FieldValue, getFirestore } from 'firebase-admin/firestore'
 import { serveSite } from './servers.mjs'
 import { seedDemoFamily, seedTodayMemos } from './demo-seed.mjs'
-import { click, familyAccount, launchBrowser, openPage, settle, tab, waitText } from './shot-kit.mjs'
+import { click, familyAccount, launchBrowser, openPage, settle, sleep, tab, waitText } from './shot-kit.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const OUT = join(HERE, '..', 'docs', 'v3-ui')
@@ -66,6 +66,12 @@ const PHASES = {
     'settings-self':  { as: self, go: async (p) => { await home(p, '안녕하세요'); await tab(p, '설정'); await waitText(p, '설정') } },
     'home-parent':    { as: momUid, prepare: () => seedTodayMemos({ momUid, kidUid: self, kidName: KID.name, count: 3 }), go: (p) => home(p, '사진 보내기') },
     'photos-parent':  { as: momUid, go: async (p) => { await home(p, '사진 보내기'); await tab(p, '사진'); await waitText(p, '사진') } },
+  },
+  A3: {
+    'photos-list':    { as: momUid, prepare: () => seedTodayMemos({ momUid, kidUid: self, kidName: KID.name, count: 3 }), go: async (p) => { await home(p, '엄마'); await tab(p, '사진'); await waitText(p, '♥') } },
+    'photo-detail':   { as: momUid, go: async (p) => { await home(p, '엄마'); await tab(p, '사진'); await waitText(p, '♥'); await p.click('.tl-item'); await waitText(p, '가족 이야기') } },
+    'photo-menu':     { as: momUid, go: async (p) => { await home(p, '엄마'); await tab(p, '사진'); await waitText(p, '♥'); await p.click('.tl-item'); await click(p, '더보기'); await waitText(p, '지우기') } },
+    'photo-confirm':  { as: momUid, go: async (p) => { await home(p, '엄마'); await tab(p, '사진'); await waitText(p, '♥'); await p.click('.tl-item'); await click(p, '더보기'); await sleep(500); await click(p, '지우기', '.sheet-item'); await waitText(p, '이 사진을 지울까요?'); await sleep(400) } },
   },
 }
 const screens = PHASES[PHASE]

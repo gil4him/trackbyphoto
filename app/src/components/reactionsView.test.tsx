@@ -74,6 +74,16 @@ describe('Reactions (family feed)', () => {
     expect(html(ctx([r('c', { kind: 'comment', text: '안녕' })]))).not.toContain('답장하기')
   })
 
+  it("bubbles: the family's on the right, the parent's on the left; 보내기 is off until something is typed", () => {
+    const out = html(ctx([r('c', { kind: 'comment', text: '엄마 날씨 좋네요' }), r('h', { actorUid: 'p1', actorName: '어머니' })]))
+    expect(out).toContain('class="rx-item family"')
+    expect(out).toContain('class="rx-item elder"')
+    expect(out.indexOf('rx-item family')).toBeLessThan(out.indexOf('rx-item elder'))
+    expect(out).toContain('❤️ 고마워요')
+    expect(out).toMatch(/<button type="submit" class="rx-send" disabled=""/)
+    expect(out).toContain('aria-label="하트 보내기"')
+  })
+
   it('is read-only for the patient looking at their own feed', () => {
     const out = html(ctx([r('h'), r('c', { kind: 'comment', text: '엄마 날씨 좋네요' })], { canReact: false, me: { uid: 'p1', name: '어머니' } }))
     expect(out).toContain('엄마 날씨 좋네요')

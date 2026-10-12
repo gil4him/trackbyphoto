@@ -147,7 +147,7 @@ export function MemoDetail({ memo, onBack, readOnly = false, rx }: { memo: Memo;
     simple: isSimple(), readOnly,
     hasPhoto: !!memo.photoUrl, hasMemo: !!memo.memo, rewriting,
   })
-  const ACTION_LABELS: Record<DetailAction, string> = { share: '공유하기', edit: '직접 수정', rewrite: 'AI로 다시 쓰기', delete: '삭제' }
+  const ACTION_LABELS: Record<DetailAction, string> = { share: '공유하기', edit: '직접 수정', rewrite: 'AI로 다시 쓰기', delete: '지우기' }
   const runAction = (a: DetailAction) => {
     if (a === 'delete') return setSheet('confirm')
     setSheet(null)
@@ -181,9 +181,9 @@ export function MemoDetail({ memo, onBack, readOnly = false, rx }: { memo: Memo;
         </BottomSheet>
       )}
       {sheet === 'confirm' && (
-        <BottomSheet title="이 사진을 삭제할까요?" onClose={closeSheet}>
-          <p className="sheet-sub">삭제한 사진은 되돌릴 수 없어요</p>
-          <button type="button" className="sheet-danger-btn" onClick={onDelete}>삭제</button>
+        <BottomSheet title="이 사진을 지울까요?" onClose={closeSheet}>
+          <p className="sheet-sub">지운 사진은 되돌릴 수 없어요</p>
+          <button type="button" className="sheet-danger-btn" onClick={onDelete}>지우기</button>
           <button type="button" className="sheet-cancel" onClick={closeSheet}>취소</button>
         </BottomSheet>
       )}
@@ -254,7 +254,7 @@ export function MemoDetail({ memo, onBack, readOnly = false, rx }: { memo: Memo;
       {/* Messages on a photo go to its owner: family write on a parent's
           photo; on one's own, it shows only what others have left. */}
       {rx && (rx.canReact || (rx.byMemo.get(memo.id)?.length ?? 0) > 0) && (
-        <div className="detail-section">
+        <div className="detail-section rx-section">
           <div className="d-label"><span>가족 이야기</span></div>
           <Reactions memoId={memo.id} ctx={rx} />
         </div>

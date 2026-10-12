@@ -1,12 +1,12 @@
 import { useEffect, useMemo } from 'react'
 import { fmtTime, relativeDateLabel } from '../util'
-import { deleteMemo } from '../lib/capture'
-import { useToast } from '../components/Toast'
 import { MemoThumb } from '../components/MemoThumb'
 import { useOutbox } from '../hooks/useOutbox'
 import { useWorkerStatus } from '../hooks/useWorkerStatus'
 import type { OutboxItem } from '../lib/outbox'
-import { Reactions, type ReactionsContext } from '../components/Reactions'
+import type { ReactionsContext } from '../components/Reactions'
+import { cardTitle, rowCounts } from '../lib/memoViews'
+import { isSimple } from '../lib/edition'
 import { S } from '../lib/strings'
 import type { Memo } from '../types'
 
@@ -20,10 +20,9 @@ function WaitingPhoto({ item }: { item: OutboxItem }) {
     <div className="tl-item waiting">
       <div className="tl-thumb"><img src={url} alt="" /></div>
       <div className="tl-body">
-        <div className="when">{fmtTime(new Date(item.takenAtMs))}</div>
         <div className="act">보내는 중…</div>
         <div className="desc">
-          {item.attempts > 0 ? '인터넷이 약해요. 연결되면 자동으로 보내요.' : '곧 기록돼요.'}
+          {fmtTime(new Date(item.takenAtMs))} · {item.attempts > 0 ? '인터넷이 약해요. 연결되면 자동으로 보내요.' : '곧 기록돼요.'}
         </div>
         {/* After several failed tries, say why, so it can be reported. */}
         {item.attempts >= 5 && item.lastError && <div className="desc muted">({item.lastError})</div>}
@@ -34,11 +33,12 @@ function WaitingPhoto({ item }: { item: OutboxItem }) {
 
 /**
  * `uid` is whose records are shown; photos of theirs still waiting on this
- * phone are listed first. `readOnly` (an elder's linked phone) hides the
- * delete buttons.
+ * phone are listed first. Each photo is one card — thumbnail, title, place
+ * and time, and on the right what family left on it; the photo page holds
+ * the thread and the ⋯ menu (deleting included). `readOnly` is accepted
+ * for the elder's linked phone (nothing to hide here any more).
  */
-export function Today({ memos, onOpen, uid, readOnly = false, rx, onOpenTrail, onOpenVoiceAlbum, focusDay, onFocused }: { memos: Memo[]; onOpen: (id: string) => void; uid?: string; readOnly?: boolean; /** Hearts and comments under each photo (family feed). */ rx?: ReactionsContext; /** 다녀온 곳 for one day (shown on days that have a located photo). */ onOpenTrail?: (day: Date) => void; /** 목소리 앨범, on a plan that includes it (family only). */ onOpenVoiceAlbum?: () => void; /** Open scrolled to this day's photos (어제 보기 on the home), once. */ focusDay?: Date | null; onFocused?: () => void }) {
-  const toast = useToast()
+export function Today({ memos, onOpen, uid, rx, onOpenTrail, onOpenVoiceAlbum, focusDay, onFocused }: { memos: Memo[]; onOpen: (id: string) => void; uid?: string; readOnly?: boolean; /** Hearts and comments per photo (family feed), for the counts. */ rx?: ReactionsContext; /** 다녀온 곳 for one day (shown on days that have a located photo). */ onOpenTrail?: (day: Date) => void; /** 목소리 앨범, on a plan that includes it (family only). */ onOpenVoiceAlbum?: () => void; /** Open scrolled to this day's photos (어제 보기 on the home), once. */ focusDay?: Date | null; onFocused?: () => void }) {
   // Hide a waiting photo once its memo shows up from the server.
   const memoIds = useMemo(() => new Set(memos.map((m) => m.id)), [memos])
   const waiting = useOutbox(uid).filter((i) => !memoIds.has(i.photoId))
@@ -67,14 +67,8 @@ export function Today({ memos, onOpen, uid, readOnly = false, rx, onOpenTrail, o
     onFocused?.()
   }, [focusDay, onFocused, groups])
 
-  const onDelete = (m: Memo) => (e: React.MouseEvent) => {
-    e.stopPropagation()
-    if (!confirm('이 사진을 삭제할까요?')) return
-    deleteMemo({ memoId: m.id, photoPath: m.photoPath }).catch((err) => {
-      console.error(err)
-      toast.show('삭제에 실패했어요', '잠시 후 다시 시도해주세요')
-    })
-  }
+  // 다녀온 곳 › stays in the full edition only.
+  const trailLink = isSimple() ? undefined : onOpenTrail
 
   return (
     <section className="page">
@@ -86,7 +80,7 @@ export function Today({ memos, onOpen, uid, readOnly = false, rx, onOpenTrail, o
 
       {waiting.length > 0 && (
         <div>
-          <div className="q-datehdr">보내는 중</div>
+          <div className="tl-day">보내는 중</div>
           {waiting.map((i) => <WaitingPhoto key={i.photoId} item={i} />)}
         </div>
       )}
@@ -100,45 +94,32 @@ export function Today({ memos, onOpen, uid, readOnly = false, rx, onOpenTrail, o
       ) : (
         groups.map((g) => (
           <div key={g.date.toISOString()} data-day={dayKey(g.date)}>
-            <div className="q-datehdr">
+            <div className="tl-day">
               {relativeDateLabel(g.date)}
-              {onOpenTrail && g.items.some((m) => typeof m.lat === 'number' && typeof m.lng === 'number') && (
-                <button type="button" className="trail-link" onClick={() => onOpenTrail(g.date)}>다녀온 곳 ›</button>
+              {trailLink && g.items.some((m) => typeof m.lat === 'number' && typeof m.lng === 'number') && (
+                <button type="button" className="trail-link" onClick={() => trailLink(g.date)}>다녀온 곳 ›</button>
               )}
             </div>
-            {g.items.map((m) => (
-              <div className="tl-wrap" key={m.id}>
-              <button
-                type="button"
-                className="tl-item"
-                onClick={() => onOpen(m.id)}
-                aria-label="자세히 보기"
-              >
-                <MemoThumb memo={m} />
-                <div className="tl-body">
-                  <div className="when">{fmtTime(m.takenAt.toDate())}</div>
-                  {/* The memo's subject line is the title; where and what kind, under it. */}
-                  <div className="act">
-                    {m.status !== 'pending' ? (m.memo || m.activity || '기록')
-                      : serverDown ? '메모 서버가 쉬는 중이에요. 켜지면 써 드려요.'
-                      : '메모 작성 중…'}
-                  </div>
-                  <div className="desc">
-                    {[m.place, m.activity].filter(Boolean).join(' · ')}
-                  </div>
-                </div>
-                {!readOnly && <span
-                  className="del-btn"
-                  role="button"
-                  aria-label="사진 삭제"
-                  onClick={onDelete(m)}
+            {g.items.map((m) => {
+              const counts = rowCounts(rx?.byMemo.get(m.id))
+              return (
+                <button
+                  type="button"
+                  key={m.id}
+                  className="tl-item"
+                  onClick={() => onOpen(m.id)}
+                  aria-label="자세히 보기"
                 >
-                  ✕
-                </span>}
-              </button>
-              {rx && <Reactions memoId={m.id} ctx={rx} max={3} />}
-              </div>
-            ))}
+                  <MemoThumb memo={m} />
+                  <div className="tl-body">
+                    {/* The memo's subject line is the title; where and when, under it. */}
+                    <div className="act">{cardTitle(m, serverDown)}</div>
+                    <div className="desc">{[m.place, fmtTime(m.takenAt.toDate())].filter(Boolean).join(' · ')}</div>
+                  </div>
+                  {counts && <span className="tl-rx">{counts}</span>}
+                </button>
+              )
+            })}
           </div>
         ))
       )}
