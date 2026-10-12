@@ -700,13 +700,14 @@ function App() {
                   home={homeFor(settings.home, memos)}
                   onOpen={setSelectedMemoId}
                   onYesterday={openYesterday}
+                  onSendPhoto={sendToParent ? () => setSendTarget(sendToParent) : undefined}
                   notifications={bannerNotices}
                   onDismissNotification={dismissNotification}
                   topCard={pushOn ? <PushNudge /> : undefined}
                   sentPhotos={familyPhotosOn ? <SentFamilyPhotos photos={familyPhotos} myUid={user.uid} /> : undefined}
                 />
               ) : (
-                <Home uid={activePatientUid || user.uid} patientName={settings.patientName} greetingName={isSelf ? selfLabel : settings.patientName} memos={memos} onOpenAsk={openAsk} onOpen={setSelectedMemoId} canCapture={isSelf} notifications={bannerNotices} onDismissNotification={dismissNotification} topCard={isSimple() && isSelf && !membershipsLoading && patients.length === 0 ? <ConnectParentCard onOpen={() => setConnectingParent(true)} /> : pushOn && patients.length > 0 ? <PushNudge /> : undefined} canSendPhoto={!!sendToParent} sentPhotos={familyPhotosOn && !isSelf ? <SentFamilyPhotos photos={familyPhotos} myUid={user.uid} /> : undefined} connectOnly={isSimple() && isSelf && !membershipsLoading && patients.length === 0} />
+                <Home uid={activePatientUid || user.uid} patientName={settings.patientName} greetingName={isSelf ? selfLabel : settings.patientName} memos={memos} onOpenAsk={openAsk} onOpen={setSelectedMemoId} canCapture={isSelf} notifications={bannerNotices} onDismissNotification={dismissNotification} topCard={isSimple() && isSelf && !membershipsLoading && patients.length === 0 ? <ConnectParentCard onOpen={() => setConnectingParent(true)} /> : pushOn && patients.length > 0 ? <PushNudge /> : undefined} canSendPhoto={!!sendToParent} sentPhotos={familyPhotosOn && !isSelf ? <SentFamilyPhotos photos={familyPhotos} myUid={user.uid} /> : undefined} connectOnly={isSimple() && isSelf && !membershipsLoading && patients.length === 0} simple={isSimple()} />
               ))}
               {connectingParent && (
                 <RegisterElder
@@ -767,8 +768,12 @@ function App() {
 
         <FamilyCamera
           uid={user.uid}
-          onSend={sendToParent ? () => setSendTarget(sendToParent) : undefined}
-          show={(viewingParent ? !!sendToParent : (tab !== 'home' || !!trail || voiceAlbum || !!digestId || !!openNews))
+          onSend={!isSimple() && sendToParent ? () => setSendTarget(sendToParent) : undefined}
+          // Simple edition: one's own camera, on 홈 and 사진 only; never over a
+          // parent's view (사진 보내기 is a button on the parent's day) or 설정.
+          show={(isSimple()
+            ? isSelf && (tab === 'home' || tab === 'today') && !trail && !voiceAlbum && !digestId && !openNews
+            : (viewingParent ? !!sendToParent : (tab !== 'home' || !!trail || voiceAlbum || !!digestId || !!openNews)))
             && !selectedMemo && !sendTarget && !planSheet && !connectingParent}
         />
         <Tabs active={tab} onChange={onTabChange} avatarUrl={user.photoURL ?? undefined} unreadCount={notifications.length} showAlerts={pushOn || digestOn} />

@@ -40,7 +40,7 @@ function Notices({ notifications, onDismiss }: { notifications: AppNotification[
  * (docs/DAYLIE_V3_UI_FIX.md A1, option C). Newest photo at the top; each
  * card opens the photo page. The child's own camera is the floating button.
  */
-export function ParentDayHome({ parentName, memos, byMemo, home, onOpen, onYesterday, notifications = [], onDismissNotification, topCard, sentPhotos, now = new Date() }: {
+export function ParentDayHome({ parentName, memos, byMemo, home, onOpen, onYesterday, onSendPhoto, notifications = [], onDismissNotification, topCard, sentPhotos, now = new Date() }: {
   parentName: string
   memos: Memo[]
   /** Hearts and words per memo (the reactions feed), when rolled out. */
@@ -50,6 +50,10 @@ export function ParentDayHome({ parentName, memos, byMemo, home, onOpen, onYeste
   onOpen: (id: string) => void
   /** 어제 보기 ›: the 사진 tab scrolled to yesterday. */
   onYesterday: () => void
+  /** 사진 보내기: send this parent a photo (when the parent receives them and
+   *  this family member may send). Inline here — the floating camera never
+   *  sits over a parent's view (A2). */
+  onSendPhoto?: () => void
   notifications?: AppNotification[]
   onDismissNotification?: (id: string) => void
   /** A one-off card above the header (family's 알림 켜기). */
@@ -95,12 +99,21 @@ export function ParentDayHome({ parentName, memos, byMemo, home, onOpen, onYeste
 
       <button type="button" className="day-more" onClick={onYesterday}>어제 보기 ›</button>
 
+      {onSendPhoto && (
+        <button type="button" className="day-send" onClick={onSendPhoto} aria-label="사진 보내기">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M3 8.5A2.5 2.5 0 0 1 5.5 6h1.2l.9-1.4A1.5 1.5 0 0 1 8.9 4h6.2a1.5 1.5 0 0 1 1.3.6L17.3 6h1.2A2.5 2.5 0 0 1 21 8.5v8A2.5 2.5 0 0 1 18.5 19h-13A2.5 2.5 0 0 1 3 16.5z" />
+            <circle cx="12" cy="12.3" r="3.4" />
+          </svg>
+          {parentName}님께 사진 보내기
+        </button>
+      )}
       {sentPhotos}
     </section>
   )
 }
 
-export function Home({ uid, patientName, greetingName, memos, onOpenAsk, onOpen, canCapture = true, notifications = [], onDismissNotification, recordsLabel, newsCard, topCard, canSendPhoto = false, sentPhotos, connectOnly = false }: { /** The parent's 가족 소식 card, shown under the buttons. */ newsCard?: React.ReactNode; /** A one-off card above the greeting (family's 알림 켜기). */ topCard?: React.ReactNode; /** Family on a parent's home: the floating camera button sends the parent a photo. */ canSendPhoto?: boolean; /** Family: what has been sent, with the parent's answers. */ sentPhotos?: React.ReactNode; /** Simple edition, no parent yet: only `topCard` (엄마 연결하기), centred. */ connectOnly?: boolean; recordsLabel?: boolean; uid: string; patientName: string; greetingName: string; memos: Memo[]; onOpenAsk: () => void; onOpen: (id: string) => void; canCapture?: boolean; notifications?: AppNotification[]; onDismissNotification?: (id: string) => void }) {
+export function Home({ uid, patientName, greetingName, memos, onOpenAsk, onOpen, canCapture = true, notifications = [], onDismissNotification, recordsLabel, newsCard, topCard, canSendPhoto = false, sentPhotos, connectOnly = false, simple = false }: { /** The parent's 가족 소식 card, shown under the buttons. */ newsCard?: React.ReactNode; /** A one-off card above the greeting (family's 알림 켜기). */ topCard?: React.ReactNode; /** Family on a parent's home: the floating camera button sends the parent a photo. */ canSendPhoto?: boolean; /** Family: what has been sent, with the parent's answers. */ sentPhotos?: React.ReactNode; /** Simple edition, no parent yet: only `topCard` (엄마 연결하기), centred. */ connectOnly?: boolean; /** Simple edition: no 사진 찍기 / 지난 기록 buttons — the camera is the floating button and there is no Ask page (A2). */ simple?: boolean; recordsLabel?: boolean; uid: string; patientName: string; greetingName: string; memos: Memo[]; onOpenAsk: () => void; onOpen: (id: string) => void; canCapture?: boolean; notifications?: AppNotification[]; onDismissNotification?: (id: string) => void }) {
   const toast = useToast()
   const capture = useCapture(uid)
   const lastReadyId = useRef<string | null>(null)
@@ -163,8 +176,9 @@ export function Home({ uid, patientName, greetingName, memos, onOpenAsk, onOpen,
           </div>
         )}
         {/* Take-photo and Ask sit side by side as equal tiles. In caregiver
-            mode (no capture) the Ask tile stretches to fill the row alone. */}
-        <div className={canCapture ? 'capgrid' : 'capgrid single'}>
+            mode (no capture) the Ask tile stretches to fill the row alone.
+            The simple edition has neither (floating camera, no Ask page). */}
+        {!simple && <div className={canCapture ? 'capgrid' : 'capgrid single'}>
           {canCapture && (
             <button
               className="capbtn"
@@ -187,7 +201,7 @@ export function Home({ uid, patientName, greetingName, memos, onOpenAsk, onOpen,
             </svg>
             <span className="lab">{recordsLabel ? '지난 기록 보기' : '지난 기록 물어보기'}</span>
           </button>
-        </div>
+        </div>}
 
         {newsCard}
         {sentPhotos}

@@ -1,3 +1,5 @@
+import { isSimple } from '../lib/edition'
+
 export type TabKey = 'home' | 'today' | 'ask' | 'alerts' | 'settings'
 
 // Bottom nav — frosted bar at the bottom of every main page. Hidden when a
@@ -6,7 +8,9 @@ export type TabKey = 'home' | 'today' | 'ask' | 'alerts' | 'settings'
 // Icons are inline SVGs rather than emoji so the active-tab tint actually
 // applies (emoji ignore color). The four tabs mirror the prototype:
 //   사진 (Home) · 오늘 (Today) · 물어보기 (Ask) · 설정 (Settings)
-// plus 알림 (notification centre) once family push is rolled out.
+// plus 알림 (notification centre) once family push is rolled out. The simple
+// edition has four — 홈 · 사진 · 알림 · 설정 — and marks unread notices with
+// a dot, not a number (docs/DAYLIE_V3_UI_FIX.md A2).
 const ICONS = {
   home: (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -70,10 +74,11 @@ export function Tabs({
   showAlerts?: boolean
 }) {
   if (hide) return null
+  const simple = isSimple()
   const badgeTab: TabKey = showAlerts ? 'alerts' : 'home'
   return (
     <nav className="tabbar" aria-label="주 메뉴">
-      {TABS.filter((t) => t.key !== 'alerts' || showAlerts).map((t) => (
+      {TABS.filter((t) => (t.key !== 'alerts' || showAlerts) && (t.key !== 'ask' || !simple)).map((t) => (
         <button
           key={t.key}
           className={`tab ${active === t.key ? 'on' : ''}`}
@@ -84,10 +89,10 @@ export function Tabs({
           {t.key === 'settings' && avatarUrl
             ? <img className="tab-avatar" src={avatarUrl} alt="" referrerPolicy="no-referrer" />
             : ICONS[t.key]}
-          {t.key === badgeTab && unreadCount > 0 && (
-            <span className="tab-badge" aria-label={`알림 ${unreadCount}건`}>{unreadCount > 9 ? '9+' : unreadCount}</span>
-          )}
-          {t.label}
+          {t.key === badgeTab && unreadCount > 0 && (simple
+            ? <span className="tab-dot" role="img" aria-label={`알림 ${unreadCount}건`} />
+            : <span className="tab-badge" aria-label={`알림 ${unreadCount}건`}>{unreadCount > 9 ? '9+' : unreadCount}</span>)}
+          <span className="tab-label">{t.label}</span>
         </button>
       ))}
     </nav>

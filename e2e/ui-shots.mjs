@@ -10,7 +10,7 @@ import { mkdir } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { initializeApp } from 'firebase-admin/app'
-import { getFirestore } from 'firebase-admin/firestore'
+import { FieldValue, getFirestore } from 'firebase-admin/firestore'
 import { serveSite } from './servers.mjs'
 import { seedDemoFamily, seedTodayMemos } from './demo-seed.mjs'
 import { click, familyAccount, launchBrowser, openPage, settle, tab, waitText } from './shot-kit.mjs'
@@ -58,6 +58,14 @@ const PHASES = {
     'home-parent-empty':  { as: momUid, go: (p) => home(p, '오늘 아직 사진이 없어요') },
     'home-parent-day':    { as: momUid, prepare: () => seedTodayMemos({ momUid, kidUid: self, kidName: KID.name, count: 9 }), go: (p) => home(p, '사진 9장') },
     'photos-yesterday':   { as: momUid, go: async (p) => { await home(p, '사진 9장'); await click(p, '어제 보기'); await waitText(p, '어제') } },
+  },
+  A2: {
+    // One unread notice, so the 알림 tab wears its dot.
+    'home-self':      { as: self, prepare: () => getFirestore().collection('notifications').add({ recipientUid: self, patientUid: momUid, actorUid: momUid, type: 'photo.new', message: '엄마님이 새 사진을 올렸어요', memoId: '', read: false, createdAt: FieldValue.serverTimestamp() }), go: (p) => home(p, '안녕하세요') },
+    'photos-self':    { as: self, go: async (p) => { await home(p, '안녕하세요'); await tab(p, '사진'); await waitText(p, '사진') } },
+    'settings-self':  { as: self, go: async (p) => { await home(p, '안녕하세요'); await tab(p, '설정'); await waitText(p, '설정') } },
+    'home-parent':    { as: momUid, prepare: () => seedTodayMemos({ momUid, kidUid: self, kidName: KID.name, count: 3 }), go: (p) => home(p, '사진 보내기') },
+    'photos-parent':  { as: momUid, go: async (p) => { await home(p, '사진 보내기'); await tab(p, '사진'); await waitText(p, '사진') } },
   },
 }
 const screens = PHASES[PHASE]

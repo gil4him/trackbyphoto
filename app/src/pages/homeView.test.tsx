@@ -91,6 +91,31 @@ describe("ParentDayHome (simple edition: the parent's day)", () => {
   })
 })
 
+describe('Home in the simple edition (one\'s own)', () => {
+  it('has no 사진 찍기 or 지난 기록 button: the camera is the floating button', () => {
+    const out = render({ simple: true, memos: [memo(1)] })
+    expect(out).not.toContain('class="capbtn"')
+    expect(out).not.toContain('class="askbtn"')
+    expect(out).not.toContain('지난 기록')
+    expect(out).toContain('안녕하세요')
+    expect(out).toContain('class="recent-thumb"')
+  })
+})
+
+describe("ParentDayHome: 사진 보내기 (simple edition)", () => {
+  const now = new Date(2026, 9, 4, 20, 0)
+  const render = (props: Partial<Parameters<typeof ParentDayHome>[0]> = {}) => renderToString(
+    <ToastProvider>
+      <ParentDayHome parentName="엄마" memos={[]} home={null} onOpen={() => {}} onYesterday={() => {}} now={now} {...props} />
+    </ToastProvider>,
+  ).replace(/<!-- -->/g, '')
+  it('is an inline button under the day when the family may send, else absent', () => {
+    expect(render({ onSendPhoto: () => {} })).toContain('aria-label="사진 보내기"')
+    expect(render({ onSendPhoto: () => {} })).toContain('엄마님께 사진 보내기')
+    expect(render()).not.toContain('사진 보내기')
+  })
+})
+
 describe('Home with no parent yet (simple edition)', () => {
   it('shows only the connect card, with the big 엄마 연결하기 button', () => {
     const out = renderToString(
