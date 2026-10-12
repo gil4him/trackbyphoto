@@ -42,6 +42,7 @@ export async function callWorker<T>(
     type,
     uid: user.uid,
     email: (claims.email as string | undefined) ?? null,
+    emailVerified: claims.email_verified === true,
     name: (claims.name as string | undefined) ?? null,
     payload,
     status: 'pending',

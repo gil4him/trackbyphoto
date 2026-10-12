@@ -10,14 +10,13 @@
 //
 // The code comes from ?code= or, if the query was lost on the way through
 // sign-in, from the localStorage stash App.tsx writes (PENDING_INVITE_KEY).
-// The confirm screen reads invites/{code} directly (rules allow get by exact
-// code, never list); the worker's acceptInvite stays the authority.
+// The confirm screen asks the worker (lookupInvite) whose record the code
+// opens — invites are closed to the app so codes can't be scanned — and the
+// worker's acceptInvite stays the authority.
 
 import { useEffect, useState } from 'react'
-import { doc, getDoc, type Timestamp } from 'firebase/firestore'
-import { db } from '../firebase'
 import { useToast } from '../components/Toast'
-import { acceptInvite, normalizeInviteCode } from '../lib/caregiver'
+import { acceptInvite, lookupInvite, normalizeInviteCode } from '../lib/caregiver'
 import { WORKER_OFFLINE_MESSAGE } from '../lib/worker'
 
 export const PENDING_INVITE_KEY = 'tbp.pendingInviteCode'
@@ -25,12 +24,6 @@ export const PENDING_INVITE_KEY = 'tbp.pendingInviteCode'
 interface Props {
   onAccepted: (patientUid: string) => void
   onCancel: () => void
-}
-
-interface InviteDoc {
-  patientName?: string
-  expiresAt: Timestamp
-  used: boolean
 }
 
 type Phase =
@@ -58,6 +51,8 @@ function friendlyError(err: unknown): string {
       return '이미 이 가족의 기록에 참여하고 있어요.'
     case 'unauthenticated':
       return '먼저 로그인해주세요.'
+    case 'resource-exhausted':
+      return '시도가 너무 많았어요. 잠시 후 다시 시도해주세요.'
     case 'unavailable':
       return WORKER_OFFLINE_MESSAGE
     default:
@@ -88,25 +83,13 @@ export function AcceptInvite({ onAccepted, onCancel }: Props) {
       return
     }
     let cancelled = false
-    getDoc(doc(db, 'invites', code))
-      .then((snap) => {
-        if (cancelled) return
-        if (!snap.exists()) {
-          setPhase({ kind: 'error', message: friendlyError({ code: 'not-found' }) })
-          return
-        }
-        const inv = snap.data() as InviteDoc
-        if (inv.used) {
-          setPhase({ kind: 'error', message: friendlyError({ code: 'failed-precondition', message: 'used' }) })
-        } else if (inv.expiresAt.toMillis() < Date.now()) {
-          setPhase({ kind: 'error', message: friendlyError({ code: 'deadline-exceeded' }) })
-        } else {
-          setPhase({ kind: 'confirm', code, name: inv.patientName?.trim() || '' })
-        }
+    lookupInvite(code)
+      .then((inv) => {
+        if (!cancelled) setPhase({ kind: 'confirm', code, name: inv.patientName.trim() })
       })
       .catch((err) => {
         console.error('[accept-invite] lookup failed', err)
-        if (!cancelled) setPhase({ kind: 'error', message: '초대를 불러오지 못했어요. 잠시 후 다시 시도해주세요.' })
+        if (!cancelled) setPhase({ kind: 'error', message: friendlyError(err) })
       })
     return () => { cancelled = true }
   }, [])

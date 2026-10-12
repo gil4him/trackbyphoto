@@ -166,8 +166,13 @@ beforeEach(async () => {
   })
 })
 
-function authedDb(uid: string, opts: { email?: string; name?: string } = {}) {
-  const claims = { ...(opts.email ? { email: opts.email } : {}), ...(opts.name ? { name: opts.name } : {}) }
+function authedDb(uid: string, opts: { email?: string; name?: string; verified?: boolean; provider?: string } = {}) {
+  const claims = {
+    ...(opts.email ? { email: opts.email } : {}),
+    ...(opts.name ? { name: opts.name } : {}),
+    ...(opts.verified ? { email_verified: true } : {}),
+    ...(opts.provider ? { firebase: { sign_in_provider: opts.provider } } : {}),
+  }
   const ctx = Object.keys(claims).length
     ? testEnv.authenticatedContext(uid, claims)
     : testEnv.authenticatedContext(uid)
@@ -212,8 +217,15 @@ describe('memos', () => {
 
   it('super-admin (by email) can read any memo', async () => {
     await assertSucceeds(
-      getDoc(doc(authedDb(ADMIN_UID, { email: ADMIN_EMAIL }), 'memos', 'memo1')),
+      getDoc(doc(authedDb(ADMIN_UID, { email: ADMIN_EMAIL, verified: true, provider: 'google.com' }), 'memos', 'memo1')),
     )
+  })
+
+  it('the admin e-mail alone is not the admin: it must be Google-verified', async () => {
+    // A password account made through the Auth REST API carries any address, unverified.
+    await assertFails(getDoc(doc(authedDb(ADMIN_UID, { email: ADMIN_EMAIL }), 'memos', 'memo1')))
+    await assertFails(getDoc(doc(authedDb(ADMIN_UID, { email: ADMIN_EMAIL, verified: true, provider: 'password' }), 'memos', 'memo1')))
+    await assertFails(getDoc(doc(authedDb(ADMIN_UID, { email: ADMIN_EMAIL, provider: 'google.com' }), 'memos', 'memo1')))
   })
 
   // Pending placeholder the client writes right after uploading its photo.
@@ -291,6 +303,19 @@ describe('memos', () => {
     await assertSucceeds(deleteDoc(doc(authedDb(CAREGIVER_ACTIVE_ADMIN), 'memos', 'memo1')))
   })
 
+  it("nobody re-points a memo at another person or another photo after create", async () => {
+    // A caregiver of Alice must not be able to turn her memo into a job on a
+    // stranger's photo and re-queue it for the worker.
+    for (const who of [PATIENT, CAREGIVER_ACTIVE_ADMIN]) {
+      await assertFails(updateDoc(doc(authedDb(who), 'memos', 'memo1'), { patientUid: STRANGER, status: 'pending' }))
+      await assertFails(updateDoc(doc(authedDb(who), 'memos', 'memo1'), { photoPath: `photos/${STRANGER}/x.jpg`, status: 'pending' }))
+      await assertFails(updateDoc(doc(authedDb(who), 'memos', 'memo1'), { photoUrl: 'https://evil.example/x.jpg' }))
+      await assertFails(updateDoc(doc(authedDb(who), 'memos', 'memo1'), { createdAt: new Date() }))
+    }
+    // Re-running the model on the same photo is still allowed.
+    await assertSucceeds(updateDoc(doc(authedDb(PATIENT), 'memos', 'memo1'), { status: 'pending', humanEdited: false }))
+  })
+
   it("caregiver cannot create a memo on the patient's behalf", async () => {
     await assertFails(
       setDoc(doc(authedDb(CAREGIVER_ACTIVE_ADMIN), 'memos', 'new_memo'), pendingMemo(PATIENT)),
@@ -305,11 +330,11 @@ describe('requests', () => {
   const EMAIL = 'alice@example.com'
   const NAME = 'Alice'
   const req = (extra: Record<string, unknown> = {}) => ({
-    type: 'createInvite', uid: PATIENT, email: EMAIL, name: NAME,
+    type: 'createInvite', uid: PATIENT, email: EMAIL, emailVerified: true, name: NAME,
     payload: { patientUid: PATIENT }, status: 'pending', createdAt: serverTimestamp(),
     ...extra,
   })
-  const alice = () => authedDb(PATIENT, { email: EMAIL, name: NAME })
+  const alice = () => authedDb(PATIENT, { email: EMAIL, name: NAME, verified: true })
 
   it('user can create a request stamped with their own verified identity', async () => {
     await assertSucceeds(setDoc(doc(alice(), 'requests', 'r1'), req()))
@@ -317,8 +342,21 @@ describe('requests', () => {
 
   it('a user with no display name stamps name: null', async () => {
     await assertSucceeds(
-      setDoc(doc(authedDb(PATIENT, { email: EMAIL }), 'requests', 'r1'), req({ name: null })),
+      setDoc(doc(authedDb(PATIENT, { email: EMAIL, verified: true }), 'requests', 'r1'), req({ name: null })),
     )
+  })
+
+  it('emailVerified is pinned to the token (the admin gate reads it)', async () => {
+    const unverified = authedDb(PATIENT, { email: EMAIL, name: NAME })
+    await assertSucceeds(setDoc(doc(unverified, 'requests', 'r1'), req({ emailVerified: false })))
+    await assertFails(setDoc(doc(unverified, 'requests', 'r2'), req({ emailVerified: true })))
+    await assertFails(setDoc(doc(alice(), 'requests', 'r3'), req({ emailVerified: false })))
+    const { emailVerified: _omit, ...withoutFlag } = req()
+    await assertFails(setDoc(doc(alice(), 'requests', 'r4'), withoutFlag))
+  })
+
+  it('can ask the worker what an invite code is for', async () => {
+    await assertSucceeds(setDoc(doc(alice(), 'requests', 'r1'), req({ type: 'lookupInvite', payload: { code: '123456' } })))
   })
 
   it('cannot forge another uid', async () => {
@@ -539,14 +577,11 @@ describe('invites', () => {
     createdAt: new Date(),
   }
 
-  it('patient can create an invite for themselves', async () => {
-    await assertSucceeds(
+  it('nobody creates an invite from the app, not even the patient (the worker bundles consent + code)', async () => {
+    await assertFails(
       setDoc(doc(authedDb(PATIENT), 'invites', '111111'), VALID_INVITE),
     )
-  })
-
-  it('admin caregiver can create an invite for the patient', async () => {
-    await assertSucceeds(
+    await assertFails(
       setDoc(doc(authedDb(CAREGIVER_ACTIVE_ADMIN), 'invites', '222222'), {
         ...VALID_INVITE,
         createdBy: CAREGIVER_ACTIVE_ADMIN,
@@ -581,11 +616,14 @@ describe('invites', () => {
     )
   })
 
-  it('any signed-in user can get an invite by its code (the invite link)', async () => {
+  it('nobody reads an invite by its code from the app (a get oracle would let codes be scanned)', async () => {
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
       await setDoc(doc(ctx.firestore(), 'invites', '666666'), VALID_INVITE)
     })
-    await assertSucceeds(getDoc(doc(authedDb(STRANGER), 'invites', '666666')))
+    await assertFails(getDoc(doc(authedDb(STRANGER), 'invites', '666666')))
+    await assertFails(getDoc(doc(authedDb(PATIENT), 'invites', '666666')))
+    const anon = testEnv.authenticatedContext('anon7', { firebase: { sign_in_provider: 'anonymous' } }).firestore()
+    await assertFails(getDoc(doc(anon, 'invites', '666666')))
   })
 
   it('no one can list invites (codes must not be enumerable)', async () => {
@@ -814,13 +852,13 @@ describe('managed elder sessions', () => {
 
   it('elder phone makes no worker requests', async () => {
     await assertFails(setDoc(doc(elderDb(), 'requests', 'r1'), {
-      type: 'createInvite', uid: ELDER, email: null, name: null, payload: {}, status: 'pending', createdAt: serverTimestamp(),
+      type: 'createInvite', uid: ELDER, email: null, emailVerified: false, name: null, payload: {}, status: 'pending', createdAt: serverTimestamp(),
     }))
   })
 
   it('anonymous session may only redeem a pairing code', async () => {
     const anonReq = (type: string) => ({
-      type, uid: 'anon1', email: null, name: null, payload: {}, status: 'pending', createdAt: serverTimestamp(),
+      type, uid: 'anon1', email: null, emailVerified: false, name: null, payload: {}, status: 'pending', createdAt: serverTimestamp(),
     })
     await assertSucceeds(setDoc(doc(anonDb(), 'requests', 'r1'), anonReq('pairDevice')))
     await assertSucceeds(setDoc(doc(anonDb(), 'requests', 'r2'), anonReq('completePairing')))
@@ -1116,7 +1154,7 @@ describe('voice clips (storage)', () => {
 })
 
 describe('admin dashboard (/admin)', () => {
-  const admin = () => authedDb(ADMIN_UID, { email: ADMIN_EMAIL, name: 'Shawn' })
+  const admin = () => authedDb(ADMIN_UID, { email: ADMIN_EMAIL, name: 'Shawn', verified: true, provider: 'google.com' })
 
   it('only the admin reads admin_log, and nobody writes it from the app', async () => {
     await assertSucceeds(getDocs(collection(admin(), 'admin_log')))
@@ -1127,14 +1165,20 @@ describe('admin dashboard (/admin)', () => {
 
   it('the admin can queue the people requests; a family member cannot pose as the admin', async () => {
     const adminReq = (type: string, payload: Record<string, unknown> = {}) => ({
-      type, uid: ADMIN_UID, email: ADMIN_EMAIL, name: 'Shawn', payload, status: 'pending', createdAt: serverTimestamp(),
+      type, uid: ADMIN_UID, email: ADMIN_EMAIL, emailVerified: true, name: 'Shawn', payload, status: 'pending', createdAt: serverTimestamp(),
     })
     for (const type of ['adminListPeople', 'adminGetPerson', 'adminDeleteAccount', 'adminUnlinkDevice', 'adminSetMembership', 'adminSetPlan', 'adminUpdateSettings', 'adminSetDisabled']) {
       await assertSucceeds(setDoc(doc(admin(), 'requests', `r-${type}`), adminReq(type, { uid: PATIENT })))
     }
     await assertFails(setDoc(doc(authedDb(STRANGER, { email: 'x@example.com' }), 'requests', 'forged'), {
-      type: 'adminDeleteAccount', uid: STRANGER, email: ADMIN_EMAIL, name: null, payload: { uid: PATIENT }, status: 'pending', createdAt: serverTimestamp(),
+      type: 'adminDeleteAccount', uid: STRANGER, email: ADMIN_EMAIL, emailVerified: true, name: null, payload: { uid: PATIENT }, status: 'pending', createdAt: serverTimestamp(),
     }))
+    // A password account with the admin's address but no verification: the
+    // doc may carry the address, but emailVerified must be false — which is
+    // what the worker's requireAdmin refuses.
+    const impostor = authedDb(ADMIN_UID, { email: ADMIN_EMAIL, name: 'Shawn', provider: 'password' })
+    await assertFails(setDoc(doc(impostor, 'requests', 'forged2'), adminReq('adminListPeople')))
+    await assertSucceeds(setDoc(doc(impostor, 'requests', 'honest'), { ...adminReq('adminListPeople'), emailVerified: false }))
   })
 })
 
@@ -1155,7 +1199,7 @@ describe('plans', () => {
 
   it('family asks the worker to change the plan; the parent\'s linked phone can\'t ask for anything', async () => {
     const req = (uid: string) => ({
-      type: 'changePlan', uid, email: null, name: null, payload: { patientUid: PATIENT, tier: 'basic' }, status: 'pending', createdAt: serverTimestamp(),
+      type: 'changePlan', uid, email: null, emailVerified: false, name: null, payload: { patientUid: PATIENT, tier: 'basic' }, status: 'pending', createdAt: serverTimestamp(),
     })
     await assertSucceeds(setDoc(doc(authedDb(CAREGIVER_ACTIVE_ADMIN), 'requests', 'r1'), req(CAREGIVER_ACTIVE_ADMIN)))
     await assertFails(setDoc(doc(testEnv.authenticatedContext(PATIENT, { elder: true, deviceId: 'd1' }).firestore(), 'requests', 'r2'), req(PATIENT)))
@@ -1201,7 +1245,7 @@ describe('push tokens and the notification centre', () => {
 
   it('a signed-in family account may ask the worker to register a token or change channels', async () => {
     const req = (type: string) => ({
-      type, uid: CAREGIVER_ACTIVE_ADMIN, email: 'cg@example.com', name: null, payload: {}, status: 'pending', createdAt: serverTimestamp(),
+      type, uid: CAREGIVER_ACTIVE_ADMIN, email: 'cg@example.com', emailVerified: false, name: null, payload: {}, status: 'pending', createdAt: serverTimestamp(),
     })
     const db = authedDb(CAREGIVER_ACTIVE_ADMIN, { email: 'cg@example.com' })
     await assertSucceeds(setDoc(doc(db, 'requests', 'r1'), req('registerFcmToken')))
@@ -1253,7 +1297,7 @@ describe('digests', () => {
   it('a family account may ask the worker to change when the digest goes out', async () => {
     const db = authedDb(CAREGIVER_ACTIVE_ADMIN, { email: 'cg@example.com' })
     await assertSucceeds(setDoc(doc(db, 'requests', 'r1'), {
-      type: 'setDigest', uid: CAREGIVER_ACTIVE_ADMIN, email: 'cg@example.com', name: null, payload: { patientUid: PATIENT, hourLocal: 19 }, status: 'pending', createdAt: serverTimestamp(),
+      type: 'setDigest', uid: CAREGIVER_ACTIVE_ADMIN, email: 'cg@example.com', emailVerified: false, name: null, payload: { patientUid: PATIENT, hourLocal: 19 }, status: 'pending', createdAt: serverTimestamp(),
     }))
   })
 

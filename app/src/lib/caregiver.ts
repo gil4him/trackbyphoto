@@ -3,6 +3,9 @@
 //   createInvite      — patient/admin issues a 6-digit code; the worker
 //                       bundles two consent docs + the invite + an audit log
 //                       into a single batched commit.
+//   lookupInvite      — the invitee's confirm screen asks whose record a code
+//                       opens (invites are closed to the app; wrong guesses
+//                       are throttled by the worker).
 //   acceptInvite      — caregiver enters the code; worker validates and
 //                       atomically activates the membership.
 //   revokeMembership  — owner/admin/self revokes; worker flips status and
@@ -34,6 +37,23 @@ export async function createInvite(args: {
   consentTextVersion?: string
 }): Promise<CreateInviteResult> {
   return callWorker<CreateInviteResult>('createInvite', args)
+}
+
+export interface InviteLookup {
+  /** The elder's display name for "OOO님의 기록에 참여할까요?"; '' when unset. */
+  patientName: string
+  role: InvitableRole
+  /** ISO timestamp at which the code stops working. */
+  expiresAt: string
+}
+
+/**
+ * Ask the worker what a 6-digit code is for, before accepting. Rejects with
+ * the same codes acceptInvite uses (not-found, failed-precondition 'used',
+ * deadline-exceeded) plus resource-exhausted after too many wrong guesses.
+ */
+export async function lookupInvite(code: string): Promise<InviteLookup> {
+  return callWorker<InviteLookup>('lookupInvite', { code })
 }
 
 export interface AcceptInviteResult {

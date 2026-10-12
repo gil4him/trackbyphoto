@@ -17,7 +17,9 @@ import {
 import { createManagedElder, createPairingLink, pairDevice, resetPairingThrottle } from '../src/handlers/pairing'
 import { db, clearFirestore, seedMembership } from './setup'
 
-const ADMIN = { uid: 'admin1', email: 'zymer4him@gmail.com', name: 'Shawn' }
+const ADMIN = { uid: 'admin1', email: 'zymer4him@gmail.com', name: 'Shawn', emailVerified: true }
+// The same address on a token Google never verified (a password account).
+const IMPOSTOR = { uid: 'admin2', email: 'zymer4him@gmail.com', name: 'Shawn', emailVerified: false }
 const FAMILY = { uid: 'fam1', email: 'kid@example.com', name: '딸' }
 const SIBLING = { uid: 'sib1', email: 'sib@example.com', name: '동생' }
 const STRANGER = { uid: 'x1', email: 'x@example.com', name: 'x' }
@@ -48,6 +50,13 @@ describe('authorization', () => {
     await expect(adminSetPlan(FAMILY, { patientUid: 'a', tier: 'plus' })).rejects.toThrow(/admin only/)
     await expect(adminUpdateSettings(FAMILY, { uid: 'a', patch: { patientName: 'x' } })).rejects.toThrow(/admin only/)
     await expect(adminSetDisabled(FAMILY, { uid: 'a', disabled: true })).rejects.toThrow(/admin only/)
+  })
+
+  it('refuses the admin address on a token Google never verified', async () => {
+    await expect(adminListPeople(IMPOSTOR)).rejects.toThrow(/admin only/)
+    await expect(adminDeleteAccount(IMPOSTOR, { uid: 'a' })).rejects.toThrow(/admin only/)
+    await expect(adminSetDisabled(IMPOSTOR, { uid: 'a', disabled: true })).rejects.toThrow(/admin only/)
+    await expect(adminListPeople({ ...ADMIN, emailVerified: undefined })).rejects.toThrow(/admin only/)
   })
 })
 

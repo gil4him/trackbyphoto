@@ -22,10 +22,14 @@ service cloud.firestore {
 
     // Super-admin: the one Google account that runs deployment can read every
     // memo + the admin counters. Email is signed into the auth token, so this
-    // is a single fixed identity, not a role flag in Firestore.
+    // is a single fixed identity, not a role flag in Firestore. The address
+    // alone is not enough: a password account can carry any e-mail
+    // unverified, so the token must also say Google verified it.
     function isAdmin() {
       return request.auth != null
-        && request.auth.token.email == 'zymer4him@gmail.com';
+        && request.auth.token.email == 'zymer4him@gmail.com'
+        && request.auth.token.get('email_verified', false) == true
+        && request.auth.token.get('firebase', {}).get('sign_in_provider', '') == 'google.com';
     }
 
     function signedIn() {
@@ -113,6 +117,9 @@ service cloud.firestore {
     // Update/delete: patient or admin/guardian caregiver. Plain viewers
     // cannot edit memos. `usage` is the worker's note of how the photo was
     // counted against the day's allowance; no client may set or change it.
+    // Who the memo belongs to and which photo it is are fixed at create:
+    // otherwise a caregiver could re-point a memo at another person's photo
+    // and re-queue it, and the worker would process it into their feed.
     // ────────────────────────────────────────────────────────────────────
     match /memos/{memoId} {
       allow read:   if isAdmin() || canRead(resource.data.patientUid);
@@ -127,7 +134,8 @@ service cloud.firestore {
                          'tags', 'deviceMemo', 'deviceMemoSource', 'tzOffsetMin'
                        ]);
       allow update: if canManage(resource.data.patientUid)
-                    && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['usage']);
+                    && !request.resource.data.diff(resource.data).affectedKeys()
+                         .hasAny(['usage', 'patientUid', 'photoPath', 'photoUrl', 'createdAt']);
       allow delete: if canManage(resource.data.patientUid);
     }
 
@@ -216,23 +224,17 @@ service cloud.firestore {
     // ────────────────────────────────────────────────────────────────────
     // invites/{code}
     //
-    // 6-digit codes (or share-link tokens) the elder hands to a caregiver.
-    // Create: owner or admin caregiver. Get: anyone signed in (the invitee's
-    // confirm screen looks up the code from their link). List: nobody, so
-    // live codes can't be enumerated. Update/delete: creator path
-    // only. The worker handler that converts an invite → membership runs as
-    // admin and bypasses these rules.
+    // 6-digit codes the elder hands to a caregiver. Closed to the app: the
+    // worker writes them (createInvite, with the consent docs in the same
+    // commit), answers the invitee's confirm screen (lookupInvite) and
+    // redeems them (acceptInvite), throttling wrong guesses. A client-side
+    // get by exact code would let anyone signed in — an anonymous pairing
+    // session included — scan the million codes for a live one. Owner /
+    // admin may still revoke a code they were handed.
     // ────────────────────────────────────────────────────────────────────
     match /invites/{code} {
-      allow get:    if signedIn();
-      allow list:   if false;
-      allow create: if signedIn()
-                    && !elderSession()
-                    && request.resource.data.used == false
-                    && (
-                         request.auth.uid == request.resource.data.patientUid
-                      || hasRole(request.resource.data.patientUid, 'admin')
-                       );
+      allow read:   if false;
+      allow create: if false;
       allow update, delete: if (isOwner(resource.data.patientUid) && !elderSession())
                             || hasRole(resource.data.patientUid, 'admin');
     }
@@ -472,23 +474,24 @@ service cloud.firestore {
     // requests/{id}
     //
     // Work queue for the Mac mini worker — the replacement for HTTPS
-    // callables. The worker trusts uid/email/name on the doc as the caller's
-    // identity, so create pins them to the verified auth token, and clients
-    // can never update the doc (the worker writes the result via admin SDK).
-    // The caller reads its own result, then deletes the doc.
+    // callables. The worker trusts uid/email/emailVerified/name on the doc as
+    // the caller's identity, so create pins them to the verified auth token,
+    // and clients can never update the doc (the worker writes the result via
+    // admin SDK). The caller reads its own result, then deletes the doc.
     // ────────────────────────────────────────────────────────────────────
     match /requests/{id} {
       allow create: if signedIn()
-                    && request.resource.data.keys().hasOnly(['type', 'uid', 'email', 'name', 'payload', 'status', 'createdAt'])
+                    && request.resource.data.keys().hasOnly(['type', 'uid', 'email', 'emailVerified', 'name', 'payload', 'status', 'createdAt'])
                     && request.resource.data.uid == request.auth.uid
                     && request.resource.data.email == request.auth.token.get('email', null)
+                    && request.resource.data.emailVerified == request.auth.token.get('email_verified', false)
                     && request.resource.data.name == request.auth.token.get('name', null)
                     && request.resource.data.status == 'pending'
                     && request.resource.data.createdAt == request.time
                     && request.resource.data.payload is map
                     // Must match HANDLERS in worker/src/handlers/requests.ts.
                     && request.resource.data.type in [
-                         'createInvite', 'acceptInvite', 'revokeMembership', 'setMembershipRole',
+                         'createInvite', 'lookupInvite', 'acceptInvite', 'revokeMembership', 'setMembershipRole',
                          'syncCaregiverName', 'regenerateMemo', 'backfillMemoSchema', 'backfillPatientUid',
                          'adminListPeople', 'adminGetPerson', 'adminDeleteAccount', 'adminUnlinkDevice',
                          'adminSetMembership', 'adminSetPlan', 'adminUpdateSettings', 'adminSetDisabled',

@@ -43,6 +43,7 @@ import { getFirestore, FieldValue, Timestamp, type DocumentReference } from 'fir
 import { logger } from '../log.js'
 import { WorkerError as HttpsError, type Caller } from '../context.js'
 import { APP_URL } from '../config.js'
+import { FailureThrottle } from '../throttle.js'
 
 // Crockford-style alphabet without look-alikes (0/O, 1/I/L, U): 30^8 ≈ 6.6e11.
 const CODE_ALPHABET = '23456789ABCDEFGHJKMNPQRSTVWXYZ'
@@ -52,9 +53,7 @@ const REPAIR_TTL_MS = 3600 * 1000
 
 // Wrong-code throttling. 30^8 codes make guessing hopeless anyway; this keeps
 // a scripted attacker from even trying at volume.
-const FAIL_LIMIT_PER_CALLER = 5
-const FAIL_LIMIT_GLOBAL = 200
-const FAIL_WINDOW_MS = 10 * 60 * 1000
+const pairThrottle = new FailureThrottle({ perCaller: 5, global: 200, windowMs: 10 * 60 * 1000 })
 
 const ANON_CLEANUP_DELAY_MS = 2 * 60 * 1000
 
@@ -156,34 +155,9 @@ function cleanDeviceInfo(raw: unknown): { name: string; platform: string } {
   return { name: name || '휴대폰', platform: platform || 'web' }
 }
 
-// ── wrong-code throttle (in memory; resets on worker restart) ───────────────
-const failures = new Map<string, number[]>()
-let globalFailures: number[] = []
-
-function recent(times: number[], now: number) {
-  return times.filter((t) => now - t < FAIL_WINDOW_MS)
-}
-
-function checkThrottle(callerUid: string) {
-  const now = Date.now()
-  globalFailures = recent(globalFailures, now)
-  const mine = recent(failures.get(callerUid) ?? [], now)
-  failures.set(callerUid, mine)
-  if (mine.length >= FAIL_LIMIT_PER_CALLER || globalFailures.length >= FAIL_LIMIT_GLOBAL) {
-    throw new HttpsError('resource-exhausted', 'too many attempts; try again later')
-  }
-}
-
-function recordFailure(callerUid: string) {
-  const now = Date.now()
-  failures.set(callerUid, [...recent(failures.get(callerUid) ?? [], now), now])
-  globalFailures.push(now)
-}
-
 /** Test hook. */
 export function resetPairingThrottle() {
-  failures.clear()
-  globalFailures = []
+  pairThrottle.reset()
 }
 
 // Anonymous users exist only to reach the worker's request queue. Delete them
@@ -440,10 +414,10 @@ async function issueDevice(
 
 export async function pairDevice(caller: Caller, data: { code?: string; device?: unknown }): Promise<PairResult> {
   const callerUid = requireAuth(caller)
-  checkThrottle(callerUid)
+  pairThrottle.check(callerUid)
   const code = normalizePairCode(data?.code ?? '')
   if (code.length !== CODE_LEN) {
-    recordFailure(callerUid)
+    pairThrottle.fail(callerUid)
     throw new HttpsError('invalid-argument', `${CODE_LEN}-character code required`)
   }
   const device = cleanDeviceInfo(data?.device)
@@ -451,7 +425,7 @@ export async function pairDevice(caller: Caller, data: { code?: string; device?:
   const db = getFirestore()
   const found = await db.collection('pairings').where('codeHash', '==', hashCode(code)).limit(1).get()
   if (found.empty) {
-    recordFailure(callerUid)
+    pairThrottle.fail(callerUid)
     throw new HttpsError('not-found', 'code not found')
   }
   const ref = found.docs[0].ref

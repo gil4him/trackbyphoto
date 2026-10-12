@@ -11,6 +11,12 @@
  *                     timestamps match the server clock exactly. Returns the
  *                     code + expiry.
  *
+ *   lookupInvite      The invitee's confirm screen asks the worker what a code
+ *                     is for (the elder's name) — invites are closed to clients
+ *                     entirely so a 6-digit code can't be enumerated from the
+ *                     app. Wrong guesses are throttled per caller and globally,
+ *                     shared with acceptInvite.
+ *
  *   acceptInvite      Caregiver enters the code. Function validates the code
  *                     is unused + not expired, then atomically:
  *                       — marks the invite used=true
@@ -41,15 +47,26 @@
  */
 
 import { randomInt } from 'node:crypto'
-import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore'
+import { getFirestore, FieldValue, Timestamp, type DocumentReference } from 'firebase-admin/firestore'
 import { logger } from '../log.js'
 import { WorkerError as HttpsError, type Caller } from '../context.js'
 import { assertFamilyRoom } from './family.js'
+import { FailureThrottle } from '../throttle.js'
 
 // Invite codes are 6-digit numeric (000000–999999). 10^6 is plenty for a code
 // that lives 24 hours and is one-shot; collisions are handled by retry below.
 const INVITE_CODE_LEN = 6
 const INVITE_TTL_HOURS = 24
+
+// Wrong-code throttling for lookupInvite + acceptInvite. 10^6 codes with a
+// handful live at a time: 5 misses per caller / 200 overall per 10 minutes
+// makes scanning for one impractical. (Pairing codes have their own.)
+const inviteThrottle = new FailureThrottle({ perCaller: 5, global: 200, windowMs: 10 * 60 * 1000 })
+
+/** Test hook. */
+export function resetInviteThrottle() {
+  inviteThrottle.reset()
+}
 
 // Roles the invite path exposes. Guardian is intentionally not invitable —
 // court-appointed guardianship is set up out of band by an admin, not via a
@@ -237,7 +254,8 @@ export async function createInvite(caller: Caller, data: CreateInviteRequest): P
     patientUid,
     actorUid: callerUid,
     action: 'invite.create',
-    details: { code, role, sensitiveConsentId: sensitiveRef.id, thirdPartyConsentId: thirdPartyRef.id },
+    // Never the code itself: auditLogs are readable by every family member.
+    details: { role, sensitiveConsentId: sensitiveRef.id, thirdPartyConsentId: thirdPartyRef.id },
     timestamp: FieldValue.serverTimestamp(),
   })
   // Notify the elder only when someone OTHER than them issued the invite
@@ -251,7 +269,7 @@ export async function createInvite(caller: Caller, data: CreateInviteRequest): P
   }
   await batch.commit()
 
-  logger.info('[caregiver] invite created', { patientUid, callerUid, role, code })
+  logger.info('[caregiver] invite created', { patientUid, callerUid, role })
   return { code, expiresAt: expiresAt.toDate().toISOString() }
 }
 
@@ -272,6 +290,70 @@ export async function createInvite(caller: Caller, data: CreateInviteRequest): P
 //   5. Return the patient identity so the client can switch context.
 // ────────────────────────────────────────────────────────────────────────────
 
+interface InviteDoc {
+  patientUid: string
+  patientName?: string
+  role: InvitableRole
+  thirdPartyConsentId?: string
+  sensitiveConsentId?: string
+  expiresAt: Timestamp
+  used: boolean
+}
+
+/**
+ * Find a live invite by its code, counting every miss (bad format, unknown,
+ * used, expired) against the caller's and the global throttle. Shared by
+ * lookupInvite and acceptInvite so the two can't be used as separate oracles.
+ */
+async function loadLiveInvite(callerUid: string, raw: unknown): Promise<{ ref: DocumentReference; inv: InviteDoc }> {
+  inviteThrottle.check(callerUid)
+  const code = typeof raw === 'string' ? raw.trim() : ''
+  if (!/^\d{6}$/.test(code)) {
+    inviteThrottle.fail(callerUid)
+    throw new HttpsError('invalid-argument', '6-digit code required')
+  }
+  const ref = getFirestore().collection('invites').doc(code)
+  const snap = await ref.get()
+  if (!snap.exists) {
+    inviteThrottle.fail(callerUid)
+    throw new HttpsError('not-found', 'invite code not found')
+  }
+  const inv = snap.data() as InviteDoc
+  if (inv.used) {
+    inviteThrottle.fail(callerUid)
+    throw new HttpsError('failed-precondition', 'invite already used')
+  }
+  if (inv.expiresAt.toMillis() < Date.now()) {
+    inviteThrottle.fail(callerUid)
+    throw new HttpsError('deadline-exceeded', 'invite expired')
+  }
+  return { ref, inv }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// lookupInvite
+//
+// What the invitee's confirm screen shows before they tap 참여: the elder's
+// name. Nothing else about the invite leaves the worker (no patientUid, no
+// consent ids). Any signed-in family account may ask; misses are throttled.
+// ────────────────────────────────────────────────────────────────────────────
+
+interface LookupInviteResponse {
+  patientName: string
+  role: InvitableRole
+  expiresAt: string // ISO
+}
+
+export async function lookupInvite(caller: Caller, data: { code?: unknown }): Promise<LookupInviteResponse> {
+  const callerUid = requireAuth(caller)
+  const { inv } = await loadLiveInvite(callerUid, data?.code)
+  return {
+    patientName: (typeof inv.patientName === 'string' && inv.patientName.trim()) || '',
+    role: inv.role,
+    expiresAt: inv.expiresAt.toDate().toISOString(),
+  }
+}
+
 interface AcceptInviteRequest {
   code: string
 }
@@ -287,29 +369,8 @@ export async function acceptInvite(caller: Caller, data: AcceptInviteRequest): P
   // Real name from the verified Google token (pinned onto the request doc by rules) — stored on the membership so the
   // patient sees a name (not a UID) in 보호자 관리. Can't be forged.
   const callerName = caller.name || caller.email || ''
-  const code = (data?.code || '').trim()
-  if (!/^\d{6}$/.test(code)) {
-    throw new HttpsError('invalid-argument', '6-digit code required')
-  }
-
+  const { ref: inviteRef, inv } = await loadLiveInvite(callerUid, data?.code)
   const db = getFirestore()
-  const inviteRef = db.collection('invites').doc(code)
-  const inviteSnap = await inviteRef.get()
-  if (!inviteSnap.exists) {
-    throw new HttpsError('not-found', 'invite code not found')
-  }
-  const inv = inviteSnap.data() as {
-    patientUid: string
-    role: InvitableRole
-    thirdPartyConsentId?: string
-    sensitiveConsentId?: string
-    expiresAt: Timestamp
-    used: boolean
-  }
-  if (inv.used) throw new HttpsError('failed-precondition', 'invite already used')
-  if (inv.expiresAt.toMillis() < Date.now()) {
-    throw new HttpsError('deadline-exceeded', 'invite expired')
-  }
   if (inv.patientUid === callerUid) {
     throw new HttpsError('failed-precondition', 'cannot accept your own invite')
   }
@@ -353,7 +414,7 @@ export async function acceptInvite(caller: Caller, data: AcceptInviteRequest): P
     patientUid: inv.patientUid,
     actorUid: callerUid,
     action: 'membership.accept',
-    details: { code, role: inv.role, consentId: inv.thirdPartyConsentId },
+    details: { role: inv.role, consentId: inv.thirdPartyConsentId },
     timestamp: FieldValue.serverTimestamp(),
   })
   // The elder always learns when a new caregiver gains access.

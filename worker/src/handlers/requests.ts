@@ -20,6 +20,7 @@ import { WorkerError, type Caller } from '../context.js'
 import {
   acceptInvite,
   createInvite,
+  lookupInvite,
   revokeMembership,
   setMembershipRole,
   syncCaregiverName,
@@ -56,6 +57,7 @@ type Handler = (caller: Caller, payload: any) => Promise<unknown>
 // Must match the `type in [...]` allow-list in firestore.rules.
 export const HANDLERS: Record<string, Handler> = {
   createInvite,
+  lookupInvite,
   acceptInvite,
   revokeMembership,
   setMembershipRole,
@@ -106,6 +108,7 @@ export async function processRequest(requestId: string): Promise<void> {
     uid: claimed.uid as string,
     email: (claimed.email as string | null) ?? null,
     name: (claimed.name as string | null) ?? null,
+    emailVerified: claimed.emailVerified === true,
   }
   const started = Date.now()
   let outcome: Record<string, unknown>
@@ -119,6 +122,10 @@ export async function processRequest(requestId: string): Promise<void> {
     const code = err instanceof WorkerError ? err.code : 'internal'
     const message = err instanceof Error ? err.message : String(err)
     if (code === 'internal') logger.error('[request] handler threw', { requestId, type, err: message })
+    // Someone probing the dashboard handlers should show up in the log.
+    else if (code === 'permission-denied' && type.startsWith('admin')) {
+      logger.warn('[request] admin request refused', { requestId, type, uid: caller.uid })
+    }
     const details = err instanceof WorkerError ? err.details : undefined
     outcome = { status: 'error', code, message, ...(details ? { details } : {}) }
   }

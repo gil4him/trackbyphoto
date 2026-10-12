@@ -8,7 +8,9 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import {
   createInvite,
+  lookupInvite,
   acceptInvite,
+  resetInviteThrottle,
   revokeMembership,
   setMembershipRole,
   syncCaregiverName,
@@ -28,7 +30,7 @@ function fireSettings(patientUid: string, before: Record<string, unknown>, after
   return processSettingsChange(patientUid, before, after)
 }
 
-beforeEach(async () => { await clearFirestore() })
+beforeEach(async () => { await clearFirestore(); resetInviteThrottle() })
 
 // ── createInvite ─────────────────────────────────────────────────────────────
 describe('createInvite', () => {
@@ -65,6 +67,45 @@ describe('createInvite', () => {
 
   it('rejects an unauthenticated caller', async () => {
     await expect(call(createInvite, { patientUid: 'p1' }, { uid: '' })).rejects.toThrow()
+  })
+
+  it('never writes the code into the audit log (family can read those)', async () => {
+    await call(createInvite, { patientUid: 'p1', role: 'admin' }, { uid: 'p1' })
+    const logs = await db.collection('auditLogs').where('action', '==', 'invite.create').get()
+    expect(logs.size).toBe(1)
+    expect(logs.docs[0].data().details.code).toBeUndefined()
+  })
+})
+
+// ── lookupInvite ─────────────────────────────────────────────────────────────
+describe('lookupInvite', () => {
+  it("answers the confirm screen with the elder's name and nothing that identifies the record", async () => {
+    await db.doc('users/p1').set({ patientName: '엄마' })
+    const { code } = await call(createInvite, { patientUid: 'p1', role: 'viewer' }, { uid: 'p1' })
+    const res = await call(lookupInvite, { code }, { uid: 'cg1', token: { email: 'cg@x.com' } })
+    expect(res).toEqual({ patientName: '엄마', role: 'viewer', expiresAt: expect.any(String) })
+  })
+
+  it('reports unknown, used and expired codes with the same codes acceptInvite uses', async () => {
+    await expect(call(lookupInvite, { code: '000000' }, { uid: 'cg1' })).rejects.toMatchObject({ code: 'not-found' })
+    const { code } = await call(createInvite, { patientUid: 'p1', role: 'viewer' }, { uid: 'p1' })
+    await call(acceptInvite, { code }, { uid: 'cg2', token: { name: 'B' } })
+    await expect(call(lookupInvite, { code }, { uid: 'cg1' })).rejects.toMatchObject({ code: 'failed-precondition' })
+    await db.doc('invites/999999').set({ patientUid: 'p1', role: 'viewer', used: false, expiresAt: new Date(Date.now() - 1000) })
+    await expect(call(lookupInvite, { code: '999999' }, { uid: 'cg1' })).rejects.toMatchObject({ code: 'deadline-exceeded' })
+  })
+
+  it('throttles a caller after five misses, for lookups and accepts alike', async () => {
+    for (let i = 0; i < 5; i++) {
+      await expect(call(lookupInvite, { code: `00000${i}` }, { uid: 'scanner' })).rejects.toMatchObject({ code: 'not-found' })
+    }
+    await expect(call(lookupInvite, { code: '000005' }, { uid: 'scanner' })).rejects.toMatchObject({ code: 'resource-exhausted' })
+    await expect(call(acceptInvite, { code: '000005' }, { uid: 'scanner' })).rejects.toMatchObject({ code: 'resource-exhausted' })
+    // A live code does not get through for the throttled caller either, but
+    // another caller is unaffected.
+    const { code } = await call(createInvite, { patientUid: 'p1', role: 'viewer' }, { uid: 'p1' })
+    await expect(call(lookupInvite, { code }, { uid: 'scanner' })).rejects.toMatchObject({ code: 'resource-exhausted' })
+    await expect(call(lookupInvite, { code }, { uid: 'cg1' })).resolves.toMatchObject({ role: 'viewer' })
   })
 })
 

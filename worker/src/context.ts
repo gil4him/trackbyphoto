@@ -10,6 +10,10 @@ export interface Caller {
   uid: string
   email: string | null
   name: string | null
+  /** The token's email_verified claim (rules pin it on the request doc).
+   *  An address alone is not identity: a password or third-party account
+   *  can carry any address unverified. Missing counts as false. */
+  emailVerified?: boolean
 }
 
 /** Replacement for firebase-functions' HttpsError. The code strings keep the

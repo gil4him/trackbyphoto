@@ -19,7 +19,10 @@ import { homeHintFor, localTimeHint } from '../travel.js'
 export const ADMIN_EMAIL = 'zymer4him@gmail.com'
 
 export function requireAdmin(caller: Caller) {
-  if (caller.email !== ADMIN_EMAIL) {
+  // The address alone is not identity: a password or third-party account can
+  // carry any e-mail unverified. firestore.rules pins emailVerified to the
+  // token's claim, and isAdmin() there makes the same check.
+  if (caller.email !== ADMIN_EMAIL || caller.emailVerified !== true) {
     throw new HttpsError('permission-denied', 'admin only')
   }
 }
