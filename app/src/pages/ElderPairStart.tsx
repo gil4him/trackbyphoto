@@ -14,7 +14,7 @@ import { ElderAsk } from '../components/ElderAsk'
  * types its code (코드 입력).
  * (A code from the family's link is picked up on the app's first launch,
  * before this screen: hooks/useFirstLaunchPairCode.)
- * docs/Daylie-v3-Simple-Core.md §1.
+ * simple/Daylie-v3-Simple-Core.md §1.
  */
 
 const FEED_ID = 'elder-pair-feed'

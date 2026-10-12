@@ -13,13 +13,15 @@
 #   ~/.trackbyphoto/worker.env    optional, e.g. KAKAO_REST_KEY=..., OLLAMA_MODEL=...
 set -euo pipefail
 
-# Overridable so a second instance (install-simple.sh) can sit beside this one.
+# Overridable so a second instance (simple/worker/install-simple.sh) can sit
+# beside this one.
 LABEL="${WORKER_LABEL:-com.trackbyphoto.worker}"
 DEST="${WORKER_DEST:-$HOME/trackbyphoto-worker}"
 KEY="${WORKER_SA_KEY:-$HOME/.trackbyphoto/sa-key.json}"
 LOG="${WORKER_LOG:-~/Library/Logs/trackbyphoto-worker.log}"
 PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
 SRC="$(cd "$(dirname "$0")/.." && pwd)"
+PLIST_TEMPLATE="${WORKER_PLIST:-$SRC/launchd/$LABEL.plist}"
 
 stop_agent() {
   launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null || true
@@ -54,7 +56,7 @@ rsync -a --delete --exclude '._*' --exclude '.DS_Store' \
 (cd "$DEST" && npm ci --omit=dev --silent)
 
 mkdir -p "$HOME/Library/Logs" "$(dirname "$PLIST")"
-sed "s#__HOME__#$HOME#g" "$SRC/launchd/$LABEL.plist" > "$PLIST"
+sed "s#__HOME__#$HOME#g" "$PLIST_TEMPLATE" > "$PLIST"
 
 stop_agent
 launchctl bootstrap "gui/$(id -u)" "$PLIST"

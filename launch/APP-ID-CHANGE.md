@@ -45,10 +45,10 @@ can't be changed).
 - [ ] Download the new **google-services.json** → give it to Claude (it replaces
       `app/android/app/google-services.json`).
 - [ ] **Do the same in the `daylie-simple-4df13` project** — that is what the store build
-      (edition `simple`) ships against. As of 2026-10-12 its `config/simple/google-services.json`
+      (edition `simple`) ships against. As of 2026-10-12 its `simple/app/google-services.json`
       has no OAuth client and no SHA fingerprint for `com.zymer.daylie`, so Google sign-in on
       Android fails in the shipped build. Add the fingerprints above to the simple project's
-      Android app, re-download its `google-services.json` into `config/simple/`.
+      Android app, re-download its `google-services.json` into `simple/app/`.
 
 ## 2. Firebase — new iOS app
 

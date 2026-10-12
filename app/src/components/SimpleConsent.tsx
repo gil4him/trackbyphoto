@@ -5,7 +5,7 @@ import { consentButtonLabel, sentToName } from '../lib/people'
 /**
  * The simple edition's one consent screen on the parent's phone, right after
  * it is linked: one question, one sentence, one 네 — and the details only if
- * asked for. docs/Daylie-v3-Simple-Core.md §5.
+ * asked for. simple/Daylie-v3-Simple-Core.md §5.
  */
 export function SimpleConsent({ caregivers, busy = false, initialOpen = false, onAccept }: {
   caregivers: { status: string; caregiverName?: string }[]

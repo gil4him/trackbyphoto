@@ -1,6 +1,6 @@
 import { PUBLIC_ORIGIN } from '../lib/publicUrl'
 
-/** 개인정보처리방침 · 이용약관 — the simple edition's pages (app/legal),
+/** 개인정보처리방침 · 이용약관 — the simple edition's pages (simple/app/legal),
  *  opened in the browser. */
 export function LegalLinks() {
   return (

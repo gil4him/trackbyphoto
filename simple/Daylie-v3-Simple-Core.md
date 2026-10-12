@@ -1,3 +1,6 @@
+> Moved to `simple/` on 2026-10-12 with the edition's config and scripts (see `simple/README.md`).
+> Paths named below (`.env.simple`, `config/simple`, `install-simple.sh`) are the pre-move layout.
+
 # Daylie v3 — Simple Core (2026-10-09, rev 5)
 
 **One sentence:** 딸과 엄마가 연결되고, 엄마가 찍은 사진으로 딸이 엄마의 오늘을 안다.

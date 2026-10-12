@@ -24,7 +24,7 @@
 
             <!-- Pairing links from the simple edition's site open the app
                  (App Links; verified by /.well-known/assetlinks.json there,
-                 app/well-known/). Unverified, Android offers the browser,
+                 simple/app/well-known/). Unverified, Android offers the browser,
                  where the /pair page copies the code for the app. -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />

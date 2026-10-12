@@ -1,4 +1,4 @@
-// The simple edition's consent wording (docs/Daylie-v3-Simple-Core.md §5).
+// The simple edition's consent wording (simple/Daylie-v3-Simple-Core.md §5).
 // The family consents on the parent's behalf when registering
 // (RegisterElder); the parent's phone shows one screen once it is linked
 // (SimpleConsent) and its 네 is kept as a notice_ack with this exact text.

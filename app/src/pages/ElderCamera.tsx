@@ -22,7 +22,7 @@ import type { Reaction } from '../types'
  * shutter sends the photo to family. Above it floats the newest heart or
  * comment from family until tapped; a small 내 사진 opens today's photos.
  * Nothing else — no settings, prices, limits or warnings.
- * docs/Daylie-v3-Simple-Core.md §2.
+ * simple/Daylie-v3-Simple-Core.md §2.
  */
 
 /** Where the web build puts its <video>; native draws behind the page. */

@@ -1,8 +1,9 @@
 #!/bin/bash
 # Point the native apps at one Firebase project: native-config.sh full|simple
 #
-# Copies config/<edition>/GoogleService-Info.plist and google-services.json
-# into the iOS and Android projects, then runs `npx cap sync`. Before copying
+# Copies the edition's GoogleService-Info.plist and google-services.json —
+# full: config/full/, simple: simple/app/ — into the iOS and Android projects,
+# then runs `npx cap sync`. Before copying
 # it checks that both files belong to that edition's project and to the
 # bundle id / applicationId the Xcode and Gradle projects actually build.
 #
@@ -12,10 +13,9 @@ set -euo pipefail
 
 ED="${1:?usage: native-config.sh full|simple}"
 APP="$(cd "$(dirname "$0")/.." && pwd)"
-SRC="$APP/../config/$ED"
 case "$ED" in
-  full)   WANT=trackbyphoto-app ;;
-  simple) WANT=daylie-simple-4df13 ;;
+  full)   WANT=trackbyphoto-app;    SRC="$APP/../config/full" ;;
+  simple) WANT=daylie-simple-4df13; SRC="$APP/../simple/app" ;;
   *) echo "edition must be full or simple" >&2; exit 1 ;;
 esac
 PLIST="$SRC/GoogleService-Info.plist"

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<!-- Template: scripts/install-simple.sh (via install.sh) replaces __HOME__ and copies this to
+<!-- Template: simple/worker/install-simple.sh (via worker/scripts/install.sh) replaces __HOME__ and copies this to
      ~/Library/LaunchAgents. KeepAlive restarts the worker whenever it exits
      (it exits on purpose if a Firestore listener dies). -->
 <plist version="1.0">

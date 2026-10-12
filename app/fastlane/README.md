@@ -51,7 +51,7 @@ manual upload once and automated after that:
    that `.aab` in. Fill **App content → App access** with the demo login (see
    `REVIEW_NOTES.md`), then roll out.
 3. Play Console → **Test and release → App integrity** → copy the **App signing
-   key** SHA-256 and add it to `app/well-known/assetlinks.json`, then redeploy
+   key** SHA-256 and add it to `simple/app/well-known/assetlinks.json`, then redeploy
    hosting — otherwise App Links don't verify for store installs.
 4. From then on: `bundle exec fastlane release_android` (uploads the AAB plus
    `fastlane/metadata/android/ko-KR` — listing text, icon, feature graphic).
@@ -117,7 +117,7 @@ bundle exec fastlane release_ios submit_for_review:true automatic_release:true
    absolute or `~`-prefixed — the simple edition's upload key lives at
    `~/daylie-secrets/simple/upload-keystore.jks` (mode 600), outside the repo.
    Lose that file and you can never update the app, so back it up.
-   Its SHA-256 must also appear in `app/well-known/assetlinks.json`; check with
+   Its SHA-256 must also appear in `simple/app/well-known/assetlinks.json`; check with
    `/opt/homebrew/opt/openjdk@21/bin/keytool -list -v -keystore <path> -alias upload`.
 
 ## Running it automatically with GitHub Actions

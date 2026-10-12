@@ -1,4 +1,4 @@
-// The legal pages (legal/README.md) and the account-deletion page: shipped by the simple build only,
+// The legal pages (simple/app/legal/README.md) and the account-deletion page: shipped by the simple build only,
 // served at /privacy, /terms and /delete-account as their own static HTML, and never answered
 // from the cached app shell.
 import { describe, it, expect } from 'vitest'
@@ -7,7 +7,7 @@ import type { Plugin, UserConfig } from 'vite'
 import config from '../../vite.config'
 
 const read = (name: string) =>
-  readFileSync(new URL(`../../legal/${name}`, import.meta.url), 'utf8')
+  readFileSync(new URL(`../../../simple/app/legal/${name}`, import.meta.url), 'utf8')
 
 const privacy = read('privacy.html')
 const terms = read('terms.html')

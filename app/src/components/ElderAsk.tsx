@@ -1,7 +1,7 @@
 /**
  * One plain sentence and one big 다음, shown to the parent just before the
  * phone's own permission question — the bare system dialog is where an older
- * parent taps "deny". Nothing else on screen. docs/Daylie-v3-Simple-Core.md §2.
+ * parent taps "deny". Nothing else on screen. simple/Daylie-v3-Simple-Core.md §2.
  */
 export function ElderAsk({ text, onNext }: { text: string; onNext: () => void }) {
   return (

@@ -1,5 +1,5 @@
 /**
- * The simple edition's one notice a day (docs/Daylie-v3-Simple-Core.md §3):
+ * The simple edition's one notice a day (simple/Daylie-v3-Simple-Core.md §3):
  * at the parent's evening hour each family member is told how many photos
  * the parent took today — "오늘 엄마님의 사진 3장" — or, on a day without
  * any, "오늘 아직 엄마님의 사진이 없어요". In-app notice plus push, once per

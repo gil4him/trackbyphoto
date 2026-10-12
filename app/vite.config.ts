@@ -1,10 +1,17 @@
 import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { defineConfig, type Plugin } from 'vite'
+
+// Everything that exists only for the simple edition (Daylie, project
+// daylie-simple-4df13) lives in ../simple (see simple/README.md): its .env,
+// native Firebase configs, legal pages and /.well-known files. The shared
+// source in src/ stays one app; `--mode simple` picks these up.
+const SIMPLE_DIR = fileURLToPath(new URL('../simple/app/', import.meta.url))
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
-// Universal/App Links files (well-known/README.md). Only the simple site may
-// claim /pair for the shared app id, so the full build never ships them.
+// Universal/App Links files (simple/app/well-known/README.md). Only the simple
+// site may claim /pair for the shared app id, so the full build never ships them.
 function wellKnown(mode: string): Plugin {
   return {
     name: 'daylie-well-known',
@@ -15,14 +22,14 @@ function wellKnown(mode: string): Plugin {
         this.emitFile({
           type: 'asset',
           fileName: `.well-known/${name}`,
-          source: readFileSync(new URL(`./well-known/${name}`, import.meta.url)),
+          source: readFileSync(`${SIMPLE_DIR}well-known/${name}`),
         })
       }
     },
   }
 }
 
-// 개인정보처리방침 and 이용약관 (legal/README.md). Plain static HTML, no JS,
+// 개인정보처리방침 and 이용약관 (simple/app/legal/README.md). Plain static HTML, no JS,
 // served at /privacy and /terms by the rewrites in firebase.json. They
 // describe the simple edition only, so the full build never ships them.
 const LEGAL_PAGES = ['privacy', 'terms', 'delete-account'] as const
@@ -37,7 +44,7 @@ function legalPages(mode: string): Plugin {
         this.emitFile({
           type: 'asset',
           fileName: `${name}.html`,
-          source: readFileSync(new URL(`./legal/${name}.html`, import.meta.url)),
+          source: readFileSync(`${SIMPLE_DIR}legal/${name}.html`),
         })
       }
     },
@@ -56,6 +63,10 @@ function editionTitle(mode: string): Plugin {
 }
 
 export default defineConfig(({ mode }) => ({
+  // The simple build reads simple/app/.env.simple (and a simple/app/.env.local
+  // of your own, if any); app/.env.local does not apply to it. Every other
+  // mode reads this folder's .env.production / .env.local as usual.
+  ...(mode === 'simple' ? { envDir: SIMPLE_DIR } : {}),
   plugins: [
     react(),
     wellKnown(mode),

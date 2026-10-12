@@ -7,19 +7,19 @@ page itself rather than the app shell.
 
 How they reach the web:
 
-- `vite.config.ts` (`legalPages(mode)` / `LEGAL_PAGES`) copies them into
+- `app/vite.config.ts` (`legalPages(mode)` / `LEGAL_PAGES`) copies them into
   `dist/privacy.html` and `dist/terms.html` when `mode === 'simple'`. The full
   build (TrackByPhoto) never ships them: they describe Daylie only.
 - `firebase.json` rewrites `/privacy` and `/terms` to those files, ahead of
   the `**` → `/index.html` catch-all.
-- The same `vite.config.ts` lists them in the service worker's
+- The same `app/vite.config.ts` lists them in the service worker's
   `navigateFallbackDenylist`, so the cached app shell never answers for them.
 
-`src/lib/legal.test.ts` checks the wiring and that each page still carries its
+`app/src/lib/legal.test.ts` checks the wiring and that each page still carries its
 required sections.
 
 Editing: they are both hand-written Korean with the styling inlined (the
-colours mirror `src/styles.css`). Change the 시행일 at the top of both pages
+colours mirror `app/src/styles.css`). Change the 시행일 at the top of both pages
 together, and keep `[확인 필요]` on anything not yet confirmed. The open items
 as of 2026-10-10:
 
