@@ -7,7 +7,7 @@ import { Timestamp } from 'firebase-admin/firestore'
 import { digestSettings, repliesLine, resetDigestState, runDigests, setDigest, type DigestDeps } from '../src/handlers/digest'
 import { setChannels, type PushMessage } from '../src/handlers/push'
 import { LlmGenerationError, LlmUnavailableError } from '../src/llm/ollama'
-import { buildDigestPrompt, DIGEST_MAX_LINES, parseSummary, type DigestPromptArgs } from '../src/llm/prompt'
+import { buildDigestPrompt, DIGEST_MAX_LINES, parseDiary, parseSummary, type DigestPromptArgs } from '../src/llm/prompt'
 import { maskPhone, normalizePhone, providerFor, renderText, type MessengerProvider } from '../src/messenger/index'
 import { resetPlansCache } from '../src/plans'
 import { localClock, localDayStart, tzOffsetMin, validTz } from '../src/zoned'
@@ -30,6 +30,7 @@ async function plans(flags: Record<string, boolean>) {
 }
 
 const SUMMARY = '오전에 공원을 산책하셨어요. 점심은 된장찌개를 드셨어요.'
+const TITLE = '공원 산책과 된장찌개'
 const KST = (iso: string) => new Date(`${iso}+09:00`)
 /** Saturday evening in Seoul, after the default digest hour (20:00). */
 const SAT_EVENING = KST('2026-10-03T20:05:00')
@@ -49,7 +50,7 @@ function fakes(overrides: Partial<DigestDeps> = {}) {
     },
   }
   const deps: DigestDeps = {
-    summarize: async (args) => { f.prompts.push(args); return SUMMARY },
+    summarize: async (args) => { f.prompts.push(args); return args.span === 'daily' ? { summary: SUMMARY, title: TITLE } : { summary: SUMMARY } },
     push: async (uids, message) => { f.pushes.push({ uids, message }); return uids.length },
     mail: { send: async (mail) => { f.mails.push(mail); return true } },
     messenger: () => provider,
@@ -162,11 +163,12 @@ describe('daily digest', () => {
 
     expect(f.prompts).toEqual([{
       span: 'daily',
+      lang: 'ko',
       lines: ['09:40 산책 · 나무가 우거진 공원 산책길 · 서초동, 서초구', '12:40 식사 · 된장찌개로 점심 식사 · 서초동, 서초구', '15:30 기타 · 방배동, 서초구'],
     }])
     const d = (await digest())!
     expect(d).toMatchObject({
-      patientUid: 'p1', kind: 'daily', label: '10월 3일 토요일', summary: SUMMARY, summarySource: 'local-llm',
+      patientUid: 'p1', kind: 'daily', label: '10월 3일 토요일', summary: SUMMARY, title: TITLE, summarySource: 'local-llm',
       memoIds: ['m1', 'm2', 'm3'], photoCount: 3, status: 'ready',
       replies: { hearts: 1, voices: 1, texts: ['밥 먹었어'], transcripts: ['괜찮아, 오늘 많이 걸었어'] },
     })
@@ -212,7 +214,7 @@ describe('daily digest', () => {
 
     expect(f.mails).toHaveLength(1)
     expect(f.mails[0]).toMatchObject({ to: 'cg1@example.com', subject: '[Daylie] 어머니님의 10월 3일 토요일' })
-    expect(f.mails[0].text).toContain(SUMMARY)
+    expect(f.mails[0].text.startsWith(`${TITLE}\n\n${SUMMARY}\n`)).toBe(true)
     expect(f.mails[0].text).toContain('사진 3장 · 어머니님이 하트 1개, 글 답장 1개, 음성 답장 1개를 남기셨어요')
     expect(f.mails[0].text).toContain('/digest/p1_daily_20261003')
     // One line and a link; never a photo.
@@ -298,6 +300,7 @@ describe('daily digest', () => {
     expect((await runDigests(KST('2026-10-03T21:50:00'), deps))!.digests).toBe(0)
     expect((await runDigests(KST('2026-10-03T22:00:00'), deps))!.digests).toBe(1)
     expect(await digest()).toMatchObject({ summary: '오늘 사진 3장을 남기셨어요.', summarySource: 'plain' })
+    expect((await digest())!.title).toBeUndefined()
   })
 
   it('gives up on a summary the model keeps getting wrong', async () => {
@@ -395,6 +398,38 @@ describe('weekly highlight, monthly recap, check-in', () => {
 })
 
 describe('summary prompt', () => {
+  it('asks for a day\'s diary with a title, in the family\'s language', () => {
+    const lines = ['09:40 산책 · 나무가 우거진 공원 산책길 · 서초동', '12:40 식사 · 된장찌개로 점심 식사 · 서초동']
+    const ko = buildDigestPrompt({ span: 'daily', lines })
+    expect(ko).toContain('오늘의 일기')
+    expect(ko).toContain('3~5문장')
+    expect(ko).toContain('기록이 하나뿐이면 1~2문장')
+    expect(ko).toContain('마지막 문장은 하루를 짧게 정리하는 따뜻한 한 줄')
+    expect(ko).toContain('title은 하루를 나타내는 짧은 말')
+    expect(ko).toContain('건강·약·진단명은 추측하지 마세요')
+    expect(ko).toContain('{"title":"공원 산책과 시장 나들이","diary":"')
+    expect(ko).toContain('- 09:40 산책 · 나무가 우거진 공원 산책길 · 서초동')
+    expect(ko).toContain('{"title": "...", "diary": "..."}')
+    const en = buildDigestPrompt({ span: 'daily', lines, lang: 'en' })
+    expect(en).toContain('3 to 5 short sentences')
+    expect(en).toContain('only one note, write 1 or 2 sentences')
+    expect(en).toContain('{"title":"A walk in the park and the market","diary":"')
+    expect(en).not.toContain('문장')
+    // A week keeps the short summary, in Korean, whatever the language.
+    const week = buildDigestPrompt({ span: 'weekly', lines, lang: 'en' })
+    expect(week).toContain('2~3문장')
+    expect(week).not.toContain('title')
+  })
+
+  it('takes the diary and its title out of the model\'s answer, at most five sentences', () => {
+    expect(parseDiary('{"title":"공원 산책","diary":"하나예요. 둘이에요. 셋이에요. 넷이에요.\\n다섯이에요. 여섯이에요."}')).toEqual({ title: '공원 산책', summary: '하나예요. 둘이에요. 셋이에요. 넷이에요. 다섯이에요.' })
+    expect(parseDiary('```json\n{"title":"“산책”","diary":"산책하셨어요."}\n```')).toEqual({ title: '산책', summary: '산책하셨어요.' })
+    expect(parseDiary('{"diary":"산책하셨어요."}')).toEqual({ title: '', summary: '산책하셨어요.' })
+    expect(parseDiary('{"title":"산책","diary":""}')).toBeNull()
+    expect(parseDiary('not json')).toBeNull()
+    expect(parseDiary(`{"title":"${'가'.repeat(40)}","diary":"산책하셨어요."}`)!.title).toHaveLength(30)
+  })
+
   it('thins a long month and keeps the rules', () => {
     const lines = Array.from({ length: 200 }, (_, i) => `line ${i}`)
     const prompt = buildDigestPrompt({ span: 'monthly', lines })

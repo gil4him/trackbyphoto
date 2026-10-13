@@ -25,6 +25,7 @@ export function DigestView({ digest, memos, onOpenMemo, onMore, onOpenTrail }: {
       <div className="h-eyebrow">{digest.label} · 사진 {digest.photoCount}장</div>
       <h2 className="h-title">{digest.patientName}님의 {TITLE[digest.kind]}</h2>
 
+      {digest.title && <h3 className="dg-title">{digest.title}</h3>}
       <p className="dg-summary">{digest.summary}</p>
 
       {memos.length > 0 && (

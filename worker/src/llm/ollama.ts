@@ -9,11 +9,13 @@ import { logger } from '../log.js'
 import {
   buildDigestPrompt,
   buildPrompt,
+  parseDiary,
   parseModelResponse,
   parseSummary,
   VALID_CATEGORIES,
   type DigestPromptArgs,
   type PromptHints,
+  type DigestText,
 } from './prompt.js'
 
 const OLLAMA_URL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434'
@@ -164,16 +166,28 @@ const SUMMARY_SCHEMA = {
   required: ['summary'],
 }
 
-/** Two or three sentences about a day (or week, or month) from its memos.
- *  Text only: the model never sees the photos again. */
-export async function generateSummary(args: DigestPromptArgs & { model?: string }): Promise<string> {
+const DIARY_SCHEMA = {
+  type: 'object',
+  properties: { title: { type: 'string' }, diary: { type: 'string' } },
+  required: ['title', 'diary'],
+}
+
+/** A day's diary with its title, or two or three sentences about a week or a
+ *  month, from its memos. Text only: the model never sees the photos again. */
+export async function generateSummary(args: DigestPromptArgs & { model?: string }): Promise<DigestText> {
   const model = args.model || await resolveModel()
+  const daily = args.span === 'daily'
   const { raw } = await ollamaGenerate(model, {
     prompt: buildDigestPrompt(args),
-    format: SUMMARY_SCHEMA,
-    options: { temperature: TEMPERATURE, num_predict: 400 },
+    format: daily ? DIARY_SCHEMA : SUMMARY_SCHEMA,
+    options: { temperature: TEMPERATURE, num_predict: daily ? 500 : 400 },
   })
+  if (daily) {
+    const diary = parseDiary(raw)
+    if (!diary) throw new LlmGenerationError(`unparseable diary: ${raw.slice(0, 200)}`)
+    return diary
+  }
   const summary = parseSummary(raw)
   if (!summary) throw new LlmGenerationError(`unparseable summary: ${raw.slice(0, 200)}`)
-  return summary
+  return { summary }
 }

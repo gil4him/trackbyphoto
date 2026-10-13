@@ -280,10 +280,20 @@ export function categoryFromTags(
 
 export type DigestSpan = 'daily' | 'weekly' | 'monthly'
 
+export type DigestLang = 'ko' | 'en'
+
 export interface DigestPromptArgs {
   span: DigestSpan
   /** One line per photo, oldest first: "09:40 산책 · 나무가 우거진 공원 산책길 · 서초동". */
   lines: string[]
+  /** The family's language (설정 → 언어); Korean until one is chosen. Only the daily diary is translated. */
+  lang?: DigestLang
+}
+
+/** What the model wrote: the diary (or the week's / month's summary) and, for a day, its title. */
+export interface DigestText {
+  summary: string
+  title?: string
 }
 
 /** Lines sent to the model; a long week or month is thinned evenly. */
@@ -300,7 +310,56 @@ function thin(lines: string[], max: number): string[] {
   return Array.from({ length: max }, (_, i) => lines[Math.floor((i * lines.length) / max)])
 }
 
-export function buildDigestPrompt({ span, lines }: DigestPromptArgs): string {
+/** A day's diary for the family: 3–5 short sentences (1–2 for a single photo), chronological, facts only,
+ *  a fact-bound closing line, and a short title. Korean rules for Korean, English rules for English. */
+function buildDiaryPrompt(lines: string[], lang: DigestLang): string {
+  const entries = thin(lines, DIGEST_MAX_LINES).map((l) => `- ${l}`)
+  if (lang === 'en') {
+    return [
+      'Below are the notes a parent left on each photo they took today. Using only these notes, write today\'s diary for their family.',
+      '',
+      'Rules:',
+      '- Write 3 to 5 short sentences, in the order of the day. If there is only one note, write 1 or 2 sentences.',
+      '- Use only what the notes say. Never guess events, feelings, reasons, health, medicines or diagnoses, names, or relationships (daughter, friend).',
+      '- Warm, gentle and respectful about the parent; never mention how many photos or notes there were.',
+      '- Merge similar notes into one sentence.',
+      '- The last sentence is one short, warm line that sums up the day, using only facts from the notes (where they went, what they did).',
+      '- The title is a short phrase for the day, at most 6 words, no emoji.',
+      '',
+      'Example:',
+      '{"title":"A walk in the park and the market","diary":"In the morning they took a walk in the park. Then they went to the market. For lunch they had soybean stew at home. In the afternoon they rested over coffee at a cafe. A day spent out and about in the neighbourhood."}',
+      '',
+      'Notes:',
+      ...entries,
+      '',
+      'Answer only as JSON: {"title": "...", "diary": "..."}',
+    ].join('\n')
+  }
+  return [
+    '아래는 부모님이 오늘 찍은 사진마다 적어 둔 기록이에요. 이 기록만 보고, 가족이 읽을 오늘의 일기를 써 주세요.',
+    '',
+    '규칙:',
+    '- 3~5문장으로 쓰세요. 한 문장은 40자 이내. 기록이 하나뿐이면 1~2문장만 쓰세요.',
+    '- 시간 순서대로 쓰고, 비슷한 기록은 하나로 묶으세요.',
+    '- 기록에 적힌 내용만 쓰세요. 적혀 있지 않은 일, 기분, 이유는 지어내지 마세요.',
+    '- 쉬운 한국어 존댓말(~요)로, 부모님을 높여서 쓰세요 ("산책하셨어요", "드셨어요").',
+    '- 사람 이름, 관계(딸·친구 등), 건강·약·진단명은 추측하지 마세요.',
+    '- 사진이 몇 장인지, "기록"이나 "사진"이라는 말은 쓰지 마세요.',
+    '- 마지막 문장은 하루를 짧게 정리하는 따뜻한 한 줄이에요. 기록에 있는 사실(어디를 다녀오셨는지, 무엇을 하셨는지)만으로 쓰세요.',
+    '- title은 하루를 나타내는 짧은 말이에요. 20자 이내, 이모지 없이.',
+    '',
+    '예시:',
+    '{"title":"공원 산책과 시장 나들이","diary":"오전에 공원을 산책하셨어요. 그 뒤 시장에 다녀오셨어요. 점심은 집에서 된장찌개를 드셨어요. 오후에는 카페에서 커피를 드시며 쉬셨어요. 동네를 두루 다니신 하루였어요."}',
+    '',
+    '기록:',
+    ...entries,
+    '',
+    'JSON 형식 {"title": "...", "diary": "..."} 으로만 답하세요.',
+  ].join('\n')
+}
+
+export function buildDigestPrompt({ span, lines, lang = 'ko' }: DigestPromptArgs): string {
+  if (span === 'daily') return buildDiaryPrompt(lines, lang)
   const { when, what } = SPAN_WORDS[span]
   return [
     `아래는 부모님이 ${when} 찍은 사진마다 적어 둔 기록이에요. 이 기록만 보고, 가족에게 전할 ${what} 요약을 써 주세요.`,
@@ -324,19 +383,40 @@ export function buildDigestPrompt({ span, lines }: DigestPromptArgs): string {
 }
 
 const SUMMARY_MAX = 300
+const DIARY_MAX = 450
+const TITLE_MAX = 30
 
-/** The summary out of the model's JSON: one paragraph, at most three sentences. */
-export function parseSummary(raw: string): string | null {
-  let text: unknown
+function modelJson(raw: string): Record<string, unknown> | null {
   try {
-    text = (JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)) as { summary?: unknown }).summary
+    return JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)) as Record<string, unknown>
   } catch {
     return null
   }
+}
+
+/** One paragraph of at most `max` sentences, cut at `chars`. Null when empty. */
+function paragraph(text: unknown, max: number, chars: number): string | null {
   if (typeof text !== 'string') return null
   const flat = text.replace(/\s+/g, ' ').trim()
   if (!flat) return null
   const sentences = flat.match(/[^.!?]+[.!?]+/g)?.map((s) => s.trim()) ?? [flat]
-  const kept = sentences.slice(0, 3).join(' ')
-  return kept.length > SUMMARY_MAX ? `${kept.slice(0, SUMMARY_MAX - 1)}…` : kept
+  const kept = sentences.slice(0, max).join(' ')
+  return kept.length > chars ? `${kept.slice(0, chars - 1)}…` : kept
+}
+
+/** The summary out of the model's JSON: one paragraph, at most three sentences. */
+export function parseSummary(raw: string): string | null {
+  const json = modelJson(raw)
+  return json ? paragraph(json.summary, 3, SUMMARY_MAX) : null
+}
+
+/** The day's diary out of the model's JSON: one paragraph of at most five
+ *  sentences, and a short title (empty when the model left it out). */
+export function parseDiary(raw: string): DigestText | null {
+  const json = modelJson(raw)
+  if (!json) return null
+  const summary = paragraph(json.diary, 5, DIARY_MAX)
+  if (!summary) return null
+  const title = typeof json.title === 'string' ? json.title.replace(/\s+/g, ' ').replace(/^["“”'「」\s]+|["“”'「」\s.]+$/g, '').trim() : ''
+  return { summary, title: title.length > TITLE_MAX ? `${title.slice(0, TITLE_MAX - 1)}…` : title }
 }

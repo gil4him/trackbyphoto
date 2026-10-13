@@ -3,9 +3,10 @@
  * sentences, sent to the family.
  *
  * At the parent's digest hour (users/{uid}.digest, default 20:00 Seoul time)
- * the worker gathers the day's memos, has the local model summarise them
- * (text only; same rules as memos: only what the memos say), adds the
- * parent's own replies (hearts, voice replies) and writes digests/{id}.
+ * the worker gathers the day's memos, has the local model write the day's
+ * diary with a title (text only; same rules as memos: only what the memos
+ * say; weeks and months get a shorter summary), adds the parent's own
+ * replies (hearts, voice replies) and writes digests/{id}.
  * Each family member then gets it by:
  *   - an in-app notice and a push, always,
  *   - e-mail, unless they switched 이메일 요약 off (and e-mail is configured),
@@ -28,10 +29,11 @@ import { logger } from '../log.js'
 import { WorkerError as HttpsError, type Caller } from '../context.js'
 import { generateSummary, LlmGenerationError, LlmUnavailableError } from '../llm/ollama.js'
 import { withModelLock } from '../llm/lock.js'
-import { areaOf, type DigestPromptArgs, type DigestSpan } from '../llm/prompt.js'
+import { areaOf, type DigestPromptArgs, type DigestSpan, type DigestText } from '../llm/prompt.js'
 import { mailerFromEnv, type Mailer } from '../mail.js'
 import { providerFor, type MessengerProvider } from '../messenger/index.js'
 import { getPlans, tierOf, type PlansDoc } from '../plans.js'
+import { resolveGeoLang } from '../travel.js'
 import { localClock, localDayStart, tzOffsetMin, validTz, type LocalClock } from '../zoned.js'
 import { isOwnerOrAdminCaregiver } from './caregiver.js'
 import { checkIn } from './checkin.js'
@@ -67,7 +69,7 @@ export function digestSettings(user: FirebaseFirestore.DocumentData | undefined)
 
 /** Injected so tests run without the model, FCM, SMTP or a messenger account. */
 export interface DigestDeps {
-  summarize: (args: DigestPromptArgs) => Promise<string>
+  summarize: (args: DigestPromptArgs) => Promise<DigestText>
   push: (uids: string[], message: PushMessage) => Promise<unknown>
   mail: Mailer | null
   messenger: (phone: string) => MessengerProvider
@@ -285,9 +287,12 @@ async function buildDigest(a: EnsureArgs, deps: DigestDeps): Promise<Record<stri
 
   const lines = memos.map((m) => memoLine(m, period.kind, a.tz))
   let summary: string
+  let title = ''
   let summarySource: 'local-llm' | 'plain'
   try {
-    summary = await deps.summarize({ span: period.kind, lines })
+    const text = await deps.summarize({ span: period.kind, lines, lang: await resolveGeoLang(patientUid) })
+    summary = text.summary
+    title = text.title ?? ''
     summarySource = 'local-llm'
     summaryAttempts.delete(id)
   } catch (err) {
@@ -322,6 +327,8 @@ async function buildDigest(a: EnsureArgs, deps: DigestDeps): Promise<Record<stri
     memoIds: memos.slice(-MAX_MEMO_IDS).map((m) => m.id),
     photoCount: memos.length,
     summary,
+    // The diary's title (daily, from the model); none on a plain fallback or a week/month.
+    ...(title ? { title } : {}),
     summarySource,
     replies: { hearts, voices: voices.length, texts, transcripts },
     status: 'ready',
@@ -383,6 +390,7 @@ async function deliver(ref: FirebaseFirestore.DocumentReference, digest: Firebas
         to,
         subject: `[Daylie] ${a.name}님의 ${a.period.label}`,
         text: [
+          ...(digest.title ? [digest.title as string, ''] : []),
           digest.summary as string,
           '',
           [`사진 ${digest.photoCount}장`, repliesLine(a.name, replies.hearts, replies.voices, replies.texts?.length ?? 0)].filter(Boolean).join(' · '),

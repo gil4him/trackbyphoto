@@ -321,7 +321,10 @@ export interface Digest {
   label: string
   periodStart?: Timestamp
   periodEnd?: Timestamp
+  /** The day's diary (daily) or the period's summary, from the worker's model. */
   summary: string
+  /** The diary's title (daily); absent on older digests, a plain fallback, or a week/month. */
+  title?: string
   memoIds: string[]
   photoCount: number
   /** The parent's own replies in the period; transcripts only on plans with voice replies. */

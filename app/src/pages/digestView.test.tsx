@@ -17,6 +17,7 @@ const digest: Digest = {
   patientName: '어머니',
   kind: 'daily',
   label: '10월 3일 토요일',
+  title: '공원 산책과 시장 나들이',
   summary: '오전에 공원을 산책하고 시장에 다녀오셨어요. 점심은 집에서 된장찌개를 드셨어요.',
   memoIds: ['m1', 'm2', 'm3'],
   photoCount: 12,
@@ -30,6 +31,7 @@ describe('DigestView', () => {
     const out = render(<DigestView digest={digest} memos={memos} onOpenMemo={() => {}} onMore={() => {}} />)
     expect(out).toContain('10월 3일 토요일')
     expect(out).toContain('어머니님의 오늘 하루')
+    expect(out).toContain('<h3 class="dg-title">공원 산책과 시장 나들이</h3>')
     expect(out).toContain('오전에 공원을 산책하고 시장에 다녀오셨어요.')
     expect(out.match(/class="dg-tile"/g)?.length).toBe(3)
     expect(out).toContain('9장 더 보기')
@@ -40,11 +42,12 @@ describe('DigestView', () => {
     expect(out).toContain('Daylie AI')
   })
 
-  it('leaves out what a quiet day does not have', () => {
-    const quiet: Digest = { ...digest, photoCount: 3, replies: { hearts: 0, voices: 0, transcripts: [] } }
+  it('leaves out what a quiet day does not have, and the title an older digest never had', () => {
+    const quiet: Digest = { ...digest, title: undefined, photoCount: 3, replies: { hearts: 0, voices: 0, transcripts: [] } }
     const out = render(<DigestView digest={quiet} memos={memos} onOpenMemo={() => {}} onMore={() => {}} />)
     expect(out).not.toContain('더 보기')
     expect(out).not.toContain('답장')
+    expect(out).not.toContain('dg-title')
   })
 
   it('titles a weekly highlight and a monthly album', () => {
