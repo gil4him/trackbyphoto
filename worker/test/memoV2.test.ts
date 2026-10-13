@@ -89,6 +89,8 @@ describe('parseWriteResponse', () => {
       .toEqual({ memo: '볕 좋은 날의 공원 산책이에요', scene: '벚나무가 늘어서 있어요. 공원 길이에요. 축제 현수막이 보여요.', hookId: 'nth' })
     expect(parseWriteResponse('```json\n{"memo":"공원 산책","scene":"","hookId":""}\n```')).toEqual({ memo: '공원 산책', scene: '', hookId: null })
     expect(parseWriteResponse('{"memo":"공원 산책","scene":"","hookId":"null"}')?.hookId).toBeNull()
+    expect(parseWriteResponse('{"memo":"공원 산책","scene":"","hookId":"${streak}"}')?.hookId).toBe('streak')
+    expect(parseWriteResponse('{"memo":"공원 산책","scene":"","hookId":"{{today}}"}')?.hookId).toBe('today')
   })
 
   it('is null without a title, with a foreign script in it, or for junk', () => {

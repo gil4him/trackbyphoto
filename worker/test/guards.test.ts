@@ -27,6 +27,7 @@ describe('checkMemo', () => {
     expect(placeTokens('서초동에서 잠실역으로, 공원을')).toEqual(['서초동', '잠실역', '공원'])
     // Short everyday words that happen to end like a place are not places.
     expect(placeTokens('카페에서 잠시 쉬었어요, 도시 풍경, 유리 너머')).toEqual([])
+    expect(placeTokens('지하철역에서 기차를 기다리는 모습')).toEqual(['지하철역'])
     expect(checkMemo('카페에서 잠시 쉬었어요', null, facts, hooks, [])).toEqual({ ok: true })
   })
 

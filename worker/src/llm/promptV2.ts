@@ -220,7 +220,8 @@ export function parseWriteResponse(raw: string): Written | null {
   const memo = typeof parsed.memo === 'string' ? tidyMemo(parsed.memo) : ''
   if (!memo || FOREIGN_SCRIPT.test(memo)) return null
   const scene = typeof parsed.scene === 'string' ? tidyScene(parsed.scene) : ''
-  const id = typeof parsed.hookId === 'string' ? parsed.hookId.trim().replace(/^\[|\]$/g, '') : ''
+  // The model sometimes echoes the id in brackets or template braces: [nth], ${streak}, {{today}}.
+  const id = typeof parsed.hookId === 'string' ? (parsed.hookId.match(/[a-z]+/i)?.[0] ?? '') : ''
   const hookId = id && !/^(null|none|없음)$/i.test(id) ? id : null
   return { memo, scene, hookId }
 }

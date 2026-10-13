@@ -15,10 +15,11 @@ export type GuardVerdict = { ok: true } | { ok: false; reason: 'hook' | 'number'
 const RELATIONS = ['가족', '식구', '딸', '아들', '손주', '손자', '손녀', '며느리', '사위', '아내', '남편', '부부', '친구', '동료', '엄마', '아빠', '어머니', '아버지', '저희', '우리']
 
 /** Word endings that mark a place in Korean. */
-const PLACE_SUFFIX = /(특별시|광역시|시|군|구|동|읍|면|리|역|공원|시장|마트|다리|산|강|항|해수욕장|사찰|절|궁|성당|교회|대학교|병원|호수|섬)$/
+// 리 (village) is left out: 기다리는, 내리는, 걸리는 lose their 는 to the particle strip and read as places.
+const PLACE_SUFFIX = /(특별시|광역시|시|군|구|동|읍|면|역|공원|시장|마트|다리|산|강|항|해수욕장|사찰|절|궁|성당|교회|대학교|병원|호수|섬)$/
 /** One-syllable endings (시/구/동/리/역/산/강/항/절/궁/섬) only mark a place on a
  *  word of three or more characters: 잠시, 도시, 동시, 유리 are not places. */
-const SHORT_SUFFIX = /[시구동리역산강항절궁섬]$/
+const SHORT_SUFFIX = /[시구동역산강항절궁섬]$/
 /** Particles a place word may carry in a title. */
 const PARTICLES = /(에서는|에서도|에서|에는|에도|에|으로|로|의|은|는|이|가|을|를|과|와|도|만)$/
 const DIGITS = /\d+/g
