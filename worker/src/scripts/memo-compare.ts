@@ -2,7 +2,7 @@
 // on a parent's real photos, side by side, so the switch to v2 is judged
 // on thirty pictures rather than one lucky run:
 //
-//   npm run memo-compare -- [--patient <uid>] [--n 30] [--out <dir>]
+//   npm run memo-compare -- [--patient <uid> | --all] [--n 30] [--out <dir>]
 //   npm run memo-compare -- --results <picks.json>     (score an earlier run)
 //   npm run memo-compare -- --page                     (rebuild the page from the saved JSON)
 //
@@ -29,6 +29,7 @@ import { homeHintFor, localTimeHint } from '../travel.js'
 interface Try { temperature: number; memo: string; scene: string; hookId: string | null; verdict: GuardVerdict }
 interface Row {
   memoId: string
+  patientUid: string
   photoUrl: string
   takenAt: string
   place: string
@@ -73,20 +74,24 @@ async function busiestPatient(): Promise<string> {
   return best
 }
 
-const patientUid = arg('patient') || await busiestPatient()
-const snap = await db.collection('memos').where('patientUid', '==', patientUid).orderBy('takenAt', 'desc').limit(n * 3).get()
+// --all: every parent's latest photos (a small project); else one parent.
+const all = process.argv.includes('--all')
+const onePatient = all ? null : arg('patient') || await busiestPatient()
+const query = onePatient ? db.collection('memos').where('patientUid', '==', onePatient) : db.collection('memos')
+const snap = await query.orderBy('takenAt', 'desc').limit(n * 3).get()
 const memos = snap.docs.filter((d) => d.get('status') === 'ready' && d.get('photoPath') && !['local-stub', 'stored-only'].includes(d.get('memoSource'))).slice(0, n)
-console.log(`${projectId}: patient ${patientUid.slice(0, 8)}…, ${memos.length} photos, model ${model}, out ${out}`)
+console.log(`${projectId}: ${onePatient ? `patient ${onePatient.slice(0, 8)}…` : 'every parent'}, ${memos.length} photos, model ${model}, out ${out}`)
 
 const rows: Row[] = []
 for (const [i, d] of memos.entries()) {
   const m = d.data()
+  const patientUid = m.patientUid as string
   const takenAt = (m.takenAt as Timestamp).toDate()
   const lat = typeof m.lat === 'number' ? (m.lat as number) : null
   const lng = typeof m.lng === 'number' ? (m.lng as number) : null
   const tags = (m.tags as VisionTags | undefined) ?? null
   const row: Row = {
-    memoId: d.id, photoUrl: (m.photoUrl as string) || '', takenAt: takenAt.toISOString(), place: (m.place as string) || '', activity: (m.activity as string) || '',
+    memoId: d.id, patientUid, photoUrl: (m.photoUrl as string) || '', takenAt: takenAt.toISOString(), place: (m.place as string) || '', activity: (m.activity as string) || '',
     current: { memo: (m.memo as string) || '', scene: (m.scene as string) || '', source: (m.memoSource as string) || '' },
     v1: { error: 'not run' }, v2: { error: 'not run' },
   }
@@ -143,7 +148,7 @@ for (const [i, d] of memos.entries()) {
     row.v2 = { error: String(err).slice(0, 160) }
     process.stdout.write(`   v2:  FAILED ${row.v2.error}\n`)
   }
-  writeFileSync(join(out, 'memo-compare.json'), JSON.stringify({ projectId, patientUid, model, generatedAt: new Date().toISOString(), rows }, null, 2))
+  writeFileSync(join(out, 'memo-compare.json'), JSON.stringify({ projectId, patientUid: onePatient ?? 'all', model, generatedAt: new Date().toISOString(), rows }, null, 2))
 }
 writeFileSync(join(out, 'memo-compare.html'), page(rows))
 console.log(`\nwrote ${join(out, 'memo-compare.html')} — open it, pick the better memo per row, download the picks, then:\n  npm run memo-compare -- --results <picks.json>`)
