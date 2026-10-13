@@ -1070,8 +1070,6 @@ nav.tabbar .tab.on .tab-avatar { box-shadow: 0 0 0 2px var(--coral2); }
 .trail-badge { display: inline-block; margin-left: 8px; padding: 1px 9px; border-radius: 999px; background: var(--accent-tint); color: var(--accent-ink); font-size: 13px; font-weight: 800; vertical-align: middle; }
 .trail-list { list-style: none; margin: 14px 0 0; padding: 0; }
 .trail-stop { display: flex; align-items: center; gap: 10px; width: 100%; padding: 12px 4px; border: 0; border-bottom: 2px solid var(--line); background: none; text-align: left; font: inherit; color: var(--ink); }
-/* 지도로 보기 on the trail page (the digest keeps its own .dg-more). */
-.trail .dg-more { min-height: 48px; border: 2px solid var(--line); border-radius: 16px; background: var(--surface); font: inherit; font-size: 17px; font-weight: 700; color: var(--ink); }
 .trail-n { flex: none; width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: var(--ink); font-size: 13px; font-weight: 800; display: grid; place-items: center; }
 .trail-thumb { flex: none; width: 52px; height: 52px; border-radius: 12px; overflow: hidden; background: var(--surface-dim); }
 .trail-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }

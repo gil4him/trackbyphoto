@@ -39,14 +39,14 @@ describe('Trail', () => {
     expect(out).not.toMatch(MAP_HOSTS)
   })
 
-  it('shows 여행 중 far from home, and asks before fetching a Google map', () => {
+  it('shows 여행 중 far from home, with the Google map picture in the box, no tap needed', () => {
     const out = render(<Trail title="오늘 다녀온 곳" memos={NAGOYA_DAY} home={HOME} onBack={() => {}} onOpenMemo={() => {}} keys={{ kakao: 'k', google: 'g' }} />)
     expect(out).toContain('여행 중')
     expect(out).toMatch(/집에서 약 \d{3}km/)
-    expect(out).toContain('지도로 보기')
-    // Until the tap, only the sketch: nothing is requested from Google.
-    expect(out).toContain('trail-sketch')
-    expect(out).not.toMatch(MAP_HOSTS)
+    expect(out).toContain('class="trail-static"')
+    expect(out).toContain('maps.googleapis.com/maps/api/staticmap')
+    expect(out).not.toContain('지도로 보기')
+    expect(out).not.toContain('trail-sketch')
   })
 
   it('in Korea with a key, leaves room for the Kakao map instead of the sketch', () => {

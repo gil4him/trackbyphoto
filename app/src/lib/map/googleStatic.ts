@@ -1,6 +1,6 @@
 // Google Static Maps: one image of the route, for places outside Korea.
-// A paid API, so the URL is only ever requested after the person taps
-// "지도로 보기" (see pages/Trail.tsx) and never from a digest.
+// A paid API: the URL is requested once per trail page open (pages/Trail.tsx)
+// and never from a digest or a list.
 
 import type { LatLng } from '../trail'
 

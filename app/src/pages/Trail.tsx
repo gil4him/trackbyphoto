@@ -35,8 +35,8 @@ export function TrailList({ stops, onOpenMemo }: { stops: TrailStop[]; onOpenMem
 
 /**
  * 오늘 다녀온 곳: the day's photos as a route. In Korea the route is drawn on
- * a Kakao map; elsewhere a Google map is fetched only when asked for; with
- * no key (or if the map can't load) the keyless sketch is shown instead.
+ * a Kakao map; elsewhere a Google map picture is shown; with no key (or if
+ * the map can't load) the keyless sketch is shown instead.
  */
 export function Trail({ title, memos, home, onBack, onOpenMemo, keys = MAP_KEYS }: {
   title: string
@@ -52,7 +52,7 @@ export function Trail({ title, memos, home, onBack, onOpenMemo, keys = MAP_KEYS 
   const provider = pickProvider(stops, keys)
   const mapRef = useRef<HTMLDivElement>(null)
   const [kakaoFailed, setKakaoFailed] = useState(false)
-  const [showStatic, setShowStatic] = useState(false)
+  const [staticFailed, setStaticFailed] = useState(false)
   // Home belongs in the picture on a day out, not on a trip far away.
   const nearHome = home && !summary.away && summary.maxKm !== null && summary.maxKm < AWAY_KM ? home : null
 
@@ -94,13 +94,10 @@ export function Trail({ title, memos, home, onBack, onOpenMemo, keys = MAP_KEYS 
           <div className="trail-map">
             {provider === 'kakao' && !kakaoFailed
               ? <div ref={mapRef} className="trail-kakao" />
-              : showStatic && keys.google
-                ? <img className="trail-static" src={staticMapUrl(stops, keys.google)} alt="다녀온 곳 지도" />
+              : provider === 'googleStatic' && keys.google && !staticFailed
+                ? <img className="trail-static" src={staticMapUrl(stops, keys.google)} alt="다녀온 곳 지도" onError={() => setStaticFailed(true)} />
                 : <TrailSketch stops={stops} home={nearHome} thumbs onPick={(s) => onOpenMemo(s.memos[0].id)} />}
           </div>
-          {provider === 'googleStatic' && !showStatic && (
-            <button type="button" className="dg-more" onClick={() => setShowStatic(true)}>지도로 보기</button>
-          )}
           <TrailList stops={stops} onOpenMemo={onOpenMemo} />
           {located < memos.length && <div className="help">위치가 없는 사진 {memos.length - located}장은 여기에 나오지 않아요.</div>}
         </>

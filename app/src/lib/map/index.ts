@@ -1,7 +1,7 @@
 // Which map draws a route.
 //
 //   in Korea            → Kakao Map (free quota), loaded when the page opens
-//   anywhere else       → Google Static Maps, fetched only when the person taps
+//   anywhere else       → Google Static Maps, one picture when the trail page opens
 //   no key for the area → the keyless sketch: the route's shape, no map tiles
 //
 // The digest page only ever uses the sketch, so opening a digest never makes
