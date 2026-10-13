@@ -92,7 +92,7 @@ type Role = (typeof ROLES)[number]
 
 /** Settings fields the dashboard may correct. Never plan / channels / digest /
  *  dayCounters (worker-owned) and never accountType (what the account is). */
-const EDITABLE_SETTINGS = ['patientName', 'cadence', 'autoMode', 'bigText', 'retention', 'geoLang', 'voiceEnabled', 'textReplies', 'familyPhotos', 'home'] as const
+const EDITABLE_SETTINGS = ['patientName', 'cadence', 'autoMode', 'bigText', 'retention', 'geoLang', 'voiceEnabled', 'textReplies', 'familyPhotos', 'home', 'memoStyle'] as const
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 

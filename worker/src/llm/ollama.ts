@@ -45,7 +45,7 @@ export interface LlmResult {
   scene: string
   model: string
   /** Which kind of model wrote it; stored as the memo's memoSource. */
-  source?: 'local-llm' | 'cloud-llm'
+  source?: 'local-llm' | 'cloud-llm' | 'local-llm-v2'
   /** Token counts for the dashboard. USD is always 0 for local models but the
    *  field stays so the counter rollup keeps its shape. */
   cost: { promptTokens: number; outputTokens: number; totalUSD: number }

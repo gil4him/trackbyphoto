@@ -11,9 +11,9 @@ import { getFirestore } from 'firebase-admin/firestore'
 import { logger } from '../log.js'
 import { flagOn } from '../plans.js'
 import { CloudLlmError, generateMemoGemini, geminiConfigured } from './gemini.js'
-import { withModelLock } from './lock.js'
-import { generateMemo, type LlmResult } from './ollama.js'
-import type { PromptHints } from './prompt.js'
+import { generateMemoLocal } from './memoV2.js'
+import type { LlmResult } from './ollama.js'
+import type { PromptHints, VisionTags } from './prompt.js'
 
 /** Gemini takes inline images up to 20 MB of request; base64 adds a third. */
 const MAX_INLINE_BASE64 = 19_000_000
@@ -23,6 +23,10 @@ export type MemoArgs = PromptHints & {
   patientUid: string
   mimeType?: string
   temperature?: number
+  /** For memo v2's context pack (memoV2.ts): when the photo was taken, on whose clock, and what the phone saw. */
+  takenAt?: Date
+  tzOffsetMin?: number | null
+  tags?: VisionTags | null
 }
 
 let allowCache: { value: Set<string>; expiresAt: number } | null = null
@@ -58,9 +62,9 @@ export interface RouteDeps {
 
 const defaultRouteDeps: RouteDeps = {
   cloud: generateMemoGemini,
-  // Shares the Mac mini with speech-to-text: one model at a time. The cloud
-  // call needs no such lock.
-  local: (args) => withModelLock(() => generateMemo(args)),
+  // v2 behind its flag, else v1; both take the Mac mini's model lock inside
+  // (one model at a time, shared with speech-to-text). The cloud call needs no lock.
+  local: generateMemoLocal,
   allowed: cloudMemoAllowed,
 }
 

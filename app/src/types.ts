@@ -19,6 +19,7 @@ export type MemoSource =
   | 'template'          // pre-iOS-26: Korean sentence template over Vision tags
   | 'local-llm'         // Mac mini worker's local vision model (Ollama)
   | 'cloud-llm'         // Gemini, for the people the worker lets through (llm/route.ts)
+  | 'local-llm-v2'      // the local model in two steps: see the photo, then write (llm/memoV2.ts)
   | 'local-stub'        // fallback after the local model failed repeatedly
   | 'stored-only'       // kept without an AI memo (past the day's allowance)
   | 'cloud-vision'      // legacy: Gemini/OpenAI Cloud Function (older memos)
@@ -65,6 +66,8 @@ export interface Memo {
 }
 
 export type GeoLang = 'ko' | 'en'
+/** 담백하게 / 다정하게 / 재치있게. */
+export type MemoStyle = 'plain' | 'warm' | 'playful'
 
 export interface UserSettings {
   patientName: string
@@ -90,6 +93,8 @@ export interface UserSettings {
   /** Photos family send to this parent: received at all, and who may send.
    *  Set by the 대표 가족; absent means on, everyone. */
   familyPhotos?: { enabled?: boolean; senders?: 'all' | 'admins' }
+  /** How the worker's model words this parent's memos (설정 → 메모 말투); absent means warm. */
+  memoStyle?: MemoStyle
   /** The patient's plan. Written only by the worker (changePlan); missing means free. */
   plan?: { tier: PlanTier; status?: string; since?: Timestamp }
   /** When the digest of this person's day goes out (worker-owned; setDigest). */

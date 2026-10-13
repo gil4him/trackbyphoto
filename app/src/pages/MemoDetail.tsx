@@ -21,6 +21,7 @@ const SOURCE_BADGES: Partial<Record<MemoSource, { label: string; tone: 'good' | 
   'local-llm':         { label: 'AI 분석',             tone: 'good' },
   // Same words for the family: which model wrote it is not their concern.
   'cloud-llm':         { label: 'AI 분석',             tone: 'good' },
+  'local-llm-v2':      { label: 'AI 분석',             tone: 'good' },
   'local-stub':        { label: 'AI 추정',             tone: 'warn' },
   'cloud-vision':      { label: '클라우드 AI',         tone: 'good' },
   'cloud-stub':        { label: '클라우드 추정',        tone: 'warn' },

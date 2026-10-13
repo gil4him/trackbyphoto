@@ -1,6 +1,9 @@
 // Memo v2: the see() prompt and its parser (no model, no Firestore).
 import { describe, it, expect } from 'vitest'
 import { buildSeePrompt, buildWritePrompt, parseSeeResponse, parseWriteResponse, STYLE_EXAMPLES, type Seen } from '../src/llm/promptV2'
+import { generateMemoV2, WRITE_RETRY_TEMPERATURE, WRITE_TEMPERATURE, type V2Deps, type WriteArgs } from '../src/llm/memoV2'
+import { LlmGenerationError, LlmUnavailableError } from '../src/llm/ollama'
+import type { ContextData } from '../src/llm/context'
 
 describe('see() prompt', () => {
   it('asks for facts only, with the category list, the sign rules and the situation hints', () => {
@@ -89,5 +92,77 @@ describe('parseWriteResponse', () => {
     expect(parseWriteResponse('{"memo":"","scene":"x","hookId":""}')).toBeNull()
     expect(parseWriteResponse('{"memo":"名古屋 산책","scene":"x","hookId":""}')).toBeNull()
     expect(parseWriteResponse('nope')).toBeNull()
+  })
+})
+
+describe('generateMemoV2', () => {
+  const KST = 9 * 60
+  const takenAt = new Date('2026-04-05T10:00:00+09:00')
+  const cost = { promptTokens: 100, outputTokens: 20, totalUSD: 0 }
+  const ctx: ContextData = {
+    past: [
+      { id: 'a', takenAtMs: takenAt.getTime() - 3600_000, activity: '산책', memo: '아침 공원 한 바퀴', lat: 37.5, lng: 127.0, labels: [] },
+      { id: 'b', takenAtMs: takenAt.getTime() - 86_400_000, activity: '산책', memo: '동네 산책길', lat: 37.5, lng: 127.0, labels: [] },
+    ],
+    style: 'playful',
+  }
+  const args = { imageBase64: 'aGk=', patientUid: 'p1', coords: { lat: 37.5, lng: 127.0 }, placeHint: '서초동, 서초구', timeHint: '10:00', takenAt, tzOffsetMin: KST, tags: { labels: [{ name: 'Cherry Blossom', confidence: 0.9 }], text: [], faceCount: 0 } }
+
+  function fakes(writes: Array<{ memo: string; scene?: string; hookId?: string | null } | Error>) {
+    const calls: { see: number; write: WriteArgs[]; v1: number } = { see: 0, write: [], v1: 0 }
+    const deps: V2Deps = {
+      see: async () => { calls.see++; return { seen: SEEN, model: 'gemma4:e4b', cost } },
+      write: async (a) => {
+        calls.write.push(a)
+        const next = writes.shift()
+        if (!next) throw new Error('no more answers')
+        if (next instanceof Error) throw next
+        return { memo: next.memo, scene: next.scene ?? '벚나무가 늘어서 있어요. 공원 길이에요.', hookId: next.hookId ?? null, model: 'gemma4:e4b', cost }
+      },
+      loadContext: async () => ctx,
+      offsetMin: async () => KST,
+      weather: async () => null,
+      v1: async () => { calls.v1++; return { activity: '산책', memo: '공원 산책길', scene: 'v1', model: 'gemma4:e4b', cost } },
+    }
+    return { deps, calls }
+  }
+
+  it('sees, builds the hooks, writes in the family\'s style, and keeps the hook and the facts', async () => {
+    const { deps, calls } = fakes([{ memo: '오늘 2번째, 벚꽃 아래 산책', hookId: 'nth' }])
+    const r = await generateMemoV2(args, deps)
+    expect(r).toMatchObject({ activity: '산책', memo: '오늘 2번째, 벚꽃 아래 산책', source: 'local-llm-v2', memoVersion: 2, hookId: 'nth', seen: SEEN, model: 'gemma4:e4b' })
+    expect(r.cost).toEqual({ promptTokens: 200, outputTokens: 40, totalUSD: 0 })
+    expect(calls).toMatchObject({ see: 1, v1: 0 })
+    const w = calls.write[0]
+    expect(w.style).toBe('playful')
+    expect(w.temperature).toBe(WRITE_TEMPERATURE)
+    expect(w.recentTitles).toEqual(['아침 공원 한 바퀴', '동네 산책길'])
+    // Yesterday's walk was at the same spot, so the revisit hook is offered too.
+    expect(w.hooks.map((h) => h.id)).toEqual(['nth', 'today', 'streak', 'revisit', 'calendar'])
+    expect(w.hints).toEqual({ timeHint: '10:00', placeHint: '서초동, 서초구', homeHint: undefined })
+  })
+
+  it('tries once more, looser, when a guard rejects the title', async () => {
+    const { deps, calls } = fakes([{ memo: '잠실동 벚꽃 산책' }, { memo: '벚꽃 아래 공원 산책' }])
+    const r = await generateMemoV2(args, deps)
+    expect(r.memo).toBe('벚꽃 아래 공원 산책')
+    expect(calls.write.map((w) => w.temperature)).toEqual([WRITE_TEMPERATURE, WRITE_RETRY_TEMPERATURE])
+    expect(calls.v1).toBe(0)
+  })
+
+  it('falls back to v1 when the guards reject both tries, or the writer breaks', async () => {
+    const { deps, calls } = fakes([{ memo: '동네 산책길!' }, { memo: '공원에서 벚꽃 12그루' }])
+    const r = await generateMemoV2(args, deps)
+    expect(r).toMatchObject({ memo: '공원 산책길', source: 'local-llm' })
+    expect(r.memoVersion).toBeUndefined()
+    expect(calls.v1).toBe(1)
+    const broken = fakes([new LlmGenerationError('bad json')])
+    expect((await generateMemoV2(args, broken.deps)).source).toBe('local-llm')
+  })
+
+  it('passes an unreachable Ollama up, so the photo waits', async () => {
+    const { deps } = fakes([])
+    deps.see = async () => { throw new LlmUnavailableError('down') }
+    await expect(generateMemoV2(args, deps)).rejects.toBeInstanceOf(LlmUnavailableError)
   })
 })

@@ -44,6 +44,7 @@ import {
   type LlmResult,
 } from '../llm/ollama.js'
 import { generateMemoRouted, type MemoArgs } from '../llm/route.js'
+import type { V2Result } from '../llm/memoV2.js'
 import { areaOf, readableText, storedOnlyMemo, stubActivity, type VisionTags } from '../llm/prompt.js'
 import { homeHintFor, localTimeHint, resolveGeoLang } from '../travel.js'
 import { pushToUsers, type PushMessage } from './push.js'
@@ -66,7 +67,7 @@ export interface MemoDeps {
   /** Resolve the photo; null when the object doesn't exist. */
   loadPhoto: (photoPath: string) => Promise<PhotoInfo | null>
   geocode: (lat: number | null, lng: number | null, lang?: GeoLang) => Promise<GeoResult>
-  generate: (args: MemoArgs) => Promise<LlmResult>
+  generate: (args: MemoArgs) => Promise<V2Result>
   /** Push the new-photo notice to family devices (default: handlers/push). */
   push?: (uids: string[], message: PushMessage) => Promise<unknown>
 }
@@ -215,6 +216,8 @@ export async function processMemo(memoId: string, attempt: number, deps: MemoDep
   let memoSource: string
   let llmCost: LlmResult['cost'] | null = null
   let llmModel: string | null = null
+  // Memo v2 (llm/memoV2.ts): the hook it used and what it saw, kept for review.
+  let v2: { hookId: string | null; seen: unknown } | null = null
 
   const usage = await accountPhotoSafely({
     memoId,
@@ -252,6 +255,9 @@ export async function processMemo(memoId: string, attempt: number, deps: MemoDep
       textHint: readableText(tags?.text),
       // Text the model wrote before means someone asked for another take.
       temperature: data.memo && data.memoSource !== 'stored-only' ? REWRITE_TEMPERATURE : undefined,
+      takenAt: data.takenAt?.toDate?.(),
+      tzOffsetMin: data.tzOffsetMin as number | undefined,
+      tags,
     })
     activity = result.activity
     memo = result.memo
@@ -259,6 +265,7 @@ export async function processMemo(memoId: string, attempt: number, deps: MemoDep
     memoSource = result.source ?? 'local-llm'
     llmCost = result.cost
     llmModel = result.model
+    v2 = result.memoVersion === 2 ? { hookId: result.hookId ?? null, seen: result.seen ?? null } : null
   } catch (err) {
     if (err instanceof LlmUnavailableError) {
       logger.warn('[memo] ollama unavailable; will retry', { memoId })
@@ -301,6 +308,15 @@ export async function processMemo(memoId: string, attempt: number, deps: MemoDep
     update.scene = scene
     update.memoSource = memoSource
     if (llmModel) update.model = llmModel
+    if (v2) {
+      update.memoVersion = 2
+      update.hookId = v2.hookId
+      update.seen = v2.seen
+    } else {
+      update.memoVersion = FieldValue.delete()
+      update.hookId = FieldValue.delete()
+      update.seen = FieldValue.delete()
+    }
   }
   await memoRef.update(update)
 

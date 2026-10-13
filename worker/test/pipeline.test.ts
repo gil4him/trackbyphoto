@@ -98,6 +98,27 @@ describe('processMemo', () => {
     expect((await db.doc('admin_totals/global').get()).data()!.memos).toBe(1)
   })
 
+  it('keeps what memo v2 adds (its version, hook and facts), and clears them when v1 writes again', async () => {
+    await seedPending('m1', { takenAt: Timestamp.fromDate(new Date('2026-04-05T01:00:00Z')), tzOffsetMin: 540, tags: { labels: [{ name: 'tree', confidence: 0.9 }], text: [], faceCount: 0 } })
+    const seen = { activity: '산책', subjects: ['벚나무'], setting: '공원', signText: [], peopleCount: 0 }
+    const d = deps({ generate: async (a) => {
+      d.lastHints = a
+      return { activity: '산책', memo: '벚꽃 아래 공원 산책', scene: '벚나무가 늘어서 있어요.', model: 'gemma4:e4b', source: 'local-llm-v2', cost: { promptTokens: 1, outputTokens: 1, totalUSD: 0 }, memoVersion: 2, hookId: 'nth', seen }
+    } })
+    expect(await processMemo('m1', 1, d)).toBe('done')
+    expect(d.lastHints).toMatchObject({ takenAt: new Date('2026-04-05T01:00:00Z'), tzOffsetMin: 540, tags: { labels: [{ name: 'tree', confidence: 0.9 }] } })
+    const doc = (await db.doc('memos/m1').get()).data()!
+    expect(doc).toMatchObject({ memoSource: 'local-llm-v2', memoVersion: 2, hookId: 'nth', seen })
+    // Written again by v1 (a rewrite): the v2 fields go.
+    await db.doc('memos/m1').update({ status: 'pending' })
+    expect(await processMemo('m1', 1, deps())).toBe('done')
+    const again = (await db.doc('memos/m1').get()).data()!
+    expect(again.memoSource).toBe('local-llm')
+    expect(again.memoVersion).toBeUndefined()
+    expect(again.hookId).toBeUndefined()
+    expect(again.seen).toBeUndefined()
+  })
+
   it('ignores a memo written on the phone and writes its own from the photo', async () => {
     await seedPending('m1', {
       deviceMemo: '오늘의 한 순간을 담았어요.\n\n지어낸 긴 이야기.',

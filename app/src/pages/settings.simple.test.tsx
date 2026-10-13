@@ -49,6 +49,14 @@ describe('Settings for a parent (simple)', () => {
     expect(html).not.toContain('danger-btn')
   })
 
+  it('부모님: 메모 말투 for the family that manages the parent, 다정하게 on by default', () => {
+    expect(html).toContain('aria-label="메모 말투"')
+    expect(html).toContain('>담백하게<')
+    expect(html).toContain('class="on">다정하게<')
+    expect(html).toContain('>재치있게<')
+    expect(html.indexOf('메모 말투')).toBeLessThan(html.indexOf('함께 보는 가족'))
+  })
+
   it('알림: the 앱 알림 switch, then 알림 시간', () => {
     expect(html).toContain('aria-label="앱 알림 전환"')
     expect(html.indexOf('앱 알림')).toBeLessThan(html.indexOf('알림 시간'))

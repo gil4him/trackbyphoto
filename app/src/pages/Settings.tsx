@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { User } from 'firebase/auth'
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore'
 import { db } from '../firebase'
-import type { DigestSettings, UserSettings, Memo } from '../types'
+import type { DigestSettings, UserSettings, Memo, MemoStyle } from '../types'
 import { useToast } from '../components/Toast'
 import { useMemberships, type LiveMembership } from '../hooks/useMemberships'
 import type { Person } from '../lib/people'
@@ -79,6 +79,8 @@ interface Props {
 // The simple edition adds 알림 시간 (the evening photo count) and leaves out
 // the developer note.
 const simple = isSimple()
+/** 설정 → 메모 말투 (memo v2): the worker's model words the memos this way. */
+const MEMO_STYLES: [MemoStyle, string][] = [['plain', '담백하게'], ['warm', '다정하게'], ['playful', '재치있게']]
 
 export function Settings({ settings, onChange, user, onSignOut, memos, activePatientUid, isSelf, onSwitchPatient, myRole, voiceRollout = false, reactionsRollout = false, digestRollout = false, weeklyIncluded = false, weeklyFrom = null, people = [], familyPhotosRollout = false, onOpenPlans, planName, familyLimit = null, pushRollout = false }: Props) {
   const toast = useToast()
@@ -557,6 +559,13 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
           )}
           {!isSelf && canManageHere && (
             <>
+              {/* 메모 말투: how the worker's model words this parent's memos (memo v2). Family only. */}
+              <div className="sub-lab">메모 말투</div>
+              <div className="seg" role="group" aria-label="메모 말투">
+                {MEMO_STYLES.map(([v, label]) => (
+                  <button key={v} className={(settings.memoStyle ?? 'warm') === v ? 'on' : ''} onClick={() => update('memoStyle', v)}>{label}</button>
+                ))}
+              </div>
               <div className="sub-lab">함께 보는 가족</div>
               {caregivers.length === 0 ? (
                 <div className="row"><div className="who"><span>아직 함께하는 가족이 없어요.</span></div></div>
