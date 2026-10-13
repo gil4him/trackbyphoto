@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { canSendFamilyPhoto, cardLine, photoDayLabel, sentStatus, sentToday, showable } from './familyPhotosModel'
+import { canSendFamilyPhoto, cardLine, sentStatus, sentToday, showable } from './familyPhotosModel'
 import type { FamilyPhoto } from '../types'
 
 const p = (id: string, o: Partial<FamilyPhoto> = {}): FamilyPhoto => ({
@@ -29,14 +29,6 @@ describe('what the album shows', () => {
   it('newest first, only ready ones', () => {
     const photos = [p('1', { seenAtMs: 9 }), p('3'), p('2'), p('4', { status: 'pending', photoUrl: undefined }), p('5', { seenAtMs: 9 })]
     expect(showable(photos).map((x) => x.id)).toEqual(['5', '3', '2', '1'])
-  })
-
-  it('labels a cell 오늘, 어제, or the date', () => {
-    const now = new Date(2026, 9, 12, 21, 0).getTime()
-    const H = 3600 * 1000
-    expect(photoDayLabel(now - 2 * H, now)).toBe('오늘')
-    expect(photoDayLabel(now - 22 * H, now)).toBe('어제')
-    expect(photoDayLabel(new Date(2026, 9, 3, 9, 0).getTime(), now)).toBe('10월 3일')
   })
 })
 

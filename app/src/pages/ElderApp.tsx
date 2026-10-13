@@ -139,7 +139,9 @@ export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn
             onDone={() => setOpenNews(null)}
           />
         ) : photosOpen ? (
-          <FamilyPhotoViewer photos={familyPhotos} textMode={textMode} onDone={() => setPhotosOpen(false)} />
+          <div className="text-scaled" style={textStyle}>
+            <FamilyPhotoViewer photos={familyPhotos} textMode={textMode} onDone={() => setPhotosOpen(false)} />
+          </div>
         ) : open ? (
           <div className="text-scaled" style={textStyle}>
             <MemoDetail memo={open} onBack={() => setOpenId(null)} readOnly rx={rx} />

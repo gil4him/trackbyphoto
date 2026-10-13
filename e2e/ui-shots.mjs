@@ -223,7 +223,7 @@ async function shootA6() {
       await click(p, '사진 3장을 보냈어요', '.elder-cam-bubble')
       await waitText(p, '가족이 보낸 사진')
       await snap(p, 'photo-list')
-      await p.click('.fp-cell')
+      await p.click('.fp-list .tl-item')
       await waitText(p, '‹ 사진 목록')
       await snap(p, 'photo-view')
       await click(p, '‹ 사진 목록', '.elder-back')

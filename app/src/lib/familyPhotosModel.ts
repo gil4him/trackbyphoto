@@ -2,7 +2,6 @@
 
 import type { FamilyPhoto } from '../types'
 import { S } from './strings'
-import { sameDay } from './reactionsModel'
 
 /** Whether this family member may send this parent photos: the parent's
  *  setting (received at all; everyone or admins only) and their role. The
@@ -31,14 +30,6 @@ export function cardLine(photos: FamilyPhoto[]): { line: string; lit: boolean } 
   if (fresh.length === 0) return { line: S.familyPhotoCardOld, lit: false }
   const senders = [...new Set(fresh.map((p) => p.senderName))]
   return { line: S.familyPhotoCardNew(senders[0], senders.length - 1, fresh.length), lit: true }
-}
-
-/** Under a cell of the parent's list: 오늘, 어제, or the date. */
-export function photoDayLabel(createdAtMs: number, nowMs = Date.now()): string {
-  if (sameDay(createdAtMs, nowMs)) return S.familyPhotoDayToday
-  if (sameDay(createdAtMs, nowMs - 24 * 3600 * 1000)) return S.familyPhotoDayYesterday
-  const d = new Date(createdAtMs)
-  return S.familyPhotoDayOn(d.getMonth() + 1, d.getDate())
 }
 
 /** What the sender sees under a photo they sent. */

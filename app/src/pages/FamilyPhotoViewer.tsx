@@ -3,15 +3,19 @@ import { flushSync } from 'react-dom'
 import { TextReply } from '../components/TextReply'
 import { markFamilyPhotoSeen, replyToFamilyPhoto } from '../lib/familyPhotos'
 import { keepFamilyPhotoOnDevice } from '../lib/familyPhotoKeep'
-import { photoDayLabel, showable } from '../lib/familyPhotosModel'
+import { showable } from '../lib/familyPhotosModel'
 import { S } from '../lib/strings'
+import { fmtTime, relativeDateLabel } from '../util'
 import type { FamilyPhoto, TextReplies } from '../types'
 
+const dayKey = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
+
 /**
- * The photos the family sent, on the parent's phone. First the album: a grid
- * of big thumbnails, newest first, a dot on the ones not looked at yet and a
- * small mark on the ones already answered. Tapping one opens it full-size
- * with a line from the sender and the same big replies as 가족 소식 (❤️
+ * The photos the family sent, on the parent's phone. First the album, laid
+ * out like 내 사진: a day heading, then a row per photo — thumbnail, the
+ * sender's line, who and when — newest first, with 새 사진 and a dot on the
+ * ones not looked at yet and ❤️/💬 on the ones already answered. Tapping a
+ * row opens the photo full-size with the same big replies as 가족 소식 (❤️
  * 고마워요, or a written line). Only the full-size view marks a photo seen and
  * keeps a copy on the phone; after a reply the album comes back.
  */
@@ -66,29 +70,44 @@ export function FamilyPhotoViewer({ photos, textMode = 'full', onDone, startAt, 
   const onBroken = (id: string) => setBroken((b) => new Set(b).add(id))
 
   if (!current) {
+    const groups: { date: Date; items: FamilyPhoto[] }[] = []
+    for (const p of all) {
+      const d = new Date(p.createdAtMs)
+      const last = groups[groups.length - 1]
+      if (last && dayKey(last.date) === dayKey(d)) last.items.push(p)
+      else groups.push({ date: d, items: [p] })
+    }
     return (
-      <section className="page news fp-list">
+      <section className="page fp-list">
         <button className="elder-back" onClick={onDone}>‹ 처음으로</button>
-        <h1 className="fp-list-title">{S.familyPhotoListTitle}</h1>
-        <ul className="fp-grid">
-          {all.map((p) => (
-            <li key={p.id}>
-              <button type="button" className={`fp-cell${p.seenAtMs ? '' : ' new'}`} onClick={() => { setOpenId(p.id); setPhase('view') }}>
-                <span className="fp-cell-img">
-                  {broken.has(p.id)
-                    ? <span className="fp-cell-broken" aria-hidden="true">🖼️</span>
-                    : <img src={p.photoUrl} alt={p.caption || `${p.senderName}이 보낸 사진`} onError={() => onBroken(p.id)} />}
-                </span>
-                {!p.seenAtMs && <span className="fp-cell-dot" role="img" aria-label={S.familyPhotoNew} />}
-                {p.reply && <span className="fp-cell-mark" aria-label="답장했어요">{p.reply.kind === 'heart' ? '❤️' : '💬'}</span>}
-                <span className="fp-cell-foot">
-                  <span className="fp-cell-who">{p.senderName}</span>
-                  <span className="fp-cell-when">{photoDayLabel(p.createdAtMs)}</span>
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
+        <h2 className="h-title">{S.familyPhotoListTitle}</h2>
+        {groups.map((g) => (
+          <div key={dayKey(g.date)} data-day={dayKey(g.date)}>
+            <div className="tl-day">{relativeDateLabel(g.date)}</div>
+            {g.items.map((p) => {
+              const fresh = !p.seenAtMs
+              return (
+                <button type="button" key={p.id} className="tl-item" onClick={() => { setOpenId(p.id); setPhase('view') }} aria-label="자세히 보기">
+                  <div className="tl-thumb">
+                    {broken.has(p.id)
+                      ? <div className="fp-thumb-broken" aria-hidden="true">🖼️</div>
+                      : <img src={p.photoUrl} alt="" onError={() => onBroken(p.id)} />}
+                  </div>
+                  <div className="tl-body">
+                    <div className="act">{p.caption || S.familyPhotoFrom(p.senderName)}</div>
+                    <div className="desc">{`${p.senderName} · ${fmtTime(new Date(p.createdAtMs))}`}</div>
+                  </div>
+                  {(fresh || p.reply) && (
+                    <span className={`tl-rx${fresh ? ' fresh' : ''}`}>
+                      {fresh ? S.familyPhotoNew : p.reply!.kind === 'heart' ? '❤️' : '💬'}
+                      {fresh && <span className="tl-rx-dot" aria-label={S.familyPhotoNew} />}
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        ))}
       </section>
     )
   }
