@@ -25,6 +25,9 @@ describe('checkMemo', () => {
     expect(checkMemo('서초동에서는 벚꽃 산책', null, facts, hooks, [])).toEqual({ ok: true })
     expect(checkMemo('한강공원 벚꽃 구경', null, facts, hooks, [])).toMatchObject({ ok: false, reason: 'place', detail: '한강공원' })
     expect(placeTokens('서초동에서 잠실역으로, 공원을')).toEqual(['서초동', '잠실역', '공원'])
+    // Short everyday words that happen to end like a place are not places.
+    expect(placeTokens('카페에서 잠시 쉬었어요, 도시 풍경, 유리 너머')).toEqual([])
+    expect(checkMemo('카페에서 잠시 쉬었어요', null, facts, hooks, [])).toEqual({ ok: true })
   })
 
   it('rejects a near copy of a recent title', () => {
