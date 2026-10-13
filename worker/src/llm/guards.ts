@@ -12,7 +12,7 @@ export interface GuardFacts {
 export type GuardVerdict = { ok: true } | { ok: false; reason: 'hook' | 'number' | 'place' | 'relation' | 'similar'; detail: string }
 
 /** Who the people are is never in the facts unless the family wrote it; the writer may not guess. */
-const RELATIONS = ['가족', '식구', '딸', '아들', '손주', '손자', '손녀', '며느리', '사위', '아내', '남편', '부부', '친구', '동료', '엄마', '아빠', '어머니', '아버지', '저희', '우리']
+const RELATIONS = ['가족', '식구', '딸', '아들', '손주', '손자', '손녀', '며느리', '사위', '아내', '남편', '부부', '친구', '동료', '엄마', '아빠', '어머니', '아버지', '저희', '우리', '남자분', '여자분', '남성', '여성', '어르신']
 
 /** Word endings that mark a place in Korean. */
 // 리 (village) is left out: 기다리는, 내리는, 걸리는 lose their 는 to the particle strip and read as places.

@@ -35,6 +35,7 @@ describe('checkMemo', () => {
     expect(checkMemo('가족과 벚꽃 산책', null, facts, hooks, [])).toMatchObject({ ok: false, reason: 'relation', detail: '가족' })
     expect(checkMemo('벚꽃 산책', null, facts, hooks, [], '저희 셋이 함께한 길이에요.')).toMatchObject({ ok: false, reason: 'relation', detail: '저희' })
     expect(checkMemo('딸과 벚꽃 산책', null, { texts: [...facts.texts, '딸이 보낸 사진'] }, hooks, [])).toEqual({ ok: true })
+    expect(checkMemo('남자분과 함께 벚꽃 산책', null, facts, hooks, [])).toMatchObject({ ok: false, reason: 'relation', detail: '남자분' })
   })
 
   it('rejects a near copy of a recent title', () => {
