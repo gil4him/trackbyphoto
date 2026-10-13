@@ -19,7 +19,7 @@ echo "[ui-shots] building the simple site for the emulators…"
   npx vite build --mode simple --outDir ../e2e/.tmp/ui-site --emptyOutDir >/dev/null)
 
 # The parent's screens (A6) link a phone, which needs the worker.
-if [ "$UI_PHASE" = "A6" ]; then
+if [ "$UI_PHASE" = "A6" ] || [ "$UI_PHASE" = "A9" ]; then
   echo "[ui-shots] building the worker…"
   (cd worker && npm run build >/dev/null)
 fi

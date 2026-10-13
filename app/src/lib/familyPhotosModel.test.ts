@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { canSendFamilyPhoto, cardLine, sentStatus, sentToday, showable } from './familyPhotosModel'
+import { canSendFamilyPhoto, cardLine, sentStatus, sentToday, showable, viewerOrder } from './familyPhotosModel'
 import type { FamilyPhoto } from '../types'
 
 const p = (id: string, o: Partial<FamilyPhoto> = {}): FamilyPhoto => ({
@@ -25,9 +25,10 @@ describe('the card on the parent\'s home screen', () => {
   })
 })
 
-describe('what the album shows', () => {
-  it('newest first, only ready ones', () => {
+describe('what the parent\'s phone walks through', () => {
+  it('new ones first, newest first within each, only ready ones', () => {
     const photos = [p('1', { seenAtMs: 9 }), p('3'), p('2'), p('4', { status: 'pending', photoUrl: undefined }), p('5', { seenAtMs: 9 })]
+    expect(viewerOrder(photos).map((x) => x.id)).toEqual(['3', '2', '5', '1'])
     expect(showable(photos).map((x) => x.id)).toEqual(['5', '3', '2', '1'])
   })
 })

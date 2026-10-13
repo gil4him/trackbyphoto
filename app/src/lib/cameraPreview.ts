@@ -95,6 +95,11 @@ export async function flipCamera(): Promise<'rear' | 'front'> {
   return facing
 }
 
+/** The next start faces the back camera again (on app open and resume). */
+export function resetFacing(): void {
+  facing = 'rear'
+}
+
 export function isPreviewRunning(): boolean {
   return running
 }

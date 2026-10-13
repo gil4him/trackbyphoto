@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { App as CapApp } from '@capacitor/app'
 import { Haptics, ImpactStyle } from '@capacitor/haptics'
-import { capturePhoto, flipCamera, startPreview, stopPreview } from '../lib/cameraPreview'
+import { capturePhoto, flipCamera, resetFacing, startPreview, stopPreview } from '../lib/cameraPreview'
 import { savePhoto } from '../lib/capture'
 import { keepInPhotos } from '../lib/gallery'
 import { askLocation, warmUpLocation } from '../lib/location'
@@ -32,7 +32,7 @@ const OVERLAY_MS = 1500
 export type CameraPhase = 'starting' | 'live' | 'denied'
 export type Overlay = { ok: true; text: string } | { ok: false; text: string; sub: string }
 
-export function ElderCameraView({ phase, busy, overlay, news, photos = null, ask = null, corner = null, onShutter, onDismissNews, onOpenRecords, onRetry, onOpenPhotos = () => {}, onAskNext = () => {}, onFlip = () => {} }: {
+export function ElderCameraView({ phase, busy, overlay, news, photos = null, ask = null, askNext, corner = null, onShutter, onDismissNews, onOpenRecords, onRetry, onOpenPhotos = () => {}, onAskNext = () => {}, onFlip = () => {} }: {
   phase: CameraPhase
   /** Switch between the back and front camera. */
   onFlip?: () => void
@@ -44,6 +44,8 @@ export function ElderCameraView({ phase, busy, overlay, news, photos = null, ask
   onOpenPhotos?: () => void
   /** A plain sentence before a permission question (ElderAsk), or null. */
   ask?: string | null
+  /** The button under the sentence: 카메라 켜기 for the camera, 다음 otherwise. */
+  askNext?: string
   onAskNext?: () => void
   busy: boolean
   overlay: Overlay | null
@@ -96,7 +98,7 @@ export function ElderCameraView({ phase, busy, overlay, news, photos = null, ask
         </div>
       )}
 
-      {ask && <ElderAsk text={ask} onNext={onAskNext} />}
+      {ask && <ElderAsk text={ask} next={askNext} onNext={onAskNext} />}
 
       {!ask && <div className="elder-cam-bar">
         <button type="button" className="elder-cam-records" onClick={onOpenRecords}>내 사진</button>
@@ -183,13 +185,15 @@ export function ElderCamera({ uid, reactions, photos = null, onOpenRecords, onOp
   useEffect(() => {
     alive.current = true
     // The camera's plain sentence first if the phone hasn't asked yet.
+    // Always the back camera on open and on coming back (A9).
+    resetFacing()
     void cameraPermission().then((s) => {
       if (!alive.current) return
       if (s === 'prompt') setAsk('camera')
       else launch()
     })
     const sub = CapApp.addListener('appStateChange', ({ isActive }) => {
-      if (isActive) { if (asking.current !== 'camera') restart() }
+      if (isActive) { resetFacing(); if (asking.current !== 'camera') restart() }
       else void stopPreview()
     })
     return () => {
@@ -254,6 +258,7 @@ export function ElderCamera({ uid, reactions, photos = null, onOpenRecords, onOp
       onFlip={() => { void flipCamera().catch((err) => console.warn('[ElderCamera] flip failed', err)) }}
       onOpenPhotos={() => { void stopPreview(); onOpenPhotos?.() }}
       ask={ask === 'camera' ? ASK_CAMERA : ask === 'location' ? ASK_LOCATION : null}
+      askNext={ask === 'camera' ? '카메라 켜기' : '다음'}
       onAskNext={onAskNext}
     />
   )

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { doc, onSnapshot } from 'firebase/firestore'
 import { db } from '../firebase'
 import { Home } from './Home'
@@ -20,9 +20,9 @@ import { isSimple } from '../lib/edition'
 import type { Memo, Reaction, TextReplies } from '../types'
 import { cardLine } from '../lib/familyPhotosModel'
 import { CameraFab } from '../components/CameraFab'
-import { TextSizeFab } from '../components/TextSizeFab'
-import { loadTextLevel, nextTextLevel, saveTextLevel } from '../lib/textScale'
 import { useToast } from '../components/Toast'
+import { useIdleReturn } from '../hooks/useIdleReturn'
+import { S } from '../lib/strings'
 
 /**
  * Everything a family-managed elder's phone shows: the capture screen, one
@@ -51,8 +51,6 @@ export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn
 }) {
   const [view, setView] = useState<'home' | 'records'>('home')
   const [openId, setOpenId] = useState<string | null>(null)
-  // Simple edition: the text size on 내 사진 and a memo (TextSizeFab).
-  const [textLevel, setTextLevel] = useState(loadTextLevel)
   const toast = useToast()
   const [revoked, setRevoked] = useState(false)
   // The news the parent opened, kept as it was when they tapped the card.
@@ -92,6 +90,18 @@ export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn
     )
   }, [uid, deviceId])
 
+  // The floating camera on 내 사진 and a memo: straight back to the first
+  // screen (the camera in the simple edition, Home with 사진 찍기 in full).
+  const backToCamera = useCallback(() => {
+    setOpenNews(null)
+    setPhotosOpen(false)
+    setOpenId(null)
+    setView('home')
+  }, [])
+  // Simple edition: any screen but the camera goes back to it after a minute
+  // without a touch (A9), so the phone is always ready for the next photo.
+  useIdleReturn(isSimple() && !revoked && (openNews !== null || photosOpen || openId !== null || view === 'records'), backToCamera)
+
   const open = openId ? memos.find((m) => m.id === openId) ?? null : null
 
   if (revoked) {
@@ -109,20 +119,6 @@ export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn
     )
   }
 
-  // The floating camera on 내 사진 and a memo: straight back to the first
-  // screen (the camera in the simple edition, Home with 사진 찍기 in full).
-  const textStyle = { '--text-scale': isSimple() ? textLevel.scale : 1 } as CSSProperties
-  const biggerText = () => {
-    const next = nextTextLevel(textLevel)
-    setTextLevel(next)
-    saveTextLevel(next)
-    toast.show(`글자 크기: ${next.label}`, '')
-  }
-
-  const backToCamera = () => {
-    setOpenId(null)
-    setView('home')
-  }
 
   return (
     <div className="app elder-mode">
@@ -139,30 +135,20 @@ export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn
             onDone={() => setOpenNews(null)}
           />
         ) : photosOpen ? (
-          <div className="text-scaled" style={textStyle}>
-            <FamilyPhotoViewer
-              photos={familyPhotos}
-              textMode={textMode}
-              onDone={() => setPhotosOpen(false)}
-              fabs={(
-                <>
-                  {isSimple() && <TextSizeFab level={textLevel} onNext={biggerText} />}
-                  <CameraFab label="카메라로 돌아가기" onClick={() => { setPhotosOpen(false); backToCamera() }} />
-                </>
-              )}
-            />
-          </div>
+          <FamilyPhotoViewer
+            photos={familyPhotos}
+            textMode={textMode}
+            onDone={(allSeen) => { setPhotosOpen(false); if (allSeen) toast.show(S.familyPhotoAllSeen, '') }}
+          />
         ) : open ? (
-          <div className="text-scaled" style={textStyle}>
+          <div className="elder-scroll">
             <MemoDetail memo={open} onBack={() => setOpenId(null)} readOnly rx={rx} />
-            {isSimple() && <TextSizeFab level={textLevel} onNext={biggerText} />}
             <CameraFab label="카메라로 돌아가기" onClick={backToCamera} />
           </div>
         ) : view === 'records' ? (
-          <div className="text-scaled" style={textStyle}>
+          <div className="elder-scroll">
             <button className="elder-back" onClick={() => setView('home')}>‹ 처음으로</button>
             <Today memos={memos} onOpen={setOpenId} uid={uid} readOnly rx={rx} />
-            {isSimple() && <TextSizeFab level={textLevel} onNext={biggerText} />}
             <CameraFab label="카메라로 돌아가기" onClick={backToCamera} />
           </div>
         ) : isSimple() ? (

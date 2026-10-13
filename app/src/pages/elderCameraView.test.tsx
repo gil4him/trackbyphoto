@@ -79,6 +79,7 @@ describe('ElderCameraView', () => {
     )
     expect(html).toContain('사진에 장소를 남기려면 위치를 허용해 주세요')
     expect(html).toContain('다음')
+    expect(renderToString(<ElderCameraView phase="starting" busy={false} overlay={null} news={null} ask="카메라를 켤게요" askNext="카메라 켜기" onShutter={() => {}} onDismissNews={() => {}} onOpenRecords={() => {}} onRetry={() => {}} />)).toContain('카메라 켜기')
     expect(html).not.toContain('사진 찍기')
   })
 

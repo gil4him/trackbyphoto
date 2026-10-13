@@ -32,6 +32,12 @@ export function cardLine(photos: FamilyPhoto[]): { line: string; lit: boolean } 
   return { line: S.familyPhotoCardNew(senders[0], senders.length - 1, fresh.length), lit: true }
 }
 
+/** The order the parent's phone walks through: new ones first, then the rest, newest first within each. */
+export function viewerOrder(photos: FamilyPhoto[]): FamilyPhoto[] {
+  const all = showable(photos)
+  return [...all.filter((p) => !p.seenAtMs), ...all.filter((p) => !!p.seenAtMs)]
+}
+
 /** What the sender sees under a photo they sent. */
 export function sentStatus(p: FamilyPhoto): string {
   if (p.reply?.kind === 'comment' && p.reply.text) return `“${p.reply.text}”`

@@ -28,6 +28,7 @@ import { AcceptInvite, PENDING_INVITE_KEY } from './pages/AcceptInvite'
 import { ConnectParentCard } from './components/ConnectParentCard'
 import { FamilyCamera } from './components/CameraFab'
 import { appTitle, isSimple } from './lib/edition'
+import { defaultTextReplies } from './lib/textReplies'
 import { isAdminUser } from './lib/admin'
 import { usePlans } from './hooks/usePlans'
 import { useReactions } from './hooks/useReactions'
@@ -460,7 +461,7 @@ function App() {
           memos={memos}
           reactions={reactionsOn ? reactions : null}
           voiceOn={flagOn(plans, 'voiceReplies') && settings.voiceEnabled === true}
-          textMode={settings.textReplies}
+          textMode={settings.textReplies ?? defaultTextReplies()}
           familyPhotosOn={familyPhotosOn}
           onRelink={async () => {
             await signOut().catch(() => {})
@@ -639,7 +640,7 @@ function App() {
               unreadIds={openNews.unreadIds}
               memo={memos.find((m) => m.id === openNews.item.memoId)}
               voiceOn={flagOn(plans, 'voiceReplies') && settings.voiceEnabled === true}
-              textMode={settings.textReplies}
+              textMode={settings.textReplies ?? defaultTextReplies()}
               backLabel="‹ 뒤로"
               onDone={() => setOpenNews(null)}
             />

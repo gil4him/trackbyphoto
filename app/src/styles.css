@@ -530,33 +530,8 @@ a.linkbtn { text-decoration: none; }
 .elder-mode .cam-fab-wrap { bottom: calc(22px + var(--safe-bot)); }
 .elder-mode .cam-fab { width: 68px; height: 68px; padding: 17px; }
 
-/* The parent's text size (TextSizeFab, lib/textScale.ts): "가" stacked above
-   the camera button; --text-scale on .text-scaled grows 내 사진 and a memo. */
-.text-fab-wrap {
-  position: fixed; left: 0; right: 0; bottom: calc(102px + var(--safe-bot));
-  max-width: 480px; margin: 0 auto; padding: 0 16px;
-  display: flex; justify-content: flex-end; pointer-events: none; z-index: 55;
-}
-.text-fab {
-  pointer-events: auto; width: 68px; height: 68px; border-radius: 50%; border: 0;
-  background: var(--surface); color: var(--ink); font: inherit; font-size: 30px; font-weight: 800;
-  box-shadow: 0 8px 22px rgba(0,0,0,.16), inset 0 0 0 2px var(--line);
-}
-.text-fab:active { transform: scale(.94); }
-.text-scaled { --text-scale: 1; padding-bottom: 96px; }
-.text-scaled .detail-memo { font-size: calc(22px * var(--text-scale)); }
-.text-scaled .d-scene { font-size: calc(17px * var(--text-scale)); }
-.text-scaled .d-scene.muted { font-size: calc(15px * var(--text-scale)); }
-.text-scaled .pill { font-size: calc(15px * var(--text-scale)); }
-.text-scaled .detail-section .d-label { font-size: calc(15px * var(--text-scale)); }
-.text-scaled .d-place { font-size: calc(16px * var(--text-scale)); }
-.text-scaled .d-address, .text-scaled .d-map-link { font-size: calc(15px * var(--text-scale)); }
-.text-scaled .q-datehdr { font-size: calc(16px * var(--text-scale)); }
-.text-scaled .tl-item .act { font-size: calc(17px * var(--text-scale)); }
-/* Bigger text wraps instead of being cut off. */
-.text-scaled .tl-item .desc { font-size: calc(15px * var(--text-scale)); white-space: normal; }
-.text-scaled .tl-rx { font-size: calc(15px * var(--text-scale)); }
-.text-scaled .detail-memo, .text-scaled .d-scene, .text-scaled .d-place, .text-scaled .tl-item .act, .text-scaled .tl-item .desc { transition: font-size .15s ease; overflow-wrap: anywhere; }
+/* Under the parent's 내 사진 and a memo: room for the floating camera button. */
+.elder-scroll { padding-bottom: 96px; }
 
 nav.tabbar {
   position: fixed; left: 0; right: 0; bottom: 0;
@@ -934,7 +909,7 @@ nav.tabbar .tab.on .tab-avatar { box-shadow: 0 0 0 2px var(--coral2); }
 .signin-code-btn { background: none; border: none; font: inherit; font-size: 16px; font-weight: 600; color: var(--ink-2); text-decoration: underline; cursor: pointer; padding: 8px; }
 .signin-email { display: flex; flex-direction: column; gap: 10px; width: 100%; }
 .signin-email-link { font-size: 14px; font-weight: 500; color: var(--muted); }
-.elder-back { background: none; border: none; font: inherit; font-size: 20px; font-weight: 700; color: var(--ink-2); padding: 12px 4px; cursor: pointer; }
+.elder-back { background: none; border: none; font: inherit; font-size: 26px; font-weight: 700; color: var(--ink-2); padding: 12px 4px; cursor: pointer; }
 .step-no { float: right; font-size: 15px; font-weight: 600; color: var(--muted); }
 .name-chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .name-chip { border: 1px solid var(--line); background: #fff; border-radius: 999px; padding: 10px 16px; font: inherit; font-size: 16px; font-weight: 600; cursor: pointer; }
@@ -960,16 +935,16 @@ nav.tabbar .tab.on .tab-avatar { box-shadow: 0 0 0 2px var(--coral2); }
 .news-photo { width: 120px; height: 120px; border-radius: 20px; overflow: hidden; align-self: center; }
 .news-photo .tl-thumb, .news-photo img { width: 100%; height: 100%; object-fit: cover; }
 .news-text { font-size: 30px; font-weight: 700; line-height: 1.4; letter-spacing: -.4px; text-align: center; word-break: keep-all; margin-top: 8px; }
-.news-from { font-size: 22px; color: var(--ink-3); text-align: center; }
+.news-from { font-size: 26px; color: var(--ink-3); text-align: center; word-break: keep-all; }
 .news-actions { margin-top: auto; display: flex; flex-direction: column; gap: 14px; padding-bottom: 12px; }
 .news-btn {
-  width: 100%; min-height: 76px; border-radius: 22px; font: inherit; font-size: 26px; font-weight: 700; cursor: pointer;
+  width: 100%; min-height: 76px; border-radius: 22px; font: inherit; font-size: 28px; font-weight: 700; cursor: pointer; word-break: keep-all;
   border: 2px solid var(--accent); background: var(--surface); color: var(--ink);
   touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
 }
 .news-btn.primary { background: var(--accent); color: var(--ink); border-color: transparent; }
 .news-btn:active { transform: scale(.98); }
-.news-hint { font-size: 20px; color: var(--ink-2); text-align: center; }
+.news-hint { font-size: 26px; color: var(--ink-2); text-align: center; word-break: keep-all; }
 .news-rec {
   position: fixed; inset: 0; z-index: 50; background: rgba(255, 255, 255, .96);
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px;
@@ -1092,13 +1067,13 @@ a.pair-btn { display: flex; align-items: center; justify-content: center; text-d
 .elder-install { display: block; width: 100%; margin-top: 14px; min-height: 64px; border: 2px solid var(--accent); border-radius: 20px; background: var(--surface); color: var(--accent-ink); font: inherit; font-size: 21px; font-weight: 800; cursor: pointer; }
 .news-text.small { font-size: 26px; margin-bottom: 8px; }
 .news-type { display: flex; gap: 10px; }
-.news-type input { flex: 1; min-width: 0; min-height: 64px; padding: 0 16px; border: 2px solid var(--line); border-radius: 18px; font: inherit; font-size: 22px; background: var(--surface); }
+.news-type input { flex: 1; min-width: 0; min-height: 72px; padding: 0 16px; border: 2px solid var(--line); border-radius: 18px; font: inherit; font-size: 26px; background: var(--surface); }
 .news-type input:focus { outline: none; border-color: var(--coral2); }
-.news-type button { flex: none; min-height: 64px; padding: 0 20px; border: 0; border-radius: 18px; background: var(--accent); color: var(--ink); font: inherit; font-size: 22px; font-weight: 800; }
+.news-type button { flex: none; min-height: 72px; padding: 0 20px; border: 0; border-radius: 18px; background: var(--accent); color: var(--ink); font: inherit; font-size: 28px; font-weight: 800; }
 .news-type button:disabled { opacity: .4; }
 /* Under the text box: the ready-made phrases as smaller one-tap shortcuts. */
 .news-quick { margin-top: 18px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.news-quick .news-btn { min-height: 60px; padding: 6px 8px; font-size: 22px; line-height: 1.2; }
+.news-quick .news-btn { min-height: 72px; padding: 6px 8px; font-size: 28px; line-height: 1.2; }
 
 /* ── v2 phase 6: plan sheet, locked voice card, 목소리 앨범 ──────────── */
 button.rx-voice.locked { width: 100%; padding: 10px 12px; border: 2px solid var(--accent-line); border-radius: 14px; background: var(--accent-tint); font: inherit; font-weight: 600; text-align: left; cursor: pointer; }
@@ -1138,9 +1113,10 @@ button.rx-voice.locked { width: 100%; padding: 10px 12px; border: 2px solid var(
 .fp-view .fp-photo { width: 100%; min-height: 48vh; max-height: 62vh; border-radius: 20px; overflow: hidden; background: #000; display: flex; align-items: center; justify-content: center; }
 .fp-view .fp-photo img { width: 100%; max-height: 62vh; object-fit: contain; display: block; }
 .fp-view .fp-broken { color: #fff; font-size: 24px; padding: 24px; text-align: center; }
-.fp-replied { font-size: 24px; color: var(--ink-2); text-align: center; }
-/* The album (FamilyPhotoViewer) is laid out with the 내 사진 rows above. */
-.fp-thumb-broken { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 32px; opacity: .6; }
+.fp-replied { font-size: 26px; color: var(--ink-2); text-align: center; word-break: keep-all; }
+/* The parent's phone: body text 26px and up, buttons 28px on 72px, words never broken (A9). */
+.elder-mode { word-break: keep-all; }
+.elder-mode .toast { font-size: 26px; padding: 18px 26px; }
 .news-btn.quiet { background: transparent; color: var(--ink-2); border-color: var(--line); }
 .fp-send { display: flex; flex-direction: column; gap: 10px; }
 .fp-pick { width: 100%; min-height: 120px; border: 2px dashed var(--line); border-radius: 16px; background: var(--surface, #fff); font: inherit; font-size: 18px; font-weight: 600; color: var(--ink-2); cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; overflow: hidden; padding: 0; }
@@ -1237,10 +1213,10 @@ html:not(.camera-live) .elder-cam { background: #000; }
   align-items: center; justify-content: center; gap: 10px; padding: 24px; text-align: center;
 }
 .elder-cam-denied-title { margin: 0; font-size: 26px; font-weight: 800; }
-.elder-cam-denied-sub { margin: 0 0 18px; font-size: 20px; }
+.elder-cam-denied-sub { margin: 0 0 18px; font-size: 26px; word-break: keep-all; }
 .elder-cam-retry {
-  min-height: 64px; min-width: 200px; border: 0; border-radius: 20px;
-  background: var(--accent); color: var(--ink); font: inherit; font-size: 22px; font-weight: 800;
+  min-height: 72px; min-width: 200px; border: 0; border-radius: 20px;
+  background: var(--accent); color: var(--ink); font: inherit; font-size: 28px; font-weight: 800;
 }
 
 /* Simple edition, phone not linked yet: the same viewfinder looks for the
@@ -1268,7 +1244,7 @@ html:not(.camera-live) .elder-cam { background: #000; }
 .elder-ask-next {
   width: 100%; max-width: 320px; min-height: 72px; border: 0; border-radius: var(--radius-btn);
   background: var(--accent); color: var(--ink);
-  font: inherit; font-size: 26px; font-weight: 800;
+  font: inherit; font-size: 28px; font-weight: 800;
 }
 .elder-pair-bar {
   position: absolute; left: 0; right: 0; bottom: 0; z-index: 2;

@@ -179,7 +179,7 @@ async function shootA6() {
         await snap(p, 'consent')
         await click(p, '네, ', 'button.pair-btn')
         await waitText(p, '카메라', 60_000)
-        await snap(p, 'ask')
+        await snap(p, PHASE === 'A9' ? 'permission' : 'ask')
       } catch (err) {
         await p.screenshot({ path: shotFile('FAIL-pair') }).catch(() => {})
         throw err
@@ -216,20 +216,22 @@ async function shootA6() {
       await snap(p, 'bubble')
       await click(p, '글을 남겼어요')
       await sleep(600)
-      // Photos from the family: the lit bubble, the album, one photo full-size.
-      await seedFamilyPhotos({ momUid, kidUid: self, kidName: KID.name, count: 3 })
-      await waitText(p, '사진 3장을 보냈어요', 30_000)
-      await snap(p, 'photo-bubble')
-      await click(p, '사진 3장을 보냈어요', '.elder-cam-bubble')
-      await waitText(p, '가족이 보낸 사진')
-      await snap(p, 'photo-list')
-      await p.click('.fp-list .tl-item')
-      await waitText(p, '‹ 사진 목록')
+      // Photos from the family (A9): the banner opens the newest unseen photo,
+      // 다음 walks on, ❤️ on the last one brings the camera back with a toast.
+      // Only the two new ones: the demo seed's answered photo would be a third stop.
+      const old = await getFirestore().collection('familyPhotos').where('patientUid', '==', momUid).get()
+      await Promise.all(old.docs.map((d) => d.ref.delete()))
+      await seedFamilyPhotos({ momUid, kidUid: self, kidName: KID.name, count: 2 })
+      await waitText(p, '사진 2장을 보냈어요', 30_000)
+      await snap(p, PHASE === 'A9' ? 'banner' : 'photo-bubble')
+      await click(p, '사진 2장을 보냈어요', '.elder-cam-bubble')
+      await waitText(p, '❤️ 고마워요')
       await snap(p, 'photo-view')
-      await click(p, '‹ 사진 목록', '.elder-back')
-      await waitText(p, '가족이 보낸 사진')
-      await snap(p, 'photo-list-seen')
-      await click(p, '‹ 처음으로', '.elder-back')
+      await click(p, '다음 사진 ›', '.news-btn')
+      await waitText(p, '처음으로 ›')
+      await click(p, '❤️ 고마워요', '.news-btn.primary')
+      await waitText(p, '다 보셨어요', 10_000)
+      await snap(p, 'last-to-camera', { quick: true })
       await p.waitForSelector('.elder-cam-shutter:not([disabled])', { timeout: 30_000 })
       await p.click('.elder-cam-shutter')
       await p.waitForSelector('.elder-cam-overlay', { timeout: 30_000 })
@@ -245,7 +247,7 @@ async function shootA6() {
   }
 }
 
-if (PHASE === 'A6') {
+if (PHASE === 'A6' || PHASE === 'A9') {
   try { await shootA6(); console.log(`pictures in ${OUT}`) } finally { await browser.close(); site.close() }
   process.exit(0)
 }

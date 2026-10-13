@@ -25,6 +25,7 @@ import type { PlanReason } from '../lib/plan'
 import { S } from '../lib/strings'
 import type { PlanTier } from '../types'
 import { isSimple } from '../lib/edition'
+import { defaultTextReplies } from '../lib/textReplies'
 import { LegalLinks } from '../components/LegalLinks'
 import { PUBLIC_ORIGIN } from '../lib/publicUrl'
 import { SectLab } from '../components/SectLab'
@@ -94,7 +95,7 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
   // would just log permission errors.
   const canManageHere = isSelf || (isManaged && (myRole === 'guardian' || myRole === 'admin'))
   // 글로 답장: typing (with phrases underneath) unless family chose otherwise.
-  const textReplies = settings.textReplies ?? 'full'
+  const textReplies = settings.textReplies ?? defaultTextReplies()
   const { caregivers } = useMemberships(canManageHere ? activePatientUid : undefined, { withPatients: false })
   // 부모님 삭제 is for the guardian (whoever registered the parent) only.
   const isGuardian = isManaged && !isSelf && myRole === 'guardian'

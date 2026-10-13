@@ -152,6 +152,29 @@ Keep the structure (viewfinder, shutter, 내 사진, flip, bubble, overlay). Onl
 
 ---
 
+## Phase A9 — The parent's phone is one camera screen (simple only)
+
+Files: `pages/ElderApp.tsx`, `pages/FamilyPhotoViewer.tsx`, `pages/ElderCamera.tsx`, `components/ElderAsk.tsx`, `lib/cameraPreview.ts`, `lib/idle.ts`, `hooks/useIdleReturn.ts`, `lib/textReplies.ts`, `styles.css` (Simple edition sections)
+
+Do not change Firestore rules, the worker, pairing/consent, or the capture/upload path.
+
+Principle: the parent does only 3 things — take a photo, see family photos, tap ❤️ 고마워요.
+
+1. No "가족이 보낸 사진" list screen in the parent flow. Tapping the camera banner opens the newest unseen family photo in `FamilyPhotoViewer`; `다음 사진 ›` goes to the next one; after the last one, back to the camera automatically with a short toast `다 보셨어요 ♥`. When nothing is new, the banner `가족 사진 다시 보기` opens the newest photo the same way.
+2. `FamilyPhotoViewer`: only `❤️ 고마워요` (primary, 72px) and `다음 사진 ›` (secondary). No top `‹ 처음으로` link. `글로 답장하기` opens one-tap phrase buttons (no keyboard). Phrases mode is the default for new simple accounts; family can still change it in 설정.
+3. No `TextSizeFab` (가) on any parent screen; text size is set by family in 설정 only.
+4. The flip-camera button stays as it is. The camera always starts with the back camera on app open/resume.
+5. `내 사진` stays as it is (small pill, bottom-left).
+6. Any parent screen other than the camera returns to the camera after 60 s without a touch.
+7. Camera permission screen button `다음` → `카메라 켜기`.
+8. Parent text: body ≥ 26px, buttons ≥ 28px / 72px tall, `word-break: keep-all`.
+
+Decisions taken while building (D119): on the last photo the secondary button reads `처음으로 ›` and returns to the camera, so a photo already answered is never a dead end; the written reply on this screen is always the phrase panel, whatever the family chose; 가족 소식 keeps its own `‹ 처음으로`.
+
+**STOP & REPORT** with screenshots: camera, banner, photo view, last photo → camera (toast), permission.
+
+---
+
 ## Definition of done (every phase)
 - `npm run build:simple`, `npm run build:full`, `npm test` green; no new hard-coded hex outside `styles.css :root` (grep).
 - Elder screens unchanged in behaviour; no price/limit/warning text anywhere on them.
