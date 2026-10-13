@@ -129,5 +129,89 @@ export function parseSeeResponse(raw: string): Seen | null {
   }
 }
 
-// write() follows in step 3.
-export { tidyMemo, tidyScene }
+// ── write(): the memo from the facts, one hook and a style ──────────────────
+
+export type WriteStyle = 'plain' | 'warm' | 'playful'
+
+/** Two examples per style; none of them the old "○○로 점심 식사" pattern. */
+export const STYLE_EXAMPLES: Record<WriteStyle, { label: string; note: string; examples: string[] }> = {
+  plain: { label: '담백하게', note: '있는 그대로, 꾸밈말 없이.', examples: ['공원 길을 걸으셨어요', '집에서 된장찌개를 드셨어요'] },
+  warm: { label: '다정하게', note: '가족이 읽고 마음이 놓이게, 따뜻한 한마디를 얹어서.', examples: ['볕 좋은 날의 공원 산책이에요', '따끈한 된장찌개로 든든한 점심'] },
+  playful: { label: '재치있게', note: '가볍게 웃음이 나게, 놀리지는 말고.', examples: ['공원이 오늘도 산책 코스 당첨', '된장찌개 앞에서는 말이 필요 없죠'] },
+}
+
+export interface WriteInput {
+  seen: Seen
+  /** The context pack's hooks, each with its id; the writer may use at most one. */
+  hooks: { id: string; text: string }[]
+  /** Titles the memo must not start like. */
+  recentTitles: string[]
+  style: WriteStyle
+  hints?: Pick<PromptHints, 'timeHint' | 'placeHint' | 'homeHint'>
+}
+
+export const WRITE_SCHEMA = {
+  type: 'object',
+  properties: { memo: { type: 'string' }, scene: { type: 'string' }, hookId: { type: 'string' } },
+  required: ['memo', 'scene', 'hookId'],
+}
+
+export function buildWritePrompt({ seen, hooks, recentTitles, style, hints = {} }: WriteInput): string {
+  const st = STYLE_EXAMPLES[style] ?? STYLE_EXAMPLES.warm
+  const where = [
+    hints.timeHint ? `시간 ${hints.timeHint}` : '',
+    hints.placeHint ? `지역 ${hints.placeHint}` : '',
+    hints.homeHint?.away ? `집에서 약 ${hints.homeHint.km}km 떨어진 곳 (여행이나 출장 중)` : '',
+  ].filter(Boolean).join(' · ')
+  return [
+    '당신은 사진 한 장을 가족에게 전하는 짧은 기록을 쓰는 보조 AI입니다. 사진은 이미 다른 AI가 보고 아래 "사실"로 적어 두었어요. 이 사실과 "이야기" 목록만으로 memo(제목)와 scene(설명)을 쓰세요.',
+    '',
+    '사실 (사진에서 본 것):',
+    `- 활동: ${seen.activity}`,
+    `- 보이는 것: ${seen.subjects.length ? seen.subjects.join(', ') : '(없음)'}`,
+    `- 장소: ${seen.setting || '(알 수 없음)'}`,
+    `- 읽히는 글자: ${seen.signText.length ? seen.signText.map((t) => `"${t}"`).join(', ') : '(없음)'}`,
+    `- 사람: ${seen.peopleCount}명`,
+    ...(where ? [`- 때와 곳: ${where}`] : []),
+    '',
+    '이야기 (덧붙일 수 있는 것 — 최대 하나만, 자연스럽게 어울릴 때만. 쓰면 그 id를 hookId에 적고, 안 쓰면 hookId는 빈 문자열):',
+    ...(hooks.length ? hooks.map((h) => `- [${h.id}] ${h.text}`) : ['- (없음)']),
+    '',
+    '규칙:',
+    '- 사실과 이야기 목록에 없는 내용은 쓰지 마세요. 없는 숫자, 지명, 가게·음식·물건 이름을 지어내지 마세요.',
+    '- 사람 이름, 관계(딸·친구 등), 건강·약·진단명은 추측하지 마세요.',
+    '- 쉬운 한국어 존댓말(~요)로, 사진을 찍은 분을 높여서 쓰세요.',
+    '- memo: 한 줄, 12~24자. 무엇을 어디에서 했는지 드러나게. 따옴표 없이.',
+    '- scene: 짧은 문장 2~3개. 한 문장은 25자 이내, 한 문장에 한 가지. 첫 문장은 무엇이 보이는지(글자가 있으면 그것부터), 둘째는 장소나 분위기.',
+    ...(recentTitles.length ? [`- 최근 제목과 같은 식으로 시작하지 마세요: ${recentTitles.map((t) => `"${t}"`).join(', ')}`] : []),
+    '',
+    `말투 (${st.label}): ${st.note}`,
+    ...st.examples.map((e) => `- 예: "${e}"`),
+    '',
+    'JSON만 출력하세요. 다른 텍스트 금지:',
+    '{"memo":"<제목 한 줄>","scene":"<짧은 문장 2~3개>","hookId":"<쓴 이야기의 id, 없으면 빈 문자열>"}',
+  ].join('\n')
+}
+
+export interface Written {
+  memo: string
+  scene: string
+  hookId: string | null
+}
+
+/** The memo out of the writer's JSON; null when unusable (no title, or a foreign script in it). */
+export function parseWriteResponse(raw: string): Written | null {
+  const cleaned = raw.replace(/^```(?:json)?\s*|\s*```$/g, '').trim()
+  let parsed: Record<string, unknown>
+  try {
+    parsed = JSON.parse(cleaned) as Record<string, unknown>
+  } catch {
+    return null
+  }
+  const memo = typeof parsed.memo === 'string' ? tidyMemo(parsed.memo) : ''
+  if (!memo || FOREIGN_SCRIPT.test(memo)) return null
+  const scene = typeof parsed.scene === 'string' ? tidyScene(parsed.scene) : ''
+  const id = typeof parsed.hookId === 'string' ? parsed.hookId.trim().replace(/^\[|\]$/g, '') : ''
+  const hookId = id && !/^(null|none|없음)$/i.test(id) ? id : null
+  return { memo, scene, hookId }
+}
