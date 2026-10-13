@@ -23,11 +23,11 @@ describe('FamilyPhotosCard', () => {
     expect(out).toContain('fp-card on')
   })
 
-  it('is gone the day after everything was seen', () => {
-    const seenYesterday = photo('1', { seenAtMs: 1, createdAtMs: Date.now() - 2 * 24 * 3600 * 1000 })
-    expect(renderToString(<FamilyPhotosCard photos={[seenYesterday]} onOpen={() => {}} />)).toBe('')
-    const seenToday = photo('2', { seenAtMs: 1, createdAtMs: Date.now() })
-    expect(renderToString(<FamilyPhotosCard photos={[seenToday]} onOpen={() => {}} />)).toContain('가족 사진 다시 보기')
+  it('stays, quiet, once everything was seen, even days later', () => {
+    const seenDaysAgo = photo('1', { seenAtMs: 1, createdAtMs: Date.now() - 2 * 24 * 3600 * 1000 })
+    const out = renderToString(<FamilyPhotosCard photos={[seenDaysAgo]} onOpen={() => {}} />)
+    expect(out).toContain('가족 사진 다시 보기')
+    expect(out).not.toContain('fp-card on')
   })
 })
 

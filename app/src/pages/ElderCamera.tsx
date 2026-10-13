@@ -39,7 +39,7 @@ export function ElderCameraView({ phase, busy, overlay, news, photos = null, ask
   /** Above the camera-switch button: the web's 아이콘 만들기. */
   corner?: ReactNode
   /** "민수가 사진을 보냈어요" while a photo from family is new (lit), the dim
-   *  "가족 사진 다시 보기" for the rest of that day, else null. */
+   *  "가족 사진 다시 보기" whenever there are photos at all, else null. */
   photos?: { line: string; lit: boolean } | null
   onOpenPhotos?: () => void
   /** A plain sentence before a permission question (ElderAsk), or null. */
@@ -53,16 +53,18 @@ export function ElderCameraView({ phase, busy, overlay, news, photos = null, ask
   onOpenRecords: () => void
   onRetry: () => void
 }) {
-  // A photo from family comes first; hearts and comments after it.
-  const item = !photos && news?.state === 'new' ? news.item : null
+  // A new photo from family comes first; a new heart or word next; the
+  // quiet 가족 사진 다시 보기 only when there is nothing new to show.
+  const item = (!photos || !photos.lit) && news?.state === 'new' ? news.item : null
+  const photoBubble = photos && (photos.lit || !item) ? photos : null
   return (
     <div className="elder-cam">
       <div id={FEED_ID} className="elder-cam-feed" />
 
-      {photos && (
-        <button type="button" className={`elder-cam-bubble${photos.lit ? '' : ' dim'}`} onClick={onOpenPhotos}>
+      {photoBubble && (
+        <button type="button" className={`elder-cam-bubble${photoBubble.lit ? '' : ' dim'}`} onClick={onOpenPhotos}>
           <span className="elder-cam-bubble-icon" aria-hidden="true">🖼️</span>
-          <span className="elder-cam-bubble-body"><span>{photos.line}</span></span>
+          <span className="elder-cam-bubble-body"><span>{photoBubble.line}</span></span>
         </button>
       )}
 

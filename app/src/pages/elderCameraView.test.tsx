@@ -98,13 +98,29 @@ describe('ElderCameraView', () => {
 })
 
 describe('the family-photo bubble, looked at already', () => {
-  it('stays for the day, quiet, and still opens the photos', () => {
-    const out = renderToString(
-      <ElderCameraView phase="live" busy={false} overlay={null} news={null} photos={{ line: '가족 사진 다시 보기', lit: false }}
-        onShutter={() => {}} onDismissNews={() => {}} onOpenRecords={() => {}} onRetry={() => {}} />,
-    )
+  const dim = { line: '가족 사진 다시 보기', lit: false }
+  const view = (news: ElderNews | null, photos: { line: string; lit: boolean }) => renderToString(
+    <ElderCameraView phase="live" busy={false} overlay={null} news={news} photos={photos}
+      onShutter={() => {}} onDismissNews={() => {}} onOpenRecords={() => {}} onRetry={() => {}} />,
+  ).replace(/<!-- -->/g, '')
+
+  it('stays, quiet, and still opens the album', () => {
+    const out = view(null, dim)
     expect(out).toContain('class="elder-cam-bubble dim"')
     expect(out).toContain('가족 사진 다시 보기')
     expect(out).not.toContain('class="elder-cam-bubble"')
+  })
+
+  it('gives way to a new heart or word, so the quiet bubble never hides them', () => {
+    const out = view({ state: 'new', item: comment, unreadIds: ['r1'] }, dim)
+    expect(out).toContain('엄마 꽃 예뻐요')
+    expect(out).not.toContain('가족 사진 다시 보기')
+    expect(out.match(/elder-cam-bubble"/g)).toHaveLength(1)
+  })
+
+  it('but a new photo still comes before a new heart', () => {
+    const out = view({ state: 'new', item: heart, unreadIds: ['r2'] }, { line: '지은이 사진을 보냈어요', lit: true })
+    expect(out).toContain('지은이 사진을 보냈어요')
+    expect(out).not.toContain('하트')
   })
 })

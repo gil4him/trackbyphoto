@@ -20,17 +20,15 @@ export function showable(photos: FamilyPhoto[]): FamilyPhoto[] {
 export const unseen = (photos: FamilyPhoto[]) => showable(photos).filter((p) => !p.seenAtMs)
 
 /**
- * The card line on the parent's home screen, the same way 가족 소식 works:
- * lit while something is new, dim for the rest of the day a photo came,
- * then gone. null when there is nothing to show.
+ * The card line on the parent's home screen: lit while something is new,
+ * dim otherwise, so the album stays reachable on any day. null only while
+ * there is no photo to show at all.
  */
-export function cardLine(photos: FamilyPhoto[], nowMs = Date.now()): { line: string; lit: boolean } | null {
+export function cardLine(photos: FamilyPhoto[]): { line: string; lit: boolean } | null {
   const all = showable(photos)
   if (all.length === 0) return null
   const fresh = unseen(photos)
-  if (fresh.length === 0) {
-    return all.some((p) => sameDay(p.createdAtMs, nowMs)) ? { line: S.familyPhotoCardOld, lit: false } : null
-  }
+  if (fresh.length === 0) return { line: S.familyPhotoCardOld, lit: false }
   const senders = [...new Set(fresh.map((p) => p.senderName))]
   return { line: S.familyPhotoCardNew(senders[0], senders.length - 1, fresh.length), lit: true }
 }

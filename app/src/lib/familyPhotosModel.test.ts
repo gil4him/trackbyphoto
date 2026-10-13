@@ -17,12 +17,11 @@ describe('the card on the parent\'s home screen', () => {
     expect(cardLine([p('1'), p('2')])).toEqual({ line: '민수가 사진 2장을 보냈어요', lit: true })
     expect(cardLine([p('1'), p('2', { senderName: '지은' }), p('3', { senderName: '지은' })])).toEqual({ line: '지은이 외 1명이 사진 3장을 보냈어요', lit: true })
   })
-  it('stays quietly for the rest of the day once everything has been seen, then goes', () => {
-    const now = new Date(2026, 9, 5, 15, 0).getTime()
-    const earlierToday = new Date(2026, 9, 5, 9, 0).getTime()
-    const yesterday = new Date(2026, 9, 4, 23, 0).getTime()
-    expect(cardLine([p('1', { seenAtMs: 5, createdAtMs: earlierToday })], now)).toEqual({ line: '가족 사진 다시 보기', lit: false })
-    expect(cardLine([p('1', { seenAtMs: 5, createdAtMs: yesterday })], now)).toBeNull()
+  it('stays quietly once everything has been seen, however long ago, so the album is always reachable', () => {
+    const earlierToday = Date.now() - 6 * 3600 * 1000
+    const lastWeek = Date.now() - 7 * 24 * 3600 * 1000
+    expect(cardLine([p('1', { seenAtMs: 5, createdAtMs: earlierToday })])).toEqual({ line: '가족 사진 다시 보기', lit: false })
+    expect(cardLine([p('1', { seenAtMs: 5, createdAtMs: lastWeek })])).toEqual({ line: '가족 사진 다시 보기', lit: false })
   })
 })
 
