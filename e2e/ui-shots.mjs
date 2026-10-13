@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url'
 import { initializeApp } from 'firebase-admin/app'
 import { FieldValue, getFirestore, Timestamp } from 'firebase-admin/firestore'
 import { serveSite } from './servers.mjs'
-import { seedDemoFamily, seedTodayMemos } from './demo-seed.mjs'
+import { seedDemoFamily, seedFamilyPhotos, seedTodayMemos } from './demo-seed.mjs'
 import { spawn } from 'node:child_process'
 import { click, elderSession, FAKE_CAMERA_ARGS, familyAccount, launchBrowser, openPage, settle, sleep, tab, waitText } from './shot-kit.mjs'
 import { serveFakeModel } from './servers.mjs'
@@ -216,6 +216,21 @@ async function shootA6() {
       await snap(p, 'bubble')
       await click(p, '글을 남겼어요')
       await sleep(600)
+      // Photos from the family: the lit bubble, the album, one photo full-size.
+      await seedFamilyPhotos({ momUid, kidUid: self, kidName: KID.name, count: 3 })
+      await waitText(p, '사진 3장을 보냈어요', 30_000)
+      await snap(p, 'photo-bubble')
+      await click(p, '사진 3장을 보냈어요', '.elder-cam-bubble')
+      await waitText(p, '가족이 보낸 사진')
+      await snap(p, 'photo-list')
+      await p.click('.fp-cell')
+      await waitText(p, '‹ 사진 목록')
+      await snap(p, 'photo-view')
+      await click(p, '‹ 사진 목록', '.elder-back')
+      await waitText(p, '가족이 보낸 사진')
+      await snap(p, 'photo-list-seen')
+      await click(p, '‹ 처음으로', '.elder-back')
+      await p.waitForSelector('.elder-cam-shutter:not([disabled])', { timeout: 30_000 })
       await p.click('.elder-cam-shutter')
       await p.waitForSelector('.elder-cam-overlay', { timeout: 30_000 })
       await snap(p, 'overlay', { quick: true })

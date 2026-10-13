@@ -119,6 +119,32 @@ export async function seedDemoFamily({ kidUid, kidName, now = Date.now() }) {
 }
 
 /**
+ * For the design-review screenshots: `count` photos the family sent the parent,
+ * all unseen, the newest sent a minute ago (so the parent's phone shows the lit
+ * bubble and an album with dots). Same finished shape as seedDemoFamily's.
+ */
+export async function seedFamilyPhotos({ momUid, kidUid, kidName, count = 3, now = Date.now() }) {
+  const db = getFirestore()
+  const bucket = getStorage().bucket()
+  const emulatorHost = process.env.FIREBASE_STORAGE_EMULATOR_HOST
+  const ts = (ms) => Timestamp.fromMillis(Math.round(ms))
+  const captions = ['아빠, 오늘 저녁 같이 먹어요', '손주가 그린 그림이에요', '', '주말에 같이 가요']
+  const ids = []
+  for (let i = 0; i < count; i++) {
+    const t = now - 60e3 - i * 5 * H
+    const fid = `${t}_${rand()}`
+    const fpath = `familyPhotos/${momUid}/${fid}.jpg`
+    await db.doc(`familyPhotos/${fid}`).set({
+      patientUid: momUid, senderUid: kidUid, senderName: kidName, photoPath: fpath,
+      photoUrl: await upload(bucket, fpath, `photo${i % 4}.jpg`, emulatorHost),
+      caption: captions[i % captions.length], status: 'ready', createdAt: ts(t), readyAt: ts(t + 3000),
+    })
+    ids.push(fid)
+  }
+  return ids
+}
+
+/**
  * For the design-review screenshots (ui-shots.mjs): `count` photos taken
  * today, spread over the day, newest with a heart and a comment from the
  * family. Same finished shapes as seedDemoFamily.

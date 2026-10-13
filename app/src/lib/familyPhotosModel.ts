@@ -35,10 +35,12 @@ export function cardLine(photos: FamilyPhoto[], nowMs = Date.now()): { line: str
   return { line: S.familyPhotoCardNew(senders[0], senders.length - 1, fresh.length), lit: true }
 }
 
-/** The order the viewer walks through: new ones first, then the rest. */
-export function viewerOrder(photos: FamilyPhoto[]): FamilyPhoto[] {
-  const all = showable(photos)
-  return [...all.filter((p) => !p.seenAtMs), ...all.filter((p) => !!p.seenAtMs)]
+/** Under a cell of the parent's list: 오늘, 어제, or the date. */
+export function photoDayLabel(createdAtMs: number, nowMs = Date.now()): string {
+  if (sameDay(createdAtMs, nowMs)) return S.familyPhotoDayToday
+  if (sameDay(createdAtMs, nowMs - 24 * 3600 * 1000)) return S.familyPhotoDayYesterday
+  const d = new Date(createdAtMs)
+  return S.familyPhotoDayOn(d.getMonth() + 1, d.getDate())
 }
 
 /** What the sender sees under a photo they sent. */
