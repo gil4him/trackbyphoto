@@ -125,18 +125,18 @@ for (const [i, d] of memos.entries()) {
     ])
     const hooks = buildHooks(data, { takenAtMs: takenAt.getTime(), lat, lng, tzOffsetMin, labels: labelsOf(tags) }, seen.activity, null)
     const recent = recentTitles(data.past)
-    const facts = { texts: [...seen.subjects, seen.setting, ...seen.signText, `${seen.peopleCount}명`, hints.placeHint ?? '', hints.timeHint ?? '', ...hooks.map((h) => h.text)] }
+    const facts = { texts: [...seen.subjects, seen.setting, seen.description, ...seen.signText, `${seen.peopleCount}명`, hints.placeHint ?? '', hints.timeHint ?? '', ...hooks.map((h) => h.text)] }
     const input = { seen, hooks, recentTitles: recent, style: data.style, hints: { timeHint: hints.timeHint, placeHint: hints.placeHint, homeHint: hints.homeHint }, model }
     const tries: Try[] = []
     let final: { memo: string; scene: string; hookId: string | null } | null = null
     for (const temperature of [WRITE_TEMPERATURE, WRITE_RETRY_TEMPERATURE]) {
       const w = await generateWrite({ ...input, temperature })
-      const verdict = checkMemo(w.memo, w.hookId, facts, hooks.map((h) => h.id), recent)
+      const verdict = checkMemo(w.memo, w.hookId, facts, hooks.map((h) => h.id), recent, w.scene)
       tries.push({ temperature, memo: w.memo, scene: w.scene, hookId: w.hookId, verdict })
       if (verdict.ok) { final = { memo: w.memo, scene: w.scene, hookId: w.hookId }; break }
     }
     row.v2 = { seen, hooks, recentTitles: recent, style: data.style, tries, final, seconds: (Date.now() - t) / 1000 }
-    process.stdout.write(`   see: ${seen.activity} | ${seen.subjects.join(', ')} | ${seen.setting}${seen.signText.length ? ` | "${seen.signText.join('", "')}"` : ''}\n`)
+    process.stdout.write(`   see: ${seen.activity} | ${seen.subjects.join(', ')} | ${seen.setting} | ${seen.description}${seen.signText.length ? ` | "${seen.signText.join('", "')}"` : ''}\n`)
     for (const tr of tries) process.stdout.write(`   v2@${tr.temperature}: ${tr.memo}${tr.hookId ? ` [${tr.hookId}]` : ''} ${tr.verdict.ok ? '' : `✗ ${tr.verdict.reason}: ${tr.verdict.detail}`}\n`)
     if (!final) process.stdout.write('   v2:  both tries rejected → production would fall back to v1\n')
   } catch (err) {
@@ -155,8 +155,8 @@ function factCheck(rows: Row[]) {
   const bad: string[] = []
   for (const r of rows) {
     if ('error' in r.v2 || !r.v2.final) continue
-    const facts = { texts: [...r.v2.seen.subjects, r.v2.seen.setting, ...r.v2.seen.signText, `${r.v2.seen.peopleCount}명`, areaOf(r.place), ...r.v2.hooks.map((h) => h.text)] }
-    const v = checkMemo(r.v2.final.memo, r.v2.final.hookId, facts, r.v2.hooks.map((h) => h.id), [])
+    const facts = { texts: [...r.v2.seen.subjects, r.v2.seen.setting, r.v2.seen.description ?? '', ...r.v2.seen.signText, `${r.v2.seen.peopleCount}명`, areaOf(r.place), ...r.v2.hooks.map((h) => h.text)] }
+    const v = checkMemo(r.v2.final.memo, r.v2.final.hookId, facts, r.v2.hooks.map((h) => h.id), [], r.v2.final.scene)
     if (!v.ok) bad.push(`${r.memoId}: "${r.v2.final.memo}" — ${v.reason}: ${v.detail}`)
   }
   console.log(bad.length ? `\n${bad.length} v2 memo(s) with a fact not in their inputs:\n  ${bad.join('\n  ')}` : '\nno v2 memo names a number or place outside its inputs')
@@ -189,7 +189,7 @@ function page(rows: Row[]): string {
       const f = r.v2.final
       v2 = (f ? `<div class="memo">${esc(f.memo)}</div><div class="scene">${esc(f.scene)}</div>` : `<div class="err">두 번 다 거절됨 → 실제로는 v1로 대체</div>`)
         + `<div class="meta">${esc(r.v2.seen.activity)} · ${esc(r.v2.style)}${f?.hookId ? ` · hook ${esc(f.hookId)}` : ''} · ${r.v2.seconds.toFixed(0)}s</div>`
-        + `<details><summary>본 것 · 이야기 · 시도</summary><div class="facts">본 것: ${esc([r.v2.seen.subjects.join(', '), r.v2.seen.setting, r.v2.seen.signText.map((t) => `"${t}"`).join(', '), `${r.v2.seen.peopleCount}명`].filter(Boolean).join(' | '))}</div>`
+        + `<details><summary>본 것 · 이야기 · 시도</summary><div class="facts">본 것: ${esc([r.v2.seen.subjects.join(', '), r.v2.seen.setting, r.v2.seen.description ?? '', r.v2.seen.signText.map((t) => `"${t}"`).join(', '), `${r.v2.seen.peopleCount}명`].filter(Boolean).join(' | '))}</div>`
         + `<div class="facts">이야기: ${r.v2.hooks.map((h) => `[${esc(h.id)}] ${esc(h.text)}`).join(' · ') || '(없음)'}</div>`
         + r.v2.tries.map((t) => `<div class="facts">@${t.temperature}: ${esc(t.memo)}${t.hookId ? ` [${esc(t.hookId)}]` : ''} ${t.verdict.ok ? '✓' : `✗ ${esc(t.verdict.reason)}: ${esc(t.verdict.detail)}`}</div>`).join('')
         + '</details>'

@@ -30,6 +30,12 @@ describe('checkMemo', () => {
     expect(checkMemo('카페에서 잠시 쉬었어요', null, facts, hooks, [])).toEqual({ ok: true })
   })
 
+  it('rejects a relation the facts never named, in the title or the scene', () => {
+    expect(checkMemo('가족과 벚꽃 산책', null, facts, hooks, [])).toMatchObject({ ok: false, reason: 'relation', detail: '가족' })
+    expect(checkMemo('벚꽃 산책', null, facts, hooks, [], '저희 셋이 함께한 길이에요.')).toMatchObject({ ok: false, reason: 'relation', detail: '저희' })
+    expect(checkMemo('딸과 벚꽃 산책', null, { texts: [...facts.texts, '딸이 보낸 사진'] }, hooks, [])).toEqual({ ok: true })
+  })
+
   it('rejects a near copy of a recent title', () => {
     const v = checkMemo('공원 길을 걸으셨어요', null, facts, hooks, ['공원 길을 걸으셨어요!'])
     expect(v).toMatchObject({ ok: false, reason: 'similar' })

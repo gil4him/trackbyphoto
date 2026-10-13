@@ -39,9 +39,9 @@ export async function generateSee(args: SeeArgs): Promise<SeeResult> {
 }
 
 /** The writer's temperature: some variety, so two days never read the same. */
-export const WRITE_TEMPERATURE = 0.8
+export const WRITE_TEMPERATURE = 0.6
 /** One more try, looser, when the guards reject the first answer. */
-export const WRITE_RETRY_TEMPERATURE = 0.95
+export const WRITE_RETRY_TEMPERATURE = 0.8
 
 export interface WriteArgs extends WriteInput {
   model?: string
@@ -117,15 +117,15 @@ export async function generateMemoV2(args: MemoArgs, deps: V2Deps = defaultV2Dep
       const recent = recentTitles(data.past)
       const hints = { timeHint: args.timeHint, placeHint: args.placeHint, homeHint: args.homeHint }
       // What the title may quote: the facts, the hints, the hooks — and the head count as a number.
-      const facts = { texts: [...seen.subjects, seen.setting, ...seen.signText, `${seen.peopleCount}명`, args.placeHint ?? '', args.timeHint ?? '', ...hooks.map((h) => h.text)] }
+      const facts = { texts: [...seen.subjects, seen.setting, seen.description, ...seen.signText, `${seen.peopleCount}명`, args.placeHint ?? '', args.timeHint ?? '', ...hooks.map((h) => h.text)] }
       const input: WriteInput = { seen, hooks, recentTitles: recent, style: data.style, hints }
       const ids = hooks.map((h) => h.id)
       let written = await deps.write({ ...input, model, temperature: WRITE_TEMPERATURE })
-      let verdict = checkMemo(written.memo, written.hookId, facts, ids, recent)
+      let verdict = checkMemo(written.memo, written.hookId, facts, ids, recent, written.scene)
       if (!verdict.ok) {
         logger.info('[memo-v2] guard rejected; one more try', { reason: verdict.reason, detail: verdict.detail, memo: written.memo })
         written = await deps.write({ ...input, model, temperature: WRITE_RETRY_TEMPERATURE })
-        verdict = checkMemo(written.memo, written.hookId, facts, ids, recent)
+        verdict = checkMemo(written.memo, written.hookId, facts, ids, recent, written.scene)
       }
       if (!verdict.ok) throw new LlmGenerationError(`guard: ${verdict.reason} (${verdict.detail}) in "${written.memo}"`)
       return {

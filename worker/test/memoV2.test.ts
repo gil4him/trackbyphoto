@@ -30,8 +30,8 @@ describe('see() prompt', () => {
 
 describe('parseSeeResponse', () => {
   it('reads the facts, snaps the category, trims lists, strips fences', () => {
-    const seen = parseSeeResponse('```json\n{"activity":"점심","subjects":["된장찌개","반찬","식탁","숟가락"],"setting":" 집  식탁 ","signText":[],"peopleCount":"2"}\n```')
-    expect(seen).toEqual({ activity: '기타', subjects: ['된장찌개', '반찬', '식탁'], setting: '집 식탁', signText: [], peopleCount: 2 })
+    const seen = parseSeeResponse('```json\n{"activity":"점심","subjects":["된장찌개","반찬","식탁","숟가락"],"setting":" 집  식탁 ","description":"식탁에 찌개와  반찬이 차려져 있어요","signText":[],"peopleCount":"2"}\n```')
+    expect(seen).toEqual({ activity: '기타', subjects: ['된장찌개', '반찬', '식탁'], setting: '집 식탁', description: '식탁에 찌개와 반찬이 차려져 있어요', signText: [], peopleCount: 2 })
   })
 
   it('keeps a known category and drops Japanese/Chinese sign text', () => {
@@ -47,7 +47,7 @@ describe('parseSeeResponse', () => {
   })
 })
 
-const SEEN: Seen = { activity: '산책', subjects: ['벚나무', '산책길'], setting: '공원 산책길', signText: ['진해 벚꽃 축제'], peopleCount: 1 }
+const SEEN: Seen = { activity: '산책', subjects: ['벚나무', '산책길'], setting: '공원 산책길', description: '벚나무가 늘어선 길을 걷고 있어요', signText: ['진해 벚꽃 축제'], peopleCount: 1 }
 const HOOKS = [{ id: 'nth', text: '오늘 3번째 사진이에요' }, { id: 'calendar', text: '오늘은 어버이날, 금요일이에요' }]
 
 describe('write() prompt', () => {
@@ -55,6 +55,9 @@ describe('write() prompt', () => {
     const p = buildWritePrompt({ seen: SEEN, hooks: HOOKS, recentTitles: ['공원 길을 걸으셨어요', '시장 구경'], style: 'playful', hints: { timeHint: '12:30', placeHint: '서초동, 서초구' } })
     expect(p).toContain('- 활동: 산책')
     expect(p).toContain('- 보이는 것: 벚나무, 산책길')
+    expect(p).toContain('- 모습: 벚나무가 늘어선 길을 걷고 있어요')
+    expect(p).toContain('기분이나 감상을 덧붙이지 마세요')
+    expect(buildWritePrompt({ seen: { ...SEEN, activity: '기타' }, hooks: [], recentTitles: [], style: 'plain' })).toContain('- 활동: (정해진 분류 없음)')
     expect(p).toContain('- 읽히는 글자: "진해 벚꽃 축제"')
     expect(p).toContain('- 사람: 1명')
     expect(p).toContain('시간 12:30 · 지역 서초동, 서초구')
@@ -153,7 +156,7 @@ describe('generateMemoV2', () => {
   })
 
   it('falls back to v1 when the guards reject both tries, or the writer breaks', async () => {
-    const { deps, calls } = fakes([{ memo: '동네 산책길!' }, { memo: '공원에서 벚꽃 12그루' }])
+    const { deps, calls } = fakes([{ memo: '동네 산책길!' }, { memo: '벚꽃길을 가족과 걸었어요' }])
     const r = await generateMemoV2(args, deps)
     expect(r).toMatchObject({ memo: '공원 산책길', source: 'local-llm' })
     expect(r.memoVersion).toBeUndefined()

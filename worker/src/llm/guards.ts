@@ -9,7 +9,10 @@ export interface GuardFacts {
   texts: string[]
 }
 
-export type GuardVerdict = { ok: true } | { ok: false; reason: 'hook' | 'number' | 'place' | 'similar'; detail: string }
+export type GuardVerdict = { ok: true } | { ok: false; reason: 'hook' | 'number' | 'place' | 'relation' | 'similar'; detail: string }
+
+/** Who the people are is never in the facts unless the family wrote it; the writer may not guess. */
+const RELATIONS = ['가족', '식구', '딸', '아들', '손주', '손자', '손녀', '며느리', '사위', '아내', '남편', '부부', '친구', '동료', '엄마', '아빠', '어머니', '아버지', '저희', '우리']
 
 /** Word endings that mark a place in Korean. */
 const PLACE_SUFFIX = /(특별시|광역시|시|군|구|동|읍|면|리|역|공원|시장|마트|다리|산|강|항|해수욕장|사찰|절|궁|성당|교회|대학교|병원|호수|섬)$/
@@ -66,9 +69,12 @@ export function placeTokens(memo: string): string[] {
  * Checks one written memo. `hookId` is what the writer claimed to use;
  * `hookIds` what it was offered; `facts.texts` what it may quote.
  */
-export function checkMemo(memo: string, hookId: string | null, facts: GuardFacts, hookIds: string[], recentTitles: string[]): GuardVerdict {
+export function checkMemo(memo: string, hookId: string | null, facts: GuardFacts, hookIds: string[], recentTitles: string[], scene = ''): GuardVerdict {
   if (hookId && !hookIds.includes(hookId)) return { ok: false, reason: 'hook', detail: hookId }
   const allowed = normalize(facts.texts.join(' '))
+  for (const word of RELATIONS) {
+    if ((memo.includes(word) || scene.includes(word)) && !allowed.includes(word)) return { ok: false, reason: 'relation', detail: word }
+  }
   for (const n of memo.match(DIGITS) ?? []) {
     if (!allowed.includes(n)) return { ok: false, reason: 'number', detail: n }
   }

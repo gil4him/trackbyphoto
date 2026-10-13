@@ -24,6 +24,8 @@ export interface Seen {
   subjects: string[]
   /** One phrase for where / what kind of place. */
   setting: string
+  /** One plain sentence of what the picture shows, for the scene. */
+  description: string
   /** Text actually readable in the photo (signs, banners); never ad copy. */
   signText: string[]
   peopleCount: number
@@ -35,10 +37,11 @@ export const SEE_SCHEMA = {
     activity: { type: 'string', enum: [...VALID_CATEGORIES] },
     subjects: { type: 'array', items: { type: 'string' }, maxItems: 3 },
     setting: { type: 'string' },
+    description: { type: 'string' },
     signText: { type: 'array', items: { type: 'string' } },
     peopleCount: { type: 'integer', minimum: 0 },
   },
-  required: ['activity', 'subjects', 'setting', 'signText', 'peopleCount'],
+  required: ['activity', 'subjects', 'setting', 'description', 'signText', 'peopleCount'],
 }
 
 /** The 상황 정보 lines v1 gives the model, reused word for word. */
@@ -76,6 +79,7 @@ export function buildSeePrompt(hints: PromptHints = {}): string {
     '- activity: 아래 목록에서 정확히 하나.',
     '- subjects: 사진의 주제가 되는 것 최대 3개. 짧은 한국어 명사로 ("된장찌개", "벚나무", "여행 가방").',
     '- setting: 어디인지, 어떤 자리인지 한 구절로 ("집 식탁", "공원 산책길", "공항 안 편의점").',
+    '- description: 사진에 보이는 모습을 쉬운 한국어 한 문장(30자 이내)으로 ("식탁에 찌개와 반찬이 차려져 있어요").',
     '- signText: 현수막·간판·전광판·안내판에서 또렷이 읽히는 글자. 없으면 빈 배열.',
     '- peopleCount: 사진에 보이는 사람 수. 없으면 0.',
     '',
@@ -93,7 +97,7 @@ export function buildSeePrompt(hints: PromptHints = {}): string {
     ...contextLines(hints),
     '',
     'JSON만 출력하세요. 다른 텍스트 금지:',
-    '{"activity":"<카테고리>","subjects":["..."],"setting":"...","signText":["..."],"peopleCount":0}',
+    '{"activity":"<카테고리>","subjects":["..."],"setting":"...","description":"...","signText":["..."],"peopleCount":0}',
   ].join('\n')
 }
 
@@ -117,13 +121,15 @@ export function parseSeeResponse(raw: string): Seen | null {
   const list = (v: unknown, max: number) => (Array.isArray(v) ? v.map(short).filter((s) => s && !FOREIGN_SCRIPT.test(s)) : []).slice(0, max)
   const subjects = list(parsed.subjects, SUBJECTS_MAX)
   const setting = short(parsed.setting)
-  if (FOREIGN_SCRIPT.test(setting)) return null
+  const description = typeof parsed.description === 'string' ? parsed.description.replace(/\s+/g, ' ').trim().slice(0, 60) : ''
+  if (FOREIGN_SCRIPT.test(setting) || FOREIGN_SCRIPT.test(description)) return null
   if (subjects.length === 0 && !setting) return null
   const n = Number(parsed.peopleCount)
   return {
     activity,
     subjects,
     setting,
+    description,
     signText: list(parsed.signText, SIGN_MAX),
     peopleCount: Number.isFinite(n) && n > 0 ? Math.floor(n) : 0,
   }
@@ -167,9 +173,11 @@ export function buildWritePrompt({ seen, hooks, recentTitles, style, hints = {} 
     '당신은 사진 한 장을 가족에게 전하는 짧은 기록을 쓰는 보조 AI입니다. 사진은 이미 다른 AI가 보고 아래 "사실"로 적어 두었어요. 이 사실과 "이야기" 목록만으로 memo(제목)와 scene(설명)을 쓰세요.',
     '',
     '사실 (사진에서 본 것):',
-    `- 활동: ${seen.activity}`,
+    // 기타 is the category for "none of the above"; written out, the model reads it as a guitar.
+    `- 활동: ${seen.activity === '기타' ? '(정해진 분류 없음)' : seen.activity}`,
     `- 보이는 것: ${seen.subjects.length ? seen.subjects.join(', ') : '(없음)'}`,
     `- 장소: ${seen.setting || '(알 수 없음)'}`,
+    ...(seen.description ? [`- 모습: ${seen.description}`] : []),
     `- 읽히는 글자: ${seen.signText.length ? seen.signText.map((t) => `"${t}"`).join(', ') : '(없음)'}`,
     `- 사람: ${seen.peopleCount}명`,
     ...(where ? [`- 때와 곳: ${where}`] : []),
@@ -179,10 +187,11 @@ export function buildWritePrompt({ seen, hooks, recentTitles, style, hints = {} 
     '',
     '규칙:',
     '- 사실과 이야기 목록에 없는 내용은 쓰지 마세요. 없는 숫자, 지명, 가게·음식·물건 이름을 지어내지 마세요.',
-    '- 사람 이름, 관계(딸·친구 등), 건강·약·진단명은 추측하지 마세요.',
+    '- 사람 이름, 관계(가족·딸·친구 등), 건강·약·진단명은 추측하지 마세요. 사람이 여럿이어도 누구인지는 모르는 거예요.',
+    '- 기분이나 감상을 덧붙이지 마세요 ("즐거운 하루였어요", "잘 지내고 계세요", "시간이 흐르네요" 같은 말 금지). 말투는 단어 고르기로만 살리세요.',
     '- 쉬운 한국어 존댓말(~요)로, 사진을 찍은 분을 높여서 쓰세요.',
     '- memo: 한 줄, 12~24자. 무엇을 어디에서 했는지 드러나게. 따옴표 없이.',
-    '- scene: 짧은 문장 2~3개. 한 문장은 25자 이내, 한 문장에 한 가지. 첫 문장은 무엇이 보이는지(글자가 있으면 그것부터), 둘째는 장소나 분위기.',
+    '- scene: 짧은 문장 2~3개. 한 문장은 25자 이내, 한 문장에 한 가지. 첫 문장은 "모습"을 바탕으로 무엇이 보이는지(글자가 있으면 그것부터), 둘째는 장소. 셋째(선택)는 이야기 하나.',
     ...(recentTitles.length ? [`- 최근 제목과 같은 식으로 시작하지 마세요: ${recentTitles.map((t) => `"${t}"`).join(', ')}`] : []),
     '',
     `말투 (${st.label}): ${st.note}`,
