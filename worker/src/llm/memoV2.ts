@@ -116,7 +116,8 @@ export async function generateMemoV2(args: MemoArgs, deps: V2Deps = defaultV2Dep
       const hooks = buildHooks(data, { takenAtMs: takenAt.getTime(), lat, lng, tzOffsetMin, labels: labelsOf(args.tags) }, seen.activity, weather)
       const recent = recentTitles(data.past)
       const hints = { timeHint: args.timeHint, placeHint: args.placeHint, homeHint: args.homeHint }
-      const facts = { texts: [...seen.subjects, seen.setting, ...seen.signText, args.placeHint ?? '', args.timeHint ?? '', ...hooks.map((h) => h.text)] }
+      // What the title may quote: the facts, the hints, the hooks — and the head count as a number.
+      const facts = { texts: [...seen.subjects, seen.setting, ...seen.signText, `${seen.peopleCount}명`, args.placeHint ?? '', args.timeHint ?? '', ...hooks.map((h) => h.text)] }
       const input: WriteInput = { seen, hooks, recentTitles: recent, style: data.style, hints }
       const ids = hooks.map((h) => h.id)
       let written = await deps.write({ ...input, model, temperature: WRITE_TEMPERATURE })

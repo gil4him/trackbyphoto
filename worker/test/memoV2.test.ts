@@ -143,6 +143,8 @@ describe('generateMemoV2', () => {
   })
 
   it('tries once more, looser, when a guard rejects the title', async () => {
+    // The head count is a fact the title may use; a place it was not given is not.
+    expect((await generateMemoV2(args, fakes([{ memo: '벚꽃길을 걷는 1명' }]).deps)).memo).toBe('벚꽃길을 걷는 1명')
     const { deps, calls } = fakes([{ memo: '잠실동 벚꽃 산책' }, { memo: '벚꽃 아래 공원 산책' }])
     const r = await generateMemoV2(args, deps)
     expect(r.memo).toBe('벚꽃 아래 공원 산책')

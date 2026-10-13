@@ -4,6 +4,7 @@
 //
 //   npm run memo-compare -- [--patient <uid>] [--n 30] [--out <dir>]
 //   npm run memo-compare -- --results <picks.json>     (score an earlier run)
+//   npm run memo-compare -- --page                     (rebuild the page from the saved JSON)
 //
 // Reads production Firestore and Storage (never writes a memo), runs the
 // Mac mini's model, and writes <out>/memo-compare.{json,html}. The page
@@ -46,6 +47,13 @@ mkdirSync(out, { recursive: true })
 
 if (arg('results')) {
   score(arg('results')!)
+  process.exit(0)
+}
+if (process.argv.includes('--page')) {
+  const saved = JSON.parse(readFileSync(join(out, 'memo-compare.json'), 'utf8')) as { rows: Row[] }
+  writeFileSync(join(out, 'memo-compare.html'), page(saved.rows))
+  console.log(`wrote ${join(out, 'memo-compare.html')} (${saved.rows.length} rows)`)
+  factCheck(saved.rows)
   process.exit(0)
 }
 
@@ -117,7 +125,7 @@ for (const [i, d] of memos.entries()) {
     ])
     const hooks = buildHooks(data, { takenAtMs: takenAt.getTime(), lat, lng, tzOffsetMin, labels: labelsOf(tags) }, seen.activity, null)
     const recent = recentTitles(data.past)
-    const facts = { texts: [...seen.subjects, seen.setting, ...seen.signText, hints.placeHint ?? '', hints.timeHint ?? '', ...hooks.map((h) => h.text)] }
+    const facts = { texts: [...seen.subjects, seen.setting, ...seen.signText, `${seen.peopleCount}명`, hints.placeHint ?? '', hints.timeHint ?? '', ...hooks.map((h) => h.text)] }
     const input = { seen, hooks, recentTitles: recent, style: data.style, hints: { timeHint: hints.timeHint, placeHint: hints.placeHint, homeHint: hints.homeHint }, model }
     const tries: Try[] = []
     let final: { memo: string; scene: string; hookId: string | null } | null = null
@@ -147,7 +155,7 @@ function factCheck(rows: Row[]) {
   const bad: string[] = []
   for (const r of rows) {
     if ('error' in r.v2 || !r.v2.final) continue
-    const facts = { texts: [...r.v2.seen.subjects, r.v2.seen.setting, ...r.v2.seen.signText, areaOf(r.place), ...r.v2.hooks.map((h) => h.text)] }
+    const facts = { texts: [...r.v2.seen.subjects, r.v2.seen.setting, ...r.v2.seen.signText, `${r.v2.seen.peopleCount}명`, areaOf(r.place), ...r.v2.hooks.map((h) => h.text)] }
     const v = checkMemo(r.v2.final.memo, r.v2.final.hookId, facts, r.v2.hooks.map((h) => h.id), [])
     if (!v.ok) bad.push(`${r.memoId}: "${r.v2.final.memo}" — ${v.reason}: ${v.detail}`)
   }
@@ -168,7 +176,9 @@ function score(picksFile: string) {
   factCheck(data.rows)
 }
 
-const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string))
+function esc(s: string): string {
+  return s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string))
+}
 
 function page(rows: Row[]): string {
   const cell = (r: Row) => {
