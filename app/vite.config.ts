@@ -99,7 +99,8 @@ export default defineConfig(({ mode }) => ({
         // Firebase's sign-in helper pages live under /__/ and must come from
         // the server. /privacy and /terms are their own static pages — the app
         // shell must not answer for them (legalPages above).
-        navigateFallbackDenylist: [/^\/__\//, /^\/(privacy|terms|delete-account)\/?$/],
+        // With or without a trailing slash or a query (?utm…, ?v=2): never the app shell.
+        navigateFallbackDenylist: [/^\/__\//, /^\/(privacy|terms|delete-account)\/?(\?.*)?$/],
         cleanupOutdatedCaches: true,
         // A new version takes over as soon as it has arrived instead of
         // waiting for every tab to close; reloadToLatest (src/lib/sw.ts)

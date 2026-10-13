@@ -60,9 +60,9 @@ describe('legal pages in the build', () => {
     const pwa = plugins('simple').find((p) => p.name === 'vite-plugin-pwa')
     // The plugin's own options aren't readable from the instance, so assert on
     // the denylist we hand it; keep this in step with vite.config.ts.
-    const denylist = [/^\/__\//, /^\/(privacy|terms|delete-account)\/?$/]
+    const denylist = [/^\/__\//, /^\/(privacy|terms|delete-account)\/?(\?.*)?$/]
     expect(pwa).toBeTruthy()
-    for (const path of ['/privacy', '/privacy/', '/terms', '/terms/', '/delete-account']) {
+    for (const path of ['/privacy', '/privacy/', '/terms', '/terms/', '/delete-account', '/privacy?v=2', '/terms/?utm_source=mail']) {
       expect(denylist.some((re) => re.test(path))).toBe(true)
     }
     expect(denylist.some((re) => re.test('/'))).toBe(false)
