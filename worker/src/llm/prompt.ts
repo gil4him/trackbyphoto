@@ -36,7 +36,7 @@ export interface PromptHints {
  *  the local model keeps the stricter one. */
 export type PromptVariant = 'local' | 'cloud'
 
-const JAPANESE_RULE_LOCAL = '- 또렷이 읽히는 한글·영어·숫자만 인용하세요. 일본어나 한자로 된 글자는 옮겨 적거나 번역하지 말고 "일본어 광고가 붙어 있어요"처럼만 쓰세요.'
+export const JAPANESE_RULE_LOCAL = '- 또렷이 읽히는 한글·영어·숫자만 인용하세요. 일본어나 한자로 된 글자는 옮겨 적거나 번역하지 말고 "일본어 광고가 붙어 있어요"처럼만 쓰세요.'
 const JAPANESE_RULE_CLOUD = '- 일본어·한자 간판과 안내판도 읽을 수 있으면 뜻을 한국어로 옮기세요. 역·가게·지명은 한국어 발음으로 쓰세요 ("新宿駅" → "신주쿠역").'
 
 // The model writes three things per photo:
@@ -45,6 +45,25 @@ const JAPANESE_RULE_CLOUD = '- 일본어·한자 간판과 안내판도 읽을 �
 //   scene     2–3 short, plain sentences for the detail page
 // Everything must come from what is visible in the photo; the hints only
 // add context (time, place, distance from home) the picture can't show.
+export const AD_BOARD_RULE = '- 상품·책·서비스를 알리는 광고판과 포스터는 현수막·안내판과 달라요. 내용을 옮기지 말고 "광고판이 보여요"라고만 쓰세요.'
+
+/** The 13 categories with the one-line description the model gets for each (v1 and v2 share them). */
+export const CATEGORY_LINES = [
+  '- 식사: 음식, 식당, 식탁',
+  '- 카페: 커피, 차, 디저트, 카페나 푸드코트 테이블에 앉은 모습',
+  '- 산책: 동네나 공원을 걷는 길',
+  '- 여행: 집에서 멀리 떠난 관광지, 숙소, 낯선 도시',
+  '- 출장: 집에서 멀리 떠나 회의실, 전시장, 사무 공간에서 일하는 모습',
+  '- 이동: 공항, 역, 터미널, 차·기차·비행기 안, 여행 가방(캐리어)',
+  '- 쇼핑: 상품이 진열된 가게, 시장, 마트, 편의점',
+  '- 휴식: 집이나 실내에서 쉬는 모습',
+  '- 모임: 여러 사람이 함께 있는 자리',
+  '- 운동: 운동, 등산, 체육 시설',
+  '- 자연: 꽃, 나무, 하늘, 바다, 풍경',
+  '- 병원: 병원, 약국',
+  '- 기타: 위 어느 것에도 맞지 않을 때만',
+]
+
 export function buildPrompt(hints: PromptHints = {}, variant: PromptVariant = 'local'): string {
   const { timeHint, placeHint, homeHint, textHint, nearHint, placeFull, coords } = hints
   const cloud = variant === 'cloud'
@@ -102,7 +121,7 @@ export function buildPrompt(hints: PromptHints = {}, variant: PromptVariant = 'l
     '- 현수막이나 간판이 크게 찍혔다면 그것이 사진의 주제예요. memo(제목)에 그 내용을 넣으세요.',
     '- 외국어 문장은 뜻을 한국어로 옮겨 쓰세요 ("The biggest festival" → "가장 큰 축제"). 지명·역·가게·행사 이름은 원문 그대로 써도 돼요 ("Higashi Betsuin 역").',
     cloud ? JAPANESE_RULE_CLOUD : JAPANESE_RULE_LOCAL,
-    '- 상품·책·서비스를 알리는 광고판과 포스터는 현수막·안내판과 달라요. 내용을 옮기지 말고 "광고판이 보여요"라고만 쓰세요.',
+    AD_BOARD_RULE,
     '',
     'memo (제목 한 줄, 12~22자):',
     '- 사진의 주제를 구체적으로 쓰세요: 무엇을, 어디에서.',
@@ -115,19 +134,7 @@ export function buildPrompt(hints: PromptHints = {}, variant: PromptVariant = 'l
     '- 쉼표로 길게 이어 쓰거나 같은 꾸밈말을 반복하지 마세요.',
     '',
     'activity (정확히 하나):',
-    '- 식사: 음식, 식당, 식탁',
-    '- 카페: 커피, 차, 디저트, 카페나 푸드코트 테이블에 앉은 모습',
-    '- 산책: 동네나 공원을 걷는 길',
-    '- 여행: 집에서 멀리 떠난 관광지, 숙소, 낯선 도시',
-    '- 출장: 집에서 멀리 떠나 회의실, 전시장, 사무 공간에서 일하는 모습',
-    '- 이동: 공항, 역, 터미널, 차·기차·비행기 안, 여행 가방(캐리어)',
-    '- 쇼핑: 상품이 진열된 가게, 시장, 마트, 편의점',
-    '- 휴식: 집이나 실내에서 쉬는 모습',
-    '- 모임: 여러 사람이 함께 있는 자리',
-    '- 운동: 운동, 등산, 체육 시설',
-    '- 자연: 꽃, 나무, 하늘, 바다, 풍경',
-    '- 병원: 병원, 약국',
-    '- 기타: 위 어느 것에도 맞지 않을 때만',
+    ...CATEGORY_LINES,
     '',
     '예시:',
     '- 식탁 위 찌개와 반찬 → {"activity":"식사","memo":"된장찌개로 점심 식사","scene":"식탁에 찌개와 반찬이 차려져 있어요. 집에서 드시는 점심이에요."}',
@@ -182,7 +189,7 @@ const MEMO_MAX = 40
 const SCENE_MAX_SENTENCES = 3
 
 /** One line, no stray quotes; an over-long title is cut at its first sentence. */
-function tidyMemo(raw: string): string {
+export function tidyMemo(raw: string): string {
   let memo = raw.replace(/\s+/g, ' ').trim().replace(/^["'“”]+|["'“”]+$/g, '')
   if (memo.length > MEMO_MAX) {
     const first = memo.match(/^.*?[.!?。]/)?.[0] ?? memo
@@ -193,11 +200,11 @@ function tidyMemo(raw: string): string {
 
 // Kana and Chinese characters. The model reads these badly and "translates"
 // them into things the sign doesn't say, and the family can't read them.
-const FOREIGN_SCRIPT = /[\u3040-\u30ff\u3400-\u9fff]/
+export const FOREIGN_SCRIPT = /[\u3040-\u30ff\u3400-\u9fff]/
 
 /** Collapse whitespace, drop sentences that copy Japanese/Chinese text (kept
  *  when relaxed), and keep at most three sentences. */
-function tidyScene(raw: string, relaxed = false): string {
+export function tidyScene(raw: string, relaxed = false): string {
   const text = raw.replace(/\s+/g, ' ').trim()
   // A sentence ends where Korean text meets a full stop; a period inside a
   // quoted sign ("Sta.", "jejuair.com") is not an ending.

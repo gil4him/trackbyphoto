@@ -30,7 +30,7 @@ const KEEP_ALIVE = '2m'
 // 0 = the model's single most likely answer, the same every run. At 0.2 the
 // same photo flipped between right and wrong categories from run to run,
 // which also made prompt changes impossible to judge.
-const TEMPERATURE = Number(process.env.OLLAMA_TEMPERATURE ?? 0)
+export const TEMPERATURE = Number(process.env.OLLAMA_TEMPERATURE ?? 0)
 /** For "AI로 다시 쓰기": some variety, or a re-write would repeat itself. */
 export const REWRITE_TEMPERATURE = 0.5
 
@@ -108,7 +108,7 @@ interface OllamaGenerateResponse {
 }
 
 /** One /api/generate call. Throws LlmUnavailableError or LlmGenerationError. */
-async function ollamaGenerate(model: string, body: Record<string, unknown>): Promise<{ raw: string; promptTokens: number; outputTokens: number }> {
+export async function ollamaGenerate(model: string, body: Record<string, unknown>): Promise<{ raw: string; promptTokens: number; outputTokens: number }> {
   const started = Date.now()
   let res: Response
   try {
