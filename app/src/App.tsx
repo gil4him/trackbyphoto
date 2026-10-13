@@ -19,6 +19,7 @@ import { useFamilyPhotos } from './hooks/useFamilyPhotos'
 import { normalizeInviteCode, syncCaregiverName } from './lib/caregiver'
 import { setFaviconBadge } from './lib/favicon'
 import { Tabs, type TabKey } from './components/Tabs'
+import { tabFromUrl } from './lib/tabFromUrl'
 import { ToastProvider } from './components/Toast'
 import { PatientSwitcher } from './components/PatientSwitcher'
 import { Home, ParentDayHome } from './pages/Home'
@@ -131,7 +132,8 @@ function App() {
   // The digest page: opened by a /digest/{id} link (push, e-mail, message) or
   // from the 알림 list.
   const [digestId, setDigestId] = useState<string | null>(() => (typeof window === 'undefined' ? null : digestIdFromPath(window.location.pathname)))
-  const [tab, setTab] = useState<TabKey>('home')
+  // /?tab=settings: the legal pages' ‹ 설정으로 돌아가기 lands back on 설정.
+  const [tab, setTab] = useState<TabKey>(() => tabFromUrl())
   const [selectedMemoId, setSelectedMemoId] = useState<string | null>(null)
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS)
   // Whose settings those are: they lag a moment behind a switch of patient.

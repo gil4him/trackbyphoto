@@ -60,15 +60,15 @@ describe('legal pages in the build', () => {
     const pwa = plugins('simple').find((p) => p.name === 'vite-plugin-pwa')
     // The plugin's own options aren't readable from the instance, so assert on
     // the denylist we hand it; keep this in step with vite.config.ts.
-    const denylist = [/^\/__\//, /^\/(privacy|terms|delete-account)\/?$/]
+    const denylist = [/^\/__\//, /^\/(privacy|terms|delete-account)\/?(\?.*)?$/]
     expect(pwa).toBeTruthy()
-    for (const path of ['/privacy', '/privacy/', '/terms', '/terms/', '/delete-account']) {
+    for (const path of ['/privacy', '/privacy/', '/terms', '/terms/', '/delete-account', '/privacy?v=2', '/terms/?utm_source=mail']) {
       expect(denylist.some((re) => re.test(path))).toBe(true)
     }
     expect(denylist.some((re) => re.test('/'))).toBe(false)
     expect(denylist.some((re) => re.test('/pair'))).toBe(false)
     expect(readFileSync(new URL('../../vite.config.ts', import.meta.url), 'utf8'))
-      .toContain('/^\\/(privacy|terms|delete-account)\\/?$/')
+      .toContain('/^\\/(privacy|terms|delete-account)\\/?(\\?.*)?$/')
   })
 })
 
@@ -96,6 +96,13 @@ describe('hosting serves them as their own pages', () => {
 })
 
 describe('what each page has to say', () => {
+  it('has a way back into the app, to 설정', () => {
+    for (const html of [privacy, terms]) {
+      expect(html).toContain('href="/?tab=settings"')
+      expect(html).toContain('‹ 설정으로 돌아가기')
+    }
+  })
+
   it('needs no JavaScript', () => {
     for (const html of [privacy, terms]) expect(html).not.toMatch(/<script/i)
   })
