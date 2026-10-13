@@ -68,7 +68,7 @@ describe('legal pages in the build', () => {
     expect(denylist.some((re) => re.test('/'))).toBe(false)
     expect(denylist.some((re) => re.test('/pair'))).toBe(false)
     expect(readFileSync(new URL('../../vite.config.ts', import.meta.url), 'utf8'))
-      .toContain('/^\\/(privacy|terms|delete-account)\\/?$/')
+      .toContain('/^\\/(privacy|terms|delete-account)\\/?(\\?.*)?$/')
   })
 })
 
