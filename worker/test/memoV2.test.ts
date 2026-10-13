@@ -18,6 +18,8 @@ describe('see() prompt', () => {
     expect(p).toContain('집 또는 집 근처예요')
     expect(p).toContain('"Nagoya"')
     expect(p).toContain('"peopleCount":0')
+    expect(p).toContain('보이는 그대로, 하나씩 모두')
+    expect(p).toContain('현수막이나 간판이 크게 찍혔다면')
     expect(p).not.toContain('된장찌개로 점심 식사')
   })
 
@@ -67,6 +69,8 @@ describe('write() prompt', () => {
     expect(p).toContain('없는 숫자, 지명')
     expect(p).toContain('같은 식으로 시작하지 마세요: "공원 길을 걸으셨어요", "시장 구경"')
     expect(p).toContain('12~24자')
+    expect(p).toContain('제목에 그 이름을 그대로 넣으세요')
+    expect(p).toContain('사진을 설명하는 말로 끝내지 말고')
     expect(p).toContain('말투 (재치있게)')
     for (const e of STYLE_EXAMPLES.playful.examples) expect(p).toContain(e)
     expect(p).not.toContain('로 점심 식사')
