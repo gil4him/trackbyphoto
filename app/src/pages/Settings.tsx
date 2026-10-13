@@ -610,8 +610,9 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
 
         <div className="sect">
           <SectLab>도움말·약관</SectLab>
-          <a className="linkbtn" href={`${PUBLIC_ORIGIN}/privacy`} target="_blank" rel="noreferrer"><span>개인정보처리방침</span><span aria-hidden="true">→</span></a>
-          <a className="linkbtn" href={`${PUBLIC_ORIGIN}/terms`} target="_blank" rel="noreferrer"><span>이용약관</span><span aria-hidden="true">→</span></a>
+          {/* In this window, not a new tab: the page's own ‹ 설정으로 돌아가기 brings the app back here. */}
+          <a className="linkbtn" href={`${PUBLIC_ORIGIN}/privacy`}><span>개인정보처리방침</span><span aria-hidden="true">→</span></a>
+          <a className="linkbtn" href={`${PUBLIC_ORIGIN}/terms`}><span>이용약관</span><span aria-hidden="true">→</span></a>
         </div>
 
         <div className="sect">

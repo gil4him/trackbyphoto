@@ -37,6 +37,12 @@
     border-bottom: 1px solid var(--line);
     margin-bottom: 30px;
   }
+  /* The way back into the app, where 설정 opened this page. */
+  .back {
+    display: inline-flex; align-items: center; min-height: 44px; margin: 4px 0 8px;
+    font-size: 17px; font-weight: 700; color: var(--ink-2); text-decoration: none;
+  }
+  .back:active { opacity: .7; }
   .brand {
     display: inline-block;
     font-size: 27px;
@@ -121,6 +127,7 @@
 <div class="wrap">
 
 <header>
+  <a class="back" href="/?tab=settings">‹ 설정으로 돌아가기</a><br />
   <a class="brand" href="/">Daylie</a>
   <h1>개인정보처리방침</h1>
   <p class="eff">시행일: 2026년 10월 10일</p>

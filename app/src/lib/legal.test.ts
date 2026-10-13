@@ -96,6 +96,13 @@ describe('hosting serves them as their own pages', () => {
 })
 
 describe('what each page has to say', () => {
+  it('has a way back into the app, to 설정', () => {
+    for (const html of [privacy, terms]) {
+      expect(html).toContain('href="/?tab=settings"')
+      expect(html).toContain('‹ 설정으로 돌아가기')
+    }
+  })
+
   it('needs no JavaScript', () => {
     for (const html of [privacy, terms]) expect(html).not.toMatch(/<script/i)
   })
