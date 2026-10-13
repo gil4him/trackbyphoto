@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { flushSync } from 'react-dom'
 import { TextReply } from '../components/TextReply'
 import { markFamilyPhotoSeen, replyToFamilyPhoto } from '../lib/familyPhotos'
@@ -19,10 +19,13 @@ const dayKey = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
  * 고마워요, or a written line). Only the full-size view marks a photo seen and
  * keeps a copy on the phone; after a reply the album comes back.
  */
-export function FamilyPhotoViewer({ photos, textMode = 'full', onDone, startAt, mark = markFamilyPhotoSeen, reply = replyToFamilyPhoto, keep = keepFamilyPhotoOnDevice }: {
+export function FamilyPhotoViewer({ photos, textMode = 'full', onDone, fabs, startAt, mark = markFamilyPhotoSeen, reply = replyToFamilyPhoto, keep = keepFamilyPhotoOnDevice }: {
   photos: FamilyPhoto[]
   textMode?: TextReplies
   onDone: () => void
+  /** The floating buttons 내 사진 has (camera, text size); on the album only,
+   *  never over a photo's reply buttons. */
+  fabs?: ReactNode
   /** Open on this photo instead of the album (tests). */
   startAt?: string
   /** Injected for tests. */
@@ -108,6 +111,7 @@ export function FamilyPhotoViewer({ photos, textMode = 'full', onDone, startAt, 
             })}
           </div>
         ))}
+        {fabs}
       </section>
     )
   }

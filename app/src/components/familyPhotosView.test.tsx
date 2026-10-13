@@ -58,6 +58,12 @@ describe('FamilyPhotoViewer', () => {
     expect(t).not.toContain('다음 사진 ›')
   })
 
+  it('carries the floating buttons 내 사진 has on the album, never over a photo', () => {
+    const fabs = <button className="cam-fab">카메라</button>
+    expect(renderToString(<FamilyPhotoViewer photos={[photo('1')]} fabs={fabs} onDone={() => {}} />)).toContain('cam-fab')
+    expect(renderToString(<FamilyPhotoViewer photos={[photo('1')]} fabs={fabs} startAt="1" onDone={() => {}} />)).not.toContain('cam-fab')
+  })
+
   it('is the album even for a single photo, and says so when there is none', () => {
     expect(renderToString(<FamilyPhotoViewer photos={[photo('1')]} onDone={() => {}} />)).toContain('class="page fp-list"')
     expect(text(renderToString(<FamilyPhotoViewer photos={[]} onDone={() => {}} />))).toContain('가족이 보낸 사진이 아직 없어요')

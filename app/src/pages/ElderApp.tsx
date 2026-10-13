@@ -140,7 +140,17 @@ export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn
           />
         ) : photosOpen ? (
           <div className="text-scaled" style={textStyle}>
-            <FamilyPhotoViewer photos={familyPhotos} textMode={textMode} onDone={() => setPhotosOpen(false)} />
+            <FamilyPhotoViewer
+              photos={familyPhotos}
+              textMode={textMode}
+              onDone={() => setPhotosOpen(false)}
+              fabs={(
+                <>
+                  {isSimple() && <TextSizeFab level={textLevel} onNext={biggerText} />}
+                  <CameraFab label="카메라로 돌아가기" onClick={() => { setPhotosOpen(false); backToCamera() }} />
+                </>
+              )}
+            />
           </div>
         ) : open ? (
           <div className="text-scaled" style={textStyle}>
