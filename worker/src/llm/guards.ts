@@ -16,7 +16,7 @@ const RELATIONS = ['가족', '식구', '딸', '아들', '손주', '손자', '손
 
 /** Word endings that mark a place in Korean. */
 // 리 (village) is left out: 기다리는, 내리는, 걸리는 lose their 는 to the particle strip and read as places.
-const PLACE_SUFFIX = /(특별시|광역시|시|군|구|동|읍|면|역|공원|시장|마트|다리|산|강|항|해수욕장|사찰|절|궁|성당|교회|대학교|병원|호수|섬)$/
+const PLACE_SUFFIX = /(특별시|광역시|시|군|구|동|읍|면|역|공원|시장|마트|대교|산|강|항|해수욕장|사찰|절|궁|성당|교회|대학교|병원|호수|섬)$/
 /** One-syllable endings (시/구/동/리/역/산/강/항/절/궁/섬) only mark a place on a
  *  word of three or more characters: 잠시, 도시, 동시, 유리 are not places. */
 const SHORT_SUFFIX = /[시구동역산강항절궁섬]$/
@@ -60,7 +60,7 @@ export function placeTokens(memo: string): string[] {
     // "서초동에서" → "서초동"; "역에" → "역" (too short, skipped).
     const bare = word.replace(PARTICLES, '')
     const candidate = PLACE_SUFFIX.test(bare) ? bare : PLACE_SUFFIX.test(word) ? word : ''
-    const min = SHORT_SUFFIX.test(candidate) && !/(공원|시장|마트|다리|호수|병원|교회|성당|대학교|사찰|해수욕장|특별시|광역시)$/.test(candidate) ? 3 : 2
+    const min = SHORT_SUFFIX.test(candidate) && !/(공원|시장|마트|대교|호수|병원|교회|성당|대학교|사찰|해수욕장|특별시|광역시)$/.test(candidate) ? 3 : 2
     if (candidate.length >= min && !out.includes(candidate)) out.push(candidate)
   }
   return out
