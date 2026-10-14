@@ -11,10 +11,13 @@ export const CHROME = process.env.CHROME_PATH || '/Applications/Google Chrome.ap
 export const DEVICES = {
   iphone: { width: 430, height: 932, deviceScaleFactor: 3, isMobile: true, hasTouch: true },
   android: { width: 360, height: 800, deviceScaleFactor: 3, isMobile: true, hasTouch: true },
+  // Play store screenshots: the longest side may be at most 2x the shortest.
+  play:    { width: 360, height: 720, deviceScaleFactor: 3, isMobile: true, hasTouch: true },
 }
 export const UA = {
   iphone: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1',
   android: 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36',
+  play: 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36',
 }
 
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -39,7 +42,12 @@ export function launchBrowser(headful = false, extraArgs = []) {
 }
 
 /** A fake camera for the parent's viewfinder (no permission prompt). */
-export const FAKE_CAMERA_ARGS = ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream']
+export const FAKE_CAMERA_ARGS = [
+  '--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream',
+  // UI_CAMERA_FILE=<.mjpeg or .y4m>: the viewfinder shows that clip instead
+  // of Chromium's green test pattern (store screenshots).
+  ...(process.env.UI_CAMERA_FILE ? [`--use-file-for-fake-video-capture=${process.env.UI_CAMERA_FILE}`] : []),
+]
 
 /** The SDK's stored session for a parent's linked phone (a custom token with
  *  the elder claim, exchanged at the Auth emulator). */

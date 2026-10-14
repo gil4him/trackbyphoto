@@ -33,6 +33,8 @@ await getFirestore().doc('admin_config/plans').set({
 })
 
 const acct = await familyAccount(KID)
+// UI_DEVICE=play takes Play-ratio shots (shot-kit VIEWPORTS); default iPhone 6.7".
+const DEVICE = process.env.UI_DEVICE || 'iphone'
 const { momUid } = await seedDemoFamily({ kidUid: acct.localId, kidName: KID.name })
 const site = await serveSite(join(HERE, '.tmp', 'ui-site'), SITE_PORT)
 const browser = await launchBrowser(process.env.UI_HEADFUL === '1')
@@ -156,7 +158,7 @@ async function shootA6() {
   try {
     // 1. Sign-in: 부모님 휴대폰이에요 under Google.
     {
-      const p = await openPage(plain, { device: 'iphone', signedIn: false })
+      const p = await openPage(plain, { device: DEVICE, signedIn: false })
       await p.goto(SITE, { waitUntil: 'load' })
       await waitText(p, '부모님 휴대폰이에요')
       await snap(p, 'signin')
@@ -165,7 +167,7 @@ async function shootA6() {
     // 2. The link opened on the parent's phone → 연결하기 → the consent screen → camera's plain sentence.
     {
       const { url } = await link('qr')
-      const p = await openPage(plain, { device: 'iphone', signedIn: false })
+      const p = await openPage(plain, { device: DEVICE, signedIn: false })
       const u = new URL(url)
       // web=1: link right here in the browser (no app-install page); on an
       // iPhone the page first offers the home-screen icon — skip it.
@@ -197,7 +199,7 @@ async function shootA6() {
         console.log(JSON.stringify(await pairDevice({ uid: '${anon}', email: null, name: null }, { code: '${code}', device: { name: 'iPhone', platform: 'web' } })))
         process.exit(0)`)
       const session = await elderSession(paired.customToken, momUid)
-      const p = await openPage(camera, { device: 'iphone', session })
+      const p = await openPage(camera, { device: DEVICE, session })
       await p.goto(SITE, { waitUntil: 'load' })
       try {
         // Headless Chrome reports the camera as not asked yet even with the
@@ -261,7 +263,7 @@ try {
     if (prepare) await prepare()
     const who = account ? await account() : acct
     const kid = account ? KID2 : KID
-    const p = await openPage(browser, { device: 'iphone', acct: who, kid, activePatient: account ? undefined : as })
+    const p = await openPage(browser, { device: DEVICE, acct: who, kid, activePatient: account ? undefined : as })
     const file = join(OUT, `${PHASE}-${name}.png`)
     try {
       await go(p)
