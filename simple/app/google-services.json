@@ -12,7 +12,20 @@
           "package_name": "com.zymer.daylie"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "99411030280-qhi3bcklvj7sjs9a8tti9qm3go9te985.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.zymer.daylie",
+            "certificate_hash": "8b8ea0c07c9129181e28e7f6e3f84757e579c223"
+          }
+        },
+        {
+          "client_id": "99411030280-46airv5hue8ken4vpn0oge0r7ognqeq6.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyCfCwJ07BOYvV0fYcEbgnhfK_H3aczZHMA"
@@ -20,7 +33,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "99411030280-46airv5hue8ken4vpn0oge0r7ognqeq6.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "99411030280-9vq6k1leiglm5nfj8lbjcbr79ep8mioi.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.zymer.daylie"
+              }
+            }
+          ]
         }
       }
     }
