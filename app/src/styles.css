@@ -1,5 +1,13 @@
 /* Daylie — global styles. Design tokens: docs/DAYLIE_V3_UI_FIX.md §0. */
 
+/* Nanum Gothic, self-hosted and subset to the 2,350 KS X 1001 Hangul
+   syllables + Latin + punctuation (public/fonts, ~1.1 MB for all three
+   weights). Three files, not the fontsource package's 272 unicode-range
+   slices (34 MB): Capacitor copies all of dist/ into the phone apps. */
+@font-face { font-family: 'Nanum Gothic'; font-weight: 400; font-display: swap; src: url('/fonts/nanum-gothic-400.woff2') format('woff2'); }
+@font-face { font-family: 'Nanum Gothic'; font-weight: 700; font-display: swap; src: url('/fonts/nanum-gothic-700.woff2') format('woff2'); }
+@font-face { font-family: 'Nanum Gothic'; font-weight: 800; font-display: swap; src: url('/fonts/nanum-gothic-800.woff2') format('woff2'); }
+
 :root {
   /* 동글동글: mint ground, white cards, green-black text, the app icon's
      orange as the only accent. Dark text on orange (5.1:1), never white text

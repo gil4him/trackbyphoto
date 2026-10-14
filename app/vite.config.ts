@@ -84,17 +84,11 @@ export default defineConfig(({ mode }) => ({
       // plugin's reload-the-page-whenever-a-new-version-lands behaviour.
       injectRegister: false,
       workbox: {
-        // Not woff2: Nanum Gothic ships as ~270 unicode-range slices (4.5 MB)
-        // of which a page needs a dozen. They are cached as they are used
-        // (runtimeCaching below) instead of all at install.
-        globPatterns: ['**/*.{js,css,html,svg,png,webmanifest}'],
+        // The three subset Nanum Gothic files (public/fonts, ~1.1 MB) are
+        // precached with the rest of the shell so the app looks right offline.
+        globPatterns: ['**/*.{js,css,html,svg,png,woff2,webmanifest}'],
         // The push worker is its own registration (scope /push/).
         globIgnores: ['push-sw.js'],
-        runtimeCaching: [{
-          urlPattern: /\.woff2$/,
-          handler: 'CacheFirst',
-          options: { cacheName: 'daylie-fonts', expiration: { maxEntries: 160, maxAgeSeconds: 365 * 24 * 3600 }, cacheableResponse: { statuses: [0, 200] } },
-        }],
         navigateFallback: '/index.html',
         // Firebase's sign-in helper pages live under /__/ and must come from
         // the server. /privacy and /terms are their own static pages — the app
