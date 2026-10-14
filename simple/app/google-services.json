@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "99411030280-c8secnsvgn2o0orhcc1lg7oe47issru6.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.zymer.daylie",
+            "certificate_hash": "95ed90eb13f88731987984dd7e20021e03d592bb"
+          }
+        },
+        {
           "client_id": "99411030280-qhi3bcklvj7sjs9a8tti9qm3go9te985.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
