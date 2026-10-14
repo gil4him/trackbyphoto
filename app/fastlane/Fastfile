@@ -306,6 +306,43 @@ lane :release_ios do |options|
   upload_to_app_store(args)
 end
 
+# Submit a build that is already in App Store Connect to App Review. Nothing is
+# built or uploaded; the listing, screenshots, privacy answers and review
+# contact are expected to be in place already.
+#
+#   bundle exec fastlane submit_ios build_number:29865919 [app_version:1.0]
+#
+# Options:
+#   build_number:N           the build to attach and submit (required)
+#   app_version:X.Y          the App Store version to submit (default 1.0)
+#   automatic_release:true   release as soon as Apple approves (default false —
+#                            you press Release yourself)
+lane :submit_ios do |options|
+  build_number = options[:build_number].to_s
+  UI.user_error!("submit_ios needs build_number:N") if build_number.empty?
+  upload_to_app_store(
+    api_key: asc_api_key,
+    app_identifier: ENV["IOS_BUNDLE_ID"],
+    app_version: (options[:app_version] || "1.0").to_s,
+    build_number: build_number,
+    skip_binary_upload: true,
+    skip_metadata: true,
+    skip_screenshots: true,
+    skip_app_version_update: false,
+    submit_for_review: true,
+    automatic_release: flag(options[:automatic_release]),
+    force: true,
+    run_precheck_before_submit: false,
+    precheck_include_in_app_purchases: false,
+    # No ads, no ad attribution: no IDFA. Encryption is the exempt kind (HTTPS
+    # only) — the build already says so (usesNonExemptEncryption=false).
+    submission_information: {
+      add_id_info_uses_idfa: false,
+      export_compliance_uses_encryption: false
+    }
+  )
+end
+
 # ── Android lanes (require `npx cap add android` to have been run once) ────────
 
 # Build the signed release AAB and stop. Nothing is uploaded and nothing talks
