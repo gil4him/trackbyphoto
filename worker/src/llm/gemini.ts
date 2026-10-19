@@ -66,7 +66,7 @@ export async function generateMemoGemini(args: PromptHints & {
   const totalUSD = promptTokens * IN_USD + outputTokens * OUT_USD
   logger.info('[llm-cost] usage', { model: CLOUD_MODEL, promptTokens, outputTokens, usd: Number(totalUSD.toFixed(6)), ms: Date.now() - started })
 
-  const parsed = parseModelResponse(raw, { relaxed: true })
+  const parsed = parseModelResponse(raw, { relaxed: true, diary: args.diary })
   if (!parsed) throw new CloudLlmError(`unparseable gemini output (${json.candidates?.[0]?.finishReason ?? 'no candidate'}): ${raw.slice(0, 200)}`)
   return { ...parsed, model: CLOUD_MODEL, source: 'cloud-llm', cost: { promptTokens, outputTokens, totalUSD } }
 }

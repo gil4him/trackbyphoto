@@ -150,12 +150,12 @@ export async function generateMemo(args: PromptHints & {
 }): Promise<LlmResult> {
   const model = args.model || await resolveModel()
   const { raw, promptTokens, outputTokens } = await ollamaGenerate(model, {
-    prompt: buildPrompt({ timeHint: args.timeHint, placeHint: args.placeHint, homeHint: args.homeHint, textHint: args.textHint }),
+    prompt: buildPrompt({ timeHint: args.timeHint, placeHint: args.placeHint, homeHint: args.homeHint, textHint: args.textHint, diary: args.diary, dateHint: args.dateHint }),
     images: [args.imageBase64],
     format: RESPONSE_SCHEMA,
     options: { temperature: args.temperature ?? TEMPERATURE, num_predict: 600 },
   })
-  const parsed = parseModelResponse(raw)
+  const parsed = parseModelResponse(raw, { diary: args.diary })
   if (!parsed) throw new LlmGenerationError(`unparseable model output: ${raw.slice(0, 200)}`)
   return { ...parsed, model, source: 'local-llm', cost: { promptTokens, outputTokens, totalUSD: 0 } }
 }
