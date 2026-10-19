@@ -9,7 +9,7 @@ import { CloudLlmError, CLOUD_MODEL, generateMemoGemini } from '../src/llm/gemin
 import { cloudMemoAllowed, generateMemoRouted, resetCloudCache, type MemoArgs, type RouteDeps } from '../src/llm/route'
 import { LlmGenerationError, type LlmResult } from '../src/llm/ollama'
 import { buildPrompt, parseModelResponse } from '../src/llm/prompt'
-import { kakaoSearchCandidates, nominatimPlace, nominatimSearchCandidates, photonCandidates, searchAddress as searchGeo } from '../src/geocode'
+import { kakaoSearchCandidates, nominatimPlace, nominatimSearchCandidates, photonCandidates, searchAddress as searchGeo, searchPhoton } from '../src/geocode'
 import { searchAddress } from '../src/handlers/geo'
 import { mimeFromPath, processMemo, type MemoDeps } from '../src/handlers/memo'
 import { resetPlansCache } from '../src/plans'
@@ -80,6 +80,32 @@ describe('address search for 집 위치', () => {
     ])
   })
 
+  it('finds the street nearby when OpenStreetMap lacks the house number', async () => {
+    const feat = (lng: number, lat: number, housenumber: string | undefined, street: string, city: string) =>
+      ({ properties: { housenumber, street, city }, geometry: { coordinates: [lng, lat] } })
+    const asked: string[] = []
+    const real = globalThis.fetch
+    globalThis.fetch = (async (url: string) => {
+      const q = new URL(url).searchParams.get('q') ?? ''
+      asked.push(q)
+      const features = q.startsWith('3920')
+        ? [feat(-112.0, 33.47, '3920', 'East Coronado Road', 'Phoenix')]
+        : [feat(-117.86, 33.85, undefined, 'East Coronado Street', 'Anaheim'), feat(-112.0, 33.47, undefined, 'Coronado Road', 'Phoenix')]
+      return new Response(JSON.stringify({ features }), { status: 200 })
+    }) as typeof fetch
+    try {
+      const got = await searchPhoton('3920 E Coronado', 'en', { lat: 33.86, lng: -117.83 })
+      expect(asked).toEqual(['3920 E Coronado', 'E Coronado'])
+      expect(got.map((c) => c.label)).toEqual(['3920 East Coronado Street, Anaheim', '3920 East Coronado Road, Phoenix'])
+      // Something nearby already: one lookup, as typed.
+      asked.length = 0
+      await searchPhoton('3920 E Coronado', 'en', { lat: 33.47, lng: -112.0 })
+      expect(asked).toEqual(['3920 E Coronado'])
+    } finally {
+      globalThis.fetch = real
+    }
+  })
+
   it('sends a search-as-you-type query to Photon (ranked near home), never Nominatim', async () => {
     const seen: string[] = []
     const real = globalThis.fetch
@@ -94,7 +120,8 @@ describe('address search for 집 위치', () => {
     } finally {
       globalThis.fetch = real
     }
-    expect(seen).toEqual(['photon.komoot.io', 'photon.komoot.io near', 'nominatim.openstreetmap.org'])
+    // Nothing nearby came back, so the street is tried without the number too.
+    expect(seen).toEqual(['photon.komoot.io', 'photon.komoot.io near', 'photon.komoot.io near', 'nominatim.openstreetmap.org'])
   })
 
   it('refuses an empty or overlong query', async () => {

@@ -351,9 +351,19 @@ export function photonCandidates(features: PhotonFeature[] | undefined): GeoCand
   return out.slice(0, SEARCH_LIMIT)
 }
 
-// Photon speaks en/de/fr only; Korean users get the local names. `near`
-// ranks places around it first, so "3920 E Coro" finds the street in town.
-async function searchPhoton(query: string, lang: GeoLang, near?: { lat: number; lng: number }): Promise<GeoCandidate[]> {
+type LatLng = { lat: number; lng: number }
+
+/** Farther than this from `near` doesn't count as the person's own area. */
+const NEAR_KM = 80
+
+function kmBetween(a: LatLng, b: LatLng): number {
+  const rad = (d: number) => (d * Math.PI) / 180
+  const h = Math.sin(rad(b.lat - a.lat) / 2) ** 2
+    + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(rad(b.lng - a.lng) / 2) ** 2
+  return 6371 * 2 * Math.asin(Math.sqrt(h))
+}
+
+async function fetchPhoton(query: string, lang: GeoLang, near?: LatLng): Promise<GeoCandidate[]> {
   const bias = near ? `&lat=${near.lat.toFixed(3)}&lon=${near.lng.toFixed(3)}` : ''
   const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=${SEARCH_LIMIT}${lang === 'en' ? '&lang=en' : ''}${bias}`
   const res = await fetch(url, {
@@ -362,6 +372,24 @@ async function searchPhoton(query: string, lang: GeoLang, near?: { lat: number; 
   })
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
   return photonCandidates(((await res.json()) as { features?: PhotonFeature[] }).features)
+}
+
+/**
+ * Photon speaks en/de/fr only; Korean users get the local names. `near`
+ * ranks places around it first. Many houses have no number in OpenStreetMap,
+ * so "3920 E Coronado" would only match that number in other towns: when
+ * nothing nearby comes back, the street is looked up without the number and
+ * the typed number is put back in front of the nearby streets.
+ */
+export async function searchPhoton(query: string, lang: GeoLang, near?: LatLng): Promise<GeoCandidate[]> {
+  const found = await fetchPhoton(query, lang, near)
+  const numbered = /^(\d+[A-Za-z]?)\s+(\S.*)$/.exec(query.trim())
+  if (!near || !numbered || found.some((c) => kmBetween(near, c) <= NEAR_KM)) return found
+  const [, number, street] = numbered
+  const streets = (await fetchPhoton(street, lang, near))
+    .filter((c) => kmBetween(near, c) <= NEAR_KM)
+    .map((c) => ({ ...c, label: /^\d/.test(c.label) ? c.label : `${number} ${c.label}` }))
+  return [...streets, ...found].slice(0, SEARCH_LIMIT)
 }
 
 export async function searchAddress(
