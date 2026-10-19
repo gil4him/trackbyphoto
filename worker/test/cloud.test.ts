@@ -9,7 +9,7 @@ import { CloudLlmError, CLOUD_MODEL, generateMemoGemini } from '../src/llm/gemin
 import { cloudMemoAllowed, generateMemoRouted, resetCloudCache, type MemoArgs, type RouteDeps } from '../src/llm/route'
 import { LlmGenerationError, type LlmResult } from '../src/llm/ollama'
 import { buildPrompt, parseModelResponse } from '../src/llm/prompt'
-import { kakaoSearchCandidates, nominatimPlace, nominatimSearchCandidates } from '../src/geocode'
+import { kakaoSearchCandidates, nominatimPlace, nominatimSearchCandidates, photonCandidates, searchAddress as searchGeo } from '../src/geocode'
 import { searchAddress } from '../src/handlers/geo'
 import { mimeFromPath, processMemo, type MemoDeps } from '../src/handlers/memo'
 import { resetPlansCache } from '../src/plans'
@@ -69,6 +69,32 @@ describe('address search for 집 위치', () => {
     const ny = { lat: '40.748', lon: '-73.985', address: { house_number: '350', road: '5th Avenue', city: 'New York', 'ISO3166-2-lvl4': 'US-NY', country_code: 'us' } }
     expect(nominatimSearchCandidates([ny])).toEqual([{ lat: 40.748, lng: -73.985, label: '350 5th Avenue, New York, NY' }])
     expect(nominatimSearchCandidates(Array(8).fill(ny))).toHaveLength(5)
+  })
+
+  it('labels Photon results by street, city and state, once each', () => {
+    const home = { properties: { housenumber: '3920', street: 'East Coronado Street', city: 'Anaheim', state: 'California' }, geometry: { coordinates: [-117.83, 33.86] as [number, number] } }
+    const park = { properties: { name: 'Disneyland Park', street: 'Disneyland Drive', city: 'Anaheim', state: 'California' }, geometry: { coordinates: [-117.92, 33.81] as [number, number] } }
+    expect(photonCandidates([home, home, park, { properties: {} }])).toEqual([
+      { lat: 33.86, lng: -117.83, label: '3920 East Coronado Street, Anaheim, California' },
+      { lat: 33.81, lng: -117.92, label: 'Disneyland Park, Disneyland Drive, Anaheim, California' },
+    ])
+  })
+
+  it('sends a search-as-you-type query to Photon (ranked near home), never Nominatim', async () => {
+    const seen: string[] = []
+    const real = globalThis.fetch
+    globalThis.fetch = (async (url: string) => {
+      seen.push(new URL(url).host + (new URL(url).searchParams.get('lat') ? ' near' : ''))
+      return new Response(JSON.stringify(url.includes('photon') ? { features: [] } : []), { status: 200 })
+    }) as typeof fetch
+    try {
+      await searchGeo('3920 Coronado', 'en', { auto: true })
+      await searchGeo('3920 Coronado', 'en', { auto: true, near: { lat: 33.86, lng: -117.83 } })
+      await searchGeo('3920 Coronado', 'en')
+    } finally {
+      globalThis.fetch = real
+    }
+    expect(seen).toEqual(['photon.komoot.io', 'photon.komoot.io near', 'nominatim.openstreetmap.org'])
   })
 
   it('refuses an empty or overlong query', async () => {
