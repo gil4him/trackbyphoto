@@ -115,7 +115,8 @@ function check(r: Row): string[] {
   if (month && !first.includes(`${month}월 ${day}일`)) flags.push('첫 문장에 날짜 없음')
   for (const [, mm, dd] of s.matchAll(/(\d+)월 (\d+)일/g)) if (mm !== month || dd !== day) flags.push(`다른 날짜 ${mm}월 ${dd}일`)
   if (/(^|[\s,.])(나는|내가|나의|저는|제가|저의|우리)/.test(s)) flags.push('1인칭')
-  const sense = s.match(/향긋|향이|냄새|맛있|맛이|고소|달콤|즐거|행복|기분|신나|설레|뿌듯|소리가/g)
+  if (/찍은 사진이에요/.test(s)) flags.push('"찍은 사진이에요"')
+  const sense = s.match(/향긋|향이|냄새|맛있|맛이|고소|달콤|즐거|행복|기분|신나|설레|뿌듯|소리가|느껴/g)
   if (sense) flags.push(`감각·기분 "${[...new Set(sense)].join('", "')}"`)
   const sentences = s.split(/(?<=[가-힣][.!?])\s+/).filter(Boolean).length
   if (sentences < 3 && !/흐려|알 수 없/.test(s)) flags.push(`${sentences}문장`)

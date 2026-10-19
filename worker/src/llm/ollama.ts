@@ -9,6 +9,7 @@ import { logger } from '../log.js'
 import {
   buildDigestPrompt,
   buildPrompt,
+  diaryScene,
   parseDiary,
   parseModelResponse,
   parseSummary,
@@ -157,6 +158,7 @@ export async function generateMemo(args: PromptHints & {
   })
   const parsed = parseModelResponse(raw, { diary: args.diary })
   if (!parsed) throw new LlmGenerationError(`unparseable model output: ${raw.slice(0, 200)}`)
+  if (args.diary) parsed.scene = diaryScene(parsed.scene, args)
   return { ...parsed, model, source: 'local-llm', cost: { promptTokens, outputTokens, totalUSD: 0 } }
 }
 

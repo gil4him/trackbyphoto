@@ -6,7 +6,7 @@
 // with the local model instead, so a cloud outage never holds a memo up.
 
 import { logger } from '../log.js'
-import { buildPrompt, parseModelResponse, type PromptHints } from './prompt.js'
+import { buildPrompt, diaryScene, parseModelResponse, type PromptHints } from './prompt.js'
 import type { LlmResult } from './ollama.js'
 
 export const CLOUD_MODEL = 'gemini-3.1-flash-lite'
@@ -68,5 +68,6 @@ export async function generateMemoGemini(args: PromptHints & {
 
   const parsed = parseModelResponse(raw, { relaxed: true, diary: args.diary })
   if (!parsed) throw new CloudLlmError(`unparseable gemini output (${json.candidates?.[0]?.finishReason ?? 'no candidate'}): ${raw.slice(0, 200)}`)
+  if (args.diary) parsed.scene = diaryScene(parsed.scene, args)
   return { ...parsed, model: CLOUD_MODEL, source: 'cloud-llm', cost: { promptTokens, outputTokens, totalUSD } }
 }

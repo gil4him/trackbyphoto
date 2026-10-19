@@ -89,34 +89,50 @@ const CLASSIC_EXAMPLES = [
 // memoDiary: the scene is a short diary entry for the moment. It describes
 // the moment, never speaks as the photographer (no 나/저) and names nobody.
 // Its warmth comes from what is visible; smells, tastes and feelings can't
-// be seen, so they are not written. Each example carries its own date so the
-// model copies the date from 상황 정보, not from an example.
+// be seen, so they are not written. The opening "10월 18일 오후, 강남에서."
+// is put on in code (diaryScene): asked to write it, gemma4:e4b left it out
+// on 12 of 16 real photos.
 const DIARY_SCENE_LINES = [
-  'scene (그 순간의 짧은 일기, 3~5문장):',
-  '- 첫 문장은 상황 정보의 날짜와 지역으로 시작하세요 (예: "10월 18일 오후, 강남에서의 점심이에요."). 날짜나 지역을 모르면 아는 것만 쓰고, 지어내지 마세요.',
-  '- 현수막·간판 글자가 있으면 둘째 문장에 그 내용을 쓰세요.',
+  'scene (그 순간의 짧은 일기, 3~4문장):',
+  '- 날짜와 지역은 앱이 맨 앞에 붙여요. scene에는 날짜·지역을 쓰지 말고, 사진에 보이는 것부터 바로 쓰세요.',
+  '- "~에서 찍은 사진이에요"로 시작하지 마세요. 무엇이 보이는지로 시작하세요 (현수막·간판 글자가 있으면 그것부터).',
   '- 가운데 문장들은 사진에 보이는 것: 무엇이, 어디에, 어떤 모습인지.',
   '- 마지막 문장은 보이는 것에서 나오는 따뜻한 한 줄로 끝내도 좋아요 ("든든하고 따뜻한 한 끼예요").',
   '- 한 문장은 40자 이내. 쉼표로 길게 이어 쓰거나 같은 꾸밈말을 반복하지 마세요.',
   '- "나", "저", "제가" 같은 1인칭으로 쓰지 마세요. 사진을 찍은 분이 쓴 글처럼 쓰지 말고, 그 순간을 담담하게 적어 주세요.',
   '- 냄새, 맛, 소리, 기분처럼 사진으로 알 수 없는 것은 쓰지 마세요 ("향이 가득해요", "맛있게 드셨어요", "즐거우셨어요" 금지).',
-  '- 사진이 흐리거나 무엇인지 알 수 없으면 1~2문장만 쓰세요.',
+  '- 사진이 흐리거나 무엇인지 알 수 없으면 1문장만 쓰세요.',
 ]
 
 const DIARY_EXAMPLES = [
-  '- (날짜: 10월 18일 오후, 지역: 강남) 식탁 위 돌솥밥과 반찬 → {"activity":"식사","memo":"곤드레돌솥밥으로 점심","scene":"10월 18일 오후, 강남에서의 점심이에요. 김이 오르는 돌솥 한 그릇이 식탁에 놓여 있어요. 반찬도 정갈하게 차려져 있어요. 든든하고 따뜻한 한 끼예요."}',
-  '- (날짜: 4월 2일 아침, 지역: 서초동) 나무가 늘어선 공원길 → {"activity":"산책","memo":"나무가 우거진 공원 산책길","scene":"4월 2일 아침, 서초동의 공원 길이에요. 길을 따라 나무가 늘어서 있어요. 나뭇잎 사이로 햇살이 비쳐요. 천천히 걷기 좋은 아침이에요."}',
-  '- (날짜: 6월 9일 저녁, 집에서 900km, 지역: 도코나메시, 일본) 공항 안 편의점 진열대 → {"activity":"이동","memo":"나고야 공항 편의점에 들렀어요","scene":"6월 9일 저녁, 일본 나고야의 공항이에요. 공항 안 편의점에 들르셨어요. 진열대에 간식이 가득 놓여 있어요. 먼 길의 첫 저녁이에요."}',
-  '- (날짜: 3월 30일 오후, 지역: 진해) "제12회 진해 벚꽃 축제 4/1~4/10" 현수막 아래 셀카 → {"activity":"자연","memo":"진해 벚꽃 축제 현수막 앞에서","scene":"3월 30일 오후, 진해에서 찍은 사진이에요. 제12회 진해 벚꽃 축제를 알리는 현수막이 걸려 있어요. 4월 1일부터 10일까지 열린다고 적혀 있어요. 뒤로 벚나무가 보여요."}',
-  '- (날짜: 11월 3일 밤) 벽에 일본어 광고판이 붙은 실내 → {"activity":"기타","memo":"일본어 광고판 앞에서","scene":"11월 3일 밤, 실내에서 찍은 사진이에요. 뒤에 일본어로 된 큰 광고판이 붙어 있어요."}',
+  '- 식탁 위 돌솥밥과 반찬 → {"activity":"식사","memo":"곤드레돌솥밥으로 점심","scene":"김이 오르는 돌솥 한 그릇이 식탁에 놓여 있어요. 반찬도 정갈하게 차려져 있어요. 든든하고 따뜻한 한 끼예요."}',
+  '- 나무가 늘어선 공원길 → {"activity":"산책","memo":"나무가 우거진 공원 산책길","scene":"길을 따라 나무가 늘어서 있어요. 나뭇잎 사이로 햇살이 비쳐요. 천천히 걷기 좋은 길이에요."}',
+  '- 공항 안 편의점 진열대(집에서 900km, 지역: 도코나메시, 일본) → {"activity":"이동","memo":"나고야 공항 편의점에 들렀어요","scene":"공항 안 편의점에 들르셨어요. 진열대에 간식이 가득 놓여 있어요. 일본 나고야에서의 먼 길이 시작됐어요."}',
+  '- 차 안에서 두 분이 웃으며 찍은 셀카 → {"activity":"이동","memo":"차 안에서 함께 찍은 사진","scene":"차 안에서 두 분이 카메라를 보며 웃고 있어요. 창으로 햇빛이 들어와요. 함께 가는 길이 환해 보여요."}',
+  '- "제12회 진해 벚꽃 축제 4/1~4/10" 현수막 아래 셀카 → {"activity":"자연","memo":"진해 벚꽃 축제 현수막 앞에서","scene":"제12회 진해 벚꽃 축제를 알리는 현수막이 걸려 있어요. 4월 1일부터 10일까지 열린다고 적혀 있어요. 뒤로 벚나무가 보여요."}',
+  '- 벽에 일본어 광고판이 붙은 실내 → {"activity":"기타","memo":"일본어 광고판 앞에서","scene":"뒤에 일본어로 된 큰 광고판이 붙어 있어요. 실내의 밝은 조명 아래예요."}',
   '- 사진이 흐려 알 수 없음 → {"activity":"기타","memo":"흐릿하게 찍힌 사진","scene":"사진이 흐려서 잘 보이지 않아요."}',
 ]
 
+/** The diary's opening, built in code so it is always there and right:
+ *  "10월 18일 오후, 잠실동에서." from the date hint and the area's first part. */
+export function diaryOpener(dateHint?: string, placeHint?: string): string {
+  const area = (placeHint || '').split(',')[0].trim()
+  if (dateHint && area) return `${dateHint}, ${area}에서.`
+  if (dateHint) return `${dateHint}.`
+  return area ? `${area}에서.` : ''
+}
+
+/** A diary scene as stored: the opener, then what the model wrote. */
+export function diaryScene(scene: string, hints: Pick<PromptHints, 'dateHint' | 'placeHint'>): string {
+  const opener = diaryOpener(hints.dateHint, hints.placeHint)
+  return [opener, scene].filter(Boolean).join(' ')
+}
+
 export function buildPrompt(hints: PromptHints = {}, variant: PromptVariant = 'local'): string {
-  const { timeHint, placeHint, homeHint, textHint, nearHint, placeFull, coords, diary, dateHint } = hints
+  const { timeHint, placeHint, homeHint, textHint, nearHint, placeFull, coords, diary } = hints
   const cloud = variant === 'cloud'
   const context = [
-    ...(diary ? [`- 날짜: ${dateHint || '알 수 없음'}`] : []),
     `- 시간: ${timeHint || '알 수 없음'}`,
     `- 지역: ${placeHint ? (nearHint ? `${placeHint} 근처 (이 사진은 위치가 없어, 몇 분 안에 찍은 다른 사진의 위치예요)` : placeHint) : '알 수 없음'}`,
     '  → 지역 이름일 뿐이에요. 사진에 보이지 않는 가게·음식·물건을 지역 이름에서 지어내지 마세요.',
@@ -227,9 +243,10 @@ export function readableText(lines: string[] | undefined): string[] {
 
 const MEMO_MAX = 40
 const SCENE_MAX_SENTENCES = 3
-export const DIARY_MAX_SENTENCES = 5
-/** UI insurance for the diary: whole sentences past this are dropped. */
-export const DIARY_MAX_CHARS = 260
+export const DIARY_MAX_SENTENCES = 4
+/** UI insurance for the diary body (the opener comes on top): whole
+ *  sentences past this are dropped. */
+export const DIARY_MAX_CHARS = 230
 
 /** One line, no stray quotes; an over-long title is cut at its first sentence. */
 export function tidyMemo(raw: string): string {
@@ -246,8 +263,8 @@ export function tidyMemo(raw: string): string {
 export const FOREIGN_SCRIPT = /[\u3040-\u30ff\u3400-\u9fff]/
 
 /** Collapse whitespace, drop sentences that copy Japanese/Chinese text (kept
- *  when relaxed), and keep at most three sentences (five, and at most
- *  DIARY_MAX_CHARS, for a diary). */
+ *  when relaxed), and keep at most three sentences (four, and at most
+ *  DIARY_MAX_CHARS, for a diary body). */
 export function tidyScene(raw: string, relaxed = false, diary = false): string {
   const text = raw.replace(/\s+/g, ' ').trim()
   // A sentence ends where Korean text meets a full stop; a period inside a

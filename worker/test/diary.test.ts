@@ -5,7 +5,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { Timestamp } from 'firebase-admin/firestore'
 import { processMemo, type MemoDeps } from '../src/handlers/memo'
-import { buildPrompt, DIARY_MAX_CHARS, parseModelResponse, tidyScene, type PromptHints } from '../src/llm/prompt'
+import { buildPrompt, DIARY_MAX_CHARS, diaryOpener, diaryScene, parseModelResponse, tidyScene, type PromptHints } from '../src/llm/prompt'
 import { resetPlansCache } from '../src/plans'
 import { dateHintAt, resetHomeCache, setTravelGeocoder } from '../src/travel'
 import { db, clearFirestore } from './setup'
@@ -20,10 +20,10 @@ describe('diary prompt', () => {
     }
   })
 
-  it('asks for a 3–5 sentence diary that opens with the date and area', () => {
+  it('asks for a 3–4 sentence diary body that starts with what is visible', () => {
     const p = buildPrompt({ diary: true, dateHint: '10월 18일 오후', placeHint: '강남' })
-    expect(p).toContain('scene (그 순간의 짧은 일기, 3~5문장)')
-    expect(p).toContain('- 날짜: 10월 18일 오후')
+    expect(p).toContain('scene (그 순간의 짧은 일기, 3~4문장)')
+    expect(p).toContain('날짜와 지역은 앱이 맨 앞에 붙여요')
     expect(p).toContain('1인칭으로 쓰지 마세요')
     expect(p).toContain('냄새, 맛, 소리, 기분')
     expect(p).not.toContain('scene (설명, 짧은 문장 2~3개)')
@@ -32,29 +32,38 @@ describe('diary prompt', () => {
     expect(p).toContain('일본어나 한자로 된 글자는')
   })
 
-  it('says the date is unknown rather than leaving the model to guess', () => {
-    expect(buildPrompt({ diary: true })).toContain('- 날짜: 알 수 없음')
-    expect(buildPrompt({})).not.toContain('- 날짜:')
+  it('never shows the model a date to copy: the opener is added in code', () => {
+    const p = buildPrompt({ diary: true, dateHint: '1월 5일 저녁' })
+    expect(p).not.toContain('1월 5일')
+    const examples = p.slice(p.indexOf('예시:'), p.indexOf('상황 정보 (참고용'))
+    expect(examples).not.toMatch(/\d+월 \d+일 (아침|오후|저녁|밤)/)
+  })
+})
+
+describe('diary opener', () => {
+  it('is the date and the first part of the area', () => {
+    expect(diaryOpener('10월 18일 오후', '잠실동, 송파구')).toBe('10월 18일 오후, 잠실동에서.')
+    expect(diaryOpener('10월 18일 오후', 'Buena Park, 미국')).toBe('10월 18일 오후, Buena Park에서.')
+    expect(diaryOpener('10월 18일 오후')).toBe('10월 18일 오후.')
+    expect(diaryOpener(undefined, '강남')).toBe('강남에서.')
+    expect(diaryOpener()).toBe('')
   })
 
-  it('gives every diary example its own date, none of them the one in the context', () => {
-    const p = buildPrompt({ diary: true, dateHint: '1월 5일 저녁' })
-    const examples = p.slice(p.indexOf('예시:'), p.indexOf('상황 정보 (참고용'))
-    expect(examples).not.toContain('1월 5일')
-    const dates = examples.match(/\d+월 \d+일 (아침|오후|저녁|밤)/g) ?? []
-    expect(new Set(dates).size).toBeGreaterThanOrEqual(4)
+  it('goes in front of what the model wrote', () => {
+    expect(diaryScene('돌솥 한 그릇이 놓여 있어요.', { dateHint: '10월 18일 오후', placeHint: '강남' })).toBe('10월 18일 오후, 강남에서. 돌솥 한 그릇이 놓여 있어요.')
+    expect(diaryScene('돌솥이 있어요.', {})).toBe('돌솥이 있어요.')
   })
 })
 
 describe('diary text clean-up', () => {
-  it('keeps five sentences for a diary, three otherwise', () => {
-    const raw = '하나예요. 둘이에요. 셋이에요. 넷이에요. 다섯이에요. 여섯이에요.'
-    expect(tidyScene(raw, false, true)).toBe('하나예요. 둘이에요. 셋이에요. 넷이에요. 다섯이에요.')
+  it('keeps four sentences for a diary body, three otherwise', () => {
+    const raw = '하나예요. 둘이에요. 셋이에요. 넷이에요. 다섯이에요.'
+    expect(tidyScene(raw, false, true)).toBe('하나예요. 둘이에요. 셋이에요. 넷이에요.')
     expect(tidyScene(raw)).toBe('하나예요. 둘이에요. 셋이에요.')
   })
 
   it('drops whole sentences from the end past the length cap, never the first', () => {
-    const long = `${'가'.repeat(120)}예요.`
+    const long = `${'가'.repeat(100)}예요.`
     const out = tidyScene(`${long} ${long} ${long}`, false, true)
     expect(out.length).toBeLessThanOrEqual(DIARY_MAX_CHARS)
     expect(out).toBe(`${long} ${long}`)
