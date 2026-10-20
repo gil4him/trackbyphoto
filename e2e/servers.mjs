@@ -28,6 +28,7 @@ export function serveSite(root, port) {
 
 export const FAKE_MEMO = { activity: '산책', memo: '나무가 있는 공원 산책길', scene: '공원 길을 따라 나무가 서 있어요. 날씨가 맑아요.' }
 export const FAKE_SUMMARY = '오늘은 공원을 산책하며 사진을 남기셨어요.'
+export const FAKE_DIARY_TITLE = '공원 산책'
 
 /** Answers the two Ollama calls the worker makes (/api/tags, /api/generate). */
 export function serveFakeModel(port) {
@@ -39,7 +40,10 @@ export function serveFakeModel(port) {
     req.on('end', () => {
       let body = {}
       try { body = JSON.parse(raw) } catch { /* not JSON */ }
-      const answer = Array.isArray(body.images) && body.images.length ? FAKE_MEMO : { summary: FAKE_SUMMARY }
+      // A photo → a memo; a day's digest asks for a diary with a title; a week or month, a summary.
+      const answer = Array.isArray(body.images) && body.images.length ? FAKE_MEMO
+        : body.format?.properties?.diary ? { title: FAKE_DIARY_TITLE, diary: FAKE_SUMMARY }
+        : { summary: FAKE_SUMMARY }
       json({ model: body.model, response: JSON.stringify(answer), done: true, prompt_eval_count: 10, eval_count: 10 })
     })
   })
