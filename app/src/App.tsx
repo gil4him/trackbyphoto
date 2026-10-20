@@ -42,6 +42,9 @@ import { deviceGeoLang, relativeDateLabel } from './util'
 import { disablePush, onPushOpened, refreshPush, type PushOpened } from './lib/push'
 import { PushNudge } from './components/PushNudge'
 import type { AppNotification } from './types'
+import { openFromUrl, parseOpen, type OpenTarget } from './lib/openFromUrl'
+import { noticesSeen, type NoticeView } from './lib/noticeViews'
+import { usePageVisible } from './hooks/usePageVisible'
 import { entitlements, flagOn } from './lib/plans'
 import { byMemo } from './lib/reactionsModel'
 import type { ReactionsContext } from './components/Reactions'
@@ -135,6 +138,10 @@ function App() {
   // /?tab=settings: the legal pages' ‹ 설정으로 돌아가기 lands back on 설정.
   const [tab, setTab] = useState<TabKey>(() => tabFromUrl())
   const [selectedMemoId, setSelectedMemoId] = useState<string | null>(null)
+  // A photo, a parent's page or a digest to open once the data is there: from
+  // a tapped notification (?open=… link, or the push worker's message to an
+  // already-open app) or an 알림 row about another parent.
+  const [pendingOpen, setPendingOpen] = useState<OpenTarget | null>(() => openFromUrl())
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS)
   // Whose settings those are: they lag a moment behind a switch of patient.
   const [settingsUid, setSettingsUid] = useState<string | null>(null)
@@ -159,7 +166,7 @@ function App() {
   const updateReady = useAppUpdate()
   // A parent's linked phone updates itself; family gets the prompt below.
   useReloadOnReturn(!!elder)
-  const { memos } = useMemos(activePatientUid || undefined)
+  const { memos, loadedFor: memosFor } = useMemos(activePatientUid || undefined)
 
   // v2 reactions: off until the rollout flag in admin_config/plans is on.
   const plans = usePlans(!!user)
@@ -331,6 +338,58 @@ function App() {
     setFaviconBadge(n)
     document.title = n > 0 ? `(${n}) ${appTitle()}` : appTitle()
   }, [notifications.length])
+
+  // The push worker (public/push-sw.js) tells an already-open app what a
+  // tapped notification points at; it can't navigate pages it doesn't control.
+  useEffect(() => {
+    const sw = typeof navigator === 'undefined' ? undefined : navigator.serviceWorker
+    if (!sw) return
+    const onMessage = (e: MessageEvent) => {
+      const d = e.data as { type?: unknown; link?: unknown } | null
+      if (d?.type === 'daylie-open' && typeof d.link === 'string') setPendingOpen(parseOpen(d.link))
+    }
+    sw.addEventListener('message', onMessage)
+    sw.startMessages?.()
+    return () => sw.removeEventListener('message', onMessage)
+  }, [])
+
+  // Open it once whose records it is about are known: switch to that person
+  // first, then (for a photo) wait for their photos to load. A photo too old
+  // to be in the list lands on their 사진 tab, as 알림 always has.
+  useEffect(() => {
+    // activePatientUid is set only once the sign-in has settled: before that
+    // the parents list can read as loaded and still be empty.
+    if (!pendingOpen || !user || elder || membershipsLoading || !activePatientUid) return
+    // Acting on data that just arrived (memberships, memos) is what this effect is for.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (pendingOpen.kind === 'digest') { setDigestId(pendingOpen.digestId); setPendingOpen(null); return }
+    const target = pendingOpen.patientUid
+    if (target !== user.uid && !patients.some((p) => p.patientUid === target)) { setPendingOpen(null); return }
+    if (activePatientUid !== target) { onSwitchPatient(target); return }
+    if (pendingOpen.kind !== 'memo') { setSelectedMemoId(null); setTab(pendingOpen.kind); setPendingOpen(null); return }
+    if (memosFor !== target) return
+    if (memos.some((m) => m.id === pendingOpen.memoId)) setSelectedMemoId(pendingOpen.memoId)
+    else setTab('today')
+    setPendingOpen(null)
+    // onSwitchPatient is recreated every render; the inputs that matter are listed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingOpen, user, elder, membershipsLoading, patients, activePatientUid, memosFor, memos])
+
+  // Looking at something counts as having seen its notices, so the icon
+  // badge goes down without a visit to 알림 (lib/noticeViews.ts). Only while
+  // the app is actually on screen.
+  const visible = usePageVisible()
+  const noticeView: NoticeView = !user || elder || !visible ? { kind: 'other' }
+    : digestId ? { kind: 'digest', digestId }
+    : selectedMemo ? { kind: 'memo', patientUid: selectedMemo.patientUid, memoId: selectedMemo.id }
+    : tab === 'home' || tab === 'today' ? { kind: tab, patientUid: activePatientUid || user.uid }
+    : { kind: 'other' }
+  const seenIds = noticesSeen(noticeView, notifications).join(',')
+  useEffect(() => {
+    for (const id of seenIds ? seenIds.split(',') : []) dismissNotification(id)
+    // dismissNotification is a plain write; seenIds already says what changed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seenIds])
 
   // /admin is the dashboard; /superadmin was its old address (now the AI tab).
   const isAdminRoute =
@@ -563,14 +622,8 @@ function App() {
       setTab('settings')
       return
     }
-    if (n.patientUid !== (activePatientUid || user.uid)) {
-      onSwitchPatient(n.patientUid)
-      setTab('today')
-    } else if (n.memoId && memos.some((m) => m.id === n.memoId)) {
-      setSelectedMemoId(n.memoId)
-    } else {
-      setTab('today')
-    }
+    // The photo, once that person's photos are loaded (see pendingOpen above).
+    setPendingOpen(n.memoId ? { kind: 'memo', patientUid: n.patientUid, memoId: n.memoId } : { kind: 'today', patientUid: n.patientUid })
   }
   const openPush = (p: PushOpened) => {
     setPushed(null)

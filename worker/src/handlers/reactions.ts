@@ -27,7 +27,7 @@ import { getStorage } from 'firebase-admin/storage'
 import { logger } from '../log.js'
 import { withModelLock } from '../llm/lock.js'
 import { SttError, SttUnavailableError, transcribe } from '../llm/stt.js'
-import { pushToUsers, type PushMessage } from './push.js'
+import { openPath, pushToUsers, type PushMessage } from './push.js'
 
 export const MAX_ATTEMPTS = 5
 const RETRY_DELAYS_MS = [15_000, 60_000, 2 * 60_000, 5 * 60_000]
@@ -175,6 +175,8 @@ export async function processReaction(reactionId: string, attempt: number, deps:
       title: 'Daylie',
       body: message,
       data: { type: `reaction.${kind}`, patientUid, memoId: String(data.memoId ?? ''), reactionId },
+      // The reply shows under the photo it answers.
+      path: data.memoId ? openPath.memo(patientUid, String(data.memoId)) : openPath.today(patientUid),
     })
   }
   return 'done'

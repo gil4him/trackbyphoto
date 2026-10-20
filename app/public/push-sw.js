@@ -17,6 +17,12 @@ self.addEventListener('push', (event) => {
   const n = payload.notification || {}
   const data = payload.data || {}
   const link = (payload.fcmOptions && payload.fcmOptions.link) || data.link || '/'
+  // The number on the home-screen icon: the worker sends how many notices
+  // this person hasn't seen yet. Never let it stop the notification itself.
+  const badge = Number(data.badge)
+  if (Number.isFinite(badge) && self.navigator && 'setAppBadge' in self.navigator) {
+    try { (badge > 0 ? self.navigator.setAppBadge(badge) : self.navigator.clearAppBadge()).catch(() => {}) } catch (e) { /* unsupported */ }
+  }
   event.waitUntil(self.registration.showNotification(n.title || 'Daylie', {
     body: n.body || '새 소식이 있어요',
     icon: '/icon-192.png',
@@ -32,11 +38,15 @@ self.addEventListener('notificationclick', (event) => {
   const link = (event.notification.data && event.notification.data.link) || '/'
   event.waitUntil((async () => {
     const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
-    // A link to a page inside the app (a digest) is opened as that page;
-    // anything else just brings the app to the front.
-    const deep = new URL(link, self.location.origin).pathname !== '/'
+    // A link to something inside the app (a photo, a parent's page, a digest)
+    // is opened there; a bare '/' just brings the app to the front.
+    const url = new URL(link, self.location.origin)
+    const deep = url.pathname !== '/' || url.search !== ''
     for (const w of windows) {
-      if (deep && 'navigate' in w) await w.navigate(link).catch(() => {})
+      // This worker never controls the app's pages (its scope is /push/), so
+      // it can't navigate them: the open app is told what to open instead
+      // (App.tsx listens for 'daylie-open').
+      if (deep) w.postMessage({ type: 'daylie-open', link: url.pathname + url.search })
       if ('focus' in w) return w.focus()
     }
     return self.clients.openWindow(link)

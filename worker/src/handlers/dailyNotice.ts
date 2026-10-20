@@ -12,7 +12,7 @@ import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { logger } from '../log.js'
 import { localClock, localDayStart } from '../zoned.js'
 import { digestSettings } from './digest.js'
-import { pushToUsers, type PushMessage } from './push.js'
+import { openPath, pushToUsers, type PushMessage } from './push.js'
 
 const TICK_MS = 10 * 60 * 1000
 const FIRST_TICK_MS = 2 * 60 * 1000
@@ -80,7 +80,7 @@ export async function runDailyNotices(now: Date = new Date(), deps: DailyNoticeD
       }
       if (told.length) {
         // No memoId: opening it lands on the 사진 timeline.
-        await deps.push(told, { title: 'Daylie', body: message, data: { type: 'daily.photos', patientUid } })
+        await deps.push(told, { title: 'Daylie', body: message, data: { type: 'daily.photos', patientUid }, path: openPath.today(patientUid) })
         logger.info('[daily] notice sent', { patientUid, photos, told: told.length })
         parents++
       }

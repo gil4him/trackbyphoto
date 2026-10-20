@@ -3,7 +3,7 @@
 
 import { describe, it, expect, beforeEach } from 'vitest'
 import { Timestamp } from 'firebase-admin/firestore'
-import { deadTokens, fcmMessage, pushToUsers, registerFcmToken, setChannels, type PushDeps, type PushMessage } from '../src/handlers/push'
+import { deadTokens, fcmMessage, openPath, pushToUsers, registerFcmToken, setChannels, type PushDeps, type PushMessage } from '../src/handlers/push'
 import { processMemo, type MemoDeps } from '../src/handlers/memo'
 import { processReaction, type ReactionDeps } from '../src/handlers/reactions'
 import { processSettingsChange } from '../src/handlers/audit'
@@ -47,6 +47,7 @@ describe('the message sent to FCM', () => {
     expect(m.notification).toEqual({ title: 'Daylie', body: '요약이 도착했어요' })
     expect(m.data).toEqual({ type: 'digest.ready', patientUid: 'p1', digestId: 'd1' })
     expect(m.webpush?.fcmOptions?.link).toMatch(/\/digest\/d1$/)
+    expect(fcmMessage([TOKEN(1)], { ...MSG, path: openPath.memo('p1', 'm1') }).webpush?.fcmOptions?.link).toMatch(/\/\?open=memo&p=p1&m=m1$/)
     // iPhone app: the banner makes a sound.
     expect(m.apns?.payload?.aps?.sound).toBe('default')
   })
@@ -58,7 +59,19 @@ describe('pushToUsers', () => {
     await registerFcmToken(KID, { token: TOKEN(2) })
     const f = fcm()
     await pushToUsers(['cg1', 'cg1', 'nobody'], MSG, f)
-    expect(f.sent).toEqual([{ tokens: [TOKEN(1), TOKEN(2)], message: MSG }])
+    expect(f.sent).toEqual([{ tokens: [TOKEN(1), TOKEN(2)], message: { ...MSG, data: { ...MSG.data, badge: '0' } } }])
+  })
+
+  it('tells each device how many notices its person has not seen, for the icon badge', async () => {
+    await registerFcmToken(KID, { token: TOKEN(1) })
+    const notice = (id: string, recipientUid: string, read: boolean) => db.doc(`notifications/${id}`).set({ recipientUid, read, type: 'photo.new' })
+    await notice('n1', 'cg1', false)
+    await notice('n2', 'cg1', false)
+    await notice('n3', 'cg1', true)
+    await notice('n4', 'someone-else', false)
+    const f = fcm()
+    await pushToUsers(['cg1'], MSG, f)
+    expect(f.sent[0].message.data?.badge).toBe('2')
   })
 
   it('sends nothing while the rollout flag is off', async () => {
@@ -161,7 +174,7 @@ describe('what gets pushed', () => {
     await processMemo('m1', 1, deps)
     await db.doc('memos/m1').update({ status: 'pending' }) // a re-write
     await processMemo('m1', 1, deps)
-    expect(pushes).toEqual([{ uids: ['cg1'], message: { title: 'Daylie', body: '어머니님이 새 사진을 올렸어요', data: { type: 'photo.new', patientUid: 'p1', memoId: 'm1' } } }])
+    expect(pushes).toEqual([{ uids: ['cg1'], message: { title: 'Daylie', body: '어머니님이 새 사진을 올렸어요', data: { type: 'photo.new', patientUid: 'p1', memoId: 'm1' }, path: '?open=memo&p=p1&m=m1' } }])
   })
 
   it('a voice reply is pushed; hearts and comments are not', async () => {
@@ -179,6 +192,6 @@ describe('what gets pushed', () => {
     await db.doc('reactions/c1').set({ ...base, actorUid: 'cg1', actorName: '민수', kind: 'comment', text: '안녕', status: 'ready' })
     for (const id of ['v1', 'h1', 'c1']) await processReaction(id, 1, deps)
     expect(pushes.length).toBe(1)
-    expect(pushes[0]).toMatchObject({ uids: ['cg1'], message: { body: '어머니님이 음성 답장을 남기셨어요', data: { type: 'reaction.voice', reactionId: 'v1' } } })
+    expect(pushes[0]).toMatchObject({ uids: ['cg1'], message: { body: '어머니님이 음성 답장을 남기셨어요', data: { type: 'reaction.voice', reactionId: 'v1' }, path: '?open=memo&p=p1&m=m1' } })
   })
 })

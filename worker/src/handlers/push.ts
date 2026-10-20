@@ -69,6 +69,20 @@ export const defaultPushDeps: PushDeps = {
   },
 }
 
+/** Where a tapped notice opens in the web app (read by app/src/lib/openFromUrl.ts). */
+export const openPath = {
+  memo: (patientUid: string, memoId: string) => `?open=memo&p=${encodeURIComponent(patientUid)}&m=${encodeURIComponent(memoId)}`,
+  home: (patientUid: string) => `?open=home&p=${encodeURIComponent(patientUid)}`,
+  today: (patientUid: string) => `?open=today&p=${encodeURIComponent(patientUid)}`,
+}
+
+/** How many notices this person hasn't seen: the number on the app icon. */
+async function unreadCount(uid: string): Promise<number> {
+  const snap = await getFirestore().collection('notifications')
+    .where('recipientUid', '==', uid).where('read', '==', false).count().get()
+  return snap.data().count
+}
+
 /** Absolute link to a page of the app. */
 export function appLink(path = ''): string {
   return APP_URL + '/' + path.replace(/^\//, '')
@@ -93,7 +107,10 @@ export async function pushToUsers(uids: string[], message: PushMessage, deps: Pu
       if (tokens.length === 0) continue
       const channels = (await db.doc(`users/${uid}`).get()).data()?.channels as { push?: boolean } | undefined
       if (channels?.push === false) continue
-      const { dead } = await deps.send(tokens, message)
+      // The home-screen web app sets its icon badge from this, even while closed.
+      const badge = await unreadCount(uid).catch(() => null)
+      const own = badge == null ? message : { ...message, data: { ...message.data, badge: String(badge) } }
+      const { dead } = await deps.send(tokens, own)
       if (dead.length > 0) {
         await pushDoc(uid).update({ fcmTokens: FieldValue.arrayRemove(...dead) })
         logger.info('[push] pruned dead tokens', { uid, pruned: dead.length })

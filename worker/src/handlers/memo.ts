@@ -48,7 +48,7 @@ import type { V2Result } from '../llm/memoV2.js'
 import { areaOf, readableText, storedOnlyMemo, stubActivity, type VisionTags } from '../llm/prompt.js'
 import { flagOn } from '../plans.js'
 import { homeHintFor, localDateHint, localTimeHint, resolveGeoLang } from '../travel.js'
-import { pushToUsers, type PushMessage } from './push.js'
+import { openPath, pushToUsers, type PushMessage } from './push.js'
 import { accountPhotoSafely } from './usage.js'
 
 /** Failed generations on one photo before falling back to the stub. */
@@ -355,6 +355,7 @@ export async function processMemo(memoId: string, attempt: number, deps: MemoDep
           title: 'Daylie',
           body: `${patientName}님이 새 사진을 올렸어요`,
           data: { type: 'photo.new', patientUid, memoId },
+          path: openPath.memo(patientUid, memoId),
         })
       }
     } catch (err) {
