@@ -5,6 +5,11 @@ HTML — no JavaScript, no build step, no React — so they load on any phone an
 can be opened before sign-in, and so an app-store reviewer always gets the
 page itself rather than the app shell.
 
+English translations live in `en/` (`en/privacy.html`, `en/terms.html`,
+`en/delete-account.html`) and are served at `/en/privacy`, `/en/terms` and
+`/en/delete-account`. Each page links to its other-language version. The Korean
+pages are the originals: change a Korean page and its English page together.
+
 How they reach the web:
 
 - `app/vite.config.ts` (`legalPages(mode)` / `LEGAL_PAGES`) copies them into

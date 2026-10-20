@@ -30,5 +30,5 @@ Register your parent, then show the QR code on your phone and let their phone's 
 
 Location is used only to name the place a photo was taken. If it's not allowed, photos are still sent.
 
-Privacy policy: https://dayliesimple.web.app/privacy
-Terms of use: https://dayliesimple.web.app/terms
+Privacy policy: https://dayliesimple.web.app/en/privacy
+Terms of use: https://dayliesimple.web.app/en/terms
