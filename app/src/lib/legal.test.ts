@@ -112,7 +112,7 @@ describe('what each page has to say', () => {
       expect(html).toContain('<html lang="ko">')
       expect(html).toContain('name="viewport"')
       expect(html).toContain('Daylie')
-      expect(html).toContain('2026년 10월 10일')
+      expect(html).toContain('2026년 10월 16일')
     }
   })
 
@@ -168,8 +168,14 @@ describe('what each page has to say', () => {
     }
   })
 
-  it('marks what is still open with 확인 필요', () => {
-    for (const html of [privacy, terms]) expect(html).toContain('[확인 필요]')
+  it('names the developer and has no draft markers in the privacy policy (store reviewers read it)', () => {
+    expect(privacy).toContain('Digioptics, LLC')
+    expect(terms).toContain('Digioptics, LLC')
+    expect(privacy).not.toContain('확인 필요')
+  })
+
+  it('has every operator detail filled in', () => {
+    for (const html of [privacy, terms]) expect(html).not.toMatch(/\{\{[^}]*\}\}/)
   })
 })
 

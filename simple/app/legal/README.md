@@ -20,13 +20,17 @@ required sections.
 
 Editing: they are both hand-written Korean with the styling inlined (the
 colours mirror `app/src/styles.css`). Change the 시행일 at the top of both pages
-together, and keep `[확인 필요]` on anything not yet confirmed. The open items
-as of 2026-10-10:
+together. The privacy page is what store reviewers read, so it carries no
+`[확인 필요]` markers (2026-10-16; legal.test.ts checks); open questions
+about it live in this list instead. terms.html still marks its open clauses.
+The open items as of 2026-10-16:
 
-1. Legal entity (상호 · 대표자 · 사업자등록번호 · 주소) and the named
-   개인정보 보호책임자 — both pages say only "Daylie 운영자".
-2. The 국외 이전 clause: 보호법 제28조의8 notice/consent wording, and each
-   recipient's exact address (Google LLC, Kakao, OSMF/Nominatim).
+1. Settled 2026-10-16: operator is Digioptics, LLC (the Play/App Store
+   developer) on both pages. Still to confirm with a lawyer: whether a
+   Korean 국내대리인 (보호법 제31조의2) is required.
+2. The 국외 이전 clause now names Google LLC and OSMF with address, items,
+   timing and purpose, citing 제28조의8 ① (necessary for the contract,
+   disclosed in the policy). Worth a legal read.
 3. Settled 2026-10-10: the simple worker has no Kakao key and no Gemini key,
    so the pages name neither. If either is turned on
    (`~/daylie-secrets/simple/worker.env`), update §4–§6 first.
@@ -34,6 +38,7 @@ as of 2026-10-10:
    enforced**: `worker/src/handlers/retention.ts` deletes on the plan's
    `retentionDays` and only while the `retentionJob` flag is on. The policy
    says so plainly; tighten it once the picker actually drives deletion.
+   The store description still promises the picker as if it deletes.
 5. 위치정보법: whether Daylie must register as a 위치기반서비스 사업자.
 6. The liability limits (제9조) and the governing-law/venue clause (제11조)
    under 약관의 규제에 관한 법률.
