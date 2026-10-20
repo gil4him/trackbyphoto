@@ -357,13 +357,15 @@ function App() {
   // first, then (for a photo) wait for their photos to load. A photo too old
   // to be in the list lands on their 사진 tab, as 알림 always has.
   useEffect(() => {
-    if (!pendingOpen || !user || elder || membershipsLoading) return
+    // activePatientUid is set only once the sign-in has settled: before that
+    // the parents list can read as loaded and still be empty.
+    if (!pendingOpen || !user || elder || membershipsLoading || !activePatientUid) return
     // Acting on data that just arrived (memberships, memos) is what this effect is for.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (pendingOpen.kind === 'digest') { setDigestId(pendingOpen.digestId); setPendingOpen(null); return }
     const target = pendingOpen.patientUid
     if (target !== user.uid && !patients.some((p) => p.patientUid === target)) { setPendingOpen(null); return }
-    if ((activePatientUid || user.uid) !== target) { onSwitchPatient(target); return }
+    if (activePatientUid !== target) { onSwitchPatient(target); return }
     if (pendingOpen.kind !== 'memo') { setSelectedMemoId(null); setTab(pendingOpen.kind); setPendingOpen(null); return }
     if (memosFor !== target) return
     if (memos.some((m) => m.id === pendingOpen.memoId)) setSelectedMemoId(pendingOpen.memoId)
