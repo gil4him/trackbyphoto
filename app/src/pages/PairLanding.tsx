@@ -10,8 +10,8 @@ import { storeKind, storeUrlFor, type StoreKind } from '../lib/storeLinks'
  * allows it, and again on 앱 설치하기), so the app finds it on its first start
  * (ElderPairStart). If that doesn't work, tapping the link again once the
  * app is installed opens it directly (Universal/App Links).
- * 앱 없이 이 화면에서 연결하기 links the phone right here in the browser
- * instead (the web pairing flow, then the camera in the browser).
+ * A parent's phone uses the app: the browser pairing (연결하기, then the
+ * camera in the browser) is offered only where the phone's store has no app.
  */
 
 export function PairLandingView({ code, kind, storeUrl, onInstall, onWebPair }: {
@@ -19,7 +19,7 @@ export function PairLandingView({ code, kind, storeUrl, onInstall, onWebPair }: 
   kind: StoreKind
   storeUrl: string | null
   onInstall: () => void
-  /** Link this phone in the browser, without the app. */
+  /** Link this phone in the browser (only where its store has no app). */
   onWebPair?: () => void
 }) {
   return (
@@ -30,9 +30,6 @@ export function PairLandingView({ code, kind, storeUrl, onInstall, onWebPair }: 
         <>
           <p className="pair-sub">앱을 설치해 주세요.<br /><b>설치 후 이 링크를 한 번 더 눌러주세요.</b></p>
           <button className="pair-btn" onClick={onInstall}>앱 설치하기</button>
-          {onWebPair && code.length === 8 && (
-            <button className="pair-link pair-web-link" onClick={onWebPair}>앱 없이 이 화면에서 연결하기</button>
-          )}
         </>
       ) : kind !== 'other' && onWebPair && code.length === 8 ? (
         // Not in this phone's store yet: connect right here in the browser.
