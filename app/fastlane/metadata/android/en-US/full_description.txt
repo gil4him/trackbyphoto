@@ -1,0 +1,34 @@
+Daylie lets parents share their day with the family, one photo at a time.
+
+■ On your parent's phone: just a camera
+Opening the app opens the camera. No menus, no lists, no sign-in. One tap on the big round button sends the photo to the family with a friendly "Sent to your family." The photo also stays in the phone's own Photos app.
+
+■ The family sees the day, photo by photo
+On the family's phones, every photo lands in that day's timeline with the time and the name of the place. Daylie writes a short diary entry for each moment from what's in the photo, so you get a sense of the day even before you call. You can also see the places they went that day on a single map.
+
+■ Leave a few words
+Write a short message under any photo and it pops up right on your parent's camera screen. One tap opens their reply screen, where they can answer with a ready-made phrase or write their own words.
+
+■ Send photos to your parent
+Pick a photo, add a line, and it appears large on your parent's screen. They can answer with one "Thank you" or a short reply.
+
+■ Set up with one link or QR code
+Register your parent, then show the QR code on your phone and let their phone's camera see it. If they live far away, send the link by message and they tap it once. Your parent never makes an ID or a password.
+
+■ Made with care
+· Text size: normal, large, or extra large.
+· No connection for a moment? Photos wait on the phone and go by themselves when it's back.
+· Photos and notes are seen only by connected family, and you can disconnect a phone from yours at any time.
+· Set your parent's home, so trips are written up as trips.
+· Get a notification for each new photo and reply, and an evening count of the day's photos.
+
+■ Permissions the app asks for
+· Camera — to take photos, and to read the QR code when connecting with family.
+· Location — only to name the place a photo was taken. If it's not allowed, photos are still sent. Location is not read while the app isn't in use.
+· Photos — to save each photo to the phone's own Photos app too, and to pick photos to send to your parent.
+· Notifications — for new photos and replies, and the evening count.
+
+Location is used only to name the place a photo was taken. If it's not allowed, photos are still sent.
+
+Privacy policy: https://dayliesimple.web.app/en/privacy
+Terms of use: https://dayliesimple.web.app/en/terms

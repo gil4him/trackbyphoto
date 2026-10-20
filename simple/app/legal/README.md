@@ -5,6 +5,11 @@ HTML — no JavaScript, no build step, no React — so they load on any phone an
 can be opened before sign-in, and so an app-store reviewer always gets the
 page itself rather than the app shell.
 
+English translations live in `en/` (`en/privacy.html`, `en/terms.html`,
+`en/delete-account.html`) and are served at `/en/privacy`, `/en/terms` and
+`/en/delete-account`. Each page links to its other-language version. The Korean
+pages are the originals: change a Korean page and its English page together.
+
 How they reach the web:
 
 - `app/vite.config.ts` (`legalPages(mode)` / `LEGAL_PAGES`) copies them into
@@ -34,11 +39,14 @@ The open items as of 2026-10-16:
 3. Settled 2026-10-10: the simple worker has no Kakao key and no Gemini key,
    so the pages name neither. If either is turned on
    (`~/daylie-secrets/simple/worker.env`), update §4–§6 first.
-4. Photo retention. The 30일/90일/계속 picker in 설정 is **stored but not yet
-   enforced**: `worker/src/handlers/retention.ts` deletes on the plan's
-   `retentionDays` and only while the `retentionJob` flag is on. The policy
-   says so plainly; tighten it once the picker actually drives deletion.
-   The store description still promises the picker as if it deletes.
+4. Photo retention. The store app (simple) doesn't show the 30일/90일/계속
+   picker and nothing deletes by age, so since 2026-10-20 the policy just says
+   photos are kept until someone deletes them and that automatic deletion
+   would be announced first. Revisit if retentionJob is ever turned on.
+   Address lookups: typed home-address searches go to Nominatim (Enter) and
+   Photon / komoot GmbH (search-as-you-type, with a ~100 m location bias);
+   both are named in §5 and §6. komoot's address was taken from public
+   registers; check it against their imprint.
 5. 위치정보법: whether Daylie must register as a 위치기반서비스 사업자.
 6. The liability limits (제9조) and the governing-law/venue clause (제11조)
    under 약관의 규제에 관한 법률.
