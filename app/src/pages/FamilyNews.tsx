@@ -9,6 +9,7 @@ import { sendVoice } from '../lib/voiceOutbox'
 import { S } from '../lib/strings'
 import { fmtTime } from '../util'
 import type { Memo, Reaction, TextReplies } from '../types'
+import { tr } from '../lib/lang'
 
 /**
  * 가족 소식: the newest message from family in large type, and
@@ -17,7 +18,7 @@ import type { Memo, Reaction, TextReplies } from '../types'
  * chose 짧은 답장 for this parent). The same screen on a parent's linked phone and in the regular app
  * (someone looking at their own records), and identical on every plan.
  */
-export function FamilyNews({ uid, patientName, item, unreadIds, memo, voiceOn, textMode = 'full', backLabel = '‹ 처음으로', onDone }: {
+export function FamilyNews({ uid, patientName, item, unreadIds, memo, voiceOn, textMode = 'full', backLabel = tr('‹ 처음으로', '‹ Back'), onDone }: {
   uid: string
   patientName: string
   item: Reaction
@@ -93,11 +94,11 @@ export function FamilyNews({ uid, patientName, item, unreadIds, memo, voiceOn, t
         await mic.current.open()
       } catch (err) {
         console.warn('[news] microphone unavailable', err)
-        toast.show('마이크를 쓸 수 없어요', '가족에게 알려 주세요')
+        toast.show(tr('마이크를 쓸 수 없어요', "Can't use the microphone"), tr('가족에게 알려 주세요', 'Please tell your family'))
         return
       }
       // The phone's permission question interrupts the first press.
-      if (!held.current) { setHint('이제 꾹 누르고 말해 보세요'); return }
+      if (!held.current) { setHint(tr('이제 꾹 누르고 말해 보세요', 'Now press and hold, and speak')); return }
     }
     setHint('')
     mic.current.start(() => { void finishVoice() })

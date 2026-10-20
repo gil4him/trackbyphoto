@@ -129,7 +129,8 @@ const workerUp = new Promise((resolve, reject) => {
 })
 
 // Hosted CI runners have no sandbox for Chrome to use.
-const browser = await puppeteer.launch({ executablePath: CHROME, headless: process.env.E2E_HEADFUL !== '1', args: ['--no-first-run', ...(process.env.CI ? ['--no-sandbox'] : [])] })
+// The tests read Korean screens; --lang keeps them Korean on any machine (lib/lang.ts).
+const browser = await puppeteer.launch({ executablePath: CHROME, headless: process.env.E2E_HEADFUL !== '1', args: ['--no-first-run', '--lang=ko-KR', ...(process.env.CI ? ['--no-sandbox'] : [])] })
 const PHONE = { width: 390, height: 844, deviceScaleFactor: 2, isMobile: true, hasTouch: true }
 const ANDROID = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36'
 

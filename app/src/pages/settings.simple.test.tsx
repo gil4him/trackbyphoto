@@ -33,12 +33,21 @@ const html = renderToString(
 )
 
 describe('Settings for a parent (simple)', () => {
-  it('has only 계정 · 부모님 · 알림 · 도움말·약관 · 로그아웃 · 계정 삭제, in that order', () => {
-    const order = ['>계정<', '>부모님<', '>알림<', '도움말·약관', '>로그아웃<', '>계정 삭제<']
+  it('has only 계정 · 언어 · 부모님 · 알림 · 도움말·약관 · 로그아웃 · 계정 삭제, in that order', () => {
+    const order = ['>계정<', '>언어<', '>부모님<', '>알림<', '도움말·약관', '>로그아웃<', '>계정 삭제<']
     const at = order.map((s) => html.indexOf(s))
     for (const [i, s] of order.entries()) expect(at[i], s).toBeGreaterThan(-1)
     for (let i = 1; i < at.length; i++) expect(at[i]).toBeGreaterThan(at[i - 1])
-    for (const s of ['표시되는 이름', '요금제', '음성 답장', '글자 크기', '자동 기록', '전송 시점', '사진 보관', '>언어<', 'Phase 1 안내', '부모님 삭제']) expect(html, s).not.toContain(s)
+    for (const s of ['표시되는 이름', '요금제', '음성 답장', '글자 크기', '자동 기록', '전송 시점', '사진 보관', 'Phase 1 안내', '부모님 삭제']) expect(html, s).not.toContain(s)
+  })
+
+  it('언어: my own language, each in its own name, the current one on', () => {
+    expect(html).toContain('aria-label="언어"><button class="on">한국어</button><button class="">English</button>')
+  })
+
+  it("부모님: the parent's language first, then 메모 말투 (Korean only)", () => {
+    expect(html).toContain('>부모님 언어<')
+    expect(html.indexOf('>부모님 언어<')).toBeLessThan(html.indexOf('>메모 말투<'))
   })
 
   it("부모님: the parent's phone, 함께 보는 가족 with ⋯ (no red button inline), and 가족 초대하기", () => {
