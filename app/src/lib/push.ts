@@ -36,8 +36,8 @@ const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY as string | undefined
 const isNative = Capacitor.isNativePlatform()
 // The iPhone app can only receive pushes once it is signed with Apple's push
 // entitlement (ios/App/App/App.entitlements) and Firebase holds the APNs key.
-// Until both exist this stays false and the iPhone app says "not yet".
-const IOS_APP_PUSH_READY = false
+// Both are in place since 2026-10-14 (key U22PVJ4K2C, both rows).
+const IOS_APP_PUSH_READY = true
 const nativeReady = () => Capacitor.getPlatform() !== 'ios' || IOS_APP_PUSH_READY
 /** The phone can take a while to get a token on a weak connection; don't hang on it. */
 const TOKEN_TIMEOUT_MS = 20_000
