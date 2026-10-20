@@ -1,0 +1,5 @@
+· Each photo now gets a short diary entry for the moment, starting with the date and the area.
+· Parents can write their own reply, not just tap a ready-made phrase.
+· Tapping a family member's message on the camera screen opens the reply screen.
+· Set your parent's home in Settings; addresses show up as you type.
+· On iPhone, notifications for new photos and replies; tapping one opens that photo.
