@@ -431,6 +431,24 @@ lane :release_android do |options|
   upload_to_play_store(args)
 end
 
+# Upload only the store listing text (fastlane/metadata/android, every language
+# folder) — no build, no release, no images. "What's new" goes up with the next
+# release instead, since Play attaches it to a release.
+#
+#   bundle _2.5.23_ exec fastlane listing_android
+lane :listing_android do
+  upload_to_play_store(
+    package_name: ENV["ANDROID_PACKAGE"],
+    json_key: ENV["PLAY_JSON_KEY_PATH"],
+    metadata_path: File.join(app_dir, "fastlane/metadata/android"),
+    skip_upload_apk: true,
+    skip_upload_aab: true,
+    skip_upload_changelogs: true,
+    skip_upload_images: true,
+    skip_upload_screenshots: true
+  )
+end
+
 # ── Do both platforms in one command ──────────────────────────────────────────
 
 lane :beta do |options|
