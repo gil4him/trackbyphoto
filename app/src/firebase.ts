@@ -60,9 +60,11 @@ export const storage = getStorage(app)
 // Local emulator wiring: set VITE_USE_EMULATOR=1 in .env.local
 if (import.meta.env.VITE_USE_EMULATOR === '1') {
   const host = location.hostname || 'localhost'
-  connectAuthEmulator(auth, `http://${host}:9099`, { disableWarnings: true })
-  connectFirestoreEmulator(db, host, 8080)
-  connectStorageEmulator(storage, host, 9199)
+  // The usual ports unless a test run moved them (e2e/run.sh, E2E_PORT_OFFSET).
+  const port = (v: string | undefined, usual: number) => Number(v) || usual
+  connectAuthEmulator(auth, `http://${host}:${port(import.meta.env.VITE_EMULATOR_AUTH_PORT, 9099)}`, { disableWarnings: true })
+  connectFirestoreEmulator(db, host, port(import.meta.env.VITE_EMULATOR_FIRESTORE_PORT, 8080))
+  connectStorageEmulator(storage, host, port(import.meta.env.VITE_EMULATOR_STORAGE_PORT, 9199))
   // eslint-disable-next-line no-console
   console.info('[firebase] connected to local emulators at', host)
 }
