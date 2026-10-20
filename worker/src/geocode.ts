@@ -248,7 +248,8 @@ export async function reverseGeocode(lat: number | null, lng: number | null, lan
 // ────────────────────────────────────────────────────────────────────────────
 // Address search (설정 → 집 위치 → 주소로 찾기): text → a few places to pick.
 // Same services as above: Kakao for Korean text when the key is set, else
-// Nominatim. At most SEARCH_LIMIT candidates.
+// Nominatim. Search-as-you-type (auto) goes to Photon instead of Nominatim,
+// whose usage policy forbids autocomplete. At most SEARCH_LIMIT candidates.
 // ────────────────────────────────────────────────────────────────────────────
 
 export interface GeoCandidate {
@@ -324,15 +325,88 @@ async function searchNominatim(query: string, lang: GeoLang): Promise<GeoCandida
   return nominatimSearchCandidates((await res.json()) as NominatimSearchResult[])
 }
 
-export async function searchAddress(query: string, lang: GeoLang = 'ko'): Promise<GeoCandidate[]> {
+export interface PhotonFeature {
+  properties?: {
+    name?: string; housenumber?: string; street?: string
+    city?: string; district?: string; state?: string; country?: string
+  }
+  geometry?: { coordinates?: [number, number] }
+}
+
+/** Photon features → candidates: "3920 East Coronado Street, Anaheim, California". */
+export function photonCandidates(features: PhotonFeature[] | undefined): GeoCandidate[] {
+  const out: GeoCandidate[] = []
+  const seen = new Set<string>()
+  for (const f of features ?? []) {
+    const [lng, lat] = f.geometry?.coordinates ?? []
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue
+    const p = f.properties ?? {}
+    const street = p.street ? [p.housenumber, p.street].filter(Boolean).join(' ') : ''
+    const head = street && p.name && p.name !== p.street ? `${p.name}, ${street}` : street || p.name || ''
+    const label = [head, p.city || p.district, p.state].filter(Boolean).join(', ')
+    if (!label || seen.has(label)) continue
+    seen.add(label)
+    out.push({ lat: lat as number, lng: lng as number, label })
+  }
+  return out.slice(0, SEARCH_LIMIT)
+}
+
+type LatLng = { lat: number; lng: number }
+
+/** Farther than this from `near` doesn't count as the person's own area. */
+const NEAR_KM = 80
+
+function kmBetween(a: LatLng, b: LatLng): number {
+  const rad = (d: number) => (d * Math.PI) / 180
+  const h = Math.sin(rad(b.lat - a.lat) / 2) ** 2
+    + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(rad(b.lng - a.lng) / 2) ** 2
+  return 6371 * 2 * Math.asin(Math.sqrt(h))
+}
+
+async function fetchPhoton(query: string, lang: GeoLang, near?: LatLng): Promise<GeoCandidate[]> {
+  const bias = near ? `&lat=${near.lat.toFixed(3)}&lon=${near.lng.toFixed(3)}` : ''
+  const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=${SEARCH_LIMIT}${lang === 'en' ? '&lang=en' : ''}${bias}`
+  const res = await fetch(url, {
+    headers: { 'User-Agent': `TrackByPhoto/1.0 (${APP_URL})` },
+    signal: AbortSignal.timeout(TIMEOUT_MS),
+  })
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  return photonCandidates(((await res.json()) as { features?: PhotonFeature[] }).features)
+}
+
+/**
+ * Photon speaks en/de/fr only; Korean users get the local names. `near`
+ * ranks places around it first. Many houses have no number in OpenStreetMap,
+ * so "3920 E Coronado" would only match that number in other towns: when
+ * nothing nearby comes back, the street is looked up without the number and
+ * the typed number is put back in front of the nearby streets.
+ */
+export async function searchPhoton(query: string, lang: GeoLang, near?: LatLng): Promise<GeoCandidate[]> {
+  const found = await fetchPhoton(query, lang, near)
+  const numbered = /^(\d+[A-Za-z]?)\s+(\S.*)$/.exec(query.trim())
+  if (!near || !numbered || found.some((c) => kmBetween(near, c) <= NEAR_KM)) return found
+  const [, number, street] = numbered
+  const streets = (await fetchPhoton(street, lang, near))
+    .filter((c) => kmBetween(near, c) <= NEAR_KM)
+    .map((c) => ({ ...c, label: /^\d/.test(c.label) ? c.label : `${number} ${c.label}` }))
+  return [...streets, ...found].slice(0, SEARCH_LIMIT)
+}
+
+export async function searchAddress(
+  query: string,
+  lang: GeoLang = 'ko',
+  /** auto: asked while the person is still typing, so never sent to
+   *  Nominatim. near: roughly where they live, to rank nearby places first. */
+  opts: { auto?: boolean; near?: { lat: number; lng: number } | null } = {},
+): Promise<GeoCandidate[]> {
   const kakaoKey = process.env.KAKAO_REST_KEY || ''
   if (kakaoKey && lang === 'ko' && /[가-힣]/.test(query)) {
     try {
       const found = await searchKakao(query, kakaoKey)
       if (found.length) return found
     } catch (err) {
-      logger.warn('[searchAddress] Kakao failed; trying Nominatim', { err: String(err) })
+      logger.warn('[searchAddress] Kakao failed; trying the next service', { err: String(err) })
     }
   }
-  return searchNominatim(query, lang)
+  return opts.auto ? searchPhoton(query, lang, opts.near ?? undefined) : searchNominatim(query, lang)
 }

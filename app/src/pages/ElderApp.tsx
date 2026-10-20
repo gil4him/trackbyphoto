@@ -158,6 +158,7 @@ export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn
             photos={familyPhotosOn ? cardLine(familyPhotos) : null}
             onOpenRecords={() => setView('records')}
             onOpenPhotos={() => setPhotosOpen(true)}
+            onOpenNews={setOpenNews}
           />
         ) : (
           <Home
