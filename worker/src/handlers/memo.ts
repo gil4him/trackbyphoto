@@ -46,7 +46,8 @@ import {
 import { generateMemoRouted, type MemoArgs } from '../llm/route.js'
 import type { V2Result } from '../llm/memoV2.js'
 import { areaOf, readableText, storedOnlyMemo, stubActivity, type VisionTags } from '../llm/prompt.js'
-import { homeHintFor, localTimeHint, resolveGeoLang } from '../travel.js'
+import { flagOn } from '../plans.js'
+import { homeHintFor, localDateHint, localTimeHint, resolveGeoLang } from '../travel.js'
 import { pushToUsers, type PushMessage } from './push.js'
 import { accountPhotoSafely } from './usage.js'
 
@@ -242,11 +243,15 @@ export async function processMemo(memoId: string, attempt: number, deps: MemoDep
     // No location of its own: the place of a photo taken within minutes, as a
     // hint only. Nothing of it is written onto this memo.
     const near = !hasCoords ? await nearbyPlace(memoId, patientUid, data.takenAt?.toDate?.()) : ''
+    // memoDiary: the scene becomes a short diary entry (llm/prompt.ts). It
+    // shapes the v1 prompt only (and v2's v1 fallback); keep memoV2 off with it.
+    const diary = await flagOn('memoDiary')
     const result = await deps.generate({
       imageBase64: await photo.base64(),
       patientUid,
       mimeType: mimeFromPath(photoPath),
       timeHint: await localTimeHint(patientUid, data.takenAt?.toDate?.(), lat, lng, data.tzOffsetMin as number | undefined),
+      ...(diary ? { diary, dateHint: await localDateHint(patientUid, data.takenAt?.toDate?.(), lat, lng, data.tzOffsetMin as number | undefined) } : {}),
       placeHint: (near ? areaOf(near) : areaOf(place)) || undefined,
       nearHint: !!near || undefined,
       placeFull: place || undefined,
