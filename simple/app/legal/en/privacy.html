@@ -132,7 +132,7 @@
   <a class="brand" href="/">Daylie</a>
   <a class="lang" href="/privacy" lang="ko">한국어</a>
   <h1>Privacy Policy</h1>
-  <p class="eff">Effective date: October 16, 2026</p>
+  <p class="eff">Effective date: October 20, 2026</p>
 </header>
 
 <div class="lead">
@@ -179,8 +179,8 @@
     <td>When a family is created and the parent's phone is linked</td>
   </tr>
   <tr>
-    <td><strong>Reactions and short messages</strong> — hearts, the text of a short message, and the name of the person who left it</td>
-    <td>When a family member taps a heart on a photo or leaves a short message</td>
+    <td><strong>Short messages and replies</strong> — short messages left by the family, the parent's replies (a ready-made reply, their own words, or a “Thank you” heart), and the name of the person who left them</td>
+    <td>When a family member leaves a short message on a photo, or the parent replies</td>
   </tr>
   <tr>
     <td><strong>Family contacts</strong> — the names and phone numbers of family members who should receive updates</td>
@@ -195,7 +195,7 @@
     <td>When a family member allows notifications. The parent's phone does not create a push token.</td>
   </tr>
   <tr>
-    <td><strong>App settings</strong> — photo retention period, text size, home location (if entered manually), and the like</td>
+    <td><strong>App settings</strong> — text size, memo tone, home location (if entered manually), and the like</td>
     <td>When a setting is changed</td>
   </tr>
   <tr>
@@ -211,7 +211,7 @@
   <li>To show the connected family the photos the parent took and where they were taken</li>
   <li>To arrange photos in time order and show place names and places visited alongside them</li>
   <li>To notify the family when a photo is uploaded, and to send one evening update about the day's photos ("3 photos from Mom today")</li>
-  <li>To show the hearts and short messages (하트와 한마디) left by the family on the parent's phone</li>
+  <li>To show the short messages (한마디) left by the family on the parent's phone, and to pass the parent's replies to the family</li>
   <li>To link a family member's phone and the parent's phone to each other, to unlink them, and to delete accounts and photos</li>
   <li>To find and fix problems where the service stops working or photos do not upload</li>
 </ul>
@@ -243,10 +243,14 @@
   </tr>
   <tr>
     <td>OpenStreetMap Foundation (Nominatim)</td>
-    <td>Converting the <strong>coordinates</strong> where a photo was taken into an address and the name of a shop or place.</td>
+    <td>Converting the <strong>coordinates</strong> where a photo was taken into an address and the name of a shop or place, and finding a home address from the <strong>search text</strong> typed in Settings.</td>
+  </tr>
+  <tr>
+    <td>komoot GmbH (Photon)</td>
+    <td>Suggesting addresses while a home address is being typed in Settings. We send the typed <strong>search text</strong> and <strong>approximate coordinates</strong> (the home location or the latest photo's location, to about 100 m) so nearby places come first.</td>
   </tr>
 </table>
-<p>For a place-name lookup we send <strong>coordinates only</strong>. We do not send the photo, a name, an email address, or an account identifier. The lookup is made from the operator's server, so your phone does not connect to these providers directly.</p>
+<p>For place-name and address lookups we send <strong>only coordinates or the address search text</strong>. We do not send the photo, a name, an email address, or an account identifier. The lookup is made from the operator's server, so your phone does not connect to these providers directly.</p>
 <p>If you tap a map link on a photo, Google Maps or Apple Maps opens, depending on your phone. In that case only that point's coordinates (and the place name) are passed along in the URL; no photo or account information is passed. If you send a link through KakaoTalk, the message is delivered from your own phone through the KakaoTalk app.</p>
 <p>Apart from cases where investigative authorities or others require it through lawful process under the law, we do not provide personal information to any third party other than those above.</p>
 
@@ -259,24 +263,31 @@
   <li><strong>Purpose of transfer</strong> The purposes of use in Section 3 — sign-in, storage, keeping photos, notification delivery, website serving</li>
   <li><strong>Retention period</strong> The same as the retention periods in Section 7.</li>
 </ul>
-<p>For place-name lookups, only coordinates are transferred abroad, as follows.</p>
+<p>To find place names and addresses, only coordinates or address search text are transferred abroad, as follows.</p>
 <ul>
   <li><strong>Recipient</strong> OpenStreetMap Foundation (St John’s Innovation Centre, Cowley Road, Cambridge, CB4 0WS, United Kingdom · Nominatim service)</li>
-  <li><strong>Items transferred</strong> The coordinates (latitude and longitude) of where the photo was taken. We do not send the photo, a name, an email address, or an account identifier.</li>
-  <li><strong>Country, timing, and method of transfer</strong> The United Kingdom and elsewhere in Europe, each time a photo with location data is uploaded, from the operator's server over an encrypted connection (HTTPS)</li>
-  <li><strong>Purpose of transfer</strong> Converting coordinates into an address and a place name</li>
+  <li><strong>Items transferred</strong> The coordinates (latitude and longitude) of where the photo was taken, and the search text typed when looking up a home address in Settings. We do not send the photo, a name, an email address, or an account identifier.</li>
+  <li><strong>Country, timing, and method of transfer</strong> The United Kingdom and elsewhere in Europe, each time a photo with location data is uploaded or a home address is looked up, from the operator's server over an encrypted connection (HTTPS)</li>
+  <li><strong>Purpose of transfer</strong> Converting coordinates into an address and a place name, and finding a home address</li>
   <li><strong>Retention period</strong> The purpose ends as soon as the answer to the lookup is received. Any storage by the recipient follows that provider's own policy.</li>
 </ul>
-<p>This transfer abroad is strictly necessary to perform our contract with you (providing the service), and we are informing you of it through this policy under the Personal Information Protection Act of Korea (개인정보 보호법), Article 28-8(1). You may refuse the transfer abroad, but if you refuse it will be difficult to use the service. If you turn location permission off, no coordinates are recorded, so no transfer to the OpenStreetMap Foundation takes place either.</p>
+<ul>
+  <li><strong>Recipient</strong> komoot GmbH (Friedrich-Wilhelm-Boelcke-Straße 2, 14473 Potsdam, Germany · Photon service)</li>
+  <li><strong>Items transferred</strong> The search text and approximate coordinates (the home location or the latest photo's location, to about 100 m) while a home address is being typed in Settings. We do not send the photo, a name, an email address, or an account identifier.</li>
+  <li><strong>Country, timing, and method of transfer</strong> Germany, while a home address is being typed, from the operator's server over an encrypted connection (HTTPS)</li>
+  <li><strong>Purpose of transfer</strong> Suggesting addresses while typing</li>
+  <li><strong>Retention period</strong> The purpose ends as soon as the answer to the lookup is received. Any storage by the recipient follows that provider's own policy.</li>
+</ul>
+<p>This transfer abroad is strictly necessary to perform our contract with you (providing the service), and we are informing you of it through this policy under the Personal Information Protection Act of Korea (개인정보 보호법), Article 28-8(1). You may refuse the transfer abroad, but if you refuse it will be difficult to use the service. If you turn location permission off, no coordinates are recorded, so no photo coordinates are transferred. If you don't search for a home address, no search text is transferred.</p>
 
 <h2>7. How long we keep personal information, and how we destroy it</h2>
 <h3>Photos</h3>
 <p>Photos and the records attached to them are kept <strong>until you delete them or delete the account or the parent's records</strong>. You can delete a photo yourself in the app at any time.</p>
-<p>The app's settings include a <strong>Photo retention (사진 보관)</strong> item, where you can choose <strong>30 days, 90 days, or Keep forever</strong> (the default is 90 days). <strong>At present this setting is only saved; photos past that period are not deleted automatically.</strong> For now they are kept until you delete them, as described above. If we begin automatic deletion, we will tell you in this policy and inside the app before it starts. At that point we would delete the photo files that are past the period along with those photos' records (time, location, place name, photo note), and in the week before the deletion we would notify the family in advance: "N photos will be deleted this week." Hearts and short messages are not subject to automatic deletion.</p>
+<p>Photos are not deleted automatically after a set period. If we begin automatic deletion, we will tell you in this policy and inside the app before it starts.</p>
 <h3>Accounts and family records</h3>
 <ul>
   <li>If you <strong>delete your account</strong>, your account information, your family records, and that family's photos and the records attached to them are all deleted. You can do this yourself at <strong>Settings → Delete account (설정 → 계정 삭제)</strong> in the app. You may also request it by email at the address in Section 13, and we will verify, delete, and tell you the result.</li>
-  <li><strong>Deleting a parent's records</strong> can be done by the family member (guardian) who registered the parent, at <strong>Settings → Delete parent (설정 → 부모님 삭제)</strong> in the app. Deleting removes that parent's sign-in credentials, photos, photo records, hearts and short messages, consent records, family link, and notification records, and cannot be undone. If you only break the link (unlink), the parent's phone immediately becomes unable to send photos, and photos already received remain.</li>
+  <li><strong>Deleting a parent's records</strong> can be done by the family member (guardian) who registered the parent, at <strong>Settings → Delete parent (설정 → 부모님 삭제)</strong> in the app. Deleting removes that parent's sign-in credentials, photos, photo records, short messages and replies, consent records, family link, and notification records, and cannot be undone. If you only break the link (unlink), the parent's phone immediately becomes unable to send photos, and photos already received remain.</li>
   <li>For a one-time link code we store <strong>only the hash</strong>; a code for the first link expires after 24 hours and a code for re-linking expires after 1 hour, after which it cannot be used.</li>
   <li>If you turn notifications off or delete the app from the device, the push token is no longer used, and tokens that fail delivery are cleaned up automatically.</li>
 </ul>
@@ -322,7 +333,7 @@
 
 <footer>
   <div class="footer-links"><a href="/en/terms">View Terms of Service</a> · <a href="/">Daylie</a></div>
-  Effective date October 16, 2026 · Contact gil4him@gmail.com
+  Effective date October 20, 2026 · Contact gil4him@gmail.com
 </footer>
 
 </div>

@@ -121,8 +121,9 @@ describe('what each page has to say', () => {
       expect(html).toContain('<html lang="ko">')
       expect(html).toContain('name="viewport"')
       expect(html).toContain('Daylie')
-      expect(html).toContain('2026년 10월 16일')
     }
+    expect(privacy).toContain('2026년 10월 20일')
+    expect(terms).toContain('2026년 10월 16일')
   })
 
   it('links to the other page and to the contact address', () => {
@@ -149,9 +150,21 @@ describe('what each page has to say', () => {
   })
 
   it('the privacy policy names what the app actually collects', () => {
-    for (const item of ['사진', '위치', '장소명', '푸시', '하트', '가족']) {
+    for (const item of ['사진', '위치', '장소명', '푸시', '하트', '가족', '답장', '집 주소']) {
       expect(privacy, item).toContain(item)
     }
+  })
+
+  it('names every service that place and address lookups go to', () => {
+    for (const html of [privacy, read('en/privacy.html')]) {
+      expect(html).toContain('OpenStreetMap Foundation')
+      expect(html).toContain('komoot GmbH (Photon)')
+    }
+  })
+
+  it('no longer offers a photo-keeping choice the store app does not show', () => {
+    expect(privacy).not.toMatch(/30일 · 90일/)
+    expect(read('en/privacy.html')).not.toMatch(/30 days, 90 days/)
   })
 
   it('the terms cover the service, the family consent and the AI memos', () => {
@@ -224,8 +237,9 @@ describe('the English translations (/en/…)', () => {
   })
 
   it('carry the same effective date, developer and contact as the Korean pages', () => {
+    expect(en.privacy).toContain('October 20, 2026')
+    expect(en.terms).toContain('October 16, 2026')
     for (const html of [en.privacy, en.terms]) {
-      expect(html).toContain('October 16, 2026')
       expect(html).toContain('Digioptics, LLC')
       expect(html).toContain('gil4him@gmail.com')
       expect(html).toContain('‹ Back to Settings')
