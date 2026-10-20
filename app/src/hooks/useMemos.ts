@@ -9,9 +9,11 @@ import type { Memo } from '../types'
 export function useMemos(patientUid: string | undefined, max = 60) {
   const [memos, setMemos] = useState<Memo[]>([])
   const [loading, setLoading] = useState(true)
+  // Whose memos `memos` are: they lag a moment behind a change of patient.
+  const [loadedFor, setLoadedFor] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!patientUid) { setMemos([]); setLoading(false); return }
+    if (!patientUid) { setMemos([]); setLoading(false); setLoadedFor(null); return }
     const q = query(
       collection(db, 'memos'),
       where('patientUid', '==', patientUid),
@@ -21,12 +23,14 @@ export function useMemos(patientUid: string | undefined, max = 60) {
     const unsub = onSnapshot(q, (snap) => {
       setMemos(snap.docs.map(d => ({ id: d.id, ...(d.data() as Omit<Memo, 'id'>) })))
       setLoading(false)
+      setLoadedFor(patientUid)
     }, (err) => {
       console.error('[memos] subscription error', err)
       setLoading(false)
+      setLoadedFor(patientUid)
     })
     return () => unsub()
   }, [patientUid, max])
 
-  return { memos, loading }
+  return { memos, loading, loadedFor }
 }
