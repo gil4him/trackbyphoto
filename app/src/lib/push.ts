@@ -73,6 +73,9 @@ async function nativeToken(): Promise<string> {
 async function currentToken(): Promise<string> {
   if (isNative) return nativeToken()
   const registration = await navigator.serviceWorker.register(SW_URL, { scope: SW_SCOPE })
+  // Registering again doesn't fetch a newer push-sw.js; ask for it, so a
+  // change there (badge, tap handling) reaches phones on their next start.
+  registration.update?.().catch(() => {})
   const { getMessaging, getToken } = await webMessaging()
   return getToken(getMessaging(app), { serviceWorkerRegistration: registration, ...(VAPID_KEY ? { vapidKey: VAPID_KEY } : {}) })
 }
