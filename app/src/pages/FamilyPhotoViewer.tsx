@@ -6,6 +6,7 @@ import { keepFamilyPhotoOnDevice } from '../lib/familyPhotoKeep'
 import { viewerOrder } from '../lib/familyPhotosModel'
 import { S } from '../lib/strings'
 import type { FamilyPhoto, TextReplies } from '../types'
+import { tr } from '../lib/lang'
 
 /**
  * The photos the family sent, on the parent's phone, one at a time and
@@ -59,7 +60,7 @@ export function FamilyPhotoViewer({ photos, textMode = 'full', onDone, mark = ma
   if (!current) {
     return (
       <section className="page news">
-        <div className="news-text">가족이 보낸 사진이 아직 없어요</div>
+        <div className="news-text">{tr('가족이 보낸 사진이 아직 없어요', 'No photos from your family yet')}</div>
         <div className="news-actions">
           <button className="news-btn" onClick={() => onDone(false)}>{S.familyPhotoToCamera}</button>
         </div>
@@ -97,7 +98,7 @@ export function FamilyPhotoViewer({ photos, textMode = 'full', onDone, mark = ma
           ? <div className="fp-broken">{S.familyPhotoLoadFail}</div>
           : <img
               src={current.photoUrl}
-              alt={current.caption || `${current.senderName}이 보낸 사진`}
+              alt={current.caption || tr(`${current.senderName}이 보낸 사진`, `Photo from ${current.senderName}`)}
               onError={() => setBroken((b) => new Set(b).add(current.id))}
             />}
       </div>
@@ -106,7 +107,7 @@ export function FamilyPhotoViewer({ photos, textMode = 'full', onDone, mark = ma
       {/* Answered already: say so, and offer only the way on — one reply per photo. */}
       {current.reply && (
         <div className="fp-replied" role="status">
-          {current.reply.kind === 'heart' ? '❤️ 고마워요를 보냈어요' : `“${current.reply.text}”라고 답했어요`}
+          {current.reply.kind === 'heart' ? tr('❤️ 고마워요를 보냈어요', 'You sent ❤️ Thank you') : tr(`“${current.reply.text}”라고 답했어요`, `You replied “${current.reply.text}”`)}
         </div>
       )}
       <div className="news-actions">

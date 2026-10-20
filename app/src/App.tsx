@@ -39,6 +39,7 @@ import { digestIdFromPath } from './lib/digest'
 import { TIER_NAME, fromTier, type PlanReason } from './lib/plan'
 import { homeFor } from './lib/trail'
 import { deviceGeoLang, relativeDateLabel } from './util'
+import { applyAccountLang } from './lib/lang'
 import { disablePush, onPushOpened, refreshPush, type PushOpened } from './lib/push'
 import { PushNudge } from './components/PushNudge'
 import type { AppNotification } from './types'
@@ -254,6 +255,17 @@ function App() {
   useEffect(() => {
     if (selectedMemoId && !selectedMemo) setSelectedMemoId(null)
   }, [selectedMemoId, selectedMemo])
+
+  // The screens follow the signed-in account's language (lib/lang.ts): on a
+  // parent's phone that is the language the family set for them, on a
+  // family phone the one chosen in 설정 → 언어. Only the server's answer
+  // counts, so a stale cache never flips the screens.
+  useEffect(() => {
+    if (!user) return
+    return onSnapshot(doc(db, 'users', user.uid), { includeMetadataChanges: true }, (snap) => {
+      if (snap.exists() && !snap.metadata.fromCache) applyAccountLang((snap.data() as Partial<UserSettings>).geoLang)
+    }, (err) => console.error('[lang] subscription', err))
+  }, [user])
 
   // Settings subscription follows the ACTIVE patient, not the signed-in user.
   // For self this is the same; for caregiver mode it's the patient's doc.

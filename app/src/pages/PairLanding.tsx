@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { formatPairCode, normalizePairCode } from '../lib/pairing'
 import { PUBLIC_ORIGIN } from '../lib/publicUrl'
 import { storeKind, storeUrlFor, type StoreKind } from '../lib/storeLinks'
+import { tr } from '../lib/lang'
 
 /**
  * Simple edition, web: what a /pair link shows when the app didn't open it —
@@ -25,27 +26,27 @@ export function PairLandingView({ code, kind, storeUrl, onInstall, onWebPair }: 
   return (
     <section className="pair">
       <div className="signin-dot" />
-      <h1 className="pair-title">{storeUrl ? <>Daylie 앱으로<br />연결해요</> : <>휴대폰을 가족과<br />연결해요</>}</h1>
+      <h1 className="pair-title">{storeUrl ? <>{tr('Daylie 앱으로', 'Connect with')}<br />{tr('연결해요', 'the Daylie app')}</> : <>{tr('휴대폰을 가족과', 'Connect this phone')}<br />{tr('연결해요', 'with your family')}</>}</h1>
       {storeUrl ? (
         <>
-          <p className="pair-sub">앱을 설치해 주세요.<br /><b>설치 후 이 링크를 한 번 더 눌러주세요.</b></p>
-          <button className="pair-btn" onClick={onInstall}>앱 설치하기</button>
+          <p className="pair-sub">{tr('앱을 설치해 주세요.', 'Please install the app.')}<br /><b>{tr('설치 후 이 링크를 한 번 더 눌러주세요.', 'After installing, tap this link once more.')}</b></p>
+          <button className="pair-btn" onClick={onInstall}>{tr('앱 설치하기', 'Install the app')}</button>
           {onWebPair && code.length === 8 && (
-            <button className="pair-link pair-web-link" onClick={onWebPair}>앱 없이 이 화면에서 연결하기</button>
+            <button className="pair-link pair-web-link" onClick={onWebPair}>{tr('앱 없이 이 화면에서 연결하기', 'Connect here without the app')}</button>
           )}
         </>
       ) : kind !== 'other' && onWebPair && code.length === 8 ? (
         // Not in this phone's store yet: connect right here in the browser.
         <>
-          <p className="pair-sub">아래 버튼을 한 번 눌러 주세요.</p>
-          <button className="pair-btn" onClick={onWebPair}>연결하기</button>
+          <p className="pair-sub">{tr('아래 버튼을 한 번 눌러 주세요.', 'Tap the button below once.')}</p>
+          <button className="pair-btn" onClick={onWebPair}>{tr('연결하기', 'Connect')}</button>
         </>
       ) : (
-        <p className="pair-sub">연결할 휴대폰에서 이 링크를 열어 주세요.</p>
+        <p className="pair-sub">{tr('연결할 휴대폰에서 이 링크를 열어 주세요.', 'Open this link on the phone you want to connect.')}</p>
       )}
       {code.length === 8 && (
         <div className="pair-code-box">
-          <div className="help">앱에서 직접 넣을 때 코드</div>
+          <div className="help">{tr('앱에서 직접 넣을 때 코드', 'Code to type into the app')}</div>
           <div className="invite-code-display">{formatPairCode(code)}</div>
         </div>
       )}

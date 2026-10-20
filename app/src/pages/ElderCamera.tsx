@@ -15,6 +15,7 @@ import { useElderNews, type OpenNews } from '../hooks/useElderNews'
 import { useMemberships } from '../hooks/useMemberships'
 import type { ElderNews } from '../lib/reactionsModel'
 import type { Reaction } from '../types'
+import { tr } from '../lib/lang'
 
 /**
  * The simple edition's parent screen: the phone is a camera. Opening the app
@@ -82,9 +83,9 @@ export function ElderCameraView({ phase, busy, overlay, news, photos = null, ask
 
       {phase === 'denied' && (
         <div className="elder-cam-denied" role="alert">
-          <p className="elder-cam-denied-title">카메라를 사용할 수 없어요</p>
-          <p className="elder-cam-denied-sub">설정에서 카메라를 허용해 주세요</p>
-          <button type="button" className="elder-cam-retry" onClick={onRetry}>다시 시도</button>
+          <p className="elder-cam-denied-title">{tr('카메라를 사용할 수 없어요', "Can't use the camera")}</p>
+          <p className="elder-cam-denied-sub">{tr('설정에서 카메라를 허용해 주세요', 'Please allow the camera in Settings')}</p>
+          <button type="button" className="elder-cam-retry" onClick={onRetry}>{tr('다시 시도', 'Try again')}</button>
         </div>
       )}
 
@@ -101,17 +102,17 @@ export function ElderCameraView({ phase, busy, overlay, news, photos = null, ask
       {ask && <ElderAsk text={ask} next={askNext} onNext={onAskNext} />}
 
       {!ask && <div className="elder-cam-bar">
-        <button type="button" className="elder-cam-records" onClick={onOpenRecords}>내 사진</button>
+        <button type="button" className="elder-cam-records" onClick={onOpenRecords}>{tr('내 사진', 'My photos')}</button>
         <button
           type="button"
           className="elder-cam-shutter"
-          aria-label="사진 찍기"
+          aria-label={tr('사진 찍기', 'Take a photo')}
           disabled={phase !== 'live' || busy}
           onClick={onShutter}
         />
         <span className="elder-cam-bar-side">
           {corner}
-          <button type="button" className="elder-cam-flip" aria-label="카메라 전환" disabled={phase !== 'live' || busy} onClick={onFlip}>
+          <button type="button" className="elder-cam-flip" aria-label={tr('카메라 전환', 'Switch camera')} disabled={phase !== 'live' || busy} onClick={onFlip}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M4 9a8 8 0 0 1 14-3l2 2" />
               <path d="M20 4v4h-4" />
@@ -224,10 +225,10 @@ export function ElderCamera({ uid, reactions, photos = null, onOpenRecords, onOp
       const { file, nativePath } = await capturePhoto()
       void keepInPhotos(nativePath) // a copy in the phone's photos too
       await savePhoto({ uid, file, nativePath })
-      result = { ok: true, text: `${toName}에게 보냈어요 ♥` }
+      result = { ok: true, text: tr(`${toName}에게 보냈어요 ♥`, `Sent to ${toName} ♥`) }
     } catch (err) {
       console.error('[ElderCamera] capture failed', err)
-      result = { ok: false, text: '사진을 저장하지 못했어요', sub: '다시 한 번 찍어 주세요' }
+      result = { ok: false, text: tr('사진을 저장하지 못했어요', "Couldn't save the photo"), sub: tr('다시 한 번 찍어 주세요', 'Please take it once more') }
     }
     if (!alive.current) return
     setOverlay(result)
@@ -263,7 +264,7 @@ export function ElderCamera({ uid, reactions, photos = null, onOpenRecords, onOp
       onFlip={() => { void flipCamera().catch((err) => console.warn('[ElderCamera] flip failed', err)) }}
       onOpenPhotos={() => { void stopPreview(); onOpenPhotos?.() }}
       ask={ask === 'camera' ? ASK_CAMERA : ask === 'location' ? ASK_LOCATION : null}
-      askNext={ask === 'camera' ? '카메라 켜기' : '다음'}
+      askNext={ask === 'camera' ? tr('카메라 켜기', 'Turn on camera') : tr('다음', 'Next')}
       onAskNext={onAskNext}
     />
   )

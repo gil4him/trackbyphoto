@@ -1,11 +1,12 @@
 import { useCapture } from '../hooks/useCapture'
+import { tr } from '../lib/lang'
 
 /**
  * The floating camera button: on every family page but Home (which has the
  * big 사진 찍기), and on the parent's 내 사진 and memo pages (back to the
  * camera). Bottom-right, above the tab bar; bigger in the parent app.
  */
-export function CameraFab({ onClick, disabled = false, label = '사진 찍기' }: {
+export function CameraFab({ onClick, disabled = false, label = tr('사진 찍기', 'Take a photo') }: {
   onClick: () => void
   disabled?: boolean
   label?: string
@@ -29,13 +30,13 @@ export function CameraFab({ onClick, disabled = false, label = '사진 찍기' }
  * them. Must sit inside ToastProvider (useCapture toasts).
  */
 export function FamilyCamera({ uid, show, onSend }: { uid: string; show: boolean; onSend?: () => void }) {
-  const capture = useCapture(uid, { savedSub: '가족에게 보내는 중이에요' })
+  const capture = useCapture(uid, { savedSub: tr('가족에게 보내는 중이에요', 'Sending it to your family') })
   return (
     <>
       {capture.inputEl}
       {capture.processing}
       {show && (onSend
-        ? <CameraFab onClick={onSend} label="사진 보내기" />
+        ? <CameraFab onClick={onSend} label={tr('사진 보내기', 'Send a photo')} />
         : <CameraFab onClick={capture.takePhoto} disabled={capture.busy} />)}
     </>
   )

@@ -1,10 +1,14 @@
 import type { Memo, Reaction } from '../types'
 import { distanceKm, type LatLng } from './trail'
+import { lang, tr } from './lang'
+
+const EN_DAY = new Intl.DateTimeFormat('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
 
 // ── The parent's day on the family home (simple edition, option C) ─────────
 
 /** `10월 4일 토요일` */
 export function dayEyebrow(d: Date): string {
+  if (lang === 'en') return EN_DAY.format(d)
   const wk = ['일', '월', '화', '수', '목', '금', '토'][d.getDay()]
   return `${d.getMonth() + 1}월 ${d.getDate()}일 ${wk}요일`
 }
@@ -36,6 +40,13 @@ export function farthestKm(memos: Memo[], home: LatLng | null): number | null {
 
 /** `사진 9장 · 집에서 최대 2.0km`; just the count when the distance is unknown. */
 export function dayCaption(count: number, maxKm: number | null): string {
+  if (lang === 'en') {
+    // English readers are mostly in the US: miles.
+    const photos = `${count} photo${count === 1 ? '' : 's'}`
+    if (maxKm == null) return photos
+    const mi = maxKm * 0.621371
+    return `${photos} · up to ${mi < 10 ? mi.toFixed(1) : Math.round(mi)} mi from home`
+  }
   const photos = `사진 ${count}장`
   if (maxKm == null) return photos
   return `${photos} · 집에서 최대 ${maxKm < 10 ? maxKm.toFixed(1) : Math.round(maxKm)}km`
@@ -54,8 +65,8 @@ export function reactionSummary(items: Reaction[] | undefined): { hearts: string
 
 /** The card's title: the memo's line, or what is happening to it. */
 export function cardTitle(m: Pick<Memo, 'status' | 'memo' | 'activity'>, serverDown = false): string {
-  if (m.status !== 'pending') return m.memo || m.activity || '기록'
-  return serverDown ? '메모 서버가 쉬는 중이에요. 켜지면 써 드려요.' : '메모 작성 중…'
+  if (m.status !== 'pending') return m.memo || m.activity || tr('기록', 'Photo')
+  return serverDown ? tr('메모 서버가 쉬는 중이에요. 켜지면 써 드려요.', "The memo server is resting. We'll write it once it's back.") : tr('메모 작성 중…', 'Writing the memo…')
 }
 
 /** `♥ 2 · 💬 1` for a list card; '' when nothing was left on the photo. */
@@ -76,7 +87,7 @@ export function mapLink(memo: Pick<Memo, 'lat' | 'lng' | 'place'>, simple: boole
   if (memo.lat == null || memo.lng == null) return null
   return simple
     ? `https://www.google.com/maps/search/?api=1&query=${memo.lat},${memo.lng}`
-    : `https://maps.apple.com/?ll=${memo.lat},${memo.lng}&q=${encodeURIComponent(memo.place || '위치')}`
+    : `https://maps.apple.com/?ll=${memo.lat},${memo.lng}&q=${encodeURIComponent(memo.place || tr('위치', 'Location'))}`
 }
 
 export type DetailAction = 'share' | 'edit' | 'rewrite' | 'delete'
