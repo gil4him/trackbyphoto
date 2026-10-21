@@ -29,6 +29,7 @@ import { AcceptInvite, PENDING_INVITE_KEY } from './pages/AcceptInvite'
 import { ConnectParentCard } from './components/ConnectParentCard'
 import { FamilyCamera } from './components/CameraFab'
 import { appTitle, isSimple } from './lib/edition'
+import { inStore, storeKind } from './lib/storeLinks'
 import { defaultTextReplies } from './lib/textReplies'
 import { isAdminUser } from './lib/admin'
 import { usePlans } from './hooks/usePlans'
@@ -407,10 +408,12 @@ function App() {
   }
 
   // The simple edition is a store app: on the web, a /pair link first helps
-  // the parent's phone install it (PairLanding), or links it right here in
-  // the browser (webPair). A code typed in (가족에게 받은 연결 코드가 있어요)
-  // goes straight to the web pairing screen.
-  if (pairCode && isSimple() && !Capacitor.isNativePlatform() && !webPair) {
+  // the parent's phone install it (PairLanding); only where the phone's store
+  // has no app does it link right here in the browser (webPair). 가족에게 받은
+  // 연결 코드가 있어요 on a phone with the app in its store also asks to
+  // install (then 코드 입력 in the app); on a computer it opens the code screen.
+  const typedOnPhoneWithStore = pairCode === '' && inStore(storeKind(navigator.userAgent))
+  if (pairCode !== null && (pairCode || typedOnPhoneWithStore) && isSimple() && !Capacitor.isNativePlatform() && !webPair) {
     const code = pairCode
     return (
       <div className="app">
@@ -421,6 +424,7 @@ function App() {
               window.history.replaceState(null, '', `/pair?c=${encodeURIComponent(code)}&web=1`)
               setWebPair(true)
             }}
+            onBack={code ? undefined : () => setPairCode(null)}
           />
         </main>
       </div>
