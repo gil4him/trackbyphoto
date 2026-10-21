@@ -72,3 +72,54 @@ export function pickActivePatient({ stored, selfUid, patientUids, names, preferP
   }
   return selfUid
 }
+
+// ── How a parent is addressed ──────────────────────────────────────────────
+// (docs/DAYLIE_V3_UI_FIX.md A10, both editions)
+
+/** Kin words are names in their own right: never 엄마님, always 엄마. */
+const KIN = ['엄마', '아빠', '어머니', '아버지', '할머니', '할아버지']
+
+/** A parent's name as the app addresses them: `엄마` (whether the stored
+ *  name is 엄마 or 엄마님) or `영희님`; a name that already ends in 님 is
+ *  left alone. */
+export function honorific(name: string): string {
+  const n = name.trim()
+  if (!n) return ''
+  const bare = n.replace(/\s*님$/, '')
+  if (KIN.includes(bare)) return bare
+  return n.endsWith('님') ? n : `${n}님`
+}
+
+/** Whether a Hangul syllable ends in a consonant (받침): 님 does, 마 doesn't. */
+function hasBatchim(s: string): boolean {
+  const c = s.codePointAt(s.length - 1) ?? 0
+  if (c < 0xac00 || c > 0xd7a3) return false
+  return (c - 0xac00) % 28 !== 0
+}
+
+const PARTICLES = { 가: '이', 는: '은', 를: '을', 와: '과' } as const
+
+/** `honorific` with the particle that follows it: 엄마가 · 영희님이,
+ *  엄마는 · 영희님은, 엄마를 · 영희님을, 엄마와 · 영희님과. */
+export function honorificWith(name: string, particle: keyof typeof PARTICLES): string {
+  const who = honorific(name)
+  if (!who) return ''
+  return who + (hasBatchim(who) ? PARTICLES[particle] : particle)
+}
+
+/**
+ * A line the worker wrote with `{name}님` at the front (`엄마님이 새 사진을
+ * 올렸어요`), re-addressed the way the app does: `엄마가 새 사진을 올렸어요`.
+ * Lines that start with anything else are returned as they are.
+ */
+export function addressed(line: string, name: string): string {
+  const n = name.trim().replace(/\s*님$/, '')
+  if (!n) return line
+  const re = new RegExp(`^${n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}님(이|가|은|는|을|를|과|와|의|께)?`)
+  return line.replace(re, (_, p?: string) => {
+    if (!p) return honorific(name)
+    if (p === '의' || p === '께') return honorific(name) + p
+    const base = ({ 이: '가', 가: '가', 은: '는', 는: '는', 을: '를', 를: '를', 과: '와', 와: '와' } as const)[p as '이']
+    return honorificWith(name, base)
+  })
+}

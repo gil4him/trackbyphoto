@@ -179,3 +179,118 @@ Decisions taken while building (D119): on the last photo the secondary button re
 - `npm run build:simple`, `npm run build:full`, `npm test` green; no new hard-coded hex outside `styles.css :root` (grep).
 - Elder screens unchanged in behaviour; no price/limit/warning text anywhere on them.
 - Screenshots saved to `docs/v3-ui/A<n>-*.png` for review.
+
+---
+---
+
+# Round 2 — after the 2026-10-20 review (Phases A10 → A13 + UI QA)
+
+Same rules as the top of this file: one phase at a time, `STOP & REPORT`, same tone and colors (no new hex, no gradients),
+simple edition unless stated. **Every phase ends with the UI QA pass in §Q below — a phase is not done until §Q passes.**
+
+## Phase A10 — Child home: the family dashboard; the parent's day loses its buttons (simple only)
+
+Files: `pages/Home.tsx`, `App.tsx`, `components/ConnectParentCard.tsx`, new `components/PatientCard.tsx`, `lib/people.ts`, `styles.css`
+
+Home while on **내 계정** (`isSelf`):
+- Keep the date eyebrow + `{name}님, 안녕하세요` (34/800). Under it, **one `PatientCard` per connected parent**, newest activity first:
+  - Row 1: avatar circle 48 (`var(--accent-tint)`, initial), `{parentName}의 하루` 17/800, caption `사진 n장 · 마지막 오전 10:10` 15 muted, right `보기 ›` 15/700 muted.
+  - Row 2: today's three newest thumbnails (square, radius 12, equal thirds). Zero today → one dim card line `오늘 아직 사진이 없어요 · 어제 사진 7장`.
+  - Row 3 (only when something is unread for this viewer): pill `새 소식` (`var(--accent-tint)` + `var(--accent-line)`) + the newest item's title and time, one line, ellipsis.
+  - **No action buttons on the card.** The whole card is one tap target → that parent's day (the timeline home).
+- Under the cards: eyebrow `내 오늘 · 사진 n장` and a horizontal strip of the child's own photos today (52px squares) ending in a dashed `+` that opens the camera. Zero → the dashed `+` alone with `카메라 버튼으로 남겨요`.
+- No parent connected → `ConnectParentCard` alone, as today.
+- Remove the top notice banner (`엄마님이 새 사진을 올렸어요`) from the self home; the card's `새 소식` pill replaces it. Keep the banner on other tabs as is.
+
+Parent's day (the timeline home while viewing a parent) — **no action buttons** (decided 2026-10-20):
+- Hearts and words are given on each photo (MemoDetail), never from the day page.
+- **Remove** the big `엄마님께 사진 보내기` button. The `보낸 사진` section at the end of the timeline gets a header row:
+  eyebrow `보낸 사진 · n장` on the left, link `📷 사진 보내기 ›` (15/700, `var(--ink)`) on the right, which opens the existing family-photo send. Zero sent → the row alone with `아직 보낸 사진이 없어요`.
+
+Honorific (both editions, `lib/people.ts`): when a parent's display name is one of 엄마 · 아빠 · 어머니 · 아버지 · 할머니 · 할아버지 (with or without a trailing 님), never append `님` again: `엄마가 새 사진을 올렸어요`, `엄마의 하루`, `엄마께 사진 보내기`. Other names keep `님`. Add a unit test.
+
+**STOP & REPORT** (screenshots: self home with 1 parent, with 2 parents, with no parent; parent's day with the button row; the honorific test).
+
+---
+
+## Phase A11 — Parent camera: iPhone-camera layout (simple only) — revised 2026-10-20
+
+Files: `pages/ElderCamera.tsx`, `styles.css` (Simple edition sections). Capture/upload path untouched. **The viewfinder itself and the app's colors do not change.**
+
+- Bottom: a **solid black bar** (`#000`), height `200pt + env(safe-area-inset-bottom)`, exactly like the iPhone Camera app. The viewfinder ends where the bar starts (no overlap).
+- Inside the bar, **three controls on ONE horizontal centre line**, `justify-content: space-between` in a centred row of width `min(100% − 52pt, 340pt)`:
+  - Left — `내 사진`: a **76pt circle showing the parent's most recent photo** (`border-radius: 50%`, `object-fit: cover`; today's newest memo thumbnail, else the newest ever; none yet → `var(--surface-dim)` circle with a photos glyph), 2pt white border. All three controls are circles so the bar reads as one balanced row. Tap = 내 사진 as today.
+  - Centre — shutter: 112pt white circle, 6pt `var(--accent)` inner ring, 3pt white outer halo. Unchanged behaviour.
+  - Right — flip: 76pt circle `rgba(255,255,255,.22)` with a **44pt** white flip glyph (bigger than today). Unchanged behaviour.
+  - Under each control a label 15/800 white: `내 사진` · `사진 찍기` · `전환` (labels sit on the black bar, no pill).
+- Top overlays stay where they are but use one surface: news bubble `rgba(0,0,0,.62)` white text, orange icon circle 48, title 26/800, second line 22 at 85% white, radius 24, 1px border `rgba(255,255,255,.14)`; the re-view banner the same at `.42` with a white-20% icon circle; sent/seen toasts the same at `.78`. No mint or white pills over the viewfinder.
+- Permission question (`ElderAsk`) and denied state: unchanged layout; their buttons keep the tokens.
+
+**STOP & REPORT** (screenshots: viewfinder with bubble + banner, bottom bar on 360 and 430 widths, 내 사진 thumbnail with and without a photo).
+
+---
+
+## Phase A12 — Family photo viewer: full photo, one big button (simple only)
+
+Files: `pages/FamilyPhotoViewer.tsx`, `styles.css`
+
+- Top row (56pt): left `{sender}이 보냈어요` 24/800 muted; right **progress dots** (current = 20×8 orange pill, others 8px `var(--line)`), one per unseen photo in this run. 10+ photos → `1 / 12` text instead of dots.
+- Photo: full content width, **its own aspect ratio** (`object-fit: cover` inside a box whose height = width × photo h/w, capped at 60vh; above the cap use `contain` on `var(--surface)` — never black bars). Radius 20.
+- Under it: message 26/800 centred, max 2 lines; caption `오후 8:40 · 1 / 3` 20 muted.
+- Actions, pinned above the safe area: `❤️ 고마워요` 72pt filled; under it one row of two equal outline buttons 56pt: `글로 답하기` · `다음 사진 ›` (last photo: `처음으로 ›`). `글로 답하기` (wording decided 2026-10-20; not 말로) opens the phrase panel (no keyboard), as today.
+- Short screens (≤ 700pt tall): the photo cap drops to 44vh so the three actions always fit without scrolling.
+
+**STOP & REPORT** (screenshots: 1/3, last photo, phrase panel open, on 360×780 and 430×932).
+
+---
+
+## Phase A13 — One memo row everywhere, map on the parent's day (both editions)
+
+Files: new `components/MemoRow.tsx`, `pages/Home.tsx`, `pages/Today.tsx`, `pages/Trail.tsx`, `styles.css`
+
+- `MemoRow` = thumbnail 52 (radius 10) · title 17/700 max 2 lines · meta 15 muted `장소 · 카테고리 · ♥ 이름 · 💬 n`. Card: `var(--surface)`, 1.5px `var(--line)`, radius 14, padding 8, min height 68. Optional `badge` (number 1…n, 20px orange circle at the thumbnail's top-left) and `time` (left rail label).
+- Home (parent's day): the timeline keeps its rail (time 15/800 + line + dot) but every item is a `MemoRow` with `badge` = order of the day (1 = first photo).
+- 사진 tab: date headers + `MemoRow` (no rail, no badge).
+- 다녀온 곳: the same rows with `badge`, under the map; the list and the map pins share the numbers.
+- The small map moves **onto the parent's day**, directly under the header caption (there is no button row): 150pt tall, radius 14, pins numbered, label pill `다녀온 곳 n ›` → opens the full 다녀온 곳 page. Home never loads map tiles until the box is on screen (lazy).
+- Delete the three old card styles once nothing uses them.
+
+**STOP & REPORT** (screenshots: home, 사진, 다녀온 곳 side by side on one width).
+
+---
+
+## §Q — UI QA pass (run at the end of EVERY phase; paste the prompt in §Q.3)
+
+### Q.1 Rules that every screen must satisfy
+- **Nothing cut off**: no text clipped or overflowing its box, no button past the screen edge, no content hidden under the tab bar / FAB / safe area. `word-break: keep-all; overflow-wrap: anywhere` on all Korean text; every fixed bar adds `env(safe-area-inset-*)`.
+- **No horizontal scroll** on any page at any width below.
+- **Sizes**: family text ≥ 15px (tab labels 13); parent text ≥ 26px; touch targets ≥ 48×48 (parent ≥ 60×60); buttons in one row are the same height and width.
+- **Balance**: elements that are siblings share one shape, radius and size (three circles, two equal buttons, equal thumbnails); content is centred within the 480px column; gutters 16/24 consistent.
+- **Tokens only**: no new hex outside `styles.css :root`; no gradients on UI; dark text on orange; contrast ≥ 4.5:1 for body, ≥ 3:1 for ≥ 24px.
+- **States**: every list has an empty state; every primary button has a disabled state that still shows why.
+
+### Q.2 Device matrix (use `e2e/shot-kit.mjs`; add the widths if missing)
+| name | viewport | text scale |
+|---|---|---|
+| iPhone SE | 375 × 667 | 100% |
+| Galaxy S24 | 360 × 780 | 100% |
+| iPhone 15 | 393 × 852 | 100% and **130%** (iOS Larger Text) |
+| Pixel 8 | 412 × 915 | 100% |
+| iPhone 15 Pro Max | 430 × 932 | 100% |
+| Parent phone, 큰 글자 | 393 × 852 | 설정 › 글자 크기 = 가장 크게 |
+
+Every screen the phase touched is captured on every row above, light theme, Korean. Save as `docs/v3-ui/<phase>-<screen>-<width>[-L].png`.
+
+### Q.3 The QA prompt (paste after each phase's "done")
+```
+Run the UI QA pass in docs/DAYLIE_V3_UI_FIX.md §Q for Phase <A1x>.
+1. Capture every screen this phase touched on all six rows of the Q.2 device matrix with e2e/shot-kit.mjs
+   (add missing widths and the 130% text-scale run if they are not there). Save to docs/v3-ui/.
+2. Open each screenshot and check Q.1 line by line: clipped or overflowing text, anything under the tab bar,
+   FAB or safe area, horizontal scroll, text below the minimum sizes, touch targets below 48 (parent 60),
+   sibling elements with different shapes or sizes, new hex colors, missing empty/disabled states.
+3. Also grep: `rg -n "#[0-9A-Fa-f]{6}" app/src --glob '!styles.css'` must add nothing new;
+   `rg -n "gradient" app/src/styles.css` must show only the photo-placeholder gradients.
+4. Fix every finding in this phase's files only, re-capture, and repeat until the matrix is clean.
+5. Report as a table: screen × device → OK / what was fixed. Then STOP.
+```

@@ -5,6 +5,7 @@ import { db } from '../firebase'
 import type { DigestSettings, UserSettings, Memo, MemoStyle } from '../types'
 import { useToast } from '../components/Toast'
 import { useMemberships, type LiveMembership } from '../hooks/useMemberships'
+import { honorific, honorificWith } from '../lib/people'
 import type { Person } from '../lib/people'
 import { isWorkerOffline, WorkerError, WORKER_OFFLINE_MESSAGE } from '../lib/worker'
 import {
@@ -112,11 +113,11 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
     // Leave the parent's screens first: their live views would otherwise
     // fail with permission errors the moment their data is erased.
     if (activePatientUid === patientUid) onSwitchPatient(user.uid)
-    toast.show(`${name}님을 삭제하는 중…`)
+    toast.show(`${honorificWith(name, '를')} 삭제하는 중…`)
     try {
       await deleteManagedElder(patientUid)
       setDeleteTarget(null)
-      toast.show(`${name}님을 삭제했어요`)
+      toast.show(`${honorificWith(name, '를')} 삭제했어요`)
     } catch (err) {
       console.error('[elder] delete failed', err)
       if (activePatientUid === patientUid) onSwitchPatient(patientUid)
@@ -228,10 +229,10 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
 
   // 함께 보는 가족 → 빼기: stop following someone (my own access only).
   const onLeave = async (patientUid: string, name: string) => {
-    if (!confirm(`${name}님을 내 목록에서 뺄까요?\n${name}님의 사진과 기록은 그대로 남고, 나만 더 이상 볼 수 없게 돼요.`)) return
+    if (!confirm(`${honorificWith(name, '를')} 내 목록에서 뺄까요?\n${honorific(name)}의 사진과 기록은 그대로 남고, 나만 더 이상 볼 수 없게 돼요.`)) return
     try {
       await revokeMembership({ patientUid, caregiverUid: user.uid })
-      toast.show(`${name}님을 목록에서 뺐어요`)
+      toast.show(`${honorificWith(name, '를')} 목록에서 뺐어요`)
     } catch (err) {
       console.error('[leave] failed', err)
       toast.show('빼지 못했어요', isWorkerOffline(err) ? WORKER_OFFLINE_MESSAGE : '잠시 후 다시 시도해 주세요')
@@ -369,9 +370,9 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
           <div className="modal">
             <div className="modal-title">음성 답장 동의</div>
             <div className="modal-body">
-              <p>{isSelf ? '아래 내용에 동의합니다.' : `${settings.patientName}님을 대신해 아래 내용에 동의합니다.`}</p>
+              <p>{isSelf ? '아래 내용에 동의합니다.' : `${honorificWith(settings.patientName, '를')} 대신해 아래 내용에 동의합니다.`}</p>
               <ul className="consent-list">
-                <li>{settings.patientName}님이 남기는 음성 답장(15초 이내 녹음)을 저장해요.</li>
+                <li>{honorificWith(settings.patientName, '가')} 남기는 음성 답장(15초 이내 녹음)을 저장해요.</li>
                 <li>녹음을 글로 받아쓰고, 녹음과 글을 가족에게 보여줘요.</li>
                 <li>받아쓰기는 외부 서비스로 보내지 않고 우리 서버에서만 해요.</li>
               </ul>
@@ -389,9 +390,9 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
       {deleteTarget && (
         <div className="modal-backdrop" role="dialog" aria-modal="true">
           <div className="modal">
-            <div className="modal-title">{deleteTarget.name}님을 삭제할까요?</div>
+            <div className="modal-title">{honorificWith(deleteTarget.name, '를')} 삭제할까요?</div>
             <div className="modal-body">
-              <p>{deleteTarget.name}님의 사진·기록·설정이 모두 지워지고, 연결된 휴대폰과 가족 모두 더 이상 볼 수 없어요. 되돌릴 수 없어요.</p>
+              <p>{honorific(deleteTarget.name)}의 사진·기록·설정이 모두 지워지고, 연결된 휴대폰과 가족 모두 더 이상 볼 수 없어요. 되돌릴 수 없어요.</p>
             </div>
             <div className="modal-actions">
               <button className="signin-secondary" disabled={deleteBusy} onClick={() => setDeleteTarget(null)}>취소</button>
@@ -492,7 +493,7 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
   const leaveQuietly = async (patientUid: string, name: string) => {
     try {
       await revokeMembership({ patientUid, caregiverUid: user.uid })
-      toast.show(`${name}님을 목록에서 뺐어요`)
+      toast.show(`${honorificWith(name, '를')} 목록에서 뺐어요`)
     } catch (err) {
       console.error('[leave] failed', err)
       toast.show('빼지 못했어요', isWorkerOffline(err) ? WORKER_OFFLINE_MESSAGE : '잠시 후 다시 시도해 주세요')
@@ -548,7 +549,7 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
                       <b>{p.name}</b>
                       <span> · {mine ? '내가 등록한 부모님' : p.membership.role === 'viewer' ? '뷰어' : '관리자'}</span>
                     </div>
-                    <button type="button" className="more-btn" aria-label={`${p.name}님 더보기`} aria-haspopup="dialog" onClick={() => setRowMenu({ kind: 'person', patientUid: p.patientUid, name: p.name, mine })}>⋯</button>
+                    <button type="button" className="more-btn" aria-label={`${honorific(p.name)} 더보기`} aria-haspopup="dialog" onClick={() => setRowMenu({ kind: 'person', patientUid: p.patientUid, name: p.name, mine })}>⋯</button>
                   </div>
                 )
               })}
@@ -641,10 +642,10 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
           <BottomSheet onClose={() => setRowMenu(null)}>
             {rowMenu.kind === 'person' ? (
               <>
-                <button type="button" className="sheet-item" onClick={() => { setRowMenu(null); onSwitchPatient(rowMenu.patientUid) }}>{rowMenu.name}님 기록 보기</button>
+                <button type="button" className="sheet-item" onClick={() => { setRowMenu(null); onSwitchPatient(rowMenu.patientUid) }}>{honorific(rowMenu.name)} 기록 보기</button>
                 {rowMenu.mine
-                  ? <button type="button" className="sheet-item danger sep" onClick={() => { setRowMenu(null); setDeleteTarget({ patientUid: rowMenu.patientUid, name: rowMenu.name }) }}>{rowMenu.name}님 삭제</button>
-                  : <button type="button" className="sheet-item danger sep" onClick={() => { const { patientUid, name } = rowMenu; setRowMenu(null); setAsk({ title: `${name}님을 내 목록에서 뺄까요?`, sub: `${name}님의 사진과 기록은 그대로 남고, 나만 더 이상 볼 수 없게 돼요.`, label: '빼기', run: () => leaveQuietly(patientUid, name) }) }}>내 목록에서 빼기</button>}
+                  ? <button type="button" className="sheet-item danger sep" onClick={() => { setRowMenu(null); setDeleteTarget({ patientUid: rowMenu.patientUid, name: rowMenu.name }) }}>{honorific(rowMenu.name)} 삭제</button>
+                  : <button type="button" className="sheet-item danger sep" onClick={() => { const { patientUid, name } = rowMenu; setRowMenu(null); setAsk({ title: `${honorificWith(name, '를')} 내 목록에서 뺄까요?`, sub: `${honorific(name)}의 사진과 기록은 그대로 남고, 나만 더 이상 볼 수 없게 돼요.`, label: '빼기', run: () => leaveQuietly(patientUid, name) }) }}>내 목록에서 빼기</button>}
               </>
             ) : (
               <>
@@ -727,8 +728,8 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
                 <div className="send-row">
                   <button className="send-btn" onClick={() => onSwitchPatient(p.patientUid)}>보기</button>
                   {mine
-                    ? <button className="send-btn send-del" onClick={() => setDeleteTarget({ patientUid: p.patientUid, name: p.name })} aria-label={`${p.name}님 삭제`} title="삭제">삭제</button>
-                    : <button className="send-btn send-del" onClick={() => onLeave(p.patientUid, p.name)} aria-label={`${p.name}님 목록에서 빼기`} title="빼기">✕</button>}
+                    ? <button className="send-btn send-del" onClick={() => setDeleteTarget({ patientUid: p.patientUid, name: p.name })} aria-label={`${honorific(p.name)} 삭제`} title="삭제">삭제</button>
+                    : <button className="send-btn send-del" onClick={() => onLeave(p.patientUid, p.name)} aria-label={`${honorific(p.name)} 목록에서 빼기`} title="빼기">✕</button>}
                 </div>
               </div>
             )
@@ -746,9 +747,9 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
         const senders = fp.senders === 'admins' ? 'admins' : 'all'
         return (
           <div className="sect">
-            <SectLab info={!enabled ? `${settings.patientName}님 휴대폰에 가족이 보낸 사진이 카드로 보여요. 사진을 보면 하트나 짧은 답장을 보낼 수 있어요.` : senders === 'admins' ? '대표 가족과 관리자만 사진을 보낼 수 있어요.' : '함께 보는 가족 모두 사진을 보낼 수 있어요. 한 사람이 하루 10장까지예요.'}>가족 사진</SectLab>
+            <SectLab info={!enabled ? `${honorific(settings.patientName)} 휴대폰에 가족이 보낸 사진이 카드로 보여요. 사진을 보면 하트나 짧은 답장을 보낼 수 있어요.` : senders === 'admins' ? '대표 가족과 관리자만 사진을 보낼 수 있어요.' : '함께 보는 가족 모두 사진을 보낼 수 있어요. 한 사람이 하루 10장까지예요.'}>가족 사진</SectLab>
             <div className="row">
-              <div className="who"><b>가족이 보낸 사진 받기</b><br /><span>{settings.patientName}님 휴대폰에 카드로 보여요. 사진을 보면 하트나 짧은 답장을 보낼 수 있어요.</span></div>
+              <div className="who"><b>가족이 보낸 사진 받기</b><br /><span>{honorific(settings.patientName)} 휴대폰에 카드로 보여요. 사진을 보면 하트나 짧은 답장을 보낼 수 있어요.</span></div>
               <button
                 className={`switch ${enabled ? 'on' : ''}`}
                 role="switch"
@@ -914,7 +915,7 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
 
       {digestRollout && canManageHere && (
         <div className="sect">
-          <SectLab info={`${settings.patientName}님의 하루를 두세 문장으로 정리해 가족에게 보내요. 사진이 없는 날은 보내지 않아요. 받는 방법은 알림 탭에서 고를 수 있어요.`}>하루 요약</SectLab>
+          <SectLab info={`${honorific(settings.patientName)}의 하루를 두세 문장으로 정리해 가족에게 보내요. 사진이 없는 날은 보내지 않아요. 받는 방법은 알림 탭에서 고를 수 있어요.`}>하루 요약</SectLab>
           <div className="seg">
             <button className={digest.cadence === 'daily' ? 'on' : ''} disabled={digestBusy} onClick={() => changeDigest({ cadence: 'daily' })}>매일 저녁</button>
             <button className={digest.cadence === 'weekly' ? 'on' : ''} disabled={digestBusy || !weeklyIncluded} onClick={() => changeDigest({ cadence: 'weekly' })}>
@@ -978,9 +979,9 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
 
       {reactionsRollout && canManageHere && (
         <div className="sect">
-          <SectLab info={textReplies === 'off' ? `${settings.patientName}님은 하트${settings.voiceEnabled ? '와 목소리' : ''}로만 답해요.`
-              : textReplies === 'full' ? `${settings.patientName}님이 직접 써서 답해요. “고마워” 같은 짧은 답장도 바로 아래에 있어요.`
-              : `${settings.patientName}님이 “고마워”, “밥 먹었어” 같은 짧은 답장을 한 번 눌러 보낼 수 있어요. 자판은 나오지 않아요.`}>글로 답장</SectLab>
+          <SectLab info={textReplies === 'off' ? `${honorificWith(settings.patientName, '는')} 하트${settings.voiceEnabled ? '와 목소리' : ''}로만 답해요.`
+              : textReplies === 'full' ? `${honorificWith(settings.patientName, '가')} 직접 써서 답해요. “고마워” 같은 짧은 답장도 바로 아래에 있어요.`
+              : `${honorificWith(settings.patientName, '가')} “고마워”, “밥 먹었어” 같은 짧은 답장을 한 번 눌러 보낼 수 있어요. 자판은 나오지 않아요.`}>글로 답장</SectLab>
           <div className="seg">
             <button className={textReplies === 'off' ? 'on' : ''} onClick={() => update('textReplies', 'off')}>끄기</button>
             <button className={textReplies === 'quick' ? 'on' : ''} onClick={() => update('textReplies', 'quick')}>짧은 답장만</button>
@@ -991,9 +992,9 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
 
       {voiceRollout && canManageHere && (
         <div className="sect">
-          <SectLab info={`처음 말할 때 ${settings.patientName}님 휴대폰이 마이크 사용을 한 번 물어봐요.`}>음성 답장</SectLab>
+          <SectLab info={`처음 말할 때 ${honorific(settings.patientName)} 휴대폰이 마이크 사용을 한 번 물어봐요.`}>음성 답장</SectLab>
           <div className="row">
-            <div className="who"><b>목소리로 답장 받기</b><br /><span>{settings.patientName}님이 버튼을 꾹 누르고 말하면 가족에게 전해져요</span></div>
+            <div className="who"><b>목소리로 답장 받기</b><br /><span>{honorificWith(settings.patientName, '가')} 버튼을 꾹 누르고 말하면 가족에게 전해져요</span></div>
             <button
               className={`switch ${settings.voiceEnabled ? 'on' : ''}`}
               role="switch"
@@ -1073,7 +1074,7 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
         <div className="sect">
           <SectLab info="잘못 등록했거나 더 이상 쓰지 않을 때만 사용하세요. 사진과 기록이 모두 지워지고 되돌릴 수 없어요.">부모님 삭제</SectLab>
           <button className="linkbtn danger-btn" onClick={() => setDeleteTarget({ patientUid: activePatientUid, name: settings.patientName })}>
-            <span>{settings.patientName}님 삭제하기</span>
+            <span>{honorific(settings.patientName)} 삭제하기</span>
           </button>
         </div>
       )}

@@ -1,3 +1,4 @@
+import { honorificWith } from './people'
 // The simple edition's consent wording (simple/Daylie-v3-Simple-Core.md §5).
 // The family consents on the parent's behalf when registering
 // (RegisterElder); the parent's phone shows one screen once it is linked
@@ -24,7 +25,7 @@ export const SIMPLE_CONSENT_DETAILS = [
 /** The family's consent on the parent's behalf (no voice replies here). */
 export function simpleGuardianConsent(name: string): string[] {
   return [
-    `${name}님이 찍은 사진과 자동으로 작성된 메모(시간·장소 이름)를 저장하고 처리해요.`,
+    `${honorificWith(name, '가')} 찍은 사진과 자동으로 작성된 메모(시간·장소 이름)를 저장하고 처리해요.`,
     `그 사진과 메모를 연결된 가족에게 보여줘요.`,
   ]
 }

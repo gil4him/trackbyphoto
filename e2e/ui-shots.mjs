@@ -5,6 +5,8 @@
 //
 //   UI_PHASE=A0 (default)   which phase's set of screens
 //   UI_ONLY=<name,...>      only those screens
+//   UI_MATRIX=1             every screen on the §Q.2 device matrix instead
+//                           (<phase>-<screen>-<width>[-L].png) with the §Q.1 audit
 
 import { mkdir } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
@@ -12,9 +14,9 @@ import { fileURLToPath } from 'node:url'
 import { initializeApp } from 'firebase-admin/app'
 import { FieldValue, getFirestore, Timestamp } from 'firebase-admin/firestore'
 import { serveSite } from './servers.mjs'
-import { seedDemoFamily, seedFamilyPhotos, seedTodayMemos } from './demo-seed.mjs'
+import { seedDemoFamily, seedFamilyPhotos, seedSecondParent, seedTodayMemos } from './demo-seed.mjs'
 import { spawn } from 'node:child_process'
-import { click, elderSession, FAKE_CAMERA_ARGS, familyAccount, launchBrowser, openPage, settle, sleep, tab, waitText } from './shot-kit.mjs'
+import { audit, click, elderSession, FAKE_CAMERA_ARGS, familyAccount, launchBrowser, openPage, QA_MATRIX, settle, sleep, tab, textScale, waitText } from './shot-kit.mjs'
 import { serveFakeModel } from './servers.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -102,13 +104,25 @@ const PHASES = {
   A5: {
     'settings-parent': { as: momUid, go: async (p) => { await home(p, '엄마'); await tab(p, '설정'); await waitText(p, '도움말') } },
     'settings-self':   { as: self, go: async (p) => { await home(p, '안녕하세요'); await tab(p, '설정'); await waitText(p, '함께 보는 가족') } },
-    'settings-menu':   { as: self, go: async (p) => { await home(p, '안녕하세요'); await tab(p, '설정'); await waitText(p, '함께 보는 가족'); await click(p, '엄마님 더보기'); await waitText(p, '엄마님 삭제'); await sleep(400) } },
+    'settings-menu':   { as: self, go: async (p) => { await home(p, '안녕하세요'); await tab(p, '설정'); await waitText(p, '함께 보는 가족'); await click(p, '엄마 더보기'); await waitText(p, '엄마 삭제'); await sleep(400) } },
     'settings-bottom': { as: self, go: async (p) => { await home(p, '안녕하세요'); await tab(p, '설정'); await waitText(p, '계정 삭제하기'); await p.evaluate(() => document.querySelector('.quiet-link')?.scrollIntoView({ block: 'end' })); await sleep(300) } },
   },
   A7: {
     'home-trail':  { as: momUid, prepare: () => seedTodayMemos({ momUid, kidUid: self, kidName: KID.name, count: 9 }), go: (p) => home(p, '다녀온 곳') },
     'trail':       { as: momUid, go: async (p) => { await home(p, '다녀온 곳'); await click(p, '다녀온 곳', '.day-trail'); await waitText(p, '오늘 다녀온 곳'); await sleep(4000) } },
     'photos-link': { as: momUid, go: async (p) => { await home(p, '엄마'); await tab(p, '사진'); await waitText(p, '다녀온 곳 ›') } },
+  },
+  // A10: the family dashboard. One parent with three photos today and an
+  // unread notice, then a second parent (아빠, quiet today); nobody linked;
+  // the parent's day ending in the 보낸 사진 row.
+  A10: {
+    'home-self-1':    { as: self, prepare: async () => {
+      await seedTodayMemos({ momUid, kidUid: self, kidName: KID.name, count: 3 })
+      await getFirestore().collection('notifications').add({ recipientUid: self, patientUid: momUid, actorUid: momUid, type: 'photo.new', message: '엄마님이 새 사진을 올렸어요', memoId: '', read: false, createdAt: FieldValue.serverTimestamp() })
+    }, go: (p) => home(p, '엄마의 하루') },
+    'home-self-2':    { as: self, prepare: () => seedSecondParent({ kidUid: self, kidName: KID.name, name: '아빠', yesterday: 2 }), go: (p) => home(p, '아빠의 하루') },
+    'home-no-parent': { account: newcomer, go: (p) => home(p, '엄마 연결하기') },
+    'parent-day':     { as: momUid, go: (p) => home(p, '보낸 사진 · 1장') },
   },
 }
 // ── A6: the parent's phone. Pairing needs the worker, so it runs here with
@@ -257,24 +271,42 @@ if (PHASE === 'A6' || PHASE === 'A9') {
 const screens = PHASES[PHASE]
 if (!screens) throw new Error(`no screens defined for phase ${PHASE}`)
 
+// One picture per screen on the chosen device, or (UI_MATRIX=1) one per row
+// of the §Q.2 matrix, each with the §Q.1 audit's findings printed under it.
+const rows = process.env.UI_MATRIX === '1' ? QA_MATRIX : [{ id: null, device: DEVICE }]
+const findings = {}
 try {
   for (const [name, { as, go, prepare, account }] of Object.entries(screens)) {
     if (only && !only.has(name)) continue
     if (prepare) await prepare()
     const who = account ? await account() : acct
     const kid = account ? KID2 : KID
-    const p = await openPage(browser, { device: DEVICE, acct: who, kid, activePatient: account ? undefined : as })
-    const file = join(OUT, `${PHASE}-${name}.png`)
-    try {
-      await go(p)
-      await settle(p)
-      await p.screenshot({ path: file })
-      console.log('  ', `${PHASE}-${name}.png`)
-    } catch (err) {
-      console.log(`   ${name} FAILED: ${String(err.message).split('\n')[0]}`)
-      await p.screenshot({ path: join(OUT, `FAIL-${PHASE}-${name}.png`) }).catch(() => {})
+    for (const row of rows) {
+      const file = row.id ? `${PHASE}-${name}-${row.id}.png` : `${PHASE}-${name}.png`
+      const p = await openPage(browser, { device: row.device, acct: who, kid, activePatient: account ? undefined : as })
+      try {
+        await go(p)
+        await settle(p)
+        // The parent's 글자 크기 (App sets the root size from the setting; the demo accounts have it on).
+        if (row.bigText) await p.evaluate(() => { document.documentElement.style.fontSize = '17px' })
+        if (row.textScale) { await textScale(p, row.textScale); await sleep(300) }
+        if (row.id) {
+          const found = await audit(p)
+          findings[file] = found
+          for (const f of found) console.log(`      ! ${f}`)
+        }
+        await p.screenshot({ path: join(OUT, file) })
+        console.log('  ', file, row.id && !findings[file].length ? 'OK' : '')
+      } catch (err) {
+        console.log(`   ${file} FAILED: ${String(err.message).split('\n')[0]}`)
+        await p.screenshot({ path: join(OUT, `FAIL-${file}`) }).catch(() => {})
+      }
+      await p.browserContext().close()
     }
-    await p.browserContext().close()
+  }
+  if (rows[0].id) {
+    const bad = Object.entries(findings).filter(([, f]) => f.length)
+    console.log(bad.length ? `audit: ${bad.length} picture(s) with findings` : 'audit: clean')
   }
   console.log(`pictures in ${OUT}`)
 } finally {

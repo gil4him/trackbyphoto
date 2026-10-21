@@ -1,5 +1,6 @@
 // UI strings for v2 (docs/DAYLIE_V2_BUILD.md, Appendix A), easy 존댓말.
 // "어머니" in the guide is the patient's display name here.
+import { honorific } from './people'
 
 /** Subject particle: 민수가 / 지은이. */
 export function subject(name: string): string {
@@ -46,7 +47,7 @@ export const S = {
   familyPhotoAllSeen: '다 보셨어요 ♥',
   familyPhotoToCamera: '처음으로 ›',
   familyPhotoSend: '사진 보내기',
-  familyPhotoSendTitle: (name: string) => `${name}님께 사진 보내기`,
+  familyPhotoSendTitle: (name: string) => `${honorific(name)}께 사진 보내기`,
   familyPhotoCaption: '한마디 (선택)',
   familyPhotoSent: '사진을 보냈어요',
   familyPhotoLimit: '오늘은 사진 10장까지 보낼 수 있어요',

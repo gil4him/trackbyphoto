@@ -3,6 +3,7 @@ import { DIGEST_TILES, loadDigest, loadDigestMemos, placesVisited, repliesSummar
 import { TrailSketch } from '../components/TrailSketch'
 import { trailStops } from '../lib/trail'
 import type { Digest, Memo } from '../types'
+import { honorific } from '../lib/people'
 
 const TITLE: Record<Digest['kind'], string> = { daily: '오늘 하루', weekly: '이번 주 하이라이트', monthly: '지난달 앨범' }
 
@@ -23,7 +24,7 @@ export function DigestView({ digest, memos, onOpenMemo, onMore, onOpenTrail }: {
   return (
     <>
       <div className="h-eyebrow">{digest.label} · 사진 {digest.photoCount}장</div>
-      <h2 className="h-title">{digest.patientName}님의 {TITLE[digest.kind]}</h2>
+      <h2 className="h-title">{honorific(digest.patientName)}의 {TITLE[digest.kind]}</h2>
 
       {digest.title && <h3 className="dg-title">{digest.title}</h3>}
       <p className="dg-summary">{digest.summary}</p>
@@ -41,7 +42,7 @@ export function DigestView({ digest, memos, onOpenMemo, onMore, onOpenTrail }: {
 
       {replies && (
         <div className="sect">
-          <div className="sect-lab">{digest.patientName}님의 답장</div>
+          <div className="sect-lab">{honorific(digest.patientName)}의 답장</div>
           <div className="dg-replies">
             <div><b>{replies}</b></div>
             {[...(digest.replies.texts ?? []), ...digest.replies.transcripts].map((t, i) => <div key={i} className="dg-quote">“{t}”</div>)}

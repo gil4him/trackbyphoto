@@ -182,3 +182,41 @@ export async function seedTodayMemos({ momUid, kidUid, kidName, count = 9, now =
   }
   return ids.map((m) => m.id)
 }
+
+/**
+ * A second parent for the family's home with two cards (A10): registered and
+ * linked like seedDemoFamily's 엄마, with `yesterday` photos yesterday and
+ * none today, so the card shows its quiet line.
+ */
+export async function seedSecondParent({ kidUid, kidName, name = '아빠', yesterday = 2, now = Date.now() }) {
+  const db = getFirestore()
+  const bucket = getStorage().bucket()
+  const emulatorHost = process.env.FIREBASE_STORAGE_EMULATOR_HOST
+  const ts = (ms) => Timestamp.fromMillis(Math.round(ms))
+  const uid = (await getAuth().createUser({ displayName: name })).uid
+  await db.doc(`users/${uid}`).set({
+    patientName: name, recipients: [], cadence: 'daily', geoLang: 'ko', autoMode: true, bigText: true, retention: '90',
+    accountType: 'managed', voiceEnabled: false, createdBy: kidUid, lastModifiedBy: kidUid, lastModifiedAt: FieldValue.serverTimestamp(),
+  })
+  const share = await db.collection('consents').add({
+    patientUid: uid, grantedBy: 'guardian', guardianUid: kidUid, consentTextVersion: 'simple-v1', type: 'third_party_share', scope: '메모 + 위치 + 사진을 가족과 공유', timestamp: FieldValue.serverTimestamp(),
+  })
+  await db.doc(`memberships/${uid}_${kidUid}`).set({
+    patientUid: uid, caregiverUid: kidUid, caregiverName: kidName, role: 'guardian', status: 'active', invitedBy: kidUid,
+    consentId: share.id, createdAt: FieldValue.serverTimestamp(), acceptedAt: FieldValue.serverTimestamp(), revokedAt: null,
+  })
+  const times = ['09:20', '12:10', '16:45', '18:30']
+  for (let i = 0; i < Math.min(yesterday, times.length); i++) {
+    const src = MEMOS[(i + 2) % MEMOS.length]
+    const t = kst(now, 1, times[i])
+    const id = `${t}_${rand()}`
+    const photoPath = `photos/${uid}/${id}.jpg`
+    const photoUrl = await upload(bucket, photoPath, src.file, emulatorHost)
+    await db.doc(`memos/${id}`).set({
+      patientUid: uid, photoPath, photoUrl, takenAt: ts(t), createdAt: ts(t + 5000), tzOffsetMin: 540,
+      lat: src.lat, lng: src.lng, place: src.place, address: src.address, activity: src.activity, memo: src.memo, scene: src.scene,
+      status: 'ready', memoSource: 'local-llm', model: 'gemma4:e4b', notifiedAt: ts(t + 30000),
+    })
+  }
+  return { uid }
+}

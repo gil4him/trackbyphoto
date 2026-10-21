@@ -10,10 +10,12 @@ vi.mock('../hooks/useOutbox', () => ({ useOutbox: () => [] }))
 vi.mock('../hooks/useAppUpdate', () => ({ noteCaptureStarted: vi.fn() }))
 vi.mock('../components/MemoThumb', () => ({ MemoThumb: () => <span className="tl-thumb" /> }))
 vi.mock('../hooks/useWorkerStatus', () => ({ useWorkerStatus: () => 'up' }))
+vi.mock('../lib/familyPhotos', () => ({ removeFamilyPhoto: vi.fn(async () => {}), sendFamilyPhoto: vi.fn(async () => {}) }))
 
 import { Home, ParentDayHome } from './Home'
 import { ConnectParentCard } from '../components/ConnectParentCard'
-import type { Reaction } from '../types'
+import { SentFamilyPhotos } from '../components/SendFamilyPhoto'
+import type { AppNotification, FamilyPhoto, Reaction } from '../types'
 import { ToastProvider } from '../components/Toast'
 import type { Memo } from '../types'
 
@@ -125,28 +127,103 @@ describe("ParentDayHome (simple edition: the parent's day)", () => {
   })
 })
 
-describe('Home in the simple edition (one\'s own)', () => {
-  it('has no 사진 찍기 or 지난 기록 button: the camera is the floating button', () => {
-    const out = render({ simple: true, memos: [memo(1)] })
+describe("Home in the simple edition: the family dashboard (A10)", () => {
+  const now = new Date(2026, 9, 4, 20, 0)
+  const at = (h: number, mi: number, dayOffset = 0) => { const d = new Date(2026, 9, 4 + dayOffset, h, mi); return { toDate: () => d, toMillis: () => d.getTime() } }
+  const pm = (uid: string, id: string, h: number, mi: number, dayOffset = 0) => ({ id, patientUid: uid, photoPath: `photos/${uid}/${id}.jpg`, status: 'ready', memo: `${id} 메모`, activity: '산책', place: '석촌호수', takenAt: at(h, mi, dayOffset) }) as unknown as Memo
+  const notice = (patientUid: string, message: string, h: number, mi: number) => ({ id: `n-${patientUid}`, recipientUid: 'me', patientUid, actorUid: patientUid, type: 'photo.new', message, read: false, createdAt: at(h, mi) }) as unknown as AppNotification
+  const mom = { uid: 'mom', name: '엄마', memos: [pm('mom', 'c', 15, 30), pm('mom', 'b', 10, 10), pm('mom', 'a', 8, 0), pm('mom', 'z', 9, 0, -1)] }
+  const dad = { uid: 'dad', name: '아빠', memos: [pm('dad', 'y1', 16, 0, -1), pm('dad', 'y2', 9, 0, -1)] }
+  const render = (props: Partial<Parameters<typeof Home>[0]> = {}) => renderToString(
+    <ToastProvider>
+      <Home uid="me" patientName="지민" greetingName="지민" memos={[]} onOpenAsk={() => {}} onOpen={() => {}} simple now={now} {...props} />
+    </ToastProvider>,
+  ).replace(/<!-- -->/g, '')
+
+  it('keeps the date and the greeting, and has no 사진 찍기 / 지난 기록 buttons, no notice banner, no old photo row', () => {
+    const out = render({ parents: [mom], notifications: [notice('mom', '엄마님이 새 사진을 올렸어요', 15, 31)] })
+    expect(out).toContain('10월 4일 (일)')
+    expect(out).toContain('지민님, 안녕하세요')
     expect(out).not.toContain('class="capbtn"')
     expect(out).not.toContain('class="askbtn"')
     expect(out).not.toContain('지난 기록')
-    expect(out).toContain('안녕하세요')
-    expect(out).toContain('class="recent-thumb"')
+    expect(out).not.toContain('notice-stack')
+    expect(out).not.toContain('recent-strip')
+    expect(out).not.toContain('오늘 하루를 기록해요')
+  })
+
+  it("one card per parent: 엄마의 하루, today's count and last time, three thumbnails, 보기 ›, no buttons inside", () => {
+    const out = render({ parents: [mom] })
+    expect(count(out, 'class="patient-card"')).toBe(1)
+    expect(out).toContain('엄마의 하루')
+    expect(out).not.toContain('엄마님')
+    expect(out).toContain('사진 3장 · 마지막 오후 3:30')
+    expect(count(out, 'class="pc-thumb"')).toBe(3)
+    expect(out).toContain('보기 ›')
+    expect(out).not.toContain('pc-news')
+    const card = out.slice(out.indexOf('<button type="button" class="patient-card"'), out.indexOf('class="mine"'))
+    expect(card.match(/<button/g)?.length).toBe(1)
+  })
+
+  it('새 소식 only while something is unread, re-addressed: 엄마가 새 사진을 올렸어요 · the time', () => {
+    const out = render({ parents: [{ ...mom, unread: notice('mom', '엄마님이 새 사진을 올렸어요', 15, 31) }] })
+    expect(out).toContain('class="pc-pill"')
+    expect(out).toContain('새 소식')
+    expect(out).toContain('엄마가 새 사진을 올렸어요')
+    expect(out).toContain('오후 3:31')
+  })
+
+  it("a quiet parent: the dim line with yesterday's count; two parents newest activity first", () => {
+    const out = render({ parents: [dad, mom] })
+    expect(count(out, 'class="patient-card"')).toBe(2)
+    expect(out).toContain('오늘 아직 사진이 없어요 · 어제 사진 2장')
+    expect(out.indexOf('엄마의 하루')).toBeLessThan(out.indexOf('아빠의 하루'))
+    const quiet = render({ parents: [{ ...dad, memos: [] }] })
+    expect(quiet).toContain('오늘 아직 사진이 없어요<')
+    expect(quiet).not.toContain('어제 사진')
+  })
+
+  it('내 오늘: the photos taken today as 52px squares, then the dashed +; none → the + and 카메라 버튼으로 남겨요', () => {
+    const mine = [pm('me', 'm2', 12, 0), pm('me', 'm1', 9, 0), pm('me', 'old', 9, 0, -1)]
+    const out = render({ parents: [mom], memos: mine })
+    expect(out).toContain('내 오늘 · 사진 2장')
+    expect(count(out, 'class="mine-thumb"')).toBe(2)
+    expect(out).toContain('class="mine-add"')
+    expect(out).not.toContain('카메라 버튼으로 남겨요')
+    const none = render({ parents: [mom] })
+    expect(none).toContain('내 오늘 · 사진 0장')
+    expect(none).toContain('class="mine-add"')
+    expect(none).toContain('카메라 버튼으로 남겨요')
   })
 })
 
-describe("ParentDayHome: 사진 보내기 (simple edition)", () => {
-  const now = new Date(2026, 9, 4, 20, 0)
-  const render = (props: Partial<Parameters<typeof ParentDayHome>[0]> = {}) => renderToString(
-    <ToastProvider>
-      <ParentDayHome parentName="엄마" memos={[]} home={null} onOpen={() => {}} onYesterday={() => {}} now={now} {...props} />
-    </ToastProvider>,
-  ).replace(/<!-- -->/g, '')
-  it('is an inline button under the day when the family may send, else absent', () => {
-    expect(render({ onSendPhoto: () => {} })).toContain('aria-label="사진 보내기"')
-    expect(render({ onSendPhoto: () => {} })).toContain('엄마님께 사진 보내기')
-    expect(render()).not.toContain('사진 보내기')
+describe("the 보낸 사진 row at the end of the parent's day (A10)", () => {
+  const photo = (id: string) => ({ id, patientUid: 'mom', senderUid: 'me', senderName: '지민', photoPath: `familyPhotos/mom/${id}.jpg`, photoUrl: `https://x/${id}.jpg`, caption: '보고 싶어요', status: 'ready', createdAtMs: Date.UTC(2026, 9, 4, 11) }) as unknown as FamilyPhoto
+  const render = (el: React.ReactNode) => renderToString(<ToastProvider>{el}</ToastProvider>).replace(/<!-- -->/g, '')
+
+  it('the day page has no 사진 보내기 button of its own any more', () => {
+    const now = new Date(2026, 9, 4, 20, 0)
+    const out = render(<ParentDayHome parentName="엄마" memos={[]} home={null} onOpen={() => {}} onYesterday={() => {}} now={now} />)
+    expect(out).not.toContain('day-send')
+    expect(out).not.toContain('사진 보내기')
+  })
+
+  it('headed: 보낸 사진 · n장 with the 📷 사진 보내기 › link when the family may send; the line when nothing was sent', () => {
+    const out = render(<SentFamilyPhotos photos={[photo('1'), photo('2')]} myUid="me" headed onSend={() => {}} />)
+    expect(out).toContain('보낸 사진 · 2장')
+    expect(out).toContain('class="fp-send-link"')
+    expect(out).toContain('📷 사진 보내기 ›')
+    expect(count(out, 'class="fp-row"')).toBe(2)
+    expect(out).not.toContain('아직 보낸 사진이 없어요')
+    const empty = render(<SentFamilyPhotos photos={[]} myUid="me" headed onSend={() => {}} />)
+    expect(empty).toContain('보낸 사진 · 0장')
+    expect(empty).toContain('아직 보낸 사진이 없어요')
+    expect(render(<SentFamilyPhotos photos={[]} myUid="me" headed />)).not.toContain('사진 보내기')
+  })
+
+  it('without the header (the full edition), the list is silent when empty, as before', () => {
+    expect(render(<SentFamilyPhotos photos={[]} myUid="me" />)).not.toContain('fp-sent')
+    expect(render(<SentFamilyPhotos photos={[photo('1')]} myUid="me" />)).toContain('보낸 사진')
   })
 })
 

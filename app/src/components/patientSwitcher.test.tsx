@@ -17,11 +17,12 @@ describe('PatientSwitcher', () => {
     expect(html).not.toContain('내 계정')
   })
 
-  it('a parent\'s page: blue avatar, 님, and the way back', () => {
+  it('a parent\'s page: tinted avatar, the name without 님 (a kin word), and the way back', () => {
     const html = render('p1')
     expect(html).toContain('acct-bar caregiver')
     expect(html).toContain('<span class="acct-avatar parent" aria-hidden="true">할</span>')
-    expect(html).toContain('할아버지님')
+    expect(html).toContain('할아버지')
+    expect(html).not.toContain('할아버지님')
     expect(html).toContain('내 계정으로')
   })
 

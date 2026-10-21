@@ -7,6 +7,7 @@ import { loadVoiceReplies } from '../lib/planApi'
 import { S } from '../lib/strings'
 import { fmtTime } from '../util'
 import type { Memo, Reaction } from '../types'
+import { honorific, honorificWith } from '../lib/people'
 
 /** Photos fetched for the album beyond the ones the app already has. */
 const MAX_FETCHED_PHOTOS = 60
@@ -25,13 +26,13 @@ export function VoiceAlbumView({ patientName, patientUid, voices, memoOf, onOpen
   const months = albumMonths(voices, patientUid)
   return (
     <>
-      <div className="h-eyebrow">{patientName}님의 답장</div>
+      <div className="h-eyebrow">{honorific(patientName)}의 답장</div>
       <h2 className="h-title">{S.voiceAlbum}</h2>
       {months.length === 0 ? (
         <div className="empty">
           <div className="big">🎙️</div>
           <div>아직 음성 답장이 없어요.</div>
-          <div className="help">{patientName}님이 목소리로 답장하면 여기에 모여요.</div>
+          <div className="help">{honorificWith(patientName, '가')} 목소리로 답장하면 여기에 모여요.</div>
         </div>
       ) : months.map((month) => (
         <div key={month.label}>

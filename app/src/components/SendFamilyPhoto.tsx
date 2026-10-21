@@ -4,6 +4,7 @@ import { removeFamilyPhoto, sendFamilyPhoto } from '../lib/familyPhotos'
 import { sentStatus, sentToday } from '../lib/familyPhotosModel'
 import { FAMILY_PHOTO_CAPTIONS, FAMILY_PHOTOS_PER_DAY, S } from '../lib/strings'
 import { fmtTime } from '../util'
+import { honorificWith } from '../lib/people'
 import type { FamilyPhoto } from '../types'
 
 /**
@@ -35,7 +36,7 @@ export function SendFamilyPhoto({ patientUid, patientName, sender, photos, onClo
     setBusy(true)
     try {
       await send({ patientUid, sender, file, caption })
-      toast.show(S.familyPhotoSent, `${patientName}님이 앱을 열면 바로 보여요`)
+      toast.show(S.familyPhotoSent, `${honorificWith(patientName, '가')} 앱을 열면 바로 보여요`)
       onClose()
     } catch (err) {
       console.error('[familyPhoto] send failed', err)
@@ -73,16 +74,30 @@ export function SendFamilyPhoto({ patientUid, patientName, sender, photos, onClo
 }
 
 /** What this family has sent the parent, newest first, with the parent's answer. */
-export function SentFamilyPhotos({ photos, myUid, onRemove = removeFamilyPhoto }: {
+export function SentFamilyPhotos({ photos, myUid, onRemove = removeFamilyPhoto, headed = false, onSend }: {
   photos: FamilyPhoto[]
   myUid: string
   onRemove?: (p: FamilyPhoto) => Promise<void>
+  /** The parent's day (A10): a header row `보낸 사진 · n장` with the
+   *  `📷 사진 보내기 ›` link, and a line when nothing was sent yet. Without
+   *  it the list is silent when empty, as on the full edition's home. */
+  headed?: boolean
+  /** The link's action; no link when the family may not send. */
+  onSend?: () => void
 }) {
   const toast = useToast()
-  if (photos.length === 0) return null
+  if (!headed && photos.length === 0) return null
   return (
     <div className="fp-sent">
-      <div className="h-eyebrow">{S.familyPhotoSentList}</div>
+      {headed ? (
+        <div className="fp-head">
+          <span className="h-eyebrow">{S.familyPhotoSentList} · {photos.length}장</span>
+          {onSend && <button type="button" className="fp-send-link" onClick={onSend}>📷 사진 보내기 ›</button>}
+        </div>
+      ) : (
+        <div className="h-eyebrow">{S.familyPhotoSentList}</div>
+      )}
+      {headed && photos.length === 0 && <div className="fp-none" role="status">아직 보낸 사진이 없어요</div>}
       {photos.slice(0, 12).map((p) => (
         <div className="fp-row" key={p.id}>
           <div className="fp-thumb">{p.photoUrl ? <img src={p.photoUrl} alt="" /> : <span aria-hidden="true">🖼️</span>}</div>

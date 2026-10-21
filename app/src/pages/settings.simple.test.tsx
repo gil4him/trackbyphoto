@@ -88,8 +88,8 @@ describe('Settings for oneself (simple)', () => {
   )
   it('부모님 등록하기, then 함께 보는 가족 with a ⋯ per person and no 삭제 button', () => {
     expect(mine).toContain('부모님 등록하기')
-    expect(mine).toContain('aria-label="엄마님 더보기"')
-    expect(mine).toContain('aria-label="아빠님 더보기"')
+    expect(mine).toContain('aria-label="엄마 더보기"')
+    expect(mine).toContain('aria-label="아빠 더보기"')
     expect(mine).not.toContain('>삭제<')
     expect(mine).not.toContain('send-del')
     expect(mine).not.toContain('표시되는 이름')

@@ -23,6 +23,8 @@ import { tabFromUrl } from './lib/tabFromUrl'
 import { ToastProvider } from './components/Toast'
 import { PatientSwitcher } from './components/PatientSwitcher'
 import { Home, ParentDayHome } from './pages/Home'
+import { useParentsMemos } from './hooks/useParentsMemos'
+import { isFamilyEvent } from './lib/noticeKinds'
 import { Today } from './pages/Today'
 import { SignIn } from './pages/SignIn'
 import { AcceptInvite, PENDING_INVITE_KEY } from './pages/AcceptInvite'
@@ -153,6 +155,10 @@ function App() {
   // 설정 → 함께 보는 가족, the name check in 부모님 등록하기).
   const { names: patientNames } = usePatientDocs(useMemo(() => patients.map((p) => p.patientUid), [patients]))
   const people = useMemo(() => listedPeople(patients, patientNames), [patients, patientNames])
+  // The family dashboard (simple edition, one's own home): every parent's
+  // latest memos for the cards. Nothing while viewing a parent.
+  const dashOn = isSimple() && !!user && activePatientUid === user.uid
+  const parentsMemos = useParentsMemos(useMemo(() => dashOn ? people.map((p) => p.patientUid) : [], [dashOn, people]))
   // Elder safeguard notices live on the signed-in user's own account (§8).
   const { unread: notifications, dismiss: dismissNotification } = useNotifications(user?.uid)
   // True once a newer build has been deployed than the one we're running.
@@ -704,14 +710,13 @@ function App() {
                   onOpen={setSelectedMemoId}
                   onYesterday={openYesterday}
                   onOpenTrail={trailOn ? openDayTrail : undefined}
-                  onSendPhoto={sendToParent ? () => setSendTarget(sendToParent) : undefined}
                   notifications={bannerNotices}
                   onDismissNotification={dismissNotification}
                   topCard={undefined}
-                  sentPhotos={familyPhotosOn ? <SentFamilyPhotos photos={familyPhotos} myUid={user.uid} /> : undefined}
+                  sentPhotos={familyPhotosOn ? <SentFamilyPhotos photos={familyPhotos} myUid={user.uid} headed onSend={sendToParent ? () => setSendTarget(sendToParent) : undefined} /> : undefined}
                 />
               ) : (
-                <Home uid={activePatientUid || user.uid} patientName={settings.patientName} greetingName={isSelf ? selfLabel : settings.patientName} memos={memos} onOpenAsk={openAsk} onOpen={setSelectedMemoId} canCapture={isSelf} notifications={bannerNotices} onDismissNotification={dismissNotification} topCard={isSimple() && isSelf && !membershipsLoading && patients.length === 0 ? <ConnectParentCard onOpen={() => setConnectingParent(true)} /> : pushOn && patients.length > 0 && !isSimple() ? <PushNudge /> : undefined} canSendPhoto={!!sendToParent} sentPhotos={familyPhotosOn && !isSelf ? <SentFamilyPhotos photos={familyPhotos} myUid={user.uid} /> : undefined} connectOnly={isSimple() && isSelf && !membershipsLoading && patients.length === 0} simple={isSimple()} />
+                <Home uid={activePatientUid || user.uid} patientName={settings.patientName} greetingName={isSelf ? selfLabel : settings.patientName} memos={memos} onOpenAsk={openAsk} onOpen={setSelectedMemoId} canCapture={isSelf} notifications={bannerNotices} onDismissNotification={dismissNotification} topCard={isSimple() && isSelf && !membershipsLoading && patients.length === 0 ? <ConnectParentCard onOpen={() => setConnectingParent(true)} /> : pushOn && patients.length > 0 && !isSimple() ? <PushNudge /> : undefined} canSendPhoto={!!sendToParent} sentPhotos={familyPhotosOn && !isSelf ? <SentFamilyPhotos photos={familyPhotos} myUid={user.uid} /> : undefined} connectOnly={isSimple() && isSelf && !membershipsLoading && patients.length === 0} simple={isSimple()} parents={dashOn ? people.map((p) => ({ uid: p.patientUid, name: p.name, memos: parentsMemos[p.patientUid] ?? [], unread: notifications.find((n) => n.patientUid === p.patientUid && isFamilyEvent(n.type)) })) : undefined} onOpenParent={(uid) => { onSwitchPatient(uid); setTab('home') }} />
               ))}
               {connectingParent && (
                 <RegisterElder

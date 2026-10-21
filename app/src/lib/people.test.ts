@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { consentButtonLabel, listedPeople, nameTaken, pickActivePatient, sameName, sentToName } from './people'
+import { addressed, consentButtonLabel, honorific, honorificWith, listedPeople, nameTaken, pickActivePatient, sameName, sentToName } from './people'
 
 describe('who is listed', () => {
   const links = [{ patientUid: 'a', role: 'guardian' }, { patientUid: 'b', role: 'viewer' }, { patientUid: 'c', role: 'admin' }, { patientUid: 'd', role: 'viewer' }]
@@ -73,5 +73,35 @@ describe('pickActivePatient', () => {
     expect(pickActivePatient({ ...base, patientUids: [], names: {}, stored: null, preferParent: true })).toBe('me')
     // A stored choice (내 계정 included) still wins.
     expect(pickActivePatient({ ...base, stored: 'me', preferParent: true })).toBe('me')
+  })
+})
+
+describe('how a parent is addressed (A10)', () => {
+  it('kin words never take 님; other names do, once', () => {
+    expect(honorific('엄마')).toBe('엄마')
+    expect(honorific('엄마님')).toBe('엄마')
+    expect(honorific(' 할아버지 ')).toBe('할아버지')
+    expect(honorific('영희')).toBe('영희님')
+    expect(honorific('영희님')).toBe('영희님')
+    expect(honorific('')).toBe('')
+  })
+
+  it('with the particle that follows: 엄마가 새 사진을 올렸어요, 영희님이', () => {
+    expect(honorificWith('엄마', '가')).toBe('엄마가')
+    expect(honorificWith('영희', '가')).toBe('영희님이')
+    expect(honorificWith('아버지', '는')).toBe('아버지는')
+    expect(honorificWith('철수', '를')).toBe('철수님을')
+    expect(honorificWith('할머니', '와')).toBe('할머니와')
+    expect(`${honorific('엄마')}의 하루`).toBe('엄마의 하루')
+    expect(`${honorific('엄마')}께 사진 보내기`).toBe('엄마께 사진 보내기')
+  })
+
+  it("re-addresses the worker's lines, and leaves other lines alone", () => {
+    expect(addressed('엄마님이 새 사진을 올렸어요', '엄마')).toBe('엄마가 새 사진을 올렸어요')
+    expect(addressed('엄마님의 하루', '엄마')).toBe('엄마의 하루')
+    expect(addressed('엄마님 휴대폰(iPhone)이 연결되었어요.', '엄마')).toBe('엄마 휴대폰(iPhone)이 연결되었어요.')
+    expect(addressed('영희님이 글을 남겼어요', '영희')).toBe('영희님이 글을 남겼어요')
+    expect(addressed('오늘 아직 엄마님의 사진이 없어요', '엄마')).toBe('오늘 아직 엄마님의 사진이 없어요')
+    expect(addressed('가족이 설정을 변경했어요.', '엄마')).toBe('가족이 설정을 변경했어요.')
   })
 })

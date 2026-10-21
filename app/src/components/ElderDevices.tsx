@@ -7,6 +7,7 @@ import { approvePairing, unlinkDevice } from '../lib/pairing'
 import { PairingSender } from '../pages/RegisterElder'
 import type { ElderDevice, Pairing } from '../types'
 import { SectLab } from './SectLab'
+import { honorific } from '../lib/people'
 
 /**
  * 기기 관리 for a family-managed elder (Settings, family view): linked phones
@@ -70,7 +71,7 @@ export function ElderDevices({ patientUid, patientName }: { patientUid: string; 
 
   return (
     <div className="sect">
-      <SectLab info="휴대폰을 잃어버렸다면 바로 ‘연결 해제’를 눌러주세요. 새 휴대폰을 원격으로 연결할 때는 여기서 승인해야 연결돼요.">{patientName}님 휴대폰</SectLab>
+      <SectLab info="휴대폰을 잃어버렸다면 바로 ‘연결 해제’를 눌러주세요. 새 휴대폰을 원격으로 연결할 때는 여기서 승인해야 연결돼요.">{honorific(patientName)} 휴대폰</SectLab>
 
       {requests.map((p) => (
         <div className="row approval-row" key={p.id}>
@@ -115,7 +116,7 @@ export function ElderDevices({ patientUid, patientName }: { patientUid: string; 
           <div className="modal">
             <div className="modal-title">연결을 해제할까요?</div>
             <div className="modal-body">
-              <p>{confirmUnlink.name}에서 {patientName}님 기록을 더 이상 보거나 찍을 수 없어요. 다시 쓰려면 새 연결 링크를 보내야 해요.</p>
+              <p>{confirmUnlink.name}에서 {honorific(patientName)} 기록을 더 이상 보거나 찍을 수 없어요. 다시 쓰려면 새 연결 링크를 보내야 해요.</p>
             </div>
             <div className="modal-actions">
               <button className="signin-secondary" onClick={() => setConfirmUnlink(null)}>취소</button>

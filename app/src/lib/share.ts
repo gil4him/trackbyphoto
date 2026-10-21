@@ -21,6 +21,7 @@ import { fmtTime, isSameDay } from '../util'
 import { PUBLIC_ORIGIN } from './publicUrl'
 import { isSimple } from './edition'
 import { inAnyStore } from './storeLinks'
+import { honorific } from './people'
 
 // ────────────────────────────────────────────────────────────────────────────
 // Phone formatting
@@ -266,7 +267,7 @@ export function buildPairMessage(patientName: string, url: string, code: string,
   if (isSimple() && !inAnyStore()) {
     // Before the store release the link connects the phone in its browser.
     return [
-      `[Daylie] ${who}님 휴대폰을 연결해요.`,
+      `[Daylie] ${honorific(who)} 휴대폰을 연결해요.`,
       `아래 링크를 누르고 '연결하기'를 눌러주세요. (${hours}시간 유효)`,
       url,
       '',
@@ -277,7 +278,7 @@ export function buildPairMessage(patientName: string, url: string, code: string,
     // The simple edition is an app from the store: the link page installs it,
     // and a second tap of the same link opens the app and connects.
     return [
-      `[Daylie] ${who}님 휴대폰을 연결해요.`,
+      `[Daylie] ${honorific(who)} 휴대폰을 연결해요.`,
       `아래 링크를 눌러 Daylie 앱을 설치해 주세요. (${hours}시간 유효)`,
       url,
       '설치 후 이 링크를 한 번 더 눌러주세요.',
@@ -287,7 +288,7 @@ export function buildPairMessage(patientName: string, url: string, code: string,
     ].join('\n')
   }
   return [
-    `[Daylie] ${who}님 휴대폰을 연결해요.`,
+    `[Daylie] ${honorific(who)} 휴대폰을 연결해요.`,
     `아래 링크를 누르고 '연결하기'를 눌러주세요. (${hours}시간 유효)`,
     url,
     `앱에서는 코드 ${code.slice(0, 4)} ${code.slice(4)} 를 입력하세요.`,

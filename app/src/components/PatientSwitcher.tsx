@@ -12,6 +12,7 @@
 
 import { useState } from 'react'
 import type { LiveMembership } from '../hooks/useMemberships'
+import { honorific } from '../lib/people'
 import type { Person } from '../lib/people'
 import { BottomSheet } from './BottomSheet'
 
@@ -64,7 +65,7 @@ export function PatientSwitcher({ selfUid, selfLabel, people, activePatientUid, 
     <div className={`acct-bar${isSelf ? '' : ' caregiver'}`}>
       <button type="button" className="acct-chip" onClick={() => setOpen(true)} aria-haspopup="dialog" aria-label={`보기 전환: ${activeLabel}`}>
         <Avatar name={activeLabel} parent={!isSelf} />
-        <span className="acct-name">{isSelf ? activeLabel : `${activeLabel}님`}</span>
+        <span className="acct-name">{isSelf ? activeLabel : honorific(activeLabel)}</span>
         <span className="ps-caret" aria-hidden="true">⌄</span>
       </button>
       {!isSelf && (
