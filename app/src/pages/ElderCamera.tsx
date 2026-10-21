@@ -8,13 +8,14 @@ import { askLocation, warmUpLocation } from '../lib/location'
 import { ASK_CAMERA, ASK_LOCATION, cameraPermission, locationPermission } from '../lib/permissions'
 import { ElderAsk } from '../components/ElderAsk'
 import { ElderInstallButton } from '../components/ElderInstallButton'
+import { MemoThumb } from '../components/MemoThumb'
 import { markRead } from '../lib/reactions'
 import { sentToName } from '../lib/people'
 import { S } from '../lib/strings'
 import { useElderNews } from '../hooks/useElderNews'
 import { useMemberships } from '../hooks/useMemberships'
 import type { ElderNews } from '../lib/reactionsModel'
-import type { Reaction } from '../types'
+import type { Memo, Reaction } from '../types'
 
 /**
  * The simple edition's parent screen: the phone is a camera. Opening the app
@@ -32,8 +33,10 @@ const OVERLAY_MS = 1500
 export type CameraPhase = 'starting' | 'live' | 'denied'
 export type Overlay = { ok: true; text: string } | { ok: false; text: string; sub: string }
 
-export function ElderCameraView({ phase, busy, overlay, news, photos = null, ask = null, askNext, corner = null, onShutter, onDismissNews, onOpenRecords, onRetry, onOpenPhotos = () => {}, onAskNext = () => {}, onFlip = () => {} }: {
+export function ElderCameraView({ phase, busy, overlay, news, photos = null, recent = null, ask = null, askNext, corner = null, onShutter, onDismissNews, onOpenRecords, onRetry, onOpenPhotos = () => {}, onAskNext = () => {}, onFlip = () => {} }: {
   phase: CameraPhase
+  /** The parent's newest photo, shown in the 내 사진 circle; null before the first one. */
+  recent?: Memo | null
   /** Switch between the back and front camera. */
   onFlip?: () => void
   /** Above the camera-switch button: the web's 아이콘 만들기. */
@@ -60,7 +63,8 @@ export function ElderCameraView({ phase, busy, overlay, news, photos = null, ask
   const item = (!photos || !photos.lit) && news?.state === 'new' ? news.item : null
   const photoBubble = photos && (photos.lit || !item) ? photos : null
   return (
-    <div className="elder-cam">
+    // with-bar: the viewfinder ends where the black control bar starts (A11).
+    <div className={`elder-cam${ask ? '' : ' with-bar'}`}>
       <div id={FEED_ID} className="elder-cam-feed" />
 
       {photoBubble && (
@@ -90,9 +94,9 @@ export function ElderCameraView({ phase, busy, overlay, news, photos = null, ask
 
       {overlay && (
         <div className={`elder-cam-overlay ${overlay.ok ? 'ok' : 'fail'}`} role="status">
-          {/* "지은에게 보냈어요 ♥": the heart in the brand's orange. */}
+          {/* "지은에게 보냈어요 ♥": the heart in the brand's orange, never on a line of its own. */}
           {overlay.ok && overlay.text.endsWith('♥')
-            ? <span>{overlay.text.slice(0, -1).trimEnd()} <span className="elder-cam-heart" aria-hidden="true">♥</span></span>
+            ? <span>{overlay.text.slice(0, -1).trimEnd()}{'\u00a0'}<span className="elder-cam-heart" aria-hidden="true">♥</span></span>
             : <span>{overlay.text}</span>}
           {!overlay.ok && <span className="elder-cam-overlay-sub">{overlay.sub}</span>}
         </div>
@@ -100,33 +104,58 @@ export function ElderCameraView({ phase, busy, overlay, news, photos = null, ask
 
       {ask && <ElderAsk text={ask} next={askNext} onNext={onAskNext} />}
 
+      {/* The black bar, as on the iPhone's camera: 내 사진 · shutter · 전환,
+          three circles on one centre line, a label under each (A11). */}
       {!ask && <div className="elder-cam-bar">
-        <button type="button" className="elder-cam-records" onClick={onOpenRecords}>내 사진</button>
-        <button
-          type="button"
-          className="elder-cam-shutter"
-          aria-label="사진 찍기"
-          disabled={phase !== 'live' || busy}
-          onClick={onShutter}
-        />
-        <span className="elder-cam-bar-side">
-          {corner}
-          <button type="button" className="elder-cam-flip" aria-label="카메라 전환" disabled={phase !== 'live' || busy} onClick={onFlip}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M4 9a8 8 0 0 1 14-3l2 2" />
-              <path d="M20 4v4h-4" />
-              <path d="M20 15a8 8 0 0 1-14 3l-2-2" />
-              <path d="M4 20v-4h4" />
-            </svg>
+        <div className="elder-cam-row">
+          <button type="button" className="elder-cam-records" onClick={onOpenRecords}>
+            <span className="elder-cam-circle elder-cam-recent" aria-hidden="true">
+              {recent
+                ? <MemoThumb memo={recent} />
+                : (
+                  <svg className="elder-cam-recent-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="5" width="18" height="14" rx="3" />
+                    <circle cx="9" cy="10" r="1.6" />
+                    <path d="M21 16l-5-5-8 8" />
+                  </svg>
+                )}
+            </span>
+            <span className="elder-cam-label">내 사진</span>
           </button>
-        </span>
+          <button
+            type="button"
+            className="elder-cam-shutter"
+            aria-label="사진 찍기"
+            disabled={phase !== 'live' || busy}
+            onClick={onShutter}
+          >
+            <span className="elder-cam-circle elder-cam-ring" aria-hidden="true" />
+            <span className="elder-cam-label">사진 찍기</span>
+          </button>
+          <span className="elder-cam-bar-side">
+            {corner}
+            <button type="button" className="elder-cam-flip" aria-label="카메라 전환" disabled={phase !== 'live' || busy} onClick={onFlip}>
+              <span className="elder-cam-circle elder-cam-flip-circle" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 9a8 8 0 0 1 14-3l2 2" />
+                  <path d="M20 4v4h-4" />
+                  <path d="M20 15a8 8 0 0 1-14 3l-2-2" />
+                  <path d="M4 20v-4h4" />
+                </svg>
+              </span>
+              <span className="elder-cam-label">전환</span>
+            </button>
+          </span>
+        </div>
       </div>}
     </div>
   )
 }
 
-export function ElderCamera({ uid, reactions, photos = null, onOpenRecords, onOpenPhotos }: {
+export function ElderCamera({ uid, reactions, photos = null, recent = null, onOpenRecords, onOpenPhotos }: {
   uid: string
+  /** The parent's newest photo, for the 내 사진 circle. */
+  recent?: Memo | null
   /** This parent's reactions; null while reactions aren't rolled out. */
   reactions: Reaction[] | null
   /** The family-photo bubble (familyPhotosModel cardLine), or null. */
@@ -254,6 +283,7 @@ export function ElderCamera({ uid, reactions, photos = null, onOpenRecords, onOp
       onOpenRecords={onOpenRecords}
       onRetry={restart}
       photos={photos}
+      recent={recent}
       corner={<ElderInstallButton compact />}
       onFlip={() => { void flipCamera().catch((err) => console.warn('[ElderCamera] flip failed', err)) }}
       onOpenPhotos={() => { void stopPreview(); onOpenPhotos?.() }}

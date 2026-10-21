@@ -15,7 +15,7 @@ vi.mock('../hooks/useMemberships', () => ({ useMemberships: () => ({ caregivers:
 
 import { ElderCameraView, type CameraPhase, type Overlay } from './ElderCamera'
 import type { ElderNews } from '../lib/reactionsModel'
-import type { Reaction } from '../types'
+import type { Memo, Reaction } from '../types'
 
 const comment = { id: 'r1', memoId: 'm1', actorUid: 'd', actorName: '지은', kind: 'comment', text: '엄마 꽃 예뻐요', createdAtMs: 1 } as unknown as Reaction
 const heart = { ...comment, id: 'r2', kind: 'heart', text: undefined } as unknown as Reaction
@@ -95,6 +95,45 @@ describe('ElderCameraView', () => {
   it('has a camera switch next to the shutter', () => {
     const html = render({ phase: 'live' })
     expect(html).toContain('aria-label="카메라 전환"')
+  })
+})
+
+describe('the bottom bar, laid out like the iPhone camera (A11)', () => {
+  const view = (recent: Memo | null) => renderToString(
+    <ElderCameraView phase="live" busy={false} overlay={null} news={null} recent={recent}
+      onShutter={() => {}} onDismissNews={() => {}} onOpenRecords={() => {}} onRetry={() => {}} />,
+  ).replace(/<!-- -->/g, '')
+  const memo = { id: 'm1', patientUid: 'mom', photoUrl: 'https://photos.example/m1.jpg', activity: 'walk' } as unknown as Memo
+
+  it('names the three controls under their circles: 내 사진 · 사진 찍기 · 전환', () => {
+    const out = view(null)
+    const bar = out.slice(out.indexOf('class="elder-cam-bar"'))
+    expect(bar.match(/class="elder-cam-label"/g)).toHaveLength(3)
+    for (const label of ['내 사진', '사진 찍기', '전환']) expect(bar).toContain(`<span class="elder-cam-label">${label}</span>`)
+    expect(bar.match(/elder-cam-circle /g)).toHaveLength(3)
+  })
+
+  it('shows the parent’s newest photo in the 내 사진 circle', () => {
+    const out = view(memo)
+    const circle = out.slice(out.indexOf('elder-cam-recent'), out.indexOf('내 사진'))
+    expect(circle).toContain('src="https://photos.example/m1.jpg"')
+    expect(circle).not.toContain('elder-cam-recent-glyph')
+  })
+
+  it('draws a photos glyph before the first photo', () => {
+    const out = view(null)
+    expect(out).toContain('elder-cam-recent-glyph')
+    expect(out).not.toContain('<img')
+  })
+
+  it('keeps the bar away while the plain sentence asks', () => {
+    const html = renderToString(
+      <ElderCameraView phase="starting" busy={false} overlay={null} news={null} ask="카메라를 켤게요" askNext="카메라 켜기"
+        onShutter={() => {}} onDismissNews={() => {}} onOpenRecords={() => {}} onRetry={() => {}} />,
+    )
+    expect(html).not.toContain('elder-cam-bar')
+    expect(html).toContain('class="elder-cam"')
+    expect(view(null)).toContain('class="elder-cam with-bar"')
   })
 })
 

@@ -67,7 +67,12 @@ async function seedNotices() {
 }
 
 // Each phase: screen name → { as: whose records are open, go: how to get
-// there, prepare?: data to write first, account?: who is signed in }.
+// there, prepare?: data to write first, account?: who is signed in,
+// open?: (device) → page, for screens that are not the family's (a parent's phone) }.
+let momSession = null
+let dad = null
+let dadPhone = null
+const momPhone = async (device) => { const k = await elderKit(); momSession ??= await k.phone(); return openPage(k.camera, { device, session: momSession }) }
 const PHASES = {
   A0: {
     'home-self':          { as: self,   go: (p) => home(p, '안녕하세요') },
@@ -115,6 +120,38 @@ const PHASES = {
   // A10: the family dashboard. One parent with three photos today and an
   // unread notice, then a second parent (아빠, quiet today); nobody linked;
   // the parent's day ending in the 보낸 사진 row.
+  // A11: the parent's camera in the iPhone-camera layout. 엄마's phone has
+  // photos (the newest fills the 내 사진 circle) and an answered family photo
+  // (the quiet re-view banner); 아빠's phone has nothing yet.
+  A11: {
+    camera: {
+      open: momPhone,
+      go: async (p) => { await viewfinder(p); await waitText(p, '가족 사진 다시 보기') },
+    },
+    'camera-news': {
+      prepare: () => seedTodayMemos({ momUid, kidUid: self, kidName: KID.name, count: 1 }),
+      open: momPhone,
+      go: async (p) => { await viewfinder(p); await waitText(p, '글을 남겼어요') },
+    },
+    'camera-sent': {
+      open: momPhone,
+      go: async (p) => {
+        await viewfinder(p)
+        // The word from family, read; then the shutter. The sent card stays
+        // 1.5 s, less than the picture takes to set up: keep that one timer.
+        const bubble = await p.$('.elder-cam-bubble:not(.dim)')
+        if (bubble) { await bubble.click(); await sleep(600) }
+        await p.evaluate(() => { const st = window.setTimeout; window.setTimeout = (fn, ms, ...a) => st(fn, ms === 1500 ? 600_000 : ms, ...a) })
+        await p.click('.elder-cam-shutter')
+        await p.waitForSelector('.elder-cam-overlay', { timeout: 30_000 })
+      },
+    },
+    'camera-empty': {
+      prepare: async () => { dad = await seedSecondParent({ kidUid: self, kidName: KID.name, yesterday: 0 }) },
+      open: async (device) => { const k = await elderKit(); dadPhone ??= await k.phone(dad.uid); return openPage(k.camera, { device, session: dadPhone }) },
+      go: async (p) => { await viewfinder(p); await sleep(800) },
+    },
+  },
   A10: {
     'home-self-1':    { as: self, prepare: async () => {
       await seedTodayMemos({ momUid, kidUid: self, kidName: KID.name, count: 3 })
@@ -144,7 +181,11 @@ function workerCall(env, script) {
   })
 }
 
-async function shootA6() {
+/** The parent's side, started once when a phase needs it: the worker with
+ *  the fake model (pairing links), and a browser with a fake camera. */
+let elder = null
+async function elderKit() {
+  if (elder) return elder
   const MODEL_PORT = 5231
   const model = await serveFakeModel(MODEL_PORT)
   const env = {
@@ -161,14 +202,44 @@ async function shootA6() {
     worker.on('exit', (code) => reject(new Error(`worker exited (${code})\n${log.slice(-600)}`)))
     setTimeout(() => reject(new Error(`worker did not start\n${log.slice(-600)}`)), 30_000)
   })
-  const link = (mode) => workerCall(env, `
+  const link = (mode, patientUid = momUid) => workerCall(env, `
     import { initializeApp } from 'firebase-admin/app'
     initializeApp({ projectId: '${PROJECT}', storageBucket: '${PROJECT}.appspot.com' })
     const { createPairingLink } = await import('./dist/handlers/pairing.js')
-    console.log(JSON.stringify(await createPairingLink({ uid: '${self}', email: '${KID.email}', name: '${KID.name}', emailVerified: true }, { patientUid: '${momUid}', mode: '${mode}' })))
+    console.log(JSON.stringify(await createPairingLink({ uid: '${self}', email: '${KID.email}', name: '${KID.name}', emailVerified: true }, { patientUid: '${patientUid}', mode: '${mode}' })))
     process.exit(0)`)
-  const plain = await launchBrowser(process.env.UI_HEADFUL === '1')
+  /** A parent's phone linked in-process (QR, no approval): the SDK session for it. */
+  const phone = async (patientUid = momUid) => {
+    const { code } = await link('qr', patientUid)
+    const anon = `anon-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+    const paired = await workerCall(env, `
+      import { initializeApp } from 'firebase-admin/app'
+      initializeApp({ projectId: '${PROJECT}', storageBucket: '${PROJECT}.appspot.com' })
+      const { pairDevice } = await import('./dist/handlers/pairing.js')
+      console.log(JSON.stringify(await pairDevice({ uid: '${anon}', email: null, name: null }, { code: '${code}', device: { name: 'iPhone', platform: 'web' } })))
+      process.exit(0)`)
+    return elderSession(paired.customToken, patientUid)
+  }
   const camera = await launchBrowser(process.env.UI_HEADFUL === '1', FAKE_CAMERA_ARGS)
+  const stop = async () => { worker.kill('SIGTERM'); model.close(); await camera.close().catch(() => {}) }
+  return (elder = { link, phone, camera, stop })
+}
+
+/** The camera page on a parent's phone, up to a live shutter. Headless
+ *  Chrome reports the camera as not asked yet even with the fake one: the
+ *  plain sentence comes first — tap 카메라 켜기 to let it start. */
+async function viewfinder(p) {
+  await p.goto(SITE, { waitUntil: 'load' })
+  await p.waitForSelector('.elder-cam, .signin', { timeout: 60_000 })
+  const next = await p.waitForSelector('.elder-ask-next', { timeout: 8_000 }).catch(() => null)
+  if (next) await next.click()
+  await p.waitForSelector('.elder-cam-shutter:not([disabled])', { timeout: 60_000 })
+  await sleep(1500) // the viewfinder's first frames
+}
+
+async function shootA6() {
+  const { link, phone, camera } = await elderKit()
+  const plain = await launchBrowser(process.env.UI_HEADFUL === '1')
   try {
     // 1. Sign-in: 부모님 휴대폰이에요 under Google.
     {
@@ -204,24 +275,9 @@ async function shootA6() {
     }
     // 3. A second phone, linked in-process (QR, no approval), with a fake camera: viewfinder, bubble, overlay.
     {
-      const { code } = await link('qr')
-      const anon = `anon-${Date.now()}`
-      const paired = await workerCall(env, `
-        import { initializeApp } from 'firebase-admin/app'
-        initializeApp({ projectId: '${PROJECT}', storageBucket: '${PROJECT}.appspot.com' })
-        const { pairDevice } = await import('./dist/handlers/pairing.js')
-        console.log(JSON.stringify(await pairDevice({ uid: '${anon}', email: null, name: null }, { code: '${code}', device: { name: 'iPhone', platform: 'web' } })))
-        process.exit(0)`)
-      const session = await elderSession(paired.customToken, momUid)
-      const p = await openPage(camera, { device: DEVICE, session })
-      await p.goto(SITE, { waitUntil: 'load' })
+      const p = await openPage(camera, { device: DEVICE, session: await phone() })
       try {
-        // Headless Chrome reports the camera as not asked yet even with the
-        // fake one: the plain sentence comes first — tap 다음 to let it start.
-        await p.waitForSelector('.elder-cam, .signin', { timeout: 60_000 })
-        const next = await p.waitForSelector('.elder-ask-next', { timeout: 8_000 }).catch(() => null)
-        if (next) await next.click()
-        await p.waitForSelector('.elder-cam-shutter:not([disabled])', { timeout: 60_000 })
+        await viewfinder(p)
       } catch (err) {
         await p.screenshot({ path: shotFile('FAIL-camera') }).catch(() => {})
         throw err
@@ -256,15 +312,12 @@ async function shootA6() {
       console.log(`   (memos seeded: ${memoIds.length})`)
     }
   } finally {
-    worker.kill('SIGTERM')
-    model.close()
     await plain.close().catch(() => {})
-    await camera.close().catch(() => {})
   }
 }
 
 if (PHASE === 'A6' || PHASE === 'A9') {
-  try { await shootA6(); console.log(`pictures in ${OUT}`) } finally { await browser.close(); site.close() }
+  try { await shootA6(); console.log(`pictures in ${OUT}`) } finally { await elder?.stop(); await browser.close(); site.close() }
   process.exit(0)
 }
 
@@ -276,14 +329,14 @@ if (!screens) throw new Error(`no screens defined for phase ${PHASE}`)
 const rows = process.env.UI_MATRIX === '1' ? QA_MATRIX : [{ id: null, device: DEVICE }]
 const findings = {}
 try {
-  for (const [name, { as, go, prepare, account }] of Object.entries(screens)) {
+  for (const [name, { as, go, prepare, account, open }] of Object.entries(screens)) {
     if (only && !only.has(name)) continue
     if (prepare) await prepare()
     const who = account ? await account() : acct
     const kid = account ? KID2 : KID
     for (const row of rows) {
       const file = row.id ? `${PHASE}-${name}-${row.id}.png` : `${PHASE}-${name}.png`
-      const p = await openPage(browser, { device: row.device, acct: who, kid, activePatient: account ? undefined : as })
+      const p = open ? await open(row.device) : await openPage(browser, { device: row.device, acct: who, kid, activePatient: account ? undefined : as })
       try {
         await go(p)
         await settle(p)
@@ -310,6 +363,7 @@ try {
   }
   console.log(`pictures in ${OUT}`)
 } finally {
+  await elder?.stop()
   await browser.close()
   site.close()
 }

@@ -20,10 +20,18 @@ echo "[ui-shots] building the simple site for the emulators…"
   VITE_EMULATOR_AUTH_PORT=9098 VITE_EMULATOR_FIRESTORE_PORT=8089 VITE_EMULATOR_STORAGE_PORT=9198 \
   npx vite build --mode simple --outDir ../e2e/.tmp/ui-site --emptyOutDir >/dev/null)
 
-# The parent's screens (A6) link a phone, which needs the worker.
-if [ "$UI_PHASE" = "A6" ] || [ "$UI_PHASE" = "A9" ]; then
+# The parent's screens (A6, A9, A11) link a phone, which needs the worker.
+case "$UI_PHASE" in A6|A9|A11)
   echo "[ui-shots] building the worker…"
-  (cd worker && npm run build >/dev/null)
+  (cd worker && npm run build >/dev/null) ;;
+esac
+
+# The viewfinder: a short portrait clip of one demo photo (as shots.sh does), unless a clip is given.
+if [ -z "${UI_CAMERA_FILE:-}" ] && command -v ffmpeg >/dev/null; then
+  mkdir -p e2e/.tmp
+  ffmpeg -y -loglevel error -loop 1 -i "e2e/demo-photos/${SHOTS_CAMERA_PHOTO:-photo1.jpg}" -t 2 -r 5 \
+    -vf "scale=-2:1280,crop=720:1280:(iw-720)*0.8:0" -c:v mjpeg -q:v 3 e2e/.tmp/viewfinder.mjpeg
+  export UI_CAMERA_FILE="$PWD/e2e/.tmp/viewfinder.mjpeg"
 fi
 
 # Its own ports (firebase.shots.json, repo root), so a dev emulator on the usual ones is left alone.
