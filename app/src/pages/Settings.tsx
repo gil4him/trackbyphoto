@@ -83,7 +83,7 @@ const simple = isSimple()
 /** 설정 → 메모 말투 (memo v2): the worker's model words the memos this way. */
 const MEMO_STYLES: [MemoStyle, string][] = [['plain', '담백하게'], ['warm', '다정하게'], ['playful', '재치있게']]
 
-export function Settings({ settings, onChange, user, onSignOut, memos, activePatientUid, isSelf, onSwitchPatient, myRole, voiceRollout = false, reactionsRollout = false, digestRollout = false, weeklyIncluded = false, weeklyFrom = null, people = [], familyPhotosRollout = false, onOpenPlans, planName, familyLimit = null, pushRollout = false }: Props) {
+export function Settings({ settings, onChange, user, onSignOut, activePatientUid, isSelf, onSwitchPatient, myRole, voiceRollout = false, reactionsRollout = false, digestRollout = false, weeklyIncluded = false, weeklyFrom = null, people = [], familyPhotosRollout = false, onOpenPlans, planName, familyLimit = null, pushRollout = false }: Props) {
   const toast = useToast()
   // A family-managed elder (부모님 등록하기): family runs 가족 관리 and
   // 기기 관리 for them, since the elder's phone has no settings at all.
@@ -523,7 +523,7 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
                 ))}
               </div>
               {/* 집 위치: where this parent lives, so trips read as trips. */}
-              <HomePicker home={settings.home} memos={memos} patientUid={activePatientUid} onChange={(h) => update('home', h)} heading="sub" />
+              <HomePicker home={settings.home} patientUid={activePatientUid} onChange={(h) => update('home', h)} heading="sub" />
               <div className="sub-lab">함께 보는 가족</div>
               {caregivers.length === 0 ? (
                 <div className="row"><div className="who"><span>아직 함께하는 가족이 없어요.</span></div></div>
@@ -554,6 +554,13 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
         </div>
         {registering && (
           <RegisterElder onClose={() => setRegistering(false)} onRegistered={onSwitchPatient} takenNames={people.map((p) => p.name)} />
+        )}
+
+        {isSelf && (
+          <div className="sect">
+            {/* 집 위치 for one's own photos: the same one address box as the parent's. */}
+            <HomePicker home={settings.home} patientUid={activePatientUid} onChange={(h) => update('home', h)} />
+          </div>
         )}
 
         {(pushRollout || (!isSelf && canManageHere)) && (
@@ -741,7 +748,7 @@ export function Settings({ settings, onChange, user, onSignOut, memos, activePat
 
       {canManageHere && (
         <div className="sect">
-          <HomePicker home={settings.home} memos={memos} patientUid={activePatientUid} onChange={(h) => update('home', h)} allowCurrentLocation={isSelf} />
+          <HomePicker home={settings.home} patientUid={activePatientUid} onChange={(h) => update('home', h)} />
         </div>
       )}
 

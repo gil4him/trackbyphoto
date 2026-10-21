@@ -57,11 +57,11 @@ describe('Settings for a parent (simple)', () => {
     expect(html.indexOf('메모 말투')).toBeLessThan(html.indexOf('함께 보는 가족'))
   })
 
-  it('부모님: 집 위치 with address search, between 메모 말투 and 함께 보는 가족', () => {
+  it('부모님: 집 위치 as one address box, between 메모 말투 and 함께 보는 가족', () => {
     expect(html).toContain('>집 위치<')
-    expect(html).toContain('자동으로 추정해요')
-    expect(html).toContain('주소로 찾기')
-    // The family member's own location is not the parent's home.
+    expect(html).toContain('aria-label="주소나 건물 이름"')
+    expect(html).not.toContain('자동으로 추정해요')
+    expect(html).not.toContain('주소로 찾기')
     expect(html).not.toContain('지금 있는 곳을 집으로 설정')
     expect(html.indexOf('메모 말투')).toBeLessThan(html.indexOf('집 위치'))
     expect(html.indexOf('집 위치')).toBeLessThan(html.indexOf('함께 보는 가족'))
@@ -103,6 +103,11 @@ describe('Settings for oneself (simple)', () => {
     expect(mine).not.toContain('>삭제<')
     expect(mine).not.toContain('send-del')
     expect(mine).not.toContain('표시되는 이름')
-    expect(mine).not.toContain('집 위치')
+  })
+  it('has its own 집 위치 box, the same one as the parent\'s, between 부모님 and 알림', () => {
+    expect(mine).toContain('>집 위치<')
+    expect(mine).toContain('aria-label="주소나 건물 이름"')
+    expect(mine.indexOf('부모님 등록하기')).toBeLessThan(mine.indexOf('집 위치'))
+    expect(mine.indexOf('집 위치')).toBeLessThan(mine.indexOf('>알림<'))
   })
 })

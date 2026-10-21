@@ -1,4 +1,4 @@
-// 설정 → 집 위치: what is looked up while typing, and the recent-place chips.
+// 설정 → 집 위치: one address box; what is looked up while typing.
 import { describe, it, expect, vi } from 'vitest'
 import { renderToString } from 'react-dom/server'
 
@@ -7,8 +7,7 @@ vi.mock('../lib/worker', () => ({ callWorker: vi.fn(), isWorkerOffline: () => fa
 vi.mock('../components/Toast', () => ({ useToast: () => ({ show: () => {} }) }))
 
 import { HomePicker } from './HomePicker'
-import { autoSearchable, recentPlacesOf } from '../lib/homePlaces'
-import type { Memo } from '../types'
+import { autoSearchable } from '../lib/homePlaces'
 
 describe('autoSearchable', () => {
   it('waits for two Korean letters or three of anything else', () => {
@@ -21,27 +20,21 @@ describe('autoSearchable', () => {
   })
 })
 
-describe('recentPlacesOf', () => {
-  it('keeps located photos, one per place, at most four', () => {
-    const m = (place: string, lat: number | null = 1) => ({ place, lat, lng: 2 }) as unknown as Memo
-    expect(recentPlacesOf([m('A'), m('A'), m('B', null), m('C'), m('D'), m('E'), m('F')]).map((p) => p.label)).toEqual(['A', 'C', 'D', 'E'])
-  })
-})
-
 describe('HomePicker', () => {
   const render = (props: Partial<Parameters<typeof HomePicker>[0]> = {}) => renderToString(
-    <HomePicker home={null} memos={[]} patientUid="mom" onChange={() => {}} {...props} />,
+    <HomePicker home={null} patientUid="mom" onChange={() => {}} {...props} />,
   )
-  it('shows the saved home with 지우기, or that it is guessed', () => {
-    expect(render()).toContain('자동으로 추정해요')
-    expect(render()).not.toContain('지우기')
+  it('is one address box: empty until a home is saved, then showing the saved address', () => {
+    const empty = render()
+    expect(empty).toContain('aria-label="주소나 건물 이름"')
+    expect(empty).toContain('value=""')
     const saved = render({ home: { lat: 33.86, lng: -117.83, label: '3920 East Coronado Street, Anaheim' } })
-    expect(saved).toContain('3920 East Coronado Street, Anaheim')
-    expect(saved).toContain('지우기')
+    expect(saved).toContain('value="3920 East Coronado Street, Anaheim"')
   })
-  it('offers this phone\'s location only when asked to', () => {
-    expect(render()).not.toContain('지금 있는 곳을 집으로 설정')
-    expect(render({ allowCurrentLocation: true })).toContain('지금 있는 곳을 집으로 설정')
+  it('has nothing else: no recent-place chips, no 찾기 button, no 지우기, no this-phone link, no guess line', () => {
+    const out = render({ home: { lat: 33.86, lng: -117.83, label: 'Anaheim' } })
+    for (const gone of ['주소로 찾기', '지우기', '지금 있는 곳을 집으로 설정', '자동으로 추정해요', '최근 사진을 찍은 곳']) expect(out).not.toContain(gone)
+    expect(out.match(/<button/g) ?? []).toHaveLength(1) // only the ⓘ on the section label
   })
   it('has a section label with ⓘ, or a plain sub-label', () => {
     expect(render()).toContain('aria-label="설명 보기"')
