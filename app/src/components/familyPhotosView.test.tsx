@@ -9,7 +9,7 @@ import { FamilyPhotosCard } from './FamilyPhotosCard'
 import { FamilyPhotoViewer } from '../pages/FamilyPhotoViewer'
 import type { FamilyPhoto } from '../types'
 
-const text = (html: string) => html.replace(/<!-- -->/g, '').replace(/<[^>]+>/g, '\n').split('\n').map((s) => s.trim()).filter(Boolean)
+const text = (html: string) => html.replace(/<!-- -->/g, '').replace(/\u00a0/g, ' ').replace(/<[^>]+>/g, '\n').split('\n').map((s) => s.trim()).filter(Boolean)
 const photo = (id: string, o: Partial<FamilyPhoto> = {}): FamilyPhoto => ({
   id, patientUid: 'p1', senderUid: 'cg1', senderName: '민수', photoPath: `familyPhotos/p1/${id}.jpg`, photoUrl: `https://x/${id}.jpg`,
   caption: '보고 싶어요', status: 'ready', createdAtMs: Date.UTC(2026, 9, 5), ...o,
@@ -42,18 +42,45 @@ describe('FamilyPhotoViewer', () => {
     expect(t).toContain('보고 싶어요')
     expect(t).toContain('민수가 보냈어요')
     expect(t).toContain('❤️ 고마워요')
-    expect(t).toContain('글로 답장하기')
+    expect(t).toContain('글로 답하기')
     expect(t).toContain('다음 사진 ›')
     // No list, no top link, nothing else to tap.
     expect(t).not.toContain('처음으로')
     expect(out).not.toContain('elder-back')
     expect(out).not.toContain('tl-item')
-    expect(out).toContain('class="news-btn primary"')
+    expect(out).toContain('class="fp-heart"')
+  })
+
+  it('shows where we are in the run: one dot a photo, the current one lit, and `n / N` under the photo (A12)', () => {
+    const three = [photo('1'), photo('2', { createdAtMs: Date.UTC(2026, 9, 4) }), photo('3', { createdAtMs: Date.UTC(2026, 9, 3) })]
+    const out = renderToString(<FamilyPhotoViewer photos={three} onDone={() => {}} />).replace(/<!-- -->/g, '')
+    expect(out.match(/class="fp-dot( on)?"/g)).toHaveLength(3)
+    expect(out.match(/class="fp-dot on"/g)).toHaveLength(1)
+    expect(out).toContain('aria-label="1 / 3"')
+    expect(out).toMatch(/class="fp-caption">오[전후] \d{1,2}:\d{2} · 1 \/ 3</)
+    expect(out).not.toContain('fp-count')
+    // The top row names the sender; the two outline buttons share one row under the heart.
+    expect(out).toContain('<div class="fp-from">민수가 보냈어요</div>')
+    const row = out.slice(out.indexOf('class="fp-row2"'))
+    expect(row.match(/class="fp-btn"/g)).toHaveLength(2)
+  })
+
+  it('past nine photos the dots give way to `1 / 12`', () => {
+    const many = Array.from({ length: 12 }, (_, i) => photo(String(i), { createdAtMs: Date.UTC(2026, 9, 12 - i) }))
+    const out = renderToString(<FamilyPhotoViewer photos={many} onDone={() => {}} />)
+    expect(out).not.toContain('fp-dot')
+    expect(out).toContain('<div class="fp-count">1 / 12</div>')
+  })
+
+  it('gives the photo its own shape once known, a 4:3 box before', () => {
+    const out = renderToString(<FamilyPhotoViewer photos={[photo('1')]} onDone={() => {}} />)
+    expect(out).toContain('class="fp-photo" style="aspect-ratio:4 / 3"')
+    expect(out).toContain('class="fp-message">보고 싶어요<')
   })
 
   it('on the last photo, the way on is the camera; with written replies off there is only ❤️ and the way on', () => {
     const t = text(renderToString(<FamilyPhotoViewer photos={[photo('1')]} textMode="off" onDone={() => {}} />))
-    expect(t).not.toContain('글로 답장하기')
+    expect(t).not.toContain('글로 답하기')
     expect(t).not.toContain('다음 사진 ›')
     expect(t).toContain('처음으로 ›')
     expect(t).toContain('❤️ 고마워요')
@@ -64,7 +91,7 @@ describe('FamilyPhotoViewer', () => {
     const t = text(renderToString(<FamilyPhotoViewer photos={[answered, photo('2', { seenAtMs: 1, createdAtMs: Date.UTC(2026, 9, 4) })]} onDone={() => {}} />))
     expect(t).toContain('“고마워”라고 답했어요')
     expect(t).not.toContain('❤️ 고마워요')
-    expect(t).not.toContain('글로 답장하기')
+    expect(t).not.toContain('글로 답하기')
     expect(t).toContain('다음 사진 ›')
   })
 

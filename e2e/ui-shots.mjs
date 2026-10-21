@@ -120,6 +120,32 @@ const PHASES = {
   // A10: the family dashboard. One parent with three photos today and an
   // unread notice, then a second parent (아빠, quiet today); nobody linked;
   // the parent's day ending in the 보낸 사진 row.
+  // A12: the family-photo viewer on 엄마's phone: three photos from 지민
+  // (the demo seed's answered one removed, so the run is 1 / 3 → 3 / 3),
+  // opened from the camera's banner. Nothing is answered, so every row sees the same run.
+  A12: {
+    'viewer-1': {
+      prepare: async () => {
+        const old = await getFirestore().collection('familyPhotos').where('patientUid', '==', momUid).get()
+        await Promise.all(old.docs.map((d) => d.ref.delete()))
+        await seedFamilyPhotos({ momUid, kidUid: self, kidName: KID.name, count: 3 })
+      },
+      open: momPhone,
+      go: async (p) => { await openViewer(p); await waitText(p, '1 / 3') },
+    },
+    'viewer-last': {
+      open: momPhone,
+      go: async (p) => {
+        await openViewer(p)
+        await click(p, '다음 사진', '.fp-btn'); await waitText(p, '2 / 3')
+        await click(p, '다음 사진', '.fp-btn'); await waitText(p, '처음으로')
+      },
+    },
+    'viewer-text': {
+      open: momPhone,
+      go: async (p) => { await openViewer(p); await click(p, '글로 답하기', '.fp-btn'); await waitText(p, '무엇이라고 답할까요?') },
+    },
+  },
   // A11: the parent's camera in the iPhone-camera layout. 엄마's phone has
   // photos (the newest fills the 내 사진 circle) and an answered family photo
   // (the quiet re-view banner); 아빠's phone has nothing yet.
@@ -237,6 +263,15 @@ async function viewfinder(p) {
   await sleep(1500) // the viewfinder's first frames
 }
 
+/** From the camera to the first photo of the run (the banner, lit or quiet). */
+async function openViewer(p) {
+  await viewfinder(p)
+  await p.waitForSelector('.elder-cam-bubble', { timeout: 30_000 })
+  await p.click('.elder-cam-bubble')
+  await waitText(p, '❤️ 고마워요')
+  await p.waitForFunction(() => [...document.querySelectorAll('.fp-photo img')].every((i) => i.complete && i.naturalWidth > 0), { timeout: 20_000 }).catch(() => {})
+}
+
 async function shootA6() {
   const { link, phone, camera } = await elderKit()
   const plain = await launchBrowser(process.env.UI_HEADFUL === '1')
@@ -299,9 +334,9 @@ async function shootA6() {
       await click(p, '사진 2장을 보냈어요', '.elder-cam-bubble')
       await waitText(p, '❤️ 고마워요')
       await snap(p, 'photo-view')
-      await click(p, '다음 사진 ›', '.news-btn')
-      await waitText(p, '처음으로 ›')
-      await click(p, '❤️ 고마워요', '.news-btn.primary')
+      await click(p, '다음 사진', '.fp-btn')
+      await waitText(p, '처음으로')
+      await click(p, '❤️ 고마워요', '.fp-heart')
       await waitText(p, '다 보셨어요', 10_000)
       await snap(p, 'last-to-camera', { quick: true })
       await p.waitForSelector('.elder-cam-shutter:not([disabled])', { timeout: 30_000 })

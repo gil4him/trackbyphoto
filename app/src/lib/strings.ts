@@ -46,6 +46,7 @@ export const S = {
   familyPhotoNext: '다음 사진 ›',
   familyPhotoAllSeen: '다 보셨어요 ♥',
   familyPhotoToCamera: '처음으로 ›',
+  familyPhotoReplyText: '글로 답하기',
   familyPhotoSend: '사진 보내기',
   familyPhotoSendTitle: (name: string) => `${honorific(name)}께 사진 보내기`,
   familyPhotoCaption: '한마디 (선택)',

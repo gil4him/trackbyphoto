@@ -1163,11 +1163,47 @@ button.rx-voice.locked { width: 100%; padding: 10px 12px; border: 2px solid var(
 /* A step that can't be taken yet should look it. */
 .modal .linkbtn:disabled { opacity: .4; }
 
-/* Photos family send to a parent. */
-.fp-view .fp-photo { width: 100%; min-height: 48vh; max-height: 62vh; border-radius: 20px; overflow: hidden; background: #000; display: flex; align-items: center; justify-content: center; }
-.fp-view .fp-photo img { width: 100%; max-height: 62vh; object-fit: contain; display: block; }
-.fp-view .fp-broken { color: #fff; font-size: 24px; padding: 24px; text-align: center; }
+/* Photos family send to a parent (pages/FamilyPhotoViewer.tsx, A12): the
+   whole screen, the actions pinned above the safe area. */
+.fp-view {
+  position: fixed; inset: 0; z-index: 10; overflow-y: auto; background: var(--ground);
+  display: flex; flex-direction: column; gap: 12px;
+  padding: calc(var(--safe-top) + 10px) 22px calc(var(--safe-bot) + 16px);
+}
+.fp-top { min-height: 56px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.fp-from { font-size: 24px; font-weight: 800; color: var(--muted); word-break: keep-all; overflow-wrap: anywhere; }
+/* Where we are in the run: one dot a photo, the current one a pill; `1 / 12` past nine. */
+.fp-dots { display: flex; align-items: center; gap: 6px; flex: none; }
+.fp-dot { width: 8px; height: 8px; border-radius: 4px; background: var(--line); }
+.fp-dot.on { width: 20px; background: var(--accent); }
+.fp-count { font-size: 20px; font-weight: 700; color: var(--muted); flex: none; }
+/* The photo at its own shape (aspect-ratio set from the loaded image), capped;
+   past the cap the box is wider than the photo and contain shows it whole on the surface. */
+.fp-view .fp-photo { width: 100%; max-height: 60vh; border-radius: 20px; overflow: hidden; background: var(--surface); display: flex; align-items: center; justify-content: center; }
+.fp-view .fp-photo img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.fp-view .fp-broken { color: var(--muted); font-size: 26px; padding: 24px; text-align: center; word-break: keep-all; }
+@media (max-height: 700px) { .fp-view .fp-photo { max-height: 44vh; } }
+.fp-message {
+  font-size: 26px; font-weight: 800; line-height: 1.35; text-align: center; word-break: keep-all; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.fp-caption { font-size: 20px; color: var(--muted); text-align: center; }
 .fp-replied { font-size: 26px; color: var(--ink-2); text-align: center; word-break: keep-all; }
+/* The actions: ❤️ 고마워요 filled, then one row of two equal outline buttons. */
+.fp-actions { margin-top: auto; display: flex; flex-direction: column; gap: 10px; padding-top: 6px; }
+.fp-heart {
+  width: 100%; min-height: 72px; border: 0; border-radius: var(--radius-btn);
+  background: var(--accent); color: var(--ink); font: inherit; font-size: 28px; font-weight: 800; cursor: pointer; word-break: keep-all; overflow-wrap: anywhere;
+}
+.fp-heart:active { background: var(--accent-pressed); }
+/* Each label on one line; a label too wide for half the row (big text)
+   moves the pair onto two full-width rows rather than breaking a word. */
+.fp-row2 { display: flex; flex-wrap: wrap; gap: 8px; }
+.fp-btn {
+  flex: 1 1 calc(50% - 4px); min-width: max-content; min-height: 56px; padding: 6px 8px; border: 2px solid var(--accent); border-radius: var(--radius-btn);
+  background: var(--surface); color: var(--ink); font: inherit; font-size: 26px; font-weight: 700; line-height: 1.25; cursor: pointer; white-space: nowrap;
+}
+.fp-btn:active { background: var(--accent-tint); }
 /* The parent's phone: body text 26px and up, buttons 28px on 72px, words never broken (A9). */
 .elder-mode { word-break: keep-all; }
 .elder-mode .toast { font-size: 26px; padding: 18px 26px; background: rgba(0, 0, 0, .78); border: 1px solid rgba(255, 255, 255, .14); border-radius: 24px; box-shadow: none; }

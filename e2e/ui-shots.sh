@@ -20,8 +20,8 @@ echo "[ui-shots] building the simple site for the emulators…"
   VITE_EMULATOR_AUTH_PORT=9098 VITE_EMULATOR_FIRESTORE_PORT=8089 VITE_EMULATOR_STORAGE_PORT=9198 \
   npx vite build --mode simple --outDir ../e2e/.tmp/ui-site --emptyOutDir >/dev/null)
 
-# The parent's screens (A6, A9, A11) link a phone, which needs the worker.
-case "$UI_PHASE" in A6|A9|A11)
+# The parent's screens (A6, A9, A11, A12) link a phone, which needs the worker.
+case "$UI_PHASE" in A6|A9|A11|A12)
   echo "[ui-shots] building the worker…"
   (cd worker && npm run build >/dev/null) ;;
 esac
