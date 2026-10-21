@@ -264,12 +264,21 @@ try {
     const who = account ? await account() : acct
     const kid = account ? KID2 : KID
     const p = await openPage(browser, { device: DEVICE, acct: who, kid, activePatient: account ? undefined : as })
-    const file = join(OUT, `${PHASE}-${name}.png`)
+    const file = join(OUT, `${PHASE}-${name}${DEVICE === 'iphone' ? '' : `-${DEVICE}`}.png`)
     try {
       await go(p)
       await settle(p)
-      await p.screenshot({ path: file })
-      console.log('  ', `${PHASE}-${name}.png`)
+      await p.screenshot({ path: file, fullPage: process.env.UI_FULL === '1' })
+      console.log('  ', file.split('/').pop())
+      // Anything wider than the screen (cut off on the right).
+      const wide = await p.evaluate(() => {
+        const w = document.documentElement.clientWidth
+        const out = [...document.querySelectorAll('body *')].filter((el) => { const r = el.getBoundingClientRect(); return r.width > 0 && (r.right > w + 1 || r.left < -1) })
+          .filter((el) => !out0(el)).map((el) => `${el.tagName.toLowerCase()}.${[...el.classList].join('.')} [${Math.round(el.getBoundingClientRect().left)}…${Math.round(el.getBoundingClientRect().right)}]`)
+        function out0(el) { for (let a = el.parentElement; a; a = a.parentElement) { const r = a.getBoundingClientRect(); if (r.right > w + 1 || r.left < -1) return true } return false }
+        return { w, scroll: document.documentElement.scrollWidth, out: out.slice(0, 12) }
+      })
+      if (wide.scroll > wide.w || wide.out.length) console.log(`     wider than ${wide.w}px (page ${wide.scroll}px):`, wide.out.join(' | '))
     } catch (err) {
       console.log(`   ${name} FAILED: ${String(err.message).split('\n')[0]}`)
       await p.screenshot({ path: join(OUT, `FAIL-${PHASE}-${name}.png`) }).catch(() => {})
