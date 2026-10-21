@@ -9,7 +9,7 @@ import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { initializeApp } from 'firebase-admin/app'
-import { FieldValue, getFirestore } from 'firebase-admin/firestore'
+import { FieldValue, getFirestore, Timestamp } from 'firebase-admin/firestore'
 import puppeteer from 'puppeteer-core'
 import { FAKE_DIARY_TITLE, FAKE_MEMO, FAKE_SUMMARY, serveFakeModel, serveSite } from './servers.mjs'
 
@@ -569,7 +569,7 @@ await step('설정 → 함께 보는 가족 shows the same people as the switche
   expect(await has(family, '내가 등록한 부모님'), 'the registered parent is not marked as such')
 })
 
-await step('a parent I registered can be deleted from 함께 보는 가족, with everything of theirs', async () => {
+await step('two parents: a switch never shows one parent\'s photos or name on the other\'s page; then one is deleted with everything of theirs', async () => {
   await openRegister()
   await family.type('.modal input', '이모')
   await click(family, '다음', { selector: '.modal button' })
@@ -579,6 +579,38 @@ await step('a parent I registered can be deleted from 함께 보는 가족, with
   await click(family, '완료', { selector: '.modal button' })
   const added = (await db.collection('users').where('patientName', '==', '이모').get()).docs[0]?.id
   expect(added, '이모 was not registered')
+  // Two parents, each with their own photos: right after a switch the screen
+  // must never show one parent's name with the other's photos.
+  // The home screen labels each photo with its place, so the places tell them apart.
+  const AUNT_PLACE = '이모네 바닷가'
+  const at = Timestamp.now()
+  await db.collection('memos').doc('e2e-aunt-photo').set({ patientUid: added, photoPath: '', photoUrl: '', takenAt: at, createdAt: at, lat: null, lng: null, place: AUNT_PLACE, activity: '기타', memo: '이모의 바닷가 사진', scene: '', status: 'ready' })
+  const GRAN_PLACE = '할머니네 공원'
+  for (const d of (await db.collection('memos').where('patientUid', '==', patientUid).get()).docs) await d.ref.update({ place: GRAN_PLACE })
+  await tab(family, '홈')
+  for (const [who, mine, theirs] of [['이모', AUNT_PLACE, GRAN_PLACE], [PARENT, GRAN_PLACE, AUNT_PLACE], ['이모', AUNT_PLACE, GRAN_PLACE]]) {
+    await family.click('.acct-chip')
+    await family.waitForSelector('.sheet .ps-row', { timeout: 10_000 })
+    // Every screen update from the tap on, watched inside the page: the wrong
+    // view lasts only as long as the new parent's photos take to arrive.
+    const seen = await family.evaluate((name, mine, theirs, otherGreeting) => new Promise((resolve) => {
+      const out = { wrongPhoto: false, wrongName: false, shown: false }
+      const check = () => {
+        const t = document.body.innerText
+        out.wrongPhoto ||= t.includes(theirs)
+        out.wrongName ||= t.includes(otherGreeting)
+        out.shown ||= t.includes(mine)
+      }
+      const watch = new MutationObserver(check)
+      watch.observe(document.body, { subtree: true, childList: true, characterData: true })
+      // From the first redraw on (right after the tap, the old page is still up).
+      ;[...document.querySelectorAll('.sheet .ps-row')].find((r) => r.querySelector('.ps-row-name')?.textContent.trim() === name)?.click()
+      setTimeout(() => { watch.disconnect(); check(); resolve(out) }, 2500)
+    }), who, mine, theirs, `${who === PARENT ? '이모' : PARENT}님, 안녕하세요`)
+    expect(!seen.wrongPhoto, `${who}'s page showed the other parent's photo`)
+    expect(!seen.wrongName, `${who}'s page greeted the other parent`)
+    expect(seen.shown, `${who}'s own photo never appeared`)
+  }
   if (await family.$('.acct-return')) await family.click('.acct-return')
   await tab(family, '설정')
   await waitText(family, '함께 보는 가족')
