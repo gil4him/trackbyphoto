@@ -130,8 +130,9 @@ export async function getGeo(): Promise<Geo | null> {
 
 export interface AddressCandidate { lat: number; lng: number; label: string }
 
-/** 설정 → 집 위치 → 주소로 찾기: an address or building name → places to pick. */
-export async function searchAddress(query: string, patientUid: string): Promise<AddressCandidate[]> {
-  const { candidates } = await callWorker<{ candidates: AddressCandidate[] }>('searchAddress', { query, patientUid })
+/** 설정 → 집 위치 → 주소로 찾기: an address or building name → places to pick.
+ *  `auto` marks a search fired while the person is still typing. */
+export async function searchAddress(query: string, patientUid: string, auto = false): Promise<AddressCandidate[]> {
+  const { candidates } = await callWorker<{ candidates: AddressCandidate[] }>('searchAddress', { query, patientUid, ...(auto ? { auto } : {}) })
   return candidates
 }

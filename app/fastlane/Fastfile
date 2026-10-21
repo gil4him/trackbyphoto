@@ -307,26 +307,39 @@ lane :release_ios do |options|
 end
 
 # Submit a build that is already in App Store Connect to App Review. Nothing is
-# built or uploaded; the listing, screenshots, privacy answers and review
-# contact are expected to be in place already.
+# built; the listing text in fastlane/metadata is uploaded with it, and the
+# screenshots, privacy answers and review contact are expected to be in place.
 #
 #   bundle exec fastlane submit_ios build_number:29865919 [app_version:1.0]
 #
 # Options:
 #   build_number:N           the build to attach and submit (required)
-#   app_version:X.Y          the App Store version to submit (default 1.0)
+#   app_version:X.Y.Z        the App Store version to submit (default 1.0.1)
+#   skip_metadata:true       don't upload fastlane/metadata (default: upload it)
 #   automatic_release:true   release as soon as Apple approves (default false —
 #                            you press Release yourself)
 lane :submit_ios do |options|
   build_number = options[:build_number].to_s
   UI.user_error!("submit_ios needs build_number:N") if build_number.empty?
+  # The listing (fastlane/metadata) goes up with the submission, so a new
+  # version gets its "What's New" and any text changes; skip_metadata:true leaves
+  # App Store Connect's text as it is.
+  metadata_path = File.join(app_dir, "fastlane/metadata")
+  skip_metadata = options.key?(:skip_metadata) ? flag(options[:skip_metadata]) : !folder_has_files?(metadata_path)
+  UI.message("metadata:    #{skip_metadata ? 'skipped' : metadata_path}")
+  metadata_args = skip_metadata ? {} : {
+    metadata_path: metadata_path,
+    # metadata/android/ sits next to the App Store locales (see release_ios).
+    ignore_language_directory_validation: true
+  }
   upload_to_app_store(
+    **metadata_args,
     api_key: asc_api_key,
     app_identifier: ENV["IOS_BUNDLE_ID"],
-    app_version: (options[:app_version] || "1.0").to_s,
+    app_version: (options[:app_version] || "1.0.1").to_s,
     build_number: build_number,
     skip_binary_upload: true,
-    skip_metadata: true,
+    skip_metadata: skip_metadata,
     skip_screenshots: true,
     skip_app_version_update: false,
     submit_for_review: true,

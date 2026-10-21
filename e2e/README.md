@@ -22,6 +22,7 @@ them the dead-upload step.
 | `E2E_HEADFUL=1` | watch it in a visible browser |
 | `E2E_SITE_DIR=<dir>` | check an already-built site (for example an older commit) |
 | `E2E_SNAP=1` | keep pictures of a few screens in `e2e/.tmp/shots` |
+| `E2E_PORT_OFFSET=<n>` | run the emulators `n` ports up (e.g. `10000`), when another project's emulators hold the usual ones |
 
 ## What it covers
 

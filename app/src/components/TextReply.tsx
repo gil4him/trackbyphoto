@@ -1,13 +1,17 @@
-import { useState, type RefObject } from 'react'
+import { useRef, useState, type RefObject } from 'react'
+import { flushSync } from 'react-dom'
 import { COMMENT_MAX } from '../lib/reactions'
 import { QUICK_REPLIES, S } from '../lib/strings'
 import type { TextReplies } from '../types'
+import { isSimple } from '../lib/edition'
 
 /**
  * The parent's written reply, shared by 가족 소식 and the family-photo viewer.
  * With typing on ('full', the default) the text box comes first with the
  * keyboard up, and the ready-made phrases sit underneath as one-tap
- * shortcuts; with 'quick' it is the phrases alone and no keyboard.
+ * shortcuts; with 'quick' it is the phrases alone and no keyboard. In the
+ * simple edition 'quick' ends with a 직접 쓰기 button that brings the text
+ * box up, so a parent can still say something of their own.
  */
 export function TextReply({ to, textMode = 'full', inputRef, onBack, onSend }: {
   /** Who the reply goes to, e.g. 민수. */
@@ -20,7 +24,16 @@ export function TextReply({ to, textMode = 'full', inputRef, onBack, onSend }: {
   onSend: (text: string) => void
 }) {
   const [draft, setDraft] = useState('')
-  const typing = textMode === 'full'
+  const [ownWords, setOwnWords] = useState(false)
+  const typing = textMode === 'full' || ownWords
+  const canOpenTyping = textMode === 'quick' && isSimple() && !ownWords
+  const localRef = useRef<HTMLInputElement>(null)
+  const ref = inputRef ?? localRef
+  const openTyping = () => {
+    // Show the box and focus it inside this tap, so the keyboard opens.
+    flushSync(() => setOwnWords(true))
+    ref.current?.focus()
+  }
 
   return (
     <section className="page news">
@@ -30,7 +43,7 @@ export function TextReply({ to, textMode = 'full', inputRef, onBack, onSend }: {
       {typing && (
         <form className="news-type" onSubmit={(e) => { e.preventDefault(); if (draft.trim()) onSend(draft) }}>
           <input
-            ref={inputRef}
+            ref={ref}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             maxLength={COMMENT_MAX}
@@ -42,10 +55,13 @@ export function TextReply({ to, textMode = 'full', inputRef, onBack, onSend }: {
           <button type="submit" disabled={!draft.trim()}>보내기</button>
         </form>
       )}
-      <div className={typing ? 'news-quick' : 'news-actions'}>
+      <div className={textMode === 'full' ? 'news-quick' : 'news-actions'}>
         {QUICK_REPLIES.map((q) => (
           <button key={q} className="news-btn" onClick={() => onSend(q)}>{q}</button>
         ))}
+        {canOpenTyping && (
+          <button className="news-btn" onClick={openTyping}>{S.elderReplyTypeOwn}</button>
+        )}
       </div>
     </section>
   )

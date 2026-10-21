@@ -22,6 +22,11 @@ export const DEVICES = {
   i15:    { width: 393, height: 852, deviceScaleFactor: 3, isMobile: true, hasTouch: true },
   pixel8: { width: 412, height: 915, deviceScaleFactor: 3, isMobile: true, hasTouch: true },
   promax: { width: 430, height: 932, deviceScaleFactor: 3, isMobile: true, hasTouch: true },
+  // Smaller iPhones, for layout checks: iPhone 15/16 and iPhone SE.
+  'iphone-15': { width: 393, height: 852, deviceScaleFactor: 3, isMobile: true, hasTouch: true },
+  'iphone-se': { width: 375, height: 667, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
+  // Display Zoom on a small iPhone (and the iPhone SE 1st gen).
+  'iphone-zoom': { width: 320, height: 568, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
 }
 /** §Q.2, in order: name → device, text scale, the parent's 큰 글자 setting. */
 export const QA_MATRIX = [
@@ -43,6 +48,7 @@ export const UA = {
   // Same reason as play: the store pictures are of the app's own screens.
   android916: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1',
 }
+UA['iphone-15'] = UA['iphone-se'] = UA['iphone-zoom'] = UA.iphone
 
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 

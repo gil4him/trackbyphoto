@@ -16,7 +16,7 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore'
 import { logger } from '../log.js'
 import { downloadLink } from '../storageLinks.js'
 import { flagOn } from '../plans.js'
-import { pushToUsers, type PushMessage } from './push.js'
+import { openPath, pushToUsers, type PushMessage } from './push.js'
 
 export interface FamilyPhotoDeps {
   /** A plain link to the photo; null when the file isn't there. */
@@ -77,7 +77,7 @@ export async function announceFamilyPhotoReply(id: string, deps: FamilyPhotoDeps
     return true
   })
   if (!told) return false
-  await (deps.push ?? pushToUsers)([senderUid], { title: 'Daylie', body: message, data: { type: 'familyPhoto.reply', patientUid, familyPhotoId: id } })
+  await (deps.push ?? pushToUsers)([senderUid], { title: 'Daylie', body: message, data: { type: 'familyPhoto.reply', patientUid, familyPhotoId: id }, path: openPath.home(patientUid) })
   logger.info('[familyPhoto] reply announced', { id, patientUid, senderUid, kind: reply.kind })
   return true
 }

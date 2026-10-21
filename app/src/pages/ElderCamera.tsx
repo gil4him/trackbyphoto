@@ -12,7 +12,7 @@ import { MemoThumb } from '../components/MemoThumb'
 import { markRead } from '../lib/reactions'
 import { sentToName } from '../lib/people'
 import { S } from '../lib/strings'
-import { useElderNews } from '../hooks/useElderNews'
+import { useElderNews, type OpenNews } from '../hooks/useElderNews'
 import { useMemberships } from '../hooks/useMemberships'
 import type { ElderNews } from '../lib/reactionsModel'
 import type { Memo, Reaction } from '../types'
@@ -152,7 +152,7 @@ export function ElderCameraView({ phase, busy, overlay, news, photos = null, rec
   )
 }
 
-export function ElderCamera({ uid, reactions, photos = null, recent = null, onOpenRecords, onOpenPhotos }: {
+export function ElderCamera({ uid, reactions, photos = null, recent = null, onOpenRecords, onOpenPhotos, onOpenNews }: {
   uid: string
   /** The parent's newest photo, for the 내 사진 circle. */
   recent?: Memo | null
@@ -162,6 +162,8 @@ export function ElderCamera({ uid, reactions, photos = null, recent = null, onOp
   photos?: { line: string; lit: boolean } | null
   onOpenRecords: () => void
   onOpenPhotos?: () => void
+  /** A family member's message was tapped: open 가족 소식 to answer it. */
+  onOpenNews?: (news: OpenNews) => void
 }) {
   const [phase, setPhase] = useState<CameraPhase>('starting')
   const [busy, setBusy] = useState(false)
@@ -269,7 +271,10 @@ export function ElderCamera({ uid, reactions, photos = null, recent = null, onOp
   const onDismissNews = () => {
     if (news?.state !== 'new') return
     setDismissed((d) => [...d, ...news.unreadIds])
-    markRead(news.unreadIds, 'elder')
+    // A written message gets the reply screen (it stamps them read itself);
+    // a heart needs no answer and just goes.
+    if (news.item.kind === 'comment' && onOpenNews) onOpenNews(news)
+    else markRead(news.unreadIds, 'elder')
   }
 
   return (

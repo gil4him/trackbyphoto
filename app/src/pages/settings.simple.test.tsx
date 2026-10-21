@@ -38,7 +38,7 @@ describe('Settings for a parent (simple)', () => {
     const at = order.map((s) => html.indexOf(s))
     for (const [i, s] of order.entries()) expect(at[i], s).toBeGreaterThan(-1)
     for (let i = 1; i < at.length; i++) expect(at[i]).toBeGreaterThan(at[i - 1])
-    for (const s of ['집 위치', '표시되는 이름', '요금제', '음성 답장', '글자 크기', '자동 기록', '전송 시점', '사진 보관', '>언어<', 'Phase 1 안내', '부모님 삭제']) expect(html, s).not.toContain(s)
+    for (const s of ['표시되는 이름', '요금제', '음성 답장', '글자 크기', '자동 기록', '전송 시점', '사진 보관', '>언어<', 'Phase 1 안내', '부모님 삭제']) expect(html, s).not.toContain(s)
   })
 
   it("부모님: the parent's phone, 함께 보는 가족 with ⋯ (no red button inline), and 가족 초대하기", () => {
@@ -55,6 +55,16 @@ describe('Settings for a parent (simple)', () => {
     expect(html).toContain('class="on">다정하게<')
     expect(html).toContain('>재치있게<')
     expect(html.indexOf('메모 말투')).toBeLessThan(html.indexOf('함께 보는 가족'))
+  })
+
+  it('부모님: 집 위치 with address search, between 메모 말투 and 함께 보는 가족', () => {
+    expect(html).toContain('>집 위치<')
+    expect(html).toContain('자동으로 추정해요')
+    expect(html).toContain('주소로 찾기')
+    // The family member's own location is not the parent's home.
+    expect(html).not.toContain('지금 있는 곳을 집으로 설정')
+    expect(html.indexOf('메모 말투')).toBeLessThan(html.indexOf('집 위치'))
+    expect(html.indexOf('집 위치')).toBeLessThan(html.indexOf('함께 보는 가족'))
   })
 
   it('알림: the 앱 알림 switch, then 알림 시간', () => {

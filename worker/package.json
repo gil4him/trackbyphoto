@@ -15,6 +15,7 @@
     "probe": "npm run build && node dist/scripts/probe.js",
     "eval": "npm run build && node dist/scripts/eval.js",
     "memo-compare": "npm run build && node dist/scripts/memo-compare.js",
+    "memo-diary-compare": "npm run build && node dist/scripts/memo-diary-compare.js",
     "plans": "npm run build && node dist/scripts/plans.js",
     "test": "firebase emulators:exec --only firestore,auth --project demo-trackbyphoto 'vitest run'",
     "test:watch": "firebase emulators:exec --only firestore,auth --project demo-trackbyphoto 'vitest'"

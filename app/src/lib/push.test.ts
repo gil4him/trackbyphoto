@@ -84,11 +84,12 @@ describe('push in the installed app', () => {
     expect(await pushState()).toBe('off')
   })
 
-  it('says "not yet" on iPhone until the app is signed for push', async () => {
+  it('works on iPhone too, now the app is signed for push', async () => {
     native.platform = 'ios'
-    expect(await pushState()).toBe('unsupported')
-    expect(await enablePush()).toBe('unsupported')
-    expect(native.asked).toBe(0)
+    expect(await pushState()).toBe('off')
+    expect(await enablePush()).toBe('on')
+    expect(native.asked).toBe(1)
+    expect(worker.calls).toEqual([{ type: 'registerFcmToken', data: { token: 'fcm-token-1' } }])
   })
 
   it('reports what a tapped push points at', async () => {

@@ -396,7 +396,8 @@ try {
           findings[file] = found
           for (const f of found) console.log(`      ! ${f}`)
         }
-        await p.screenshot({ path: join(OUT, file) })
+        // UI_FULL=1: the whole page, not just the first screen.
+        await p.screenshot({ path: join(OUT, file), fullPage: process.env.UI_FULL === '1' })
         console.log('  ', file, row.id && !findings[file].length ? 'OK' : '')
       } catch (err) {
         console.log(`   ${file} FAILED: ${String(err.message).split('\n')[0]}`)

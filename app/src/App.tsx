@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, lazy, Suspense, useCallback } from 'react'
+import { useEffect, useMemo, useRef, useState, lazy, Suspense, useCallback } from 'react'
 import { Capacitor } from '@capacitor/core'
 import { doc, onSnapshot, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from './firebase'
@@ -6,6 +6,8 @@ import { appleSignInAvailable, useAuth } from './hooks/useAuth'
 import { useLaunchUrl } from './hooks/useLaunchUrl'
 import { useFirstLaunchPairCode } from './hooks/useFirstLaunchPairCode'
 import { useMemos } from './hooks/useMemos'
+import { useMemoById } from './hooks/useMemoById'
+import { MemoOpening } from './components/MemoOpening'
 import { useMemberships } from './hooks/useMemberships'
 import { useOutboxSync } from './hooks/useOutbox'
 import { useNotifications } from './hooks/useNotifications'
@@ -31,6 +33,7 @@ import { AcceptInvite, PENDING_INVITE_KEY } from './pages/AcceptInvite'
 import { ConnectParentCard } from './components/ConnectParentCard'
 import { FamilyCamera } from './components/CameraFab'
 import { appTitle, isSimple } from './lib/edition'
+import { inStore, storeKind } from './lib/storeLinks'
 import { defaultTextReplies } from './lib/textReplies'
 import { isAdminUser } from './lib/admin'
 import { usePlans } from './hooks/usePlans'
@@ -44,6 +47,9 @@ import { deviceGeoLang, relativeDateLabel } from './util'
 import { disablePush, onPushOpened, refreshPush, type PushOpened } from './lib/push'
 import { PushNudge } from './components/PushNudge'
 import type { AppNotification } from './types'
+import { openFromUrl, parseOpen, type OpenTarget } from './lib/openFromUrl'
+import { noticesSeen, type NoticeView } from './lib/noticeViews'
+import { usePageVisible } from './hooks/usePageVisible'
 import { entitlements, flagOn } from './lib/plans'
 import { byMemo } from './lib/reactionsModel'
 import type { ReactionsContext } from './components/Reactions'
@@ -123,9 +129,13 @@ function App() {
   // …or, on the simple app's first launch, by the code of the link it was
   // installed from (Play referrer / copied link).
   useFirstLaunchPairCode(isSimple() && ready && !authUser, setPairCode)
-  // Simple edition, web: 앱 없이 이 화면에서 연결하기 on the /pair page links
-  // the phone in the browser (?web=1 keeps it across a reload).
-  const [webPair, setWebPair] = useState(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('web') === '1')
+  // Simple edition, web: 연결하기 on the /pair page (only where the phone's
+  // store has no app) links the phone in the browser (?web=1 keeps it across
+  // a reload). An old ?web=1 address on a phone whose store has the app is
+  // ignored: that phone installs the app.
+  const [webPair, setWebPair] = useState(() => typeof window !== 'undefined'
+    && new URLSearchParams(window.location.search).get('web') === '1'
+    && !(isSimple() && inStore(storeKind(navigator.userAgent))))
   // Simple edition: 부모님 휴대폰이에요 on sign-in opens the pairing camera
   // (ElderPairStart) in the app; 가족이에요 there comes back.
   const [parentMode, setParentMode] = useState(false)
@@ -137,6 +147,10 @@ function App() {
   // /?tab=settings: the legal pages' ‹ 설정으로 돌아가기 lands back on 설정.
   const [tab, setTab] = useState<TabKey>(() => tabFromUrl())
   const [selectedMemoId, setSelectedMemoId] = useState<string | null>(null)
+  // A photo, a parent's page or a digest to open once the data is there: from
+  // a tapped notification (?open=… link, or the push worker's message to an
+  // already-open app) or an 알림 row about another parent.
+  const [pendingOpen, setPendingOpen] = useState<OpenTarget | null>(() => openFromUrl())
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS)
   // Whose settings those are: they lag a moment behind a switch of patient.
   const [settingsUid, setSettingsUid] = useState<string | null>(null)
@@ -207,7 +221,19 @@ function App() {
   useEffect(() => (pushOn && familyUid ? onPushOpened(setPushed) : undefined), [pushOn, familyUid])
   // Keep sending photos that are still on this phone (weak connection).
   useOutboxSync(user?.uid)
-  const selectedMemo = selectedMemoId ? memos.find((m) => m.id === selectedMemoId) ?? null : null
+  // A tapped notification's photo: opened at once with a placeholder, its
+  // own record read straight from the server (useMemoById) rather than
+  // waiting for that person's whole list, and the photo page's code fetched
+  // on the tap.
+  const openingMemoId = pushed?.memoId ?? (pendingOpen?.kind === 'memo' ? pendingOpen.memoId : null) ?? selectedMemoId
+  const [memoAttempt, setMemoAttempt] = useState(0)
+  const listed = openingMemoId ? memos.find((m) => m.id === openingMemoId) : undefined
+  const direct = useMemoById(listed ? null : openingMemoId, !!user, memoAttempt)
+  useEffect(() => { if (openingMemoId) void pages.memoDetail().catch(() => {}) }, [openingMemoId])
+  const selectedMemo = selectedMemoId
+    ? memos.find((m) => m.id === selectedMemoId) ?? (direct.memo?.id === selectedMemoId ? direct.memo : null)
+    : null
+  const memoOpening = !!(pushed?.memoId || pendingOpen?.kind === 'memo' || (selectedMemoId && !selectedMemo))
 
   // Initialize activePatientUid when the user signs in. Read the persisted
   // choice from localStorage, falling back to self. Validates the persisted
@@ -248,10 +274,13 @@ function App() {
     }
   }, [])
 
-  // If the selected memo disappears from the live snapshot (e.g. delete from
-  // the detail page), drop back to the previous tab automatically.
+  // If the photo on screen disappears from the live snapshot (e.g. delete
+  // from the detail page), drop back to the previous tab automatically. A
+  // photo still on its way (a tapped notification) keeps its placeholder.
+  const shownMemoId = useRef<string | null>(null)
   useEffect(() => {
-    if (selectedMemoId && !selectedMemo) setSelectedMemoId(null)
+    if (selectedMemo) shownMemoId.current = selectedMemo.id
+    else if (selectedMemoId && shownMemoId.current === selectedMemoId) setSelectedMemoId(null)
   }, [selectedMemoId, selectedMemo])
 
   // Settings subscription follows the ACTIVE patient, not the signed-in user.
@@ -338,6 +367,58 @@ function App() {
     document.title = n > 0 ? `(${n}) ${appTitle()}` : appTitle()
   }, [notifications.length])
 
+  // The push worker (public/push-sw.js) tells an already-open app what a
+  // tapped notification points at; it can't navigate pages it doesn't control.
+  useEffect(() => {
+    const sw = typeof navigator === 'undefined' ? undefined : navigator.serviceWorker
+    if (!sw) return
+    const onMessage = (e: MessageEvent) => {
+      const d = e.data as { type?: unknown; link?: unknown } | null
+      if (d?.type === 'daylie-open' && typeof d.link === 'string') setPendingOpen(parseOpen(d.link))
+    }
+    sw.addEventListener('message', onMessage)
+    sw.startMessages?.()
+    return () => sw.removeEventListener('message', onMessage)
+  }, [])
+
+  // Open it once whose records it is about are known: switch to that person
+  // first, then (for a photo) wait for their photos to load. A photo too old
+  // to be in the list lands on their 사진 tab, as 알림 always has.
+  useEffect(() => {
+    // activePatientUid is set only once the sign-in has settled: before that
+    // the parents list can read as loaded and still be empty.
+    if (!pendingOpen || !user || elder || membershipsLoading || !activePatientUid) return
+    // Acting on data that just arrived (memberships, memos) is what this effect is for.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (pendingOpen.kind === 'digest') { setDigestId(pendingOpen.digestId); setPendingOpen(null); return }
+    const target = pendingOpen.patientUid
+    if (target !== user.uid && !patients.some((p) => p.patientUid === target)) { setPendingOpen(null); return }
+    if (activePatientUid !== target) { onSwitchPatient(target); return }
+    if (pendingOpen.kind !== 'memo') { setSelectedMemoId(null); setTab(pendingOpen.kind); setPendingOpen(null); return }
+    // The photo opens now: from the list if it's there, else from its own
+    // record (useMemoById), with the placeholder until then.
+    setSelectedMemoId(pendingOpen.memoId)
+    setPendingOpen(null)
+    // onSwitchPatient is recreated every render; the inputs that matter are listed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingOpen, user, elder, membershipsLoading, patients, activePatientUid])
+
+  // Looking at something counts as having seen its notices, so the icon
+  // badge goes down without a visit to 알림 (lib/noticeViews.ts). Only while
+  // the app is actually on screen.
+  const visible = usePageVisible()
+  const noticeView: NoticeView = !user || elder || !visible ? { kind: 'other' }
+    : digestId ? { kind: 'digest', digestId }
+    : selectedMemo ? { kind: 'memo', patientUid: selectedMemo.patientUid, memoId: selectedMemo.id }
+    : tab === 'home' || tab === 'today' ? { kind: tab, patientUid: activePatientUid || user.uid }
+    : { kind: 'other' }
+  const seenIds = noticesSeen(noticeView, notifications).join(',')
+  useEffect(() => {
+    for (const id of seenIds ? seenIds.split(',') : []) dismissNotification(id)
+    // dismissNotification is a plain write; seenIds already says what changed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seenIds])
+
   // /admin is the dashboard; /superadmin was its old address (now the AI tab).
   const isAdminRoute =
     typeof window !== 'undefined' && (window.location.pathname === '/admin' || window.location.pathname === '/superadmin')
@@ -353,10 +434,12 @@ function App() {
   }
 
   // The simple edition is a store app: on the web, a /pair link first helps
-  // the parent's phone install it (PairLanding), or links it right here in
-  // the browser (webPair). A code typed in (가족에게 받은 연결 코드가 있어요)
-  // goes straight to the web pairing screen.
-  if (pairCode && isSimple() && !Capacitor.isNativePlatform() && !webPair) {
+  // the parent's phone install it (PairLanding); only where the phone's store
+  // has no app does it link right here in the browser (webPair). 가족에게 받은
+  // 연결 코드가 있어요 on a phone with the app in its store also asks to
+  // install (then 코드 입력 in the app); on a computer it opens the code screen.
+  const typedOnPhoneWithStore = pairCode === '' && inStore(storeKind(navigator.userAgent))
+  if (pairCode !== null && (pairCode || typedOnPhoneWithStore) && isSimple() && !Capacitor.isNativePlatform() && !webPair) {
     const code = pairCode
     return (
       <div className="app">
@@ -367,6 +450,7 @@ function App() {
               window.history.replaceState(null, '', `/pair?c=${encodeURIComponent(code)}&web=1`)
               setWebPair(true)
             }}
+            onBack={code ? undefined : () => setPairCode(null)}
           />
         </main>
       </div>
@@ -569,14 +653,8 @@ function App() {
       setTab('settings')
       return
     }
-    if (n.patientUid !== (activePatientUid || user.uid)) {
-      onSwitchPatient(n.patientUid)
-      setTab('today')
-    } else if (n.memoId && memos.some((m) => m.id === n.memoId)) {
-      setSelectedMemoId(n.memoId)
-    } else {
-      setTab('today')
-    }
+    // The photo, once that person's photos are loaded (see pendingOpen above).
+    setPendingOpen(n.memoId ? { kind: 'memo', patientUid: n.patientUid, memoId: n.memoId } : { kind: 'today', patientUid: n.patientUid })
   }
   const openPush = (p: PushOpened) => {
     setPushed(null)
@@ -631,7 +709,7 @@ function App() {
           </button>
         )}
         <main>
-          {people.length > 0 && !selectedMemo && !openNews && !digestId && !trail && !voiceAlbum && (
+          {people.length > 0 && !selectedMemo && !memoOpening && !openNews && !digestId && !trail && !voiceAlbum && (
             <PatientSwitcher
               selfUid={user.uid}
               selfLabel={selfLabel}
@@ -653,7 +731,17 @@ function App() {
               onDone={() => setOpenNews(null)}
             />
           ) : selectedMemo ? (
-            <MemoDetail memo={selectedMemo} onBack={() => setSelectedMemoId(null)} rx={rx} />
+            <Suspense fallback={<MemoOpening state="loading" onBack={() => setSelectedMemoId(null)} onRetry={() => {}} onPhotos={() => onTabChange('today')} />}>
+              <MemoDetail memo={selectedMemo} onBack={() => setSelectedMemoId(null)} rx={rx} />
+            </Suspense>
+          ) : memoOpening ? (
+            <MemoOpening
+              key={openingMemoId ?? ''}
+              state={direct.state}
+              onBack={() => { setPushed(null); setPendingOpen(null); setSelectedMemoId(null) }}
+              onRetry={() => setMemoAttempt((n) => n + 1)}
+              onPhotos={() => { setPushed(null); setPendingOpen(null); onTabChange('today') }}
+            />
           ) : trail ? (
             <Trail
               title={trail.title}

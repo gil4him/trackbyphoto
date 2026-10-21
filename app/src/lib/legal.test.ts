@@ -60,15 +60,20 @@ describe('legal pages in the build', () => {
     const pwa = plugins('simple').find((p) => p.name === 'vite-plugin-pwa')
     // The plugin's own options aren't readable from the instance, so assert on
     // the denylist we hand it; keep this in step with vite.config.ts.
-    const denylist = [/^\/__\//, /^\/(privacy|terms|delete-account)\/?(\?.*)?$/]
+    const denylist = [/^\/__\//, /^\/(privacy|terms|delete-account)\/?(\?.*)?$/, /^\/pair(\/.*)?(\?.*)?$/]
     expect(pwa).toBeTruthy()
     for (const path of ['/privacy', '/privacy/', '/terms', '/terms/', '/delete-account', '/privacy?v=2', '/terms/?utm_source=mail']) {
       expect(denylist.some((re) => re.test(path))).toBe(true)
     }
     expect(denylist.some((re) => re.test('/'))).toBe(false)
-    expect(denylist.some((re) => re.test('/pair'))).toBe(false)
-    expect(readFileSync(new URL('../../vite.config.ts', import.meta.url), 'utf8'))
-      .toContain('/^\\/(privacy|terms|delete-account)\\/?(\\?.*)?$/')
+    // The parent's invite link always loads the newest build from the server.
+    for (const path of ['/pair', '/pair?c=ABCD2345', '/pair?c=ABCD2345&web=1', '/pair/']) {
+      expect(denylist.some((re) => re.test(path))).toBe(true)
+    }
+    expect(denylist.some((re) => re.test('/pairing'))).toBe(false)
+    const config = readFileSync(new URL('../../vite.config.ts', import.meta.url), 'utf8')
+    expect(config).toContain('/^\\/(privacy|terms|delete-account)\\/?(\\?.*)?$/')
+    expect(config).toContain('/^\\/pair(\\/.*)?(\\?.*)?$/')
   })
 })
 
@@ -112,7 +117,7 @@ describe('what each page has to say', () => {
       expect(html).toContain('<html lang="ko">')
       expect(html).toContain('name="viewport"')
       expect(html).toContain('Daylie')
-      expect(html).toContain('2026년 10월 10일')
+      expect(html).toContain('2026년 10월 16일')
     }
   })
 
@@ -168,8 +173,14 @@ describe('what each page has to say', () => {
     }
   })
 
-  it('marks what is still open with 확인 필요', () => {
-    for (const html of [privacy, terms]) expect(html).toContain('[확인 필요]')
+  it('names the developer and has no draft markers in the privacy policy (store reviewers read it)', () => {
+    expect(privacy).toContain('Digioptics, LLC')
+    expect(terms).toContain('Digioptics, LLC')
+    expect(privacy).not.toContain('확인 필요')
+  })
+
+  it('has every operator detail filled in', () => {
+    for (const html of [privacy, terms]) expect(html).not.toMatch(/\{\{[^}]*\}\}/)
   })
 })
 

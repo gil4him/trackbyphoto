@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url'
 import { initializeApp } from 'firebase-admin/app'
 import { FieldValue, getFirestore } from 'firebase-admin/firestore'
 import puppeteer from 'puppeteer-core'
-import { FAKE_MEMO, FAKE_SUMMARY, serveFakeModel, serveSite } from './servers.mjs'
+import { FAKE_DIARY_TITLE, FAKE_MEMO, FAKE_SUMMARY, serveFakeModel, serveSite } from './servers.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const TMP = join(HERE, '.tmp')
@@ -26,6 +26,9 @@ const REAL_LLM = process.env.E2E_REAL_LLM === '1'
 const MEMO_WAIT = REAL_LLM ? 180_000 : 60_000
 const PARENT = '할머니'
 const KID = { name: '민수', email: 'minsu@example.com' }
+/** ":9199"-style suffixes of the emulators this run uses (run.sh may move them). */
+const STORAGE_AT = `:${(process.env.FIREBASE_STORAGE_EMULATOR_HOST || '').split(':').pop()}`
+const FIRESTORE_AT = `:${(process.env.FIRESTORE_EMULATOR_HOST || '').split(':').pop()}`
 
 if (!process.env.FIRESTORE_EMULATOR_HOST || !process.env.FIREBASE_AUTH_EMULATOR_HOST || !process.env.FIREBASE_STORAGE_EMULATOR_HOST) {
   console.error('Run this through run.sh: it must only ever talk to the emulators.')
@@ -73,6 +76,10 @@ const text = (page) => page.evaluate(() => document.body.innerText)
 const has = async (page, s) => (await text(page)).includes(s)
 const waitText = (page, s, timeout = 20_000) => page.waitForFunction((t) => document.body.innerText.includes(t), { timeout }, s)
 const waitGone = (page, s, timeout = 20_000) => page.waitForFunction((t) => !document.body.innerText.includes(t), { timeout }, s)
+/** A visible button whose text or aria-label contains `label` (the camera
+ *  button's 사진 보내기 is a label only, no text). */
+const hasButton = (page, label) => page.evaluate((want) => [...document.querySelectorAll('button, a')]
+  .some((e) => ((e.getAttribute('aria-label') || '').includes(want) || e.textContent.includes(want)) && e.getClientRects().length > 0), label)
 /** Click the first visible, enabled control whose text or aria-label contains `label`. */
 async function click(page, label, { selector = 'button, a', timeout = 20_000 } = {}) {
   const handle = await page.waitForFunction((sel, want) => {
@@ -308,7 +315,7 @@ await step('an upload that dies quietly is given up on and retried, without clos
   let held = 0
   await parent.setRequestInterception(true)
   const onRequest = (req) => {
-    const upload = req.url().includes(':9199') && req.method() === 'POST'
+    const upload = req.url().includes(STORAGE_AT) && req.method() === 'POST'
     if (upload && held === 0) { held += 1; return } // never answered
     req.continue().catch(() => {})
   }
@@ -333,6 +340,8 @@ await step('family sends a comment → the parent\'s 가족 소식 card lights u
   await tab(family, '사진')
   await family.waitForSelector('.memo-row:not(.waiting)', { timeout: 20_000 })
   await family.click('.memo-row:not(.waiting)')
+  // The photo page is loaded on demand: wait for it before typing.
+  await family.waitForSelector('input[aria-label="글 남기기"]', { timeout: 20_000 })
   await family.type('input[aria-label="글 남기기"]', '사진 잘 봤어요')
   await click(family, '보내기', { selector: 'button.rx-send' })
   await waitText(family, '사진 잘 봤어요', 20_000)
@@ -415,13 +424,13 @@ await step('the 대표 가족 can switch family photos off for this parent, and 
   await sleep(1500)
   await tab(family, '홈')
   await sleep(1000)
-  expect(!(await has(family, '사진 보내기')), 'the send button is still there with photos off')
+  expect(!(await hasButton(family, '사진 보내기')), 'the send button is still there with photos off')
   await parent.waitForFunction(() => !document.querySelector('.fp-card'), { timeout: 20_000 })
   await tab(family, '설정')
   await click(family, '가족 사진 받기 전환')
   await sleep(1500)
   await tab(family, '홈')
-  await waitText(family, '사진 보내기', 10_000)
+  await family.waitForFunction((want) => [...document.querySelectorAll('button')].some((e) => (e.getAttribute('aria-label') || '').includes(want) && e.getClientRects().length > 0), { timeout: 10_000 }, '사진 보내기')
   await parent.waitForSelector('.fp-card', { timeout: 20_000 })
 })
 
@@ -452,15 +461,33 @@ await step('daily summary: written, announced to the family, and opens from 알�
   run.stderr.on('data', (c) => { out += c })
   await new Promise((resolve) => run.on('exit', resolve))
   const digests = await db.collection('digests').where('patientUid', '==', patientUid).get()
-  expect(digests.size >= 1, `no summary was made: ${out.slice(-300)}`)
+  expect(digests.size >= 1, `no summary was made: ${out.split('\n').filter((l) => /^\{"digests"|null|WARN|ERROR/.test(l)).join(' / ').slice(-400) || out.slice(-300)}`)
   const d = digests.docs[0].data()
   expect(d.photoCount >= 2, `the summary counts ${d.photoCount} photos`)
   if (!REAL_LLM) expect(d.summary === FAKE_SUMMARY, `unexpected summary text: ${d.summary}`)
+  if (!REAL_LLM) expect(d.title === FAKE_DIARY_TITLE, `unexpected diary title: ${d.title}`)
   expect(JSON.stringify(d.delivered).includes('inapp'), 'the family was not told in the app')
   await waitText(family, '요약이 도착했어요', 30_000)
   await click(family, '요약이 도착했어요', { selector: 'button.ntf-row' })
   await waitText(family, REAL_LLM ? '사진' : FAKE_SUMMARY, 30_000)
   return `${d.photoCount} photos`
+})
+
+await step('family 알림: tapping a photo notice answers at once, then shows the photo', async () => {
+  await family.goto(SITE, { waitUntil: 'load' })
+  await family.waitForSelector('nav.tabbar', { timeout: 30_000 })
+  await tab(family, '알림')
+  await waitText(family, '새 사진을 올렸어요', 30_000)
+  const t0 = Date.now()
+  await click(family, '새 사진을 올렸어요', { selector: 'button.ntf-row' })
+  // The photo page (or its placeholder) replaces the list straight away…
+  await family.waitForSelector('.page.detail', { timeout: 5_000 })
+  const answered = Date.now() - t0
+  // …and the photo's own page follows.
+  await family.waitForSelector('.page.detail .detail-memo', { timeout: 30_000 })
+  const shown = Date.now() - t0
+  expect(answered < 1500, `the tap took ${answered} ms to answer`)
+  return `answered in ${answered} ms, photo in ${shown} ms`
 })
 
 await step('family 설정: reply and summary settings are there; voice and plans are not', async () => {
@@ -481,10 +508,12 @@ await step('family 설정: reply and summary settings are there; voice and plans
 family.on('dialog', (d) => { d.accept().catch(() => {}) })
 /** The names in the switcher at the top of the family's screen. */
 async function switcherNames() {
+  // 보기 전환 is a bottom sheet: one row per person, "my account" first.
   await family.click('.acct-chip')
-  await family.waitForSelector('.ps-menu', { timeout: 10_000 })
-  const names = await family.$$eval('.ps-menu .ps-item-name', (els) => els.map((e) => e.textContent.trim()))
-  await family.click('.acct-chip')
+  await family.waitForSelector('.sheet .ps-row', { timeout: 10_000 })
+  const names = await family.$$eval('.sheet .ps-row .ps-row-name', (els) => els.map((e) => e.textContent.trim()))
+  await family.keyboard.press('Escape')
+  await family.waitForFunction(() => !document.querySelector('.sheet'), { timeout: 5000 })
   return names
 }
 const linksOf = async () => (await db.collection('memberships').where('caregiverUid', '==', familyUid).where('status', '==', 'active').get()).docs.map((d) => d.get('patientUid'))
@@ -631,7 +660,7 @@ await step('a slow connection never replaces someone\'s own settings with defaul
   let unreachable = true
   await self.setRequestInterception(true)
   self.on('request', (req) => {
-    if (unreachable && req.url().includes(':8080')) req.abort('connectionfailed').catch(() => {})
+    if (unreachable && req.url().includes(FIRESTORE_AT)) req.abort('connectionfailed').catch(() => {})
     else req.continue().catch(() => {})
   })
   await self.reload({ waitUntil: 'load' })

@@ -159,6 +159,7 @@ export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn
             recent={memos[0] ?? null}
             onOpenRecords={() => setView('records')}
             onOpenPhotos={() => setPhotosOpen(true)}
+            onOpenNews={setOpenNews}
           />
         ) : (
           <Home

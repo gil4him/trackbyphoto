@@ -59,7 +59,7 @@ describe('runDailyNotices', () => {
     expect(await notices('p1')).toHaveLength(0)
     expect(pushes).toHaveLength(1)
     expect(pushes[0].uids.sort()).toEqual(['cg1', 'cg2'])
-    expect(pushes[0].message).toMatchObject({ body: '오늘 엄마님의 사진 2장', data: { type: 'daily.photos', patientUid: 'p1' } })
+    expect(pushes[0].message).toMatchObject({ body: '오늘 엄마님의 사진 2장', data: { type: 'daily.photos', patientUid: 'p1' }, path: '?open=today&p=p1' })
 
     // Later the same evening, even with another photo: nothing new.
     await photo('c', KST('2026-10-03T20:30:00'))

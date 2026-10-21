@@ -19,6 +19,7 @@ export const S = {
   elderReplyText: '글로 답장하기',
   elderReplyTextTitle: '무엇이라고 답할까요?',
   elderReplyTextPlaceholder: '하고 싶은 말을 쓰세요',
+  elderReplyTypeOwn: '✏️ 직접 쓰기',
   elderReplyRecording: '손을 떼면 보내요',
   elderReplySent: (name: string) => `보냈어요 ✓ ${name}에게 전해드릴게요`,
   commentPlaceholder: '짧게 남겨 주세요 (60자)',

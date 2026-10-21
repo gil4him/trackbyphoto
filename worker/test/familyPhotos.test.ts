@@ -10,10 +10,10 @@ const flag = async (on: boolean) => {
   resetPlansCache()
 }
 function fakes(files = new Set<string>()) {
-  const f = { pushes: [] as Array<{ uids: string[]; body: string }>, files }
+  const f = { pushes: [] as Array<{ uids: string[]; body: string }>, paths: [] as Array<string | undefined>, files }
   const deps: FamilyPhotoDeps = {
     linkTo: async (path) => (files.has(path) ? `https://example.test/${path}` : null),
-    push: async (uids, message) => { f.pushes.push({ uids, body: message.body }); return 1 },
+    push: async (uids, message) => { f.pushes.push({ uids, body: message.body }); f.paths.push(message.path); return 1 },
   }
   return { f, deps }
 }
@@ -62,6 +62,8 @@ describe("the parent's reply", () => {
     expect(n).toMatchObject({ type: 'familyPhoto.reply', patientUid: 'p1', familyPhotoId: 'a', message: '할머니님이 보낸 사진에 ❤️를 보냈어요', read: false })
     expect(await notices('cg1')).toHaveLength(1)
     expect(f.pushes).toEqual([{ uids: ['cg1'], body: '할머니님이 보낸 사진에 ❤️를 보냈어요' }])
+    // A tap opens that parent's home, where 보낸 사진 shows the reply.
+    expect(f.paths).toEqual(['?open=home&p=p1'])
     expect((await db.doc('familyPhotos/a').get()).get('reply.notified')).toBe(true)
   })
 

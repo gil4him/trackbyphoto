@@ -94,7 +94,9 @@ export default defineConfig(({ mode }) => ({
         // the server. /privacy and /terms are their own static pages — the app
         // shell must not answer for them (legalPages above).
         // With or without a trailing slash or a query (?utm…, ?v=2): never the app shell.
-        navigateFallbackDenylist: [/^\/__\//, /^\/(privacy|terms|delete-account)\/?(\?.*)?$/],
+        // /pair (the parent's invite link) always comes from the server, so a
+        // phone that visited before never opens the link in an older build.
+        navigateFallbackDenylist: [/^\/__\//, /^\/(privacy|terms|delete-account)\/?(\?.*)?$/, /^\/pair(\/.*)?(\?.*)?$/],
         cleanupOutdatedCaches: true,
         // A new version takes over as soon as it has arrived instead of
         // waiting for every tab to close; reloadToLatest (src/lib/sw.ts)
