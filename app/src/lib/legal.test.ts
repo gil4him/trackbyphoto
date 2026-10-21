@@ -60,15 +60,20 @@ describe('legal pages in the build', () => {
     const pwa = plugins('simple').find((p) => p.name === 'vite-plugin-pwa')
     // The plugin's own options aren't readable from the instance, so assert on
     // the denylist we hand it; keep this in step with vite.config.ts.
-    const denylist = [/^\/__\//, /^\/(privacy|terms|delete-account)\/?(\?.*)?$/]
+    const denylist = [/^\/__\//, /^\/(privacy|terms|delete-account)\/?(\?.*)?$/, /^\/pair(\/.*)?(\?.*)?$/]
     expect(pwa).toBeTruthy()
     for (const path of ['/privacy', '/privacy/', '/terms', '/terms/', '/delete-account', '/privacy?v=2', '/terms/?utm_source=mail']) {
       expect(denylist.some((re) => re.test(path))).toBe(true)
     }
     expect(denylist.some((re) => re.test('/'))).toBe(false)
-    expect(denylist.some((re) => re.test('/pair'))).toBe(false)
-    expect(readFileSync(new URL('../../vite.config.ts', import.meta.url), 'utf8'))
-      .toContain('/^\\/(privacy|terms|delete-account)\\/?(\\?.*)?$/')
+    // The parent's invite link always loads the newest build from the server.
+    for (const path of ['/pair', '/pair?c=ABCD2345', '/pair?c=ABCD2345&web=1', '/pair/']) {
+      expect(denylist.some((re) => re.test(path))).toBe(true)
+    }
+    expect(denylist.some((re) => re.test('/pairing'))).toBe(false)
+    const config = readFileSync(new URL('../../vite.config.ts', import.meta.url), 'utf8')
+    expect(config).toContain('/^\\/(privacy|terms|delete-account)\\/?(\\?.*)?$/')
+    expect(config).toContain('/^\\/pair(\\/.*)?(\\?.*)?$/')
   })
 })
 

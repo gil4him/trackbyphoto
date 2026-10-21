@@ -127,8 +127,11 @@ function App() {
   useFirstLaunchPairCode(isSimple() && ready && !authUser, setPairCode)
   // Simple edition, web: 연결하기 on the /pair page (only where the phone's
   // store has no app) links the phone in the browser (?web=1 keeps it across
-  // a reload).
-  const [webPair, setWebPair] = useState(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('web') === '1')
+  // a reload). An old ?web=1 address on a phone whose store has the app is
+  // ignored: that phone installs the app.
+  const [webPair, setWebPair] = useState(() => typeof window !== 'undefined'
+    && new URLSearchParams(window.location.search).get('web') === '1'
+    && !(isSimple() && inStore(storeKind(navigator.userAgent))))
   // Simple edition: 부모님 휴대폰이에요 on sign-in opens the pairing camera
   // (ElderPairStart) in the app; 가족이에요 there comes back.
   const [parentMode, setParentMode] = useState(false)
