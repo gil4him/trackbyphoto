@@ -5,7 +5,7 @@ import { canShareRemotely, createManagedElder, createPairingLink, deleteManagedE
 import { isSimple } from '../lib/edition'
 import { simpleGuardianConsent } from '../lib/consent'
 import { nameTaken } from '../lib/people'
-import { buildPairMessage, openSMS, sharePairToKakao } from '../lib/share'
+import { buildPairMessage, copyPairMessage, openSMS, sharePairToKakao } from '../lib/share'
 import { deviceGeoLang } from '../util'
 import type { UserSettings } from '../types'
 
@@ -243,6 +243,19 @@ export function PairingSender({ patientUid, patientName, initialLink = null, onC
     }
   }
 
+  const onCopy = async () => {
+    setShowPhone(false)
+    const l = simple && link && canShareRemotely(link) ? link : await ensureLink('remote')
+    if (!l) return
+    try {
+      await copyPairMessage(message(l))
+      toast.show('링크를 복사했어요', '문자나 메신저에 붙여넣어 보내주세요')
+    } catch (err) {
+      console.error('[pair] copy failed', err)
+      toast.show('복사하지 못했어요', '카카오톡으로 보내주세요')
+    }
+  }
+
   const phoneDigits = phone.replace(/\D+/g, '')
   const onSms = async () => {
     if (phoneDigits.length < 9) return
@@ -276,12 +289,13 @@ export function PairingSender({ patientUid, patientName, initialLink = null, onC
       <div className="modal-title">{patientName}님 휴대폰 연결</div>
       <div className="modal-body">
         {simple ? (
-          <p>{patientName}님 휴대폰에서 Daylie 앱을 열고 이 QR을 비춰주세요. 떨어져 계시면 카카오톡으로 보내주세요.</p>
+          <p>{patientName}님 휴대폰에서 Daylie 앱을 열고 이 QR을 비춰주세요. 떨어져 계시면 카카오톡으로 보내거나 링크를 복사해 보내주세요.</p>
         ) : (
           <p>{patientName}님 휴대폰으로 연결 링크를 보내주세요. 받은 링크를 누르고 ‘연결하기’만 누르면 끝나요.</p>
         )}
         <div className="invite-send">
           <button className="invite-btn invite-kakao" disabled={busy} onClick={onKakao}>카카오톡으로 보내기</button>
+          <button className="invite-btn invite-copy" disabled={busy} onClick={onCopy}>링크 복사하기</button>
           {simple ? null : showPhone ? (
             <div className="invite-phone">
               <label htmlFor="pair-phone">{patientName}님 전화번호</label>

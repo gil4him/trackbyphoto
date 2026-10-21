@@ -870,6 +870,7 @@ nav.tabbar .tab.on .tab-avatar { box-shadow: 0 0 0 2px var(--coral2); }
 .invite-btn:disabled { opacity: .45; cursor: default; }
 .invite-kakao { background: #FEE500; color: #191919; }
 .invite-sms { background: var(--accent); color: var(--ink); }
+.invite-copy { background: var(--surface); color: var(--ink); border: 2px solid var(--line); }
 .invite-phone { display: flex; flex-direction: column; gap: 8px; }
 .invite-phone label { font-size: 15px; font-weight: 600; color: var(--ink-2); }
 .invite-phone input { width: 100%; padding: 14px 16px; font-size: 18px; border: 1px solid var(--line); border-radius: 14px; background: #fff; font-family: inherit; }

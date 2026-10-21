@@ -15,6 +15,7 @@
 // stop being the primary delivery path.
 
 import { Capacitor } from '@capacitor/core'
+import { Clipboard } from '@capacitor/clipboard'
 import { Share } from '@capacitor/share'
 import type { Memo } from '../types'
 import { fmtTime, isSameDay } from '../util'
@@ -292,6 +293,13 @@ export function buildPairMessage(patientName: string, url: string, code: string,
     url,
     `앱에서는 코드 ${code.slice(0, 4)} ${code.slice(4)} 를 입력하세요.`,
   ].join('\n')
+}
+
+/** 링크 복사하기: put the pairing message (link, steps, code) on the clipboard,
+ *  to paste into any messenger. The app writes through the native clipboard. */
+export async function copyPairMessage(text: string): Promise<void> {
+  if (Capacitor.isNativePlatform()) await Clipboard.write({ string: text })
+  else await navigator.clipboard.writeText(text)
 }
 
 /** Send the pairing link through KakaoTalk (same paths as 가족초대). */
