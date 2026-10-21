@@ -1372,3 +1372,14 @@ html:not(.camera-live) .elder-cam { background: #000; }
 .info-btn { width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid var(--muted); background: transparent; color: var(--muted); font: italic 700 12px/1 Georgia, "Times New Roman", serif; display: inline-grid; place-items: center; padding: 0; cursor: pointer; }
 .info-btn.on { background: var(--muted); color: #fff; }
 .sect-info { margin: -2px 6px 10px; }
+
+/* A tapped notification's photo on its way (MemoOpening). */
+.ntf-row:active { background: var(--accent-tint); }
+.detail-photo.memo-opening { background: var(--surface-dim); animation: memo-opening-pulse 1.4s ease-in-out infinite; }
+.detail-photo.memo-opening .detail-photo-empty { color: var(--ink-2); }
+.memo-opening-lines { display: flex; flex-direction: column; gap: 10px; margin-top: 18px; }
+.memo-opening-lines span { height: 18px; border-radius: 9px; background: var(--surface-dim); animation: memo-opening-pulse 1.4s ease-in-out infinite; }
+.memo-opening-lines span:last-child { width: 60%; }
+.memo-opening-btn { margin-top: 18px; width: 100%; min-height: 56px; border-radius: 14px; border: 2px solid var(--line); background: var(--surface); font: inherit; font-size: 17px; font-weight: 700; color: var(--ink); cursor: pointer; }
+@keyframes memo-opening-pulse { 50% { opacity: .55; } }
+@media (prefers-reduced-motion: reduce) { .detail-photo.memo-opening, .memo-opening-lines span { animation: none; } }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, lazy, Suspense, useCallback } from 'react'
+import { useEffect, useMemo, useRef, useState, lazy, Suspense, useCallback } from 'react'
 import { Capacitor } from '@capacitor/core'
 import { doc, onSnapshot, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from './firebase'
@@ -6,6 +6,8 @@ import { appleSignInAvailable, useAuth } from './hooks/useAuth'
 import { useLaunchUrl } from './hooks/useLaunchUrl'
 import { useFirstLaunchPairCode } from './hooks/useFirstLaunchPairCode'
 import { useMemos } from './hooks/useMemos'
+import { useMemoById } from './hooks/useMemoById'
+import { MemoOpening } from './components/MemoOpening'
 import { useMemberships } from './hooks/useMemberships'
 import { useOutboxSync } from './hooks/useOutbox'
 import { useNotifications } from './hooks/useNotifications'
@@ -171,7 +173,7 @@ function App() {
   const updateReady = useAppUpdate()
   // A parent's linked phone updates itself; family gets the prompt below.
   useReloadOnReturn(!!elder)
-  const { memos, loadedFor: memosFor } = useMemos(activePatientUid || undefined)
+  const { memos } = useMemos(activePatientUid || undefined)
 
   // v2 reactions: off until the rollout flag in admin_config/plans is on.
   const plans = usePlans(!!user)
@@ -213,7 +215,19 @@ function App() {
   useEffect(() => (pushOn && familyUid ? onPushOpened(setPushed) : undefined), [pushOn, familyUid])
   // Keep sending photos that are still on this phone (weak connection).
   useOutboxSync(user?.uid)
-  const selectedMemo = selectedMemoId ? memos.find((m) => m.id === selectedMemoId) ?? null : null
+  // A tapped notification's photo: opened at once with a placeholder, its
+  // own record read straight from the server (useMemoById) rather than
+  // waiting for that person's whole list, and the photo page's code fetched
+  // on the tap.
+  const openingMemoId = pushed?.memoId ?? (pendingOpen?.kind === 'memo' ? pendingOpen.memoId : null) ?? selectedMemoId
+  const [memoAttempt, setMemoAttempt] = useState(0)
+  const listed = openingMemoId ? memos.find((m) => m.id === openingMemoId) : undefined
+  const direct = useMemoById(listed ? null : openingMemoId, !!user, memoAttempt)
+  useEffect(() => { if (openingMemoId) void pages.memoDetail().catch(() => {}) }, [openingMemoId])
+  const selectedMemo = selectedMemoId
+    ? memos.find((m) => m.id === selectedMemoId) ?? (direct.memo?.id === selectedMemoId ? direct.memo : null)
+    : null
+  const memoOpening = !!(pushed?.memoId || pendingOpen?.kind === 'memo' || (selectedMemoId && !selectedMemo))
 
   // Initialize activePatientUid when the user signs in. Read the persisted
   // choice from localStorage, falling back to self. Validates the persisted
@@ -254,10 +268,13 @@ function App() {
     }
   }, [])
 
-  // If the selected memo disappears from the live snapshot (e.g. delete from
-  // the detail page), drop back to the previous tab automatically.
+  // If the photo on screen disappears from the live snapshot (e.g. delete
+  // from the detail page), drop back to the previous tab automatically. A
+  // photo still on its way (a tapped notification) keeps its placeholder.
+  const shownMemoId = useRef<string | null>(null)
   useEffect(() => {
-    if (selectedMemoId && !selectedMemo) setSelectedMemoId(null)
+    if (selectedMemo) shownMemoId.current = selectedMemo.id
+    else if (selectedMemoId && shownMemoId.current === selectedMemoId) setSelectedMemoId(null)
   }, [selectedMemoId, selectedMemo])
 
   // Settings subscription follows the ACTIVE patient, not the signed-in user.
@@ -372,13 +389,13 @@ function App() {
     if (target !== user.uid && !patients.some((p) => p.patientUid === target)) { setPendingOpen(null); return }
     if (activePatientUid !== target) { onSwitchPatient(target); return }
     if (pendingOpen.kind !== 'memo') { setSelectedMemoId(null); setTab(pendingOpen.kind); setPendingOpen(null); return }
-    if (memosFor !== target) return
-    if (memos.some((m) => m.id === pendingOpen.memoId)) setSelectedMemoId(pendingOpen.memoId)
-    else setTab('today')
+    // The photo opens now: from the list if it's there, else from its own
+    // record (useMemoById), with the placeholder until then.
+    setSelectedMemoId(pendingOpen.memoId)
     setPendingOpen(null)
     // onSwitchPatient is recreated every render; the inputs that matter are listed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingOpen, user, elder, membershipsLoading, patients, activePatientUid, memosFor, memos])
+  }, [pendingOpen, user, elder, membershipsLoading, patients, activePatientUid])
 
   // Looking at something counts as having seen its notices, so the icon
   // badge goes down without a visit to 알림 (lib/noticeViews.ts). Only while
@@ -686,7 +703,7 @@ function App() {
           </button>
         )}
         <main>
-          {people.length > 0 && !selectedMemo && !openNews && !digestId && !trail && !voiceAlbum && (
+          {people.length > 0 && !selectedMemo && !memoOpening && !openNews && !digestId && !trail && !voiceAlbum && (
             <PatientSwitcher
               selfUid={user.uid}
               selfLabel={selfLabel}
@@ -708,7 +725,17 @@ function App() {
               onDone={() => setOpenNews(null)}
             />
           ) : selectedMemo ? (
-            <MemoDetail memo={selectedMemo} onBack={() => setSelectedMemoId(null)} rx={rx} />
+            <Suspense fallback={<MemoOpening state="loading" onBack={() => setSelectedMemoId(null)} onRetry={() => {}} onPhotos={() => onTabChange('today')} />}>
+              <MemoDetail memo={selectedMemo} onBack={() => setSelectedMemoId(null)} rx={rx} />
+            </Suspense>
+          ) : memoOpening ? (
+            <MemoOpening
+              key={openingMemoId ?? ''}
+              state={direct.state}
+              onBack={() => { setPushed(null); setPendingOpen(null); setSelectedMemoId(null) }}
+              onRetry={() => setMemoAttempt((n) => n + 1)}
+              onPhotos={() => { setPushed(null); setPendingOpen(null); onTabChange('today') }}
+            />
           ) : trail ? (
             <Trail
               title={trail.title}

@@ -473,6 +473,23 @@ await step('daily summary: written, announced to the family, and opens from 알�
   return `${d.photoCount} photos`
 })
 
+await step('family 알림: tapping a photo notice answers at once, then shows the photo', async () => {
+  await family.goto(SITE, { waitUntil: 'load' })
+  await family.waitForSelector('nav.tabbar', { timeout: 30_000 })
+  await tab(family, '알림')
+  await waitText(family, '새 사진을 올렸어요', 30_000)
+  const t0 = Date.now()
+  await click(family, '새 사진을 올렸어요', { selector: 'button.ntf-row' })
+  // The photo page (or its placeholder) replaces the list straight away…
+  await family.waitForSelector('.page.detail', { timeout: 5_000 })
+  const answered = Date.now() - t0
+  // …and the photo's own page follows.
+  await family.waitForSelector('.page.detail .detail-memo', { timeout: 30_000 })
+  const shown = Date.now() - t0
+  expect(answered < 1500, `the tap took ${answered} ms to answer`)
+  return `answered in ${answered} ms, photo in ${shown} ms`
+})
+
 await step('family 설정: reply and summary settings are there; voice and plans are not', async () => {
   await family.goto(SITE, { waitUntil: 'load' })
   await family.waitForSelector('nav.tabbar', { timeout: 30_000 })
