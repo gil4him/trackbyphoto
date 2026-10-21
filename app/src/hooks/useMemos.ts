@@ -32,5 +32,8 @@ export function useMemos(patientUid: string | undefined, max = 60) {
     return () => unsub()
   }, [patientUid, max])
 
-  return { memos, loading, loadedFor }
+  // Right after a switch of parent the old list is still in state: never show
+  // one parent's photos under another's name.
+  const current = !!patientUid && loadedFor === patientUid
+  return { memos: current ? memos : [], loading: !!patientUid && (loading || !current), loadedFor }
 }

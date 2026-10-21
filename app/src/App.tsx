@@ -149,9 +149,13 @@ function App() {
   // a tapped notification (?open=… link, or the push worker's message to an
   // already-open app) or an 알림 row about another parent.
   const [pendingOpen, setPendingOpen] = useState<OpenTarget | null>(() => openFromUrl())
-  const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS)
-  // Whose settings those are: they lag a moment behind a switch of patient.
+  // The last settings read, and whose they are (`loadedSettingsFor`): they lag
+  // a moment behind a switch of patient. `settings` below is what's shown.
+  const [loadedSettings, setLoadedSettings] = useState<UserSettings>(DEFAULT_SETTINGS)
+  const [loadedSettingsFor, setLoadedSettingsFor] = useState<string | null>(null)
+  // Whose settings the server has confirmed (the plan sheet waits for them).
   const [settingsUid, setSettingsUid] = useState<string | null>(null)
+  const setSettings = (uid: string, next: UserSettings) => { setLoadedSettings(next); setLoadedSettingsFor(uid) }
   // Caregiver-share: the user can be looking at their own data (self) or at
   // a patient they're an active caregiver on. `activePatientUid` is the
   // patientUid we're currently rendering — defaults to the signed-in user.
@@ -174,6 +178,14 @@ function App() {
   // A parent's linked phone updates itself; family gets the prompt below.
   useReloadOnReturn(!!elder)
   const { memos } = useMemos(activePatientUid || undefined)
+  // Right after a switch, never the previous person's settings (their name on
+  // this person's page): what this phone last knew of this one, until theirs arrive.
+  const settings = useMemo<UserSettings>(() => {
+    if (!activePatientUid || loadedSettingsFor === activePatientUid) return loadedSettings
+    const listed = patientNames[activePatientUid]
+    const known = recallSettings(activePatientUid)
+    return { ...DEFAULT_SETTINGS, ...known, ...(typeof listed === 'string' ? { patientName: listed } : {}) }
+  }, [activePatientUid, loadedSettingsFor, loadedSettings, patientNames])
 
   // v2 reactions: off until the rollout flag in admin_config/plans is on.
   const plans = usePlans(!!user)
@@ -287,7 +299,7 @@ function App() {
     const unsub = onSnapshot(sref, { includeMetadataChanges: true }, (snap) => {
       if (snap.exists()) {
         const loaded = { ...DEFAULT_SETTINGS, ...(snap.data() as Partial<UserSettings>) }
-        setSettings(loaded)
+        setSettings(activePatientUid, loaded)
         setSettingsUid(activePatientUid)
         rememberSettings(activePatientUid, loaded)
         // An account from before 설정 → 언어 takes the phone's language once.
@@ -304,7 +316,7 @@ function App() {
         // the real settings once the connection is back); show what this
         // phone last knew until the server answers.
         const known = recallSettings(activePatientUid)
-        if (known) setSettings({ ...DEFAULT_SETTINGS, ...known })
+        if (known) setSettings(activePatientUid, { ...DEFAULT_SETTINGS, ...known })
       } else if (activePatientUid === user.uid && !elder) {
         // Only seed defaults for the SELF doc — never overwrite a missing
         // doc for someone we're caregiving (could be a transient consistency
@@ -317,20 +329,22 @@ function App() {
   }, [user, activePatientUid, elder])
 
   const onSettingsChange = (next: UserSettings) => {
-    setSettings(next)
-    if (user && activePatientUid) {
-      // Stamp the actor so the audit trigger can attribute the change. Rules
-      // require lastModifiedBy == auth.uid, so this can't be forged.
-      // plan / dayCounters / channels / digest are the worker's; the rules
-      // reject a save that touches them, so never send our copy back.
-      const own: Record<string, unknown> = { ...next }
-      for (const k of ['plan', 'dayCounters', 'channels', 'digest']) delete own[k]
-      setDoc(
-        doc(db, 'users', activePatientUid),
-        { ...own, lastModifiedBy: user.uid, lastModifiedAt: serverTimestamp() },
-        { merge: true },
-      ).catch((e) => console.error('[settings] save', e))
-    }
+    // Only ever save onto the person these settings were read from: a change
+    // made in the moment after a switch must not carry one parent's settings
+    // (their name) onto the other.
+    if (!user || !activePatientUid || loadedSettingsFor !== activePatientUid) return
+    setSettings(activePatientUid, next)
+    // Stamp the actor so the audit trigger can attribute the change. Rules
+    // require lastModifiedBy == auth.uid, so this can't be forged.
+    // plan / dayCounters / channels / digest are the worker's; the rules
+    // reject a save that touches them, so never send our copy back.
+    const own: Record<string, unknown> = { ...next }
+    for (const k of ['plan', 'dayCounters', 'channels', 'digest']) delete own[k]
+    setDoc(
+      doc(db, 'users', activePatientUid),
+      { ...own, lastModifiedBy: user.uid, lastModifiedAt: serverTimestamp() },
+      { merge: true },
+    ).catch((e) => console.error('[settings] save', e))
   }
 
   const onSwitchPatient = (uid: string) => {
