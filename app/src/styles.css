@@ -60,6 +60,10 @@ body {
   min-height: calc(100svh + var(--safe-top)); display: flex; flex-direction: column;
   background: var(--ground);
 }
+/* The store app (html.native, main.tsx) measures the screen in full, status
+   bar included: adding the inset again made every page taller than the
+   screen, so even an empty page could be dragged up and down. */
+html.native body { min-height: 100svh; }
 #root { display: contents; }
 
 .app { flex: 1; display: flex; flex-direction: column; max-width: 480px; width: 100%; margin: 0 auto; padding-top: var(--safe-top); }
