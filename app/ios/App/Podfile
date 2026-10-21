@@ -28,8 +28,13 @@ end
 target 'App' do
   capacitor_pods
   # Add your Pods here
-  # Native Google sign-in for @capacitor-firebase/authentication.
-  pod 'CapacitorFirebaseAuthentication/Google', :path => '../../node_modules/@capacitor-firebase/authentication'
+  # Native Google sign-in for @capacitor-firebase/authentication. The path is
+  # spelled the way `cap sync` spells the pod above (relative to the real
+  # folder), so CocoaPods sees one source even when node_modules is a symlink
+  # (a git worktree sharing the main checkout's install).
+  require 'pathname'
+  auth_pod = Pathname.new(File.realpath(File.join(__dir__, '../../node_modules/@capacitor-firebase/authentication'))).relative_path_from(Pathname.new(File.realpath(__dir__))).to_s
+  pod 'CapacitorFirebaseAuthentication/Google', :path => auth_pod
 end
 
 post_install do |installer|
