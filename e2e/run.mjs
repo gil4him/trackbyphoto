@@ -331,8 +331,8 @@ await step('an upload that dies quietly is given up on and retried, without clos
 
 await step('family sends a comment → the parent\'s 가족 소식 card lights up', async () => {
   await tab(family, '사진')
-  await family.waitForSelector('.tl-item:not(.waiting)', { timeout: 20_000 })
-  await family.click('.tl-item:not(.waiting)')
+  await family.waitForSelector('.memo-row:not(.waiting)', { timeout: 20_000 })
+  await family.click('.memo-row:not(.waiting)')
   await family.type('input[aria-label="글 남기기"]', '사진 잘 봤어요')
   await click(family, '보내기', { selector: 'button.rx-send' })
   await waitText(family, '사진 잘 봤어요', 20_000)

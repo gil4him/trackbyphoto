@@ -3,29 +3,36 @@ import { project, type LatLng, type TrailStop } from '../lib/trail'
 
 const W = 320
 const H = 200
+/** The wide box on the parent's day (A13): 150px tall, filling its width. */
+const WIDE = { w: 330, h: 150 }
 
 /**
  * The route drawn without a map: numbered stops joined in the order they
  * were visited, north up, with home marked when it is nearby. Needs no map
  * key and makes no map request, so it is what a digest shows.
  */
-export function TrailSketch({ stops, home, thumbs = false, onPick }: {
+export function TrailSketch({ stops, home, thumbs = false, wide = false, onPick }: {
   stops: TrailStop[]
   /** Shown only when it is close enough to belong in the picture. */
   home?: LatLng | null
   /** Put each stop's first photo on its pin. */
   thumbs?: boolean
+  /** Fill a short, wide box (cropping a little at the edges instead of
+   *  leaving bands); the pins keep clear of the crop. */
+  wide?: boolean
   onPick?: (stop: TrailStop) => void
 }) {
   // Clip paths are looked up by id across the whole page: keep them unique per sketch.
   const clipId = useId()
   if (stops.length === 0) return null
-  const pad = thumbs ? 34 : 22
-  const xy = project([...stops, ...(home ? [home] : [])], W, H, pad)
+  const w = wide ? WIDE.w : W
+  const h = wide ? WIDE.h : H
+  const pad = thumbs ? 34 : wide ? 26 : 22
+  const xy = project([...stops, ...(home ? [home] : [])], w, h, pad)
   const homeXY = home ? xy[stops.length] : null
   const r = thumbs ? 17 : 11
   return (
-    <svg className="trail-sketch" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`다녀온 곳 ${stops.length}곳`}>
+    <svg className="trail-sketch" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio={wide ? 'xMidYMid slice' : undefined} role="img" aria-label={`다녀온 곳 ${stops.length}곳`}>
       {stops.length > 1 && (
         <polyline
           points={xy.slice(0, stops.length).map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')}

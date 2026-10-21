@@ -1,17 +1,20 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useToast } from '../components/Toast'
 import { warmUpLocation } from '../lib/location'
 import { useOutbox } from '../hooks/useOutbox'
 import { useCapture } from '../hooks/useCapture'
 import { fmtDate, fmtTime } from '../util'
 import { MemoThumb } from '../components/MemoThumb'
+import { MemoRow } from '../components/MemoRow'
 import { PatientCard } from '../components/PatientCard'
 import { latestActivity, type ParentSummary } from '../lib/dashboard'
 import { useWorkerStatus } from '../hooks/useWorkerStatus'
-import { cardMeta, cardTitle, clock, dayCaption, dayEyebrow, farthestKm, memosOnDay } from '../lib/memoViews'
+import { clock, dayCaption, dayEyebrow, farthestKm, memosOnDay } from '../lib/memoViews'
 import { addressed, honorific } from '../lib/people'
-import { trailStops, trailSummary, type LatLng } from '../lib/trail'
-import { placesVisited } from '../lib/digest'
+import { AWAY_KM, trailStops, trailSummary, type LatLng, type TrailStop } from '../lib/trail'
+import { MAP_KEYS, pickProvider, type MapKeys } from '../lib/map'
+import { staticMapUrl } from '../lib/map/googleStatic'
+import { renderKakaoMap } from '../lib/map/kakao'
 import { TrailSketch } from '../components/TrailSketch'
 import type { Memo, AppNotification, Reaction } from '../types'
 
@@ -41,13 +44,72 @@ function Notices({ notifications, onDismiss, parentName }: { notifications: AppN
 }
 
 /**
+ * 다녀온 곳 on the parent's day (A13): the route drawn small under the
+ * caption, 150px tall, with one pill that opens the full page — the whole
+ * box is the button. The keyless sketch shows at once; the map (Kakao in
+ * Korea, a Google picture elsewhere) is drawn over it only once the box has
+ * scrolled on screen, so the home never asks for map tiles by itself. When
+ * the map can't load, the sketch simply stays.
+ */
+function DayMap({ stops, home, away, onOpen, keys }: { stops: TrailStop[]; home: LatLng | null; away: boolean; onOpen: () => void; keys: MapKeys }) {
+  const boxRef = useRef<HTMLDivElement>(null)
+  const mapRef = useRef<HTMLDivElement>(null)
+  // Without IntersectionObserver (an old WebView) the map may load at once.
+  const [seen, setSeen] = useState(() => typeof IntersectionObserver === 'undefined')
+  const [failed, setFailed] = useState(false)
+  const provider = pickProvider(stops, keys)
+  const kakao = seen && !failed && provider === 'kakao' && !!keys.kakao
+  const picture = seen && !failed && provider === 'googleStatic' && !!keys.google
+
+  useEffect(() => {
+    const el = boxRef.current
+    if (!el || seen) return
+    const io = new IntersectionObserver((entries) => { if (entries.some((e) => e.isIntersecting)) { setSeen(true); io.disconnect() } }, { rootMargin: '80px' })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [seen])
+
+  useEffect(() => {
+    if (!kakao || !mapRef.current) return
+    let live = true
+    renderKakaoMap(
+      mapRef.current,
+      keys.kakao!,
+      stops.map((s, i) => ({ lat: s.lat, lng: s.lng, label: String(i + 1) })),
+      home,
+      { pad: 28 },
+    ).catch((err) => {
+      console.warn('[home] map unavailable; keeping the sketch', err)
+      if (live) setFailed(true)
+    })
+    return () => { live = false }
+    // The map is drawn once per set of stops.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kakao, stops])
+
+  return (
+    <div ref={boxRef} className="day-map">
+      <TrailSketch stops={stops} home={home} wide />
+      {kakao && <div ref={mapRef} className="day-map-kakao" aria-hidden="true" />}
+      {picture && <img className="day-map-static" src={staticMapUrl(stops, keys.google!, { width: 640, height: 300 })} alt="" onError={() => setFailed(true)} />}
+      <button type="button" className="day-map-open" onClick={onOpen} aria-label={`다녀온 곳 ${stops.length}곳 보기`}>
+        <span className="day-map-pill">
+          {away && <span className="trail-badge">여행 중</span>}
+          다녀온 곳 {stops.length} ›
+        </span>
+      </button>
+    </div>
+  )
+}
+
+/**
  * Simple edition, looking at a parent: the parent's day as a timeline
  * (docs/DAYLIE_V3_UI_FIX.md A1, option C). Newest photo at the top; each
- * card opens the photo page. No action buttons on this page (A10): hearts
+ * row opens the photo page. No action buttons on this page (A10): hearts
  * and words are given on each photo, and 사진 보내기 is the link on the
  * 보낸 사진 header at the end (`sentPhotos`).
  */
-export function ParentDayHome({ parentName, memos, byMemo, home, onOpen, onYesterday, onOpenTrail, notifications = [], onDismissNotification, topCard, sentPhotos, now = new Date() }: {
+export function ParentDayHome({ parentName, memos, byMemo, home, onOpen, onYesterday, onOpenTrail, notifications = [], onDismissNotification, topCard, sentPhotos, now = new Date(), keys = MAP_KEYS }: {
   parentName: string
   memos: Memo[]
   /** Hearts and words per memo (the reactions feed), when rolled out. */
@@ -68,14 +130,16 @@ export function ParentDayHome({ parentName, memos, byMemo, home, onOpen, onYeste
   sentPhotos?: React.ReactNode
   /** Injected in tests. */
   now?: Date
+  /** Map keys (none in tests: the sketch). */
+  keys?: MapKeys
 }) {
   const todays = memosOnDay(memos, now)
   const serverDown = useWorkerStatus(todays.some((m) => m.status === 'pending')) === 'down'
   // Where the day went: the stops in the order they were visited, drawn small.
   const stops = onOpenTrail ? trailStops(todays, home) : []
   const summary = trailSummary(stops)
-  const places = placesVisited(stops.flatMap((s) => s.memos)).join(' → ')
-  const trailSub = places || summary.text
+  // Home belongs in the picture on a day out, not on a trip far away.
+  const nearHome = home && !summary.away && summary.maxKm !== null && summary.maxKm < AWAY_KM ? home : null
   const who = honorific(parentName)
   return (
     <section className="page home-day" aria-label={`${who}의 하루`}>
@@ -87,39 +151,16 @@ export function ParentDayHome({ parentName, memos, byMemo, home, onOpen, onYeste
         <div className="day-caption">{dayCaption(todays.length, farthestKm(todays, home))}</div>
       </header>
 
-      {stops.length > 0 && (
-        <button type="button" className="day-trail" onClick={() => onOpenTrail?.(now)}>
-          <span className="day-trail-map" aria-hidden="true"><TrailSketch stops={stops} /></span>
-          <span className="day-trail-body">
-            <span className="day-trail-title">다녀온 곳 {stops.length}곳</span>
-            {(summary.away || trailSub) && (
-              <span className="day-trail-sub">
-                {summary.away && <span className="trail-badge">여행 중</span>}
-                {trailSub}
-              </span>
-            )}
-          </span>
-          <span className="day-trail-chev" aria-hidden="true">›</span>
-        </button>
-      )}
+      {stops.length > 0 && <DayMap stops={stops} home={nearHome} away={summary.away} onOpen={() => onOpenTrail?.(now)} keys={keys} />}
 
       {todays.length === 0 ? (
         <div className="day-empty" role="status">오늘 아직 사진이 없어요</div>
       ) : (
         <ol className="day-tl" aria-label="오늘의 사진">
-          {todays.map((m) => (
-            <li key={m.id} className="day-item">
-              <div className="day-rail">
-                <span className="day-time">{clock(m.takenAt.toDate())}</span>
-                <span className="day-dot" aria-hidden="true" />
-              </div>
-              <button type="button" className="day-card" onClick={() => onOpen(m.id)} aria-label="자세히 보기">
-                <MemoThumb memo={m} />
-                <div className="day-card-body">
-                  <div className="day-card-title">{cardTitle(m, serverDown)}</div>
-                  <div className="day-card-meta">{cardMeta(m, byMemo?.get(m.id))}</div>
-                </div>
-              </button>
+          {/* Newest at the top; the badge counts from the day's first photo. */}
+          {todays.map((m, i) => (
+            <li key={m.id}>
+              <MemoRow memo={m} onOpen={onOpen} reactions={byMemo?.get(m.id)} badge={todays.length - i} time={clock(m.takenAt.toDate())} serverDown={serverDown} />
             </li>
           ))}
         </ol>

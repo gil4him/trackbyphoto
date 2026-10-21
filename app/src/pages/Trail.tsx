@@ -1,31 +1,25 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { fmtTime } from '../util'
 import { TrailSketch } from '../components/TrailSketch'
+import { MemoRow } from '../components/MemoRow'
 import { MAP_KEYS, pickProvider, type MapKeys } from '../lib/map'
 import { staticMapUrl } from '../lib/map/googleStatic'
 import { renderKakaoMap } from '../lib/map/kakao'
 import { AWAY_KM, fmtKm, trailStops, trailSummary, type LatLng, type TrailStop } from '../lib/trail'
 import type { Memo } from '../types'
 
-/** What is shown under the map: each stop in order, with how far from home it was. */
+/** Under the map: each stop in order as a memo row (A13), numbered like its
+ *  pin — the stop's first photo, with the time, the neighbourhood and how far
+ *  from home it was. */
 export function TrailList({ stops, onOpenMemo }: { stops: TrailStop[]; onOpenMemo: (memoId: string) => void }) {
   return (
     <ol className="trail-list">
       {stops.map((s, i) => {
-        const first = s.memos[0]
+        const km = s.kmFromHome !== null ? (fmtKm(s.kmFromHome) === '집 근처' ? '집 근처' : `집에서 ${fmtKm(s.kmFromHome)}`) : ''
+        const meta = [fmtTime(s.firstAt), s.area, km, s.memos.length > 1 ? `사진 ${s.memos.length}장` : ''].filter(Boolean).join(' · ')
         return (
           <li key={i}>
-            <button type="button" className="trail-stop" onClick={() => onOpenMemo(first.id)}>
-              <span className="trail-n">{i + 1}</span>
-              <span className="trail-thumb">{first.photoUrl && <img src={first.photoUrl} alt="" loading="lazy" />}</span>
-              <span className="trail-body">
-                <span className="when">{fmtTime(s.firstAt)}{s.area && ` · ${s.area}`}</span>
-                <span className="act">{first.memo || first.activity || '사진'}</span>
-                <span className="desc">
-                  {[s.kmFromHome !== null ? (fmtKm(s.kmFromHome) === '집 근처' ? '집 근처' : `집에서 ${fmtKm(s.kmFromHome)}`) : '', s.memos.length > 1 ? `사진 ${s.memos.length}장` : ''].filter(Boolean).join(' · ')}
-                </span>
-              </span>
-            </button>
+            <MemoRow memo={s.memos[0]} onOpen={onOpenMemo} badge={i + 1} meta={meta} />
           </li>
         )
       })}

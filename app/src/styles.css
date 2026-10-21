@@ -87,40 +87,30 @@ main { padding: 18px 22px calc(110px + var(--safe-bot)); }
 .day-head { margin: 2px 0 14px; }
 .day-title { margin: 2px 0 4px; font-size: 34px; font-weight: 800; letter-spacing: -.6px; line-height: 1.2; }
 .day-caption { font-size: 15px; color: var(--muted); }
-/* 다녀온 곳: a row card under the header — the route drawn small, the places
-   in the order they were visited, and the door to the map. */
-.day-trail {
-  display: flex; align-items: center; gap: 12px; width: 100%; margin: 0 0 14px; padding: 10px;
-  background: var(--surface); border: 2px solid var(--line); border-radius: 16px;
-  font: inherit; color: var(--ink); text-align: left; cursor: pointer; appearance: none; -webkit-appearance: none;
-}
-.day-trail:active { background: var(--accent-tint); }
-.day-trail-map { flex: none; width: 128px; height: 80px; border-radius: 12px; overflow: hidden; background: var(--surface-dim); }
-.day-trail-map .trail-sketch { width: 100%; height: 100%; }
-.day-trail-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-.day-trail-title { font-size: 17px; font-weight: 700; line-height: 1.3; }
-.day-trail-sub { font-size: 15px; color: var(--muted); line-height: 1.35; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.day-trail-sub .trail-badge { margin: 0 6px 0 0; }
-.day-trail-chev { flex: none; font-size: 24px; font-weight: 700; color: var(--muted); line-height: 1; padding-right: 2px; }
+/* 다녀온 곳 on the parent's day (A13): the route drawn small under the
+   caption — the sketch at once, the map over it once the box is on screen —
+   and one pill that opens the full page. The whole box is the button; the
+   map beneath takes no touches. */
+.day-map { position: relative; height: 150px; margin: 0 0 14px; border: 1.5px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--surface-dim); }
+.day-map .trail-sketch { width: 100%; height: 100%; }
+.day-map-kakao, .day-map-static { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.day-map-static { display: block; object-fit: cover; }
+.day-map .trail-pin { width: 26px; height: 26px; border-width: 2px; box-shadow: 0 1px 4px rgba(0,0,0,.2); }
+.day-map .trail-pin span { position: static; display: block; min-width: 0; height: auto; border: 0; background: none; font-size: 15px; line-height: 22px; }
+.day-map .trail-pin.home { width: 26px; height: 26px; font-size: 15px; line-height: 22px; }
+.day-map-open { position: absolute; inset: 0; display: flex; align-items: flex-end; padding: 10px; border: 0; background: none; font: inherit; color: var(--ink); text-align: left; cursor: pointer; appearance: none; -webkit-appearance: none; }
+.day-map-pill { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 12px 0 14px; border: 1.5px solid var(--line); border-radius: 999px; background: var(--surface); font-size: 15px; font-weight: 700; white-space: nowrap; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+.day-map-pill .trail-badge { margin: 0; }
+.day-map-open:active .day-map-pill { background: var(--accent-tint); }
+/* The timeline: a 56px rail (time, dot on the day's line) and a memo row. */
 .day-tl { list-style: none; margin: 0; padding: 0; }
 .day-item { display: flex; gap: 10px; align-items: stretch; }
 .day-rail { flex: none; width: 56px; position: relative; display: flex; flex-direction: column; align-items: flex-end; padding-right: 16px; }
 .day-time { font-size: 15px; font-weight: 800; color: var(--muted); line-height: 1; padding-top: 12px; }
 .day-rail::before { content: ""; position: absolute; top: 0; bottom: 0; right: 5px; width: 2px; background: var(--line); }
-.day-item:first-child .day-rail::before { top: 18px; }
-.day-item:last-child .day-rail::before { bottom: calc(100% - 18px); }
+.day-tl > li:first-child .day-rail::before { top: 18px; }
+.day-tl > li:last-child .day-rail::before { bottom: calc(100% - 18px); }
 .day-dot { position: absolute; top: 12px; right: 0; width: 12px; height: 12px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px var(--ground); }
-.day-card {
-  flex: 1; min-width: 0; min-height: 92px; margin-bottom: 10px; padding: 10px;
-  display: flex; gap: 10px; align-items: center;
-  background: var(--surface); border: 2px solid var(--line); border-radius: 16px;
-  font: inherit; color: inherit; text-align: left; cursor: pointer; appearance: none; -webkit-appearance: none;
-}
-.day-card:active { background: var(--accent-tint); }
-.day-card .tl-thumb { width: 72px; height: 72px; border-radius: 12px; }
-.day-card-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-.day-card-title { font-size: 17px; font-weight: 700; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
-.day-card-meta { font-size: 15px; color: var(--muted); line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
 .day-empty { min-height: 92px; display: grid; place-items: center; padding: 16px; background: var(--surface-dim); border: 2px solid var(--line); border-radius: 16px; color: var(--muted); font-size: 17px; }
 .day-more { display: block; min-height: 48px; margin: 2px auto 12px; border: 0; background: none; padding: 12px 16px; font: inherit; font-size: 15px; font-weight: 700; color: var(--muted); cursor: pointer; }
 .home-day .fp-sent { margin-top: 8px; }
@@ -257,7 +247,6 @@ main { padding: 18px 22px calc(110px + var(--safe-bot)); }
   background: var(--surface-dim); border-radius: 14px; padding: 10px 14px; margin-bottom: 12px; max-width: 320px;
 }
 .outbox-note.weak { background: var(--accent-tint); color: var(--ink); }
-.tl-item.waiting { cursor: default; opacity: .85; }
 
 .hidden-input { display: none; }
 
@@ -265,9 +254,33 @@ main { padding: 18px 22px calc(110px + var(--safe-bot)); }
 /* 어제 보기 › lands on a day's header, clear of the sticky account bar. */
 [data-day] { scroll-margin-top: calc(var(--safe-top) + 84px); }
 
-/* One photo as a card: 88px thumbnail, title, place · time, and on the
-   right what family left on it. Day headers are quiet captions. */
-.tl-day { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin: 18px 2px 10px; font-size: 15px; font-weight: 700; color: var(--muted); }
+/* Day headers are quiet captions; 다녀온 곳 › sits on the right, tall enough to tap. */
+.tl-day { display: flex; justify-content: space-between; align-items: center; gap: 10px; min-height: 48px; margin: 10px 2px 2px; font-size: 15px; font-weight: 700; color: var(--muted); }
+
+/* ---------- One memo row everywhere (A13): the parent's day, 사진, 다녀온 곳 ----------
+   A 52px thumbnail (its number of the day on the corner when the list is a
+   day), the memo's line, one muted meta line. The card is the tap target. */
+.memo-row {
+  position: relative; display: flex; gap: 10px; align-items: center; width: 100%; min-height: 68px;
+  margin-bottom: 8px; padding: 8px;
+  background: var(--surface); border: 1.5px solid var(--line); border-radius: 14px;
+  appearance: none; -webkit-appearance: none; font: inherit; color: inherit; text-align: left; cursor: pointer;
+}
+.memo-row:active { background: var(--accent-tint); }
+.memo-row.waiting { cursor: default; opacity: .85; }
+.memo-row-pic { position: relative; flex: none; width: 52px; height: 52px; }
+.memo-row-pic .tl-thumb { width: 52px; height: 52px; border-radius: 10px; }
+.memo-row-badge { position: absolute; top: -4px; left: -4px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; background: var(--accent); color: var(--ink); font-size: 15px; font-weight: 800; line-height: 20px; text-align: center; box-shadow: 0 0 0 2px var(--surface); }
+.memo-row-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.memo-row-title { font-size: 17px; font-weight: 700; letter-spacing: -.3px; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; word-break: keep-all; overflow-wrap: anywhere; }
+.memo-row-meta { font-size: 15px; color: var(--muted); line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; word-break: keep-all; overflow-wrap: anywhere; }
+/* The parent's phone: family left something not yet looked at. */
+.memo-row-new { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); }
+.day-item .memo-row { margin-bottom: 10px; }
+.tl-thumb { width: 64px; height: 64px; border-radius: 14px; flex-shrink: 0; object-fit: cover; overflow: hidden; background: var(--surface-dim); }
+.tl-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* 물어보기 (full edition) still lists its finds as the older 88px cards. */
 .tl-item {
   background: var(--surface);
   border: 2px solid var(--line);
@@ -283,16 +296,10 @@ main { padding: 18px 22px calc(110px + var(--safe-bot)); }
   position: relative;
 }
 .tl-item:active { background: var(--accent-tint); }
-.tl-thumb { width: 64px; height: 64px; border-radius: 14px; flex-shrink: 0; object-fit: cover; overflow: hidden; background: var(--surface-dim); }
 .tl-item .tl-thumb { width: 88px; height: 88px; }
-.tl-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .tl-body { display: flex; flex-direction: column; min-width: 0; flex: 1; gap: 3px; }
 .tl-item .act { font-size: 17px; font-weight: 700; letter-spacing: -.3px; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
 .tl-item .desc { font-size: 15px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tl-rx { flex: none; align-self: center; font-size: 15px; color: var(--muted); white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
-/* The parent's phone: family left something not yet looked at. */
-.tl-rx.fresh { color: var(--ink); font-weight: 700; }
-.tl-rx-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); }
 
 .empty { text-align: center; color: var(--muted); padding: 50px 20px; }
 .empty .big { font-size: 48px; margin-bottom: 12px; }
@@ -347,13 +354,14 @@ main { padding: 18px 22px calc(110px + var(--safe-bot)); }
 .detail-head {
   position: sticky; top: 0; z-index: 40;
   margin: calc(-18px - var(--safe-top)) -22px 14px;
-  padding: calc(var(--safe-top) + 8px) 14px 8px;
+  padding: calc(var(--safe-top) + 5px) 11px 5px;
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
   background: rgba(255,255,255,.92);
   backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--line);
 }
-.head-btn, .head-btn-space { flex: none; width: 42px; height: 42px; }
+/* 48px targets (§Q.1); the bar keeps its height by giving up 3px of padding. */
+.head-btn, .head-btn-space { flex: none; width: 48px; height: 48px; }
 .head-btn {
   border: none; border-radius: 50%; background: rgba(0,0,0,.05);
   font: inherit; font-size: 24px; font-weight: 700; line-height: 1; color: var(--ink);
@@ -1099,19 +1107,11 @@ nav.tabbar .tab.on .tab-avatar { box-shadow: 0 0 0 2px var(--coral2); }
 .trail-sketch { display: block; width: 100%; height: auto; }
 .trail-badge { display: inline-block; margin-left: 8px; padding: 1px 9px; border-radius: 999px; background: var(--accent-tint); color: var(--accent-ink); font-size: 13px; font-weight: 800; vertical-align: middle; }
 .trail-list { list-style: none; margin: 14px 0 0; padding: 0; }
-.trail-stop { display: flex; align-items: center; gap: 10px; width: 100%; padding: 12px 4px; border: 0; border-bottom: 2px solid var(--line); background: none; text-align: left; font: inherit; color: var(--ink); }
-.trail-n { flex: none; width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: var(--ink); font-size: 13px; font-weight: 800; display: grid; place-items: center; }
-.trail-thumb { flex: none; width: 52px; height: 52px; border-radius: 12px; overflow: hidden; background: var(--surface-dim); }
-.trail-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.trail-body { display: flex; flex-direction: column; min-width: 0; }
-.trail-body .when { font-size: 15px; color: var(--muted); font-weight: 600; }
-.trail-body .act { font-size: 16px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.trail-body .desc { font-size: 15px; color: var(--ink-2); }
 .trail-pin { position: relative; display: block; width: 44px; height: 44px; padding: 0; border: 3px solid #fff; border-radius: 50%; background: var(--accent); box-shadow: 0 2px 8px rgba(0,0,0,.25); overflow: visible; }
 .trail-pin img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block; }
 .trail-pin span { position: absolute; top: -8px; right: -8px; min-width: 20px; height: 20px; border-radius: 10px; background: var(--accent); color: var(--ink); font-size: 13px; font-weight: 800; line-height: 20px; text-align: center; border: 2px solid #fff; }
 .trail-pin.home { width: 28px; height: 28px; background: #fff; color: var(--ink-2); font-size: 12px; font-weight: 800; line-height: 22px; text-align: center; }
-.trail-link { float: right; border: 0; background: none; padding: 0; color: var(--accent-ink); font-size: 15px; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+.trail-link { flex: none; display: inline-flex; align-items: center; min-height: 48px; border: 0; background: none; padding: 0 4px; color: var(--accent-ink); font: inherit; font-size: 15px; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .dg-trail { display: block; width: 100%; padding: 0; border: 1px solid var(--line); border-radius: 14px; background: #fff; overflow: hidden; text-align: left; }
 .dg-trail .dg-places { border: 0; border-top: 1px solid var(--line); border-radius: 0; }
 a.pair-btn { display: flex; align-items: center; justify-content: center; text-decoration: none; }

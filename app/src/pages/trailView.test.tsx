@@ -31,6 +31,12 @@ describe('Trail', () => {
     expect(out).toContain('나무가 우거진 공원 산책길')
     expect(out).toContain('집에서 1.2km')
     expect(out.indexOf('나무가 우거진 공원 산책길')).toBeLessThan(out.indexOf('시장에서 장 보는 중이에요'))
+    // The rows are memo rows (A13), numbered like the pins.
+    expect(out.split('class="memo-row"').length - 1).toBe(2)
+    expect(out).toContain('<span class="memo-row-badge" aria-hidden="true">1</span>')
+    expect(out).toContain('<span class="memo-row-badge" aria-hidden="true">2</span>')
+    expect(out).toContain('<span class="memo-row-meta">오전 9:40 · 서초동 · 집에서 1.2km</span>')
+    expect(out).not.toContain('trail-stop')
     expect(out).toContain('위치가 없는 사진 1장은 여기에 나오지 않아요.')
     expect(out).not.toContain('여행 중')
     // No key: the sketch, with the photos on the pins.

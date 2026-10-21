@@ -39,8 +39,9 @@ export interface MapPin extends LatLng {
   onClick?: () => void
 }
 
-/** Draw the route and its pins into `el`. */
-export async function renderKakaoMap(el: HTMLElement, key: string, pins: MapPin[], home: LatLng | null): Promise<void> {
+/** Draw the route and its pins into `el`. `pad` is the room left around the
+ *  route (a small box wants less than the trail page's 56/40). */
+export async function renderKakaoMap(el: HTMLElement, key: string, pins: MapPin[], home: LatLng | null, { pad }: { pad?: number } = {}): Promise<void> {
   const kakao = await loadKakaoMaps(key)
   const at = (p: LatLng) => new kakao.maps.LatLng(p.lat, p.lng)
   const map = new kakao.maps.Map(el, { center: at(pins[0]), level: 4 })
@@ -48,7 +49,7 @@ export async function renderKakaoMap(el: HTMLElement, key: string, pins: MapPin[
   if (pins.length > 1) {
     const bounds = new kakao.maps.LatLngBounds()
     pins.forEach((p) => bounds.extend(at(p)))
-    map.setBounds(bounds, 56, 40, 40, 40)
+    map.setBounds(bounds, pad ?? 56, pad ?? 40, pad ?? 40, pad ?? 40)
     new kakao.maps.Polyline({ map, path: pins.map(at), strokeWeight: 4, strokeColor: '#FF8A1F' /* --accent */, strokeOpacity: 0.9 })
   }
   if (home) {

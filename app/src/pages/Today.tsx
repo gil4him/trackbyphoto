@@ -1,11 +1,11 @@
 import { useEffect, useMemo } from 'react'
 import { fmtTime, relativeDateLabel } from '../util'
-import { MemoThumb } from '../components/MemoThumb'
+import { MemoRow } from '../components/MemoRow'
 import { useOutbox } from '../hooks/useOutbox'
 import { useWorkerStatus } from '../hooks/useWorkerStatus'
 import type { OutboxItem } from '../lib/outbox'
 import type { ReactionsContext } from '../components/Reactions'
-import { cardTitle, rowCounts } from '../lib/memoViews'
+import { cardMeta } from '../lib/memoViews'
 import { S } from '../lib/strings'
 import type { Memo } from '../types'
 
@@ -16,26 +16,27 @@ function WaitingPhoto({ item }: { item: OutboxItem }) {
   const url = useMemo(() => URL.createObjectURL(item.blob), [item.blob])
   useEffect(() => () => URL.revokeObjectURL(url), [url])
   return (
-    <div className="tl-item waiting">
-      <div className="tl-thumb"><img src={url} alt="" /></div>
-      <div className="tl-body">
-        <div className="act">보내는 중…</div>
-        <div className="desc">
+    <div className="memo-row waiting">
+      <span className="memo-row-pic"><span className="tl-thumb"><img src={url} alt="" /></span></span>
+      <span className="memo-row-body">
+        <span className="memo-row-title">보내는 중…</span>
+        <span className="memo-row-meta">
           {fmtTime(new Date(item.takenAtMs))} · {item.attempts > 0 ? '인터넷이 약해요. 연결되면 자동으로 보내요.' : '곧 기록돼요.'}
-        </div>
+        </span>
         {/* After several failed tries, say why, so it can be reported. */}
-        {item.attempts >= 5 && item.lastError && <div className="desc muted">({item.lastError})</div>}
-      </div>
+        {item.attempts >= 5 && item.lastError && <span className="memo-row-meta">({item.lastError})</span>}
+      </span>
     </div>
   )
 }
 
 /**
  * `uid` is whose records are shown; photos of theirs still waiting on this
- * phone are listed first. Each photo is one card — thumbnail, title, place
- * and time, and on the right what family left on it; the photo page holds
- * the thread and the ⋯ menu (deleting included). `readOnly` is accepted
- * for the elder's linked phone (nothing to hide here any more).
+ * phone are listed first. Each photo is one `MemoRow` under its day's header
+ * (A13) — the time first on its meta line, then the place and what family
+ * left on it; the photo page holds the thread and the ⋯ menu (deleting
+ * included). `readOnly` is accepted for the elder's linked phone (nothing to
+ * hide here any more).
  */
 export function Today({ memos, onOpen, uid, rx, onOpenTrail, onOpenVoiceAlbum, focusDay, onFocused }: { memos: Memo[]; onOpen: (id: string) => void; uid?: string; readOnly?: boolean; /** Hearts and comments per photo (family feed), for the counts. */ rx?: ReactionsContext; /** 다녀온 곳 for one day (shown on days that have a located photo). */ onOpenTrail?: (day: Date) => void; /** 목소리 앨범, on a plan that includes it (family only). */ onOpenVoiceAlbum?: () => void; /** Open scrolled to this day's photos (어제 보기 on the home), once. */ focusDay?: Date | null; onFocused?: () => void }) {
   // Hide a waiting photo once its memo shows up from the server.
@@ -98,25 +99,17 @@ export function Today({ memos, onOpen, uid, rx, onOpenTrail, onOpenVoiceAlbum, f
             </div>
             {g.items.map((m) => {
               const items = rx?.byMemo.get(m.id)
-              const counts = rowCounts(items)
               // On the parent's own phone: family left something they have not seen yet.
               const fresh = !!rx && !rx.canReact && (items ?? []).some((r) => r.actorUid !== rx.patientUid && r.status === 'ready' && !r.readByElderAt)
               return (
-                <button
-                  type="button"
+                <MemoRow
                   key={m.id}
-                  className="tl-item"
-                  onClick={() => onOpen(m.id)}
-                  aria-label="자세히 보기"
-                >
-                  <MemoThumb memo={m} />
-                  <div className="tl-body">
-                    {/* The memo's subject line is the title; where and when, under it. */}
-                    <div className="act">{cardTitle(m, serverDown)}</div>
-                    <div className="desc">{[m.place, fmtTime(m.takenAt.toDate())].filter(Boolean).join(' · ')}</div>
-                  </div>
-                  {counts && <span className={`tl-rx${fresh ? ' fresh' : ''}`}>{counts}{fresh && <span className="tl-rx-dot" aria-label="새 소식" />}</span>}
-                </button>
+                  memo={m}
+                  onOpen={onOpen}
+                  meta={[fmtTime(m.takenAt.toDate()), cardMeta(m, items)].filter(Boolean).join(' · ')}
+                  fresh={fresh}
+                  serverDown={serverDown}
+                />
               )
             })}
           </div>

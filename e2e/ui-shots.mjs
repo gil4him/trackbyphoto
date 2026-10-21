@@ -66,6 +66,10 @@ async function seedNotices() {
   for (const r of rows) await db.collection('notifications').add(r)
 }
 
+// Nine photos of 엄마's today, seeded once per run (A13's three screens share them).
+let nine = null
+const nineToday = () => (nine ??= seedTodayMemos({ momUid, kidUid: self, kidName: KID.name, count: 9 }))
+
 // Each phase: screen name → { as: whose records are open, go: how to get
 // there, prepare?: data to write first, account?: who is signed in,
 // open?: (device) → page, for screens that are not the family's (a parent's phone) }.
@@ -97,9 +101,9 @@ const PHASES = {
   },
   A3: {
     'photos-list':    { as: momUid, prepare: () => seedTodayMemos({ momUid, kidUid: self, kidName: KID.name, count: 3 }), go: async (p) => { await home(p, '엄마'); await tab(p, '사진'); await waitText(p, '♥') } },
-    'photo-detail':   { as: momUid, go: async (p) => { await home(p, '엄마'); await tab(p, '사진'); await waitText(p, '♥'); await p.click('.tl-item'); await waitText(p, '가족 이야기') } },
-    'photo-menu':     { as: momUid, go: async (p) => { await home(p, '엄마'); await tab(p, '사진'); await waitText(p, '♥'); await p.click('.tl-item'); await click(p, '더보기'); await waitText(p, '지우기') } },
-    'photo-confirm':  { as: momUid, go: async (p) => { await home(p, '엄마'); await tab(p, '사진'); await waitText(p, '♥'); await p.click('.tl-item'); await click(p, '더보기'); await sleep(500); await click(p, '지우기', '.sheet-item'); await waitText(p, '이 사진을 지울까요?'); await sleep(400) } },
+    'photo-detail':   { as: momUid, go: async (p) => { await home(p, '엄마'); await tab(p, '사진'); await waitText(p, '♥'); await p.click('.memo-row'); await waitText(p, '가족 이야기') } },
+    'photo-menu':     { as: momUid, go: async (p) => { await home(p, '엄마'); await tab(p, '사진'); await waitText(p, '♥'); await p.click('.memo-row'); await click(p, '더보기'); await waitText(p, '지우기') } },
+    'photo-confirm':  { as: momUid, go: async (p) => { await home(p, '엄마'); await tab(p, '사진'); await waitText(p, '♥'); await p.click('.memo-row'); await click(p, '더보기'); await sleep(500); await click(p, '지우기', '.sheet-item'); await waitText(p, '이 사진을 지울까요?'); await sleep(400) } },
   },
   A4: {
     'alerts':         { as: momUid, prepare: () => seedNotices(), go: async (p) => { await home(p, '엄마'); await tab(p, '알림'); await waitText(p, '연결 기록') } },
@@ -114,8 +118,17 @@ const PHASES = {
   },
   A7: {
     'home-trail':  { as: momUid, prepare: () => seedTodayMemos({ momUid, kidUid: self, kidName: KID.name, count: 9 }), go: (p) => home(p, '다녀온 곳') },
-    'trail':       { as: momUid, go: async (p) => { await home(p, '다녀온 곳'); await click(p, '다녀온 곳', '.day-trail'); await waitText(p, '오늘 다녀온 곳'); await sleep(4000) } },
+    'trail':       { as: momUid, go: async (p) => { await home(p, '다녀온 곳'); await click(p, '다녀온 곳', '.day-map-open'); await waitText(p, '오늘 다녀온 곳'); await sleep(4000) } },
     'photos-link': { as: momUid, go: async (p) => { await home(p, '엄마'); await tab(p, '사진'); await waitText(p, '다녀온 곳 ›') } },
+  },
+  // A13: one memo row everywhere. The parent's day with nine photos (the rail,
+  // the badges, the small map under the caption), the 사진 tab, and 다녀온 곳
+  // opened from the map's pill.
+  // Each screen seeds the day once, so any one of them can be taken alone (UI_ONLY).
+  A13: {
+    'home':   { as: momUid, prepare: () => nineToday(), go: (p) => home(p, '다녀온 곳') },
+    'photos': { as: momUid, prepare: () => nineToday(), go: async (p) => { await home(p, '엄마'); await tab(p, '사진'); await waitText(p, '다녀온 곳 ›') } },
+    'trail':  { as: momUid, prepare: () => nineToday(), go: async (p) => { await home(p, '다녀온 곳'); await click(p, '다녀온 곳', '.day-map-open'); await waitText(p, '오늘 다녀온 곳'); await sleep(4000) } },
   },
   // A10: the family dashboard. One parent with three photos today and an
   // unread notice, then a second parent (아빠, quiet today); nobody linked;

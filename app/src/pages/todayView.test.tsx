@@ -1,5 +1,6 @@
-// The 사진 list, rendered without a browser: one card per photo with what
-// family left on it, no delete button, quiet day headers (docs/DAYLIE_V3_UI_FIX.md A3).
+// The 사진 list, rendered without a browser: one memo row per photo with the
+// time and what family left on it, no delete button, quiet day headers
+// (docs/DAYLIE_V3_UI_FIX.md A3, A13).
 import { describe, it, expect, vi } from 'vitest'
 import { renderToString } from 'react-dom/server'
 
@@ -36,12 +37,15 @@ describe('rowCounts', () => {
 })
 
 describe('Today', () => {
-  it('one card per photo: title, place · time, counts on the right, no delete button, no thread', () => {
+  it('one memo row per photo: title, then time · place · category · who left what; no badge, no rail, no delete button, no thread', () => {
     const out = render({ rx: rx({ a: [{ kind: 'heart', actorName: '지민' }, { kind: 'comment', actorName: '지민', text: '좋아요' }] }) })
-    expect(out.split('class="tl-item"').length - 1).toBe(2)
+    expect(out.split('class="memo-row"').length - 1).toBe(2)
     expect(out).toContain('a 산책')
-    expect(out).toMatch(/석촌호수 · 오후 3:05/)
-    expect(out).toContain('<span class="tl-rx">♥ 1 · 💬 1</span>')
+    expect(out).toContain('<span class="memo-row-meta">오후 3:05 · 석촌호수 · 산책 · ♥ 지민 · 💬 1</span>')
+    expect(out).toContain('<span class="memo-row-meta">오전 9:05 · 석촌호수 · 산책</span>')
+    expect(out).not.toContain('memo-row-badge')
+    expect(out).not.toContain('day-rail')
+    expect(out).not.toContain('tl-item')
     expect(out).not.toContain('del-btn')
     expect(out).not.toContain('사진 삭제')
     expect(out).not.toContain('class="rx"')
@@ -51,13 +55,12 @@ describe('Today', () => {
   it("on the parent's own phone, a heart or word they have not seen marks the card", () => {
     const own = (items: Record<string, Partial<Reaction>[]>) => ({ ...rx(items), canReact: false, me: { uid: 'p1', name: '엄마' } }) as ReactionsContext
     const fresh = render({ rx: own({ a: [{ kind: 'heart', actorName: '지민', actorUid: 'me', status: 'ready' }] }) })
-    expect(fresh).toContain('class="tl-rx fresh"')
-    expect(fresh).toContain('aria-label="새 소식"')
+    expect(fresh).toContain('<span class="memo-row-new" aria-label="새 소식"></span>')
     const seen = render({ rx: own({ a: [{ kind: 'heart', actorName: '지민', actorUid: 'me', status: 'ready', readByElderAt: {} as never }] }) })
-    expect(seen).toContain('class="tl-rx"')
+    expect(seen).toContain('♥ 지민')
     expect(seen).not.toContain('새 소식')
     // The family's own list never carries the mark.
-    expect(render({ rx: rx({ a: [{ kind: 'heart', actorName: '지민', actorUid: 'me', status: 'ready' }] }) })).not.toContain('fresh')
+    expect(render({ rx: rx({ a: [{ kind: 'heart', actorName: '지민', actorUid: 'me', status: 'ready' }] }) })).not.toContain('memo-row-new')
   })
 
   it('day headers are quiet captions; 다녀온 곳 › on a day with a located photo, in both editions', () => {
