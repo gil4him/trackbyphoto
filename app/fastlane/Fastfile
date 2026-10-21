@@ -442,3 +442,25 @@ lane :release do |options|
   release_ios(options)
   release_android(options)
 end
+
+# Only the listing screenshots (fastlane/screenshots/<locale>/) to App Store
+# Connect's editable version — no binary, no text, no review submission.
+#   bundle _2.5.23_ exec fastlane screenshots_ios [app_version:1.0.1]
+lane :screenshots_ios do |options|
+  upload_to_app_store(
+    api_key: asc_api_key,
+    app_identifier: ENV["IOS_BUNDLE_ID"],
+    app_version: (options[:app_version] || "1.0.1").to_s,
+    screenshots_path: File.join(app_dir, "fastlane/screenshots"),
+    # metadata/android/ and metadata/ios/ sit next to the App Store locales.
+    ignore_language_directory_validation: true,
+    overwrite_screenshots: true,
+    skip_binary_upload: true,
+    skip_metadata: true,
+    skip_screenshots: false,
+    skip_app_version_update: true,
+    submit_for_review: false,
+    force: true,
+    run_precheck_before_submit: false
+  )
+end
