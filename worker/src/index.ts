@@ -45,6 +45,8 @@ import { watchFamilyPhotos } from './handlers/familyPhotos.js'
 import { startHeartbeat } from './heartbeat.js'
 import { sttAvailable } from './llm/stt.js'
 import { geminiConfigured } from './llm/gemini.js'
+import { weatherKitConfigured } from './weather.js'
+import { deployedCommit } from './deployed.js'
 
 const STORAGE_BUCKET = process.env.FIREBASE_STORAGE_BUCKET || 'trackbyphoto-app.firebasestorage.app'
 const STATE_DIR = process.env.WORKER_STATE_DIR || join(homedir(), '.trackbyphoto', 'state')
@@ -63,6 +65,9 @@ async function main() {
     ollama: (await ollamaAvailable()) ? 'up' : 'DOWN (memos will wait)',
     stt: (await sttAvailable()) ? 'up' : 'DOWN (voice replies will wait)',
     cloud: geminiConfigured() ? 'configured (cloudMemo flag / admin_config/cloudLlm decide who)' : 'off',
+    weather: weatherKitConfigured() ? 'WeatherKit' : 'off (no WEATHERKIT_* settings)',
+    // scripts/install.sh records it; tells anyone reading the log what is running.
+    deployedCommit: deployedCommit(),
   })
 
   await requeueInterruptedRequests()

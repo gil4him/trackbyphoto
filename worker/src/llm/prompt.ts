@@ -1,6 +1,8 @@
 // Memo prompt, response parsing, deterministic stub, and tag → category
 // heuristic for the local vision model.
 
+import { momentLines } from './moment.js'
+
 // Order matters only for display. 가족/꽃 from the old six-category schema
 // are folded into 모임/자연; older memos keep whatever they were stored with.
 export const VALID_CATEGORIES = [
@@ -35,6 +37,15 @@ export interface PromptHints {
   diary?: boolean
   /** "10월 18일 오후" on the photographer's clock (travel.ts localDateHint). */
   dateHint?: string
+  /** Day of the week on the photographer's calendar, with the holiday when
+   *  there is one ("월요일", "추석 목요일"). See llm/moment.ts. */
+  dayHint?: string
+  /** Sunrise and sunset that day at that spot, HH:MM on the same clock. */
+  sunHint?: { rise: string; set: string }
+  /** Earlier photos today, oldest first: "06:20 · 이동 · 공항에 도착하셨어요 · 중구". */
+  todayHint?: string[]
+  /** The weather there that hour, from WeatherKit (weather.ts); never guessed. */
+  weather?: import('../weather.js').Weather
 }
 
 /** 'cloud' is the prompt for Gemini, which reads Japanese and knows places;
@@ -43,13 +54,19 @@ export type PromptVariant = 'local' | 'cloud'
 
 export const JAPANESE_RULE_LOCAL = '- 또렷이 읽히는 한글·영어·숫자만 인용하세요. 일본어나 한자로 된 글자는 옮겨 적거나 번역하지 말고 "일본어 광고가 붙어 있어요"처럼만 쓰세요.'
 const JAPANESE_RULE_CLOUD = '- 일본어·한자 간판과 안내판도 읽을 수 있으면 뜻을 한국어로 옮기세요. 역·가게·지명은 한국어 발음으로 쓰세요 ("新宿駅" → "신주쿠역").'
+/** Cloud only: one Korean spelling for a foreign shop name, so the same place
+ *  doesn't read "Han Yang Restaurant" in one memo and "한양식당" in the next. */
+const SHOP_NAME_RULE_CLOUD = '- 영어 가게·식당 이름은 가족이 읽기 쉽게 한글로 쓰세요 ("Han Yang Restaurant" → "한양식당", "Costco" → "코스트코"). 한글 간판이 있으면 그 이름 그대로.'
 
-// The model writes three things per photo:
+// The model writes four things per photo:
+//   guess     its reasoning, one line: photo + time + place + earlier photos
+//             → what the parent was most likely doing (not stored)
 //   activity  one category word
-//   memo      the subject line: short but concrete (what + where)
+//   memo      the subject line: what the parent did, ending in a verb
 //   scene     2–3 short, plain sentences for the detail page
-// Everything must come from what is visible in the photo; the hints only
-// add context (time, place, distance from home) the picture can't show.
+// The memo is about the parent's moment, not a description of the picture:
+// objects, food and shops must still be visible (or in the hints), but what
+// the parent was doing is a best guess from everything known.
 export const AD_BOARD_RULE = '- 상품·책·서비스를 알리는 광고판과 포스터는 현수막·안내판과 달라요. 내용을 옮기지 말고 "광고판이 보여요"라고만 쓰세요.'
 
 /** The 13 categories with the one-line description the model gets for each (v1 and v2 share them). */
@@ -67,23 +84,6 @@ export const CATEGORY_LINES = [
   '- 자연: 꽃, 나무, 하늘, 바다, 풍경',
   '- 병원: 병원, 약국',
   '- 기타: 위 어느 것에도 맞지 않을 때만',
-]
-
-const CLASSIC_SCENE_LINES = [
-  'scene (설명, 짧은 문장 2~3개):',
-  '- 한 문장은 25자 이내. 한 문장에 한 가지 내용만.',
-  '- 첫 문장은 무엇이 보이는지(현수막·간판 글자가 있으면 그것부터), 둘째 문장은 장소나 분위기, 셋째 문장(선택)은 눈에 띄는 한 가지.',
-  '- 쉼표로 길게 이어 쓰거나 같은 꾸밈말을 반복하지 마세요.',
-]
-
-const CLASSIC_EXAMPLES = [
-  '- 식탁 위 찌개와 반찬 → {"activity":"식사","memo":"된장찌개로 점심 식사","scene":"식탁에 찌개와 반찬이 차려져 있어요. 집에서 드시는 점심이에요."}',
-  '- 나무가 늘어선 공원길 → {"activity":"산책","memo":"나무가 우거진 공원 산책길","scene":"공원 길을 따라 나무가 늘어서 있어요. 햇살이 좋은 오후예요."}',
-  '- 공항 안 편의점 진열대(집에서 900km, 지역: 도코나메시, 일본) → {"activity":"이동","memo":"나고야 공항 편의점에 들렀어요","scene":"공항 안 편의점이에요. 진열대에 간식이 가득해요. 일본 나고야에 도착하셨어요."}',
-  '- 낯선 도시의 거리(집에서 900km, 지역: 나고야시, 일본) → {"activity":"여행","memo":"나고야 시내 거리 구경","scene":"일본 나고야의 거리예요. 간판이 늘어선 번화가예요."}',
-  '- "제12회 진해 벚꽃 축제 4/1~4/10" 현수막 아래 셀카 → {"activity":"자연","memo":"진해 벚꽃 축제 현수막 앞에서","scene":"제12회 진해 벚꽃 축제를 알리는 현수막이 걸려 있어요. 4월 1일부터 10일까지 열린다고 적혀 있어요. 뒤로 벚나무가 보여요."}',
-  '- 벽에 일본어 광고판이 붙은 곳에서 찍은 사진 → {"activity":"기타","memo":"일본어 광고판 앞에서","scene":"뒤에 일본어로 된 큰 광고판이 붙어 있어요. 실내에서 찍은 사진이에요."}',
-  '- 사진이 흐려 알 수 없음 → {"activity":"기타","memo":"흐릿하게 찍힌 사진","scene":"사진이 흐려서 잘 보이지 않아요."}',
 ]
 
 // memoDiary: the scene is a short diary entry for the moment. It describes
@@ -129,11 +129,30 @@ export function diaryScene(scene: string, hints: Pick<PromptHints, 'dateHint' | 
   return [opener, scene].filter(Boolean).join(' ')
 }
 
+/**
+ * The nearest shop or building on the map ("Han Yang Restaurant · Buena Park,
+ * 미국"), as a clue to what the parent was doing there: lunchtime in front of
+ * a restaurant is lunch. Framed as a GPS guess, never as what the photo shows,
+ * and the model may not invent its menu or goods (the old failure: "리김밥" →
+ * "김밥을 드시고 계세요"). The local model reads no Japanese, so a name in
+ * kana or kanji is left out for it.
+ */
+export function nearestPlaceLines(placeFull: string | undefined, variant: PromptVariant = 'local'): string[] {
+  if (!placeFull || !placeFull.includes(' · ')) return []
+  if (variant === 'local' && FOREIGN_SCRIPT.test(placeFull)) return []
+  return [
+    `- 지도에서 가장 가까운 곳: ${placeFull}`,
+    '  → GPS로 찾은 가장 가까운 가게·건물이에요. 수십 m 오차가 있을 수 있어요.',
+    '  → 사진(건물 앞, 간판, 가게 안, 음식)과 찍은 때가 이곳과 맞으면 이곳에 가신 거예요. 이름을 제목에 넣으세요 (점심때 식당 앞 → "○○에 점심 드시러 가셨어요").',
+    '  → 이곳의 메뉴·상품·음식은 사진에 보이지 않으면 지어내지 마세요. 사진 속 간판이 다른 곳이면 사진을 따르세요.',
+  ]
+}
+
 export function buildPrompt(hints: PromptHints = {}, variant: PromptVariant = 'local'): string {
-  const { timeHint, placeHint, homeHint, textHint, nearHint, placeFull, coords, diary } = hints
+  const { placeHint, homeHint, textHint, nearHint, placeFull, coords, diary } = hints
   const cloud = variant === 'cloud'
   const context = [
-    `- 시간: ${timeHint || '알 수 없음'}`,
+    ...momentLines(hints),
     `- 지역: ${placeHint ? (nearHint ? `${placeHint} 근처 (이 사진은 위치가 없어, 몇 분 안에 찍은 다른 사진의 위치예요)` : placeHint) : '알 수 없음'}`,
     '  → 지역 이름일 뿐이에요. 사진에 보이지 않는 가게·음식·물건을 지역 이름에서 지어내지 마세요.',
   ]
@@ -152,12 +171,7 @@ export function buildPrompt(hints: PromptHints = {}, variant: PromptVariant = 'l
     context.push(`- 집과의 거리: ${homeHint.km < 2 ? '집 또는 집 근처예요.' : `집에서 약 ${homeHint.km}km 떨어진 곳이에요.`} "여행"·"출장"은 고르지 마세요.`)
   }
 
-  if (cloud && placeFull && !nearHint) {
-    context.push(
-      `- 지도에서 가장 가까운 곳: ${placeFull}`,
-      '  → 사진의 모습과 맞을 때만 쓰세요 (거리 사진이면 그 근처, 실내 사진이면 지어내지 마세요).',
-    )
-  }
+  if (!nearHint) context.push(...nearestPlaceLines(placeFull, variant))
   if (cloud && coords) {
     context.push(
       `- 좌표: ${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}`,
@@ -172,40 +186,71 @@ export function buildPrompt(hints: PromptHints = {}, variant: PromptVariant = 'l
   }
 
   return [
-    '당신은 사진을 보고 가족에게 전할 짧은 기록을 써 주는 보조 AI입니다.',
-    '사진을 찍은 분의 가족이 읽습니다. 세 가지를 작성하세요: activity(카테고리), memo(제목), scene(설명).',
+    '당신은 부모님이 휴대폰으로 찍은 사진 한 장을 보고, 그 순간 부모님이 무엇을 하고 계셨는지 가족에게 알려 주는 보조 AI입니다.',
+    '사진은 부모님이 직접 찍었어요. 풍경을 묘사하는 글이 아니라, 사진·찍은 때·장소·오늘 앞선 사진을 모두 엮어 "이때 무엇을 하고 계셨을지" 가장 그럴듯하게 짐작해 쓰는 글이에요.',
+    '네 가지를 작성하세요: guess(짐작), activity(카테고리), memo(제목), scene(설명).',
+    '',
+    'guess (먼저 쓰세요, 한 줄):',
+    '- 보이는 것 + 찍은 때 + 장소(집 근처인지, 멀리 왔는지) + 오늘 앞선 사진 → 그때 하고 계셨을 일.',
+    '- 예: "공원길·나무 + 월요일 아침 7시 + 집 근처 → 아침 산책 중"',
+    '- 예: "식탁 위 칼국수 + 점심때 + 시내 식당가 → 점심 식사"',
+    '- 예: "탑승구·비행기 + 오전 + 집에서 900km, 앞서 공항 도착 → 탑승을 기다리는 중"',
     '',
     '공통 규칙:',
-    '- 사진에 실제로 보이는 것만 쓰세요. 보이지 않는 일은 지어내지 마세요.',
-    '- 쉬운 한국어 존댓말(~요)로 쓰세요.',
-    '- 사람 이름, 관계(딸·친구 등), 건강·약·진단명은 추측하지 마세요.',
-    ...(cloud ? ['- 가게·건물 이름은 사진에서 읽히거나 아래 상황 정보에 있을 때만 쓰세요. 좌표로 아는 지역·역·거리 이름은 써도 돼요.'] : []),
+    '- 사진에 없는 물건·음식·가게·사람을 지어내지 마세요. 하지만 부모님이 무엇을 하고 계셨는지는 위 단서를 엮어 짐작해 써도 돼요.',
+    '- 단서가 약하면 확실한 행동으로 쓰세요: "길가의 꽃을 찍으셨어요", "창밖을 보셨어요". 사진을 찍으셨다는 것은 언제나 사실이에요.',
+    '- 찍은 때(아침·점심·저녁·밤, 노을·일출)는 아래 상황 정보가 정답이에요. 사진의 빛이나 색만 보고 시간대를 바꾸지 마세요.',
+    '- 쉬운 한국어 존댓말(~요)로, 부모님을 높여서 쓰세요. 주어("어르신", "남성분" 등) 없이 "~하셨어요"로 쓰세요.',
+    '- 사람 이름, 관계(가족·딸·친구 등), 건강·약·진단명은 추측하지 마세요. 여러 사람이 함께면 "일행과 함께"라고 쓰세요.',
+    '- "아름다운", "평화로운", "여유로운" 같은 꾸밈말이나 기분·감상을 덧붙이지 마세요.',
+    '- 가게·건물 이름은 사진에서 읽히거나 아래 상황 정보에 있을 때만 쓰세요.',
+    ...(cloud ? ['- 좌표로 아는 지역·역·거리 이름은 써도 돼요.'] : []),
     '',
     '배경의 글자:',
-    '- 현수막·간판·전광판·안내판이 보이면 적힌 글자를 읽고, 무엇이 적혀 있는지 담으세요 (행사 이름, 역 이름, 날짜 등).',
-    '- 현수막이나 간판이 크게 찍혔다면 그것이 사진의 주제예요. memo(제목)에 그 내용을 넣으세요.',
+    '- 현수막·간판·전광판·안내판이 보이면 적힌 글자를 읽고 활용하세요 (행사 이름, 역 이름, 가게 이름 등).',
+    '- 현수막이나 간판이 크게 찍혔다면 그곳에 가신 거예요. 하신 일과 함께 제목에 넣으세요 ("진해 벚꽃 축제에 가셨어요").',
     '- 외국어 문장은 뜻을 한국어로 옮겨 쓰세요 ("The biggest festival" → "가장 큰 축제"). 지명·역·가게·행사 이름은 원문 그대로 써도 돼요 ("Higashi Betsuin 역").',
     cloud ? JAPANESE_RULE_CLOUD : JAPANESE_RULE_LOCAL,
+    ...(cloud ? [SHOP_NAME_RULE_CLOUD] : []),
     AD_BOARD_RULE,
     '',
-    'memo (제목 한 줄, 12~22자):',
-    '- 사진의 주제를 구체적으로 쓰세요: 무엇을, 어디에서.',
-    '- 좋은 예: "공항 편의점에 들렀어요", "된장찌개로 점심 식사", "벚꽃 축제 현수막 앞에서"',
-    '- 나쁜 예: "오늘의 한 순간을 담았어요", "즐거운 시간을 보내고 계세요" (무엇인지 알 수 없어요)',
+    'memo (제목 한 줄, 12~24자) — 하신 일 + 장소:',
+    '- 부모님이 그때 하신 일과 장소를 쓰세요. 동사로 끝나요 ("~하셨어요", "~드셨어요", "~다녀오셨어요").',
+    '- 명소·관광지, 또는 일부러 배경으로 담은 곳(이름난 건물·풍경·조형물)이 보이면 그 이름을 맨 앞에 두고 반갑게 "!"로 끝내세요: "불국사에 다녀오셨어요!", "해운대 바다를 보러 가셨어요!". 명소가 아니면 "!"를 쓰지 마세요.',
+    '- 메뉴판·그릇·간판에서 음식이나 가게 이름이 읽히면 넣으세요 ("한양식당에서 곤드레돌솥밥을 드셨어요").',
+    '- 좋은 예: "아침 일찍 동네 공원을 걸으셨어요", "점심으로 칼국수를 드셨어요", "공항에서 탑승을 기다리셨어요"',
+    '- 나쁜 예: "나무가 우거진 공원 산책길" (하신 일이 없어요), "아름다운 노을 풍경" (사진 묘사예요), "오늘의 한 순간", "시간을 보내셨어요" (무엇을 하셨는지 알 수 없어요)',
     '',
-    ...(diary ? DIARY_SCENE_LINES : CLASSIC_SCENE_LINES),
+    ...(diary ? DIARY_SCENE_LINES : [
+      'scene (그날을 기억하게 하는 한 줄 일기, 1문장 · 많아야 2문장 · 50자 이내):',
+      '- 기억의 고리 1~2개 + 하신 일을 자연스럽게 한 문장으로 쓰세요. 기억의 고리: 날씨·기온(상황 정보의 실제 값), 요일·명절·특별한 날, 시간대, 집에서 먼 여행지, 오늘 앞선 사진과의 흐름.',
+      '- 예: "맑고 따뜻한 일요일, 점심을 드시고 나와 일행과 기념사진을 남기셨어요." / "비가 내리는 쌀쌀한 월요일 아침, 우산을 쓰고 출근길에 나서셨어요."',
+      '- 제목을 그대로 되풀이하지 말고, 제목에 없는 그날의 맥락을 더하세요.',
+      '- 사진 묘사는 명소나 일부러 담은 배경일 때만 짧게 쓰세요 ("다보탑 앞에서"). 물건·배경을 나열하는 문장은 금지예요: "식탁 위에 물잔이 놓여 있어요", "나무가 늘어서 있어요", "뒤로 상점들이 보여요", "흰색 차가 주차되어 있어요". "~가 놓여 있어요", "~가 보여요"로 끝나는 문장은 쓰지 않아요.',
+      '- 날씨는 상황 정보의 실제 값만 쓰세요. 값이 없으면 날씨를 쓰지 말고, 사진의 빛이나 하늘을 보고 날씨를 짐작하지 마세요.',
+      '- 기분·감상("즐거운", "맛있는", "행복한", "예쁜")은 지어내지 마세요.',
+    ]),
     '',
-    'activity (정확히 하나):',
+    'activity (정확히 하나, 하고 계셨던 일 기준):',
     ...CATEGORY_LINES,
     '',
     '예시:',
-    ...(diary ? DIARY_EXAMPLES : CLASSIC_EXAMPLES),
+    ...(diary ? DIARY_EXAMPLES : [
+      '- 식탁 위 찌개와 반찬, 화요일 12:20, 비 9°C, 집 → {"guess":"찌개와 반찬 + 점심때 + 집 → 집에서 점심 식사","activity":"식사","memo":"집에서 된장찌개로 점심을 드셨어요","scene":"비가 내리는 쌀쌀한 화요일, 집에서 따끈하게 점심을 드셨어요."}',
+      '- 나무가 늘어선 공원길, 월요일 07:10, 맑음 17°C, 집에서 1km → {"guess":"공원길 + 이른 아침 + 집 근처 → 아침 산책","activity":"산책","memo":"아침 일찍 동네 공원을 걸으셨어요","scene":"맑고 선선한 월요일 아침, 하루를 시작하며 공원을 한 바퀴 걸으셨어요."}',
+      '- 식당 안, 돌솥밥과 "곤드레돌솥" 메뉴, 일요일 13:10, 맑음 24°C, 가장 가까운 곳: 한양식당 → {"guess":"돌솥밥 + 메뉴판 + 일요일 점심 + 한양식당 → 일행과 점심 식사","activity":"식사","memo":"한양식당에서 곤드레돌솥밥을 드셨어요","scene":"맑고 따뜻한 일요일 점심, 일행과 함께 식사하셨어요."}',
+      '- 식당 건물 앞에 여러 사람, 일요일 13:40, 맑음 24°C, 앞선 사진: 13:00 한양식당에서 식사 → {"guess":"식당 앞 + 점심 직후 + 앞서 식사 → 식사를 마치고 나와 기념사진","activity":"모임","memo":"한양식당에서 점심 드시고 사진을 남기셨어요","scene":"맑고 따뜻한 일요일, 점심을 드시고 나와 일행과 기념사진을 찍으셨어요."}',
+      '- 다보탑 앞 셀카, 토요일 10:20, 맑음 16°C, 집에서 300km(지역: 경주시) → {"guess":"다보탑 + 경주 + 집에서 멀리 → 불국사 여행","activity":"여행","memo":"불국사에 다녀오셨어요!","scene":"선선한 가을 토요일 아침, 경주 불국사 다보탑 앞에서 사진을 남기셨어요."}',
+      '- 공항 안 편의점, 금요일 10:40, 날씨 알 수 없음, 집에서 900km(지역: 도코나메시, 일본) → {"guess":"공항 편의점 + 오전 + 일본 나고야 → 도착해서 간식을 고름","activity":"이동","memo":"나고야 공항 편의점에 들르셨어요","scene":"금요일 오전, 일본 나고야에 도착해 공항에서 간식을 고르셨어요."}',
+      '- 단서가 거의 없는 실내 사진, 수요일 15:00 → {"guess":"실내, 단서 부족 → 실내에서 사진을 찍으심","activity":"기타","memo":"실내에서 사진을 찍으셨어요","scene":"수요일 오후, 실내에서 사진 한 장을 남기셨어요."}',
+      '- 사진이 흐려 알 수 없음 → {"guess":"흐려서 단서 없음","activity":"기타","memo":"흐릿하게 찍힌 사진","scene":"사진이 흐려서 잘 보이지 않아요."}',
+    ]),
     '',
-    '상황 정보 (참고용, 사진과 어긋나면 사진을 따르세요):',
+    '상황 정보 (찍은 때는 사실, 나머지는 참고용 — 보이는 것이 어긋나면 사진을 따르세요):',
     ...context,
     '',
     'JSON만 출력하세요. 다른 텍스트 금지:',
-    '{"activity":"<카테고리>","memo":"<제목 한 줄>","scene":"<짧은 문장 2~3개>"}',
+    '{"guess":"<단서 → 하고 계셨을 일>","activity":"<카테고리>","memo":"<제목 한 줄>","scene":"<그날을 기억하게 하는 한 줄 일기>"}',
   ].join('\n')
 }
 
@@ -262,15 +307,29 @@ export function tidyMemo(raw: string): string {
 // them into things the sign doesn't say, and the family can't read them.
 export const FOREIGN_SCRIPT = /[\u3040-\u30ff\u3400-\u9fff]/
 
+// A sentence about the background ("뒤로 상점들이 보여요", "흰색 차량이 주차되어
+// 있어요") says nothing about what the parent did; the small local model
+// writes them anyway, so they are dropped in code. Kept when it quotes a sign.
+const BACKGROUND = /(^|\s)(뒤로|뒤쪽|뒤편|뒤에는?|배경|주변에는?)\s|주차되어|주차된|상업 ?시설|상점들|건물들|가게들/
+const MEANINGFUL = /["'“”‘’「」]|간판|현수막|안내판|전광판|글자|메뉴|표지판/
+// A sentence that lists what is lying around ("식탁 위에 냄비가 놓여 있어요",
+// "축제 현수막이 보여요") is an inventory, not a diary: dropped (never the first).
+const INVENTORY = /(놓여 ?있|차려져 ?있|늘어서 ?있|늘어선|붙어 ?있|걸려 ?있|주차되어|진열되어|보여요|보입니다|보이네요|보이고|가득해요|가득합니다)/
+export function isBackgroundSentence(s: string): boolean {
+  return (BACKGROUND.test(s) && !MEANINGFUL.test(s)) || INVENTORY.test(s)
+}
+
 /** Collapse whitespace, drop sentences that copy Japanese/Chinese text (kept
- *  when relaxed), and keep at most three sentences (four, and at most
- *  DIARY_MAX_CHARS, for a diary body). */
+ *  when relaxed) or only describe the background (never the first one;
+ *  not in a memoDiary body, which describes the photo by design), and keep
+ *  at most three sentences (four, and at most DIARY_MAX_CHARS, for a diary body). */
 export function tidyScene(raw: string, relaxed = false, diary = false): string {
   const text = raw.replace(/\s+/g, ' ').trim()
   // A sentence ends where Korean text meets a full stop; a period inside a
   // quoted sign ("Sta.", "jejuair.com") is not an ending.
   const sentences = text.split(/(?<=[가-힣][.!?])\s+/)
   const kept = sentences
+    .filter((s, i) => diary || i === 0 || !isBackgroundSentence(s))
     .filter((s) => relaxed || !FOREIGN_SCRIPT.test(s))
     .slice(0, diary ? DIARY_MAX_SENTENCES : SCENE_MAX_SENTENCES)
     .map((s) => s.trim())
@@ -280,13 +339,13 @@ export function tidyScene(raw: string, relaxed = false, diary = false): string {
 
 /** `relaxed`: the cloud model, which reads Japanese well; a stray kana in its
  *  answer is kept rather than failing the memo. */
-export function parseModelResponse(raw: string, opts: { relaxed?: boolean; diary?: boolean } = {}): { activity: string; memo: string; scene: string } | null {
+export function parseModelResponse(raw: string, opts: { relaxed?: boolean; diary?: boolean } = {}): { activity: string; memo: string; scene: string; guess?: string } | null {
   const relaxed = opts.relaxed === true
   // Models occasionally wrap JSON in a code fence even with the
   // response-format hint.
   const cleaned = raw.replace(/^```(?:json)?\s*|\s*```$/g, '').trim()
   try {
-    const parsed = JSON.parse(cleaned) as { activity?: unknown; memo?: unknown; scene?: unknown }
+    const parsed = JSON.parse(cleaned) as { activity?: unknown; memo?: unknown; scene?: unknown; guess?: unknown }
     const activityRaw = typeof parsed.activity === 'string' ? parsed.activity.trim() : ''
     const memo = typeof parsed.memo === 'string' ? tidyMemo(parsed.memo) : ''
     // scene is optional in the response — when a model briefly drops it we
@@ -300,7 +359,8 @@ export function parseModelResponse(raw: string, opts: { relaxed?: boolean; diary
     const activity = (VALID_CATEGORIES as readonly string[]).includes(activityRaw)
       ? activityRaw
       : '기타'
-    return { activity, memo, scene }
+    const guess = typeof parsed.guess === 'string' ? parsed.guess.replace(/\s+/g, ' ').trim().slice(0, 160) : ''
+    return guess ? { activity, memo, scene, guess } : { activity, memo, scene }
   } catch {
     return null
   }

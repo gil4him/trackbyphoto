@@ -1,4 +1,8 @@
-// memoDiary: the scene as a short diary entry for the moment (llm/prompt.ts).
+// The memo tone (llm/prompt.ts). The default is the memory diary, the CEO's
+// decision (CLAUDE.md): title = what the parent did + where, scene = one line
+// with real memory anchors, never a description of the photo. memoDiary (a
+// description-first diary) stays in the code for scripts/memo-diary-compare
+// only; the pipeline never asks for it.
 // Firestore is the real emulator; the model is a fake.
 
 import { describe, it, expect, beforeEach } from 'vitest'
@@ -11,13 +15,43 @@ import { dateHintAt, resetHomeCache, setTravelGeocoder } from '../src/travel'
 import { db, clearFirestore } from './setup'
 
 describe('diary prompt', () => {
-  it('leaves the classic prompt exactly as it was without the flag', async () => {
+  it('is the memory diary by default, no longer the classic photo description', async () => {
     // The pre-diary prompt.ts, kept beside this test as a fixture.
     const old = await import('./fixtures/prompt.classic')
-    for (const hints of [{}, { timeHint: '12:30', placeHint: '서초동, 서초구' }, { homeHint: { km: 900, away: true, homeArea: '서초동' }, textHint: ['OPEN'] }] as PromptHints[]) {
-      expect(buildPrompt(hints)).toBe(old.buildPrompt(hints))
-      expect(buildPrompt(hints, 'cloud')).toBe(old.buildPrompt(hints, 'cloud'))
+    for (const hints of [{}, { timeHint: '12:30', placeHint: '서초동, 서초구' }] as PromptHints[]) {
+      for (const variant of ['local', 'cloud'] as const) {
+        const p = buildPrompt(hints, variant)
+        expect(p).not.toBe(old.buildPrompt(hints, variant))
+        expect(p).toContain("memo (제목 한 줄, 12~24자) — 하신 일 + 장소:")
+        expect(p).toContain('scene (그날을 기억하게 하는 한 줄 일기, 1문장 · 많아야 2문장 · 50자 이내):')
+        expect(p).toContain('맑고 따뜻한 일요일, 점심을 드시고 나와 일행과 기념사진을 남기셨어요.')
+        expect(p).not.toContain('scene (설명, 짧은 문장 2~3개)')
+        expect(p).not.toContain('scene (그 순간의 짧은 일기, 3~4문장)')
+      }
     }
+  })
+
+  it('puts a landmark first in the title and ends it with "!", and only then', () => {
+    const p = buildPrompt({})
+    expect(p).toContain('그 이름을 맨 앞에 두고 반갑게 "!"로 끝내세요: "불국사에 다녀오셨어요!"')
+    expect(p).toContain('명소가 아니면 "!"를 쓰지 마세요.')
+    expect(p).toContain('"memo":"불국사에 다녀오셨어요!"')
+  })
+
+  it('gives the real weather when there is one, and forbids guessing it otherwise', () => {
+    const withWeather = buildPrompt({ timeHint: '12:20', weather: { code: 'Rain', label: '비', tempC: 9, feel: '쌀쌀한 날' } })
+    expect(withWeather).toContain('- 날씨 (그 시각 실제 기록): ')
+    expect(withWeather).toMatch(/- 날씨 \(그 시각 실제 기록\): [^\n]*비/)
+    const without = buildPrompt({ timeHint: '12:20' })
+    expect(without).toContain('- 날씨: 알 수 없음 → 날씨는 쓰지 마세요.')
+    expect(without).toContain('사진의 빛이나 하늘을 보고 날씨를 짐작하지 마세요')
+  })
+
+  it('drops sentences that list what is lying around, never the first one; a memoDiary body keeps them', () => {
+    const raw = '맑은 화요일, 집에서 점심을 드셨어요. 식탁 위에 물잔이 놓여 있어요. 뒤로 상점들이 보여요.'
+    expect(tidyScene(raw)).toBe('맑은 화요일, 집에서 점심을 드셨어요.')
+    expect(tidyScene('식탁 위에 물잔이 놓여 있어요.')).toBe('식탁 위에 물잔이 놓여 있어요.')
+    expect(tidyScene(raw, false, true)).toBe(raw)
   })
 
   it('asks for a 3–4 sentence diary body that starts with what is visible', () => {
@@ -94,7 +128,7 @@ describe('date hint', () => {
   })
 })
 
-describe('memoDiary flag in the pipeline', () => {
+describe('the pipeline never asks for memoDiary', () => {
   type Hints = PromptHints & { temperature?: number }
   let last: Hints | null = null
   const deps: MemoDeps = {
@@ -117,14 +151,17 @@ describe('memoDiary flag in the pipeline', () => {
     setTravelGeocoder(async () => ({ place: '', address: '' }))
   })
 
-  it('asks for a diary with the local date when the flag is on', async () => {
+  it('writes the memory diary even with the memoDiary flag on (the flag is superseded)', async () => {
     await db.doc('admin_config/plans').set({ flags: { memoDiary: true } })
     await seed()
     expect(await processMemo('m1', 1, deps)).toBe('done')
-    expect(last).toMatchObject({ diary: true, dateHint: '10월 18일 오후' })
+    expect(last?.diary).toBeUndefined()
+    expect(last?.dateHint).toBeUndefined()
+    // The memory anchors are there instead.
+    expect(last?.dayHint).toBeTruthy()
   })
 
-  it('asks for the classic description when the flag is off', async () => {
+  it('and with it off', async () => {
     await db.doc('admin_config/plans').set({ flags: { memoDiary: false } })
     await seed()
     expect(await processMemo('m1', 1, deps)).toBe('done')

@@ -46,8 +46,11 @@ import {
 import { generateMemoRouted, type MemoArgs } from '../llm/route.js'
 import type { V2Result } from '../llm/memoV2.js'
 import { areaOf, readableText, storedOnlyMemo, stubActivity, type VisionTags } from '../llm/prompt.js'
-import { flagOn } from '../plans.js'
-import { homeHintFor, localDateHint, localTimeHint, resolveGeoLang } from '../travel.js'
+import { homeHintFor, localOffsetMin, localTimeHint, resolveGeoLang, resolveHome } from '../travel.js'
+import { KOREAN_DAYS } from '../llm/context.js'
+import { sunTimes } from '../llm/moment.js'
+import { weatherAt } from '../weather.js'
+import type { PromptHints } from '../llm/prompt.js'
 import { openPath, pushToUsers, type PushMessage } from './push.js'
 import { accountPhotoSafely } from './usage.js'
 
@@ -153,6 +156,114 @@ async function nearbyPlace(memoId: string, patientUid: string, takenAt: Date | u
   }
 }
 
+const WEEKDAYS = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일']
+/** How far back "earlier today" looks, and how many photos it lists. */
+const TODAY_WINDOW_MS = 10 * 60 * 60_000
+const TODAY_MAX = 4
+const STUB_MEMOS = new Set(['사진을 기록했어요.', '사진을 남겼어요'])
+
+/**
+ * The moment around a photo, for the memo prompt (llm/moment.ts): the day of
+ * the week (and holiday), sunrise and sunset there that day, and the parent's
+ * earlier photos today. Each part is best-effort: a failed lookup only leaves
+ * that part out.
+ */
+export async function momentHintsFor(args: {
+  memoId: string
+  patientUid: string
+  takenAt: Date | undefined
+  lat: number | null
+  lng: number | null
+  tzOffsetMin?: number | null
+}): Promise<Pick<PromptHints, 'dayHint' | 'sunHint' | 'todayHint' | 'weather'>> {
+  const { memoId, patientUid, takenAt, lat, lng } = args
+  if (!takenAt) return {}
+  const out: Pick<PromptHints, 'dayHint' | 'sunHint' | 'todayHint' | 'weather'> = {}
+  // Only at the photo's own spot: home's weather would be wrong on a trip.
+  const weather = lat != null && lng != null ? weatherAt(lat, lng, takenAt) : Promise.resolve(null)
+  const offset = await localOffsetMin(patientUid, lat, lng, args.tzOffsetMin)
+  const local = new Date(takenAt.getTime() + offset * 60_000)
+  const dayKey = local.toISOString().slice(0, 10)
+  const holiday = KOREAN_DAYS[dayKey]
+  out.dayHint = holiday ? `${holiday} ${WEEKDAYS[local.getUTCDay()]}` : WEEKDAYS[local.getUTCDay()]
+
+  const spot = lat != null && lng != null ? { lat, lng } : await resolveHome(patientUid)
+  if (spot) {
+    const sun = sunTimes({ year: local.getUTCFullYear(), month: local.getUTCMonth() + 1, day: local.getUTCDate() }, spot.lat, spot.lng, offset)
+    if (sun) out.sunHint = sun
+  }
+
+  try {
+    const snap = await getFirestore().collection('memos')
+      .where('patientUid', '==', patientUid)
+      .where('takenAt', '>=', new Date(takenAt.getTime() - TODAY_WINDOW_MS))
+      .where('takenAt', '<', takenAt)
+      .orderBy('takenAt', 'desc')
+      .limit(TODAY_MAX + 2)
+      .get()
+    const lines: string[] = []
+    for (const d of snap.docs) {
+      const m = d.data()
+      const at = m.takenAt?.toDate?.() as Date | undefined
+      if (d.id === memoId || !at || m.status !== 'ready' || !m.memo || STUB_MEMOS.has(m.memo)) continue
+      const mLocal = new Date(at.getTime() + offset * 60_000)
+      if (mLocal.toISOString().slice(0, 10) !== dayKey) continue
+      const area = areaOf((m.place as string) || '')
+      lines.push([mLocal.toISOString().slice(11, 16), m.activity || '기타', m.memo, area].filter(Boolean).join(' · '))
+      if (lines.length === TODAY_MAX) break
+    }
+    if (lines.length) out.todayHint = lines.reverse()
+  } catch (err) {
+    logger.warn('[memo] earlier-today lookup failed', { memoId, err: String(err) })
+  }
+  const w = await weather
+  if (w) out.weather = w
+  return out
+}
+
+/**
+ * Everything the model is told about one photo: the time and the moment
+ * around it, the place, home, the text the phone read. Shared by the
+ * pipeline and scripts/memo-yesterday.ts, so a trial run sees exactly what
+ * production would. `fresh` drops the re-write temperature (a first take).
+ */
+export async function memoArgsFor(
+  memoId: string,
+  data: FirebaseFirestore.DocumentData,
+  ctx: { place: string; homeHint: Awaited<ReturnType<typeof homeHintFor>>; imageBase64: string; fresh?: boolean },
+): Promise<MemoArgs> {
+  const patientUid = data.patientUid as string
+  const photoPath = data.photoPath as string
+  const lat = typeof data.lat === 'number' ? data.lat : null
+  const lng = typeof data.lng === 'number' ? data.lng : null
+  const hasCoords = lat != null && lng != null
+  const takenAt = data.takenAt?.toDate?.() as Date | undefined
+  const tzOffsetMin = data.tzOffsetMin as number | undefined
+  const tags = (data.tags as VisionTags | undefined) ?? null
+  // No location of its own: the place of a photo taken within minutes, as a
+  // hint only. Nothing of it is written onto this memo.
+  const near = !hasCoords ? await nearbyPlace(memoId, patientUid, takenAt) : ''
+  const moment = await momentHintsFor({ memoId, patientUid, takenAt, lat, lng, tzOffsetMin })
+  return {
+    ...moment,
+    imageBase64: ctx.imageBase64,
+    patientUid,
+    mimeType: mimeFromPath(photoPath),
+    timeHint: await localTimeHint(patientUid, takenAt, lat, lng, tzOffsetMin),
+    placeHint: (near ? areaOf(near) : areaOf(ctx.place)) || undefined,
+    nearHint: !!near || undefined,
+    placeFull: ctx.place || undefined,
+    coords: hasCoords ? { lat, lng } : undefined,
+    homeHint: ctx.homeHint,
+    textHint: readableText(tags?.text),
+    // Text the model wrote before means someone asked for another take.
+    temperature: !ctx.fresh && data.memo && data.memoSource !== 'stored-only' ? REWRITE_TEMPERATURE : undefined,
+    takenAt,
+    tzOffsetMin,
+    tags,
+  }
+}
+
 /** The photo's type from its file name; the app mostly uploads JPEG. */
 export function mimeFromPath(path: string): string {
   const ext = path.split('.').pop()?.toLowerCase()
@@ -219,6 +330,7 @@ export async function processMemo(memoId: string, attempt: number, deps: MemoDep
   let llmModel: string | null = null
   // Memo v2 (llm/memoV2.ts): the hook it used and what it saw, kept for review.
   let v2: { hookId: string | null; seen: unknown } | null = null
+  let weatherFact: { code: string; label: string; tempC: number } | null = null
 
   const usage = await accountPhotoSafely({
     memoId,
@@ -240,30 +352,14 @@ export async function processMemo(memoId: string, attempt: number, deps: MemoDep
     scene = kept.scene
     memoSource = 'stored-only'
   } else try {
-    // No location of its own: the place of a photo taken within minutes, as a
-    // hint only. Nothing of it is written onto this memo.
-    const near = !hasCoords ? await nearbyPlace(memoId, patientUid, data.takenAt?.toDate?.()) : ''
-    // memoDiary: the scene becomes a short diary entry (llm/prompt.ts). It
-    // shapes the v1 prompt only (and v2's v1 fallback); keep memoV2 off with it.
-    const diary = await flagOn('memoDiary')
-    const result = await deps.generate({
-      imageBase64: await photo.base64(),
-      patientUid,
-      mimeType: mimeFromPath(photoPath),
-      timeHint: await localTimeHint(patientUid, data.takenAt?.toDate?.(), lat, lng, data.tzOffsetMin as number | undefined),
-      ...(diary ? { diary, dateHint: await localDateHint(patientUid, data.takenAt?.toDate?.(), lat, lng, data.tzOffsetMin as number | undefined) } : {}),
-      placeHint: (near ? areaOf(near) : areaOf(place)) || undefined,
-      nearHint: !!near || undefined,
-      placeFull: place || undefined,
-      coords: hasCoords ? { lat, lng } : undefined,
-      homeHint,
-      textHint: readableText(tags?.text),
-      // Text the model wrote before means someone asked for another take.
-      temperature: data.memo && data.memoSource !== 'stored-only' ? REWRITE_TEMPERATURE : undefined,
-      takenAt: data.takenAt?.toDate?.(),
-      tzOffsetMin: data.tzOffsetMin as number | undefined,
-      tags,
-    })
+    // The memory diary (llm/prompt.ts) is the memo tone, by the CEO's decision
+    // (CLAUDE.md). It supersedes the memoDiary flag, which described the
+    // photo: the pipeline never passes `diary`/`dateHint`; that mode stays only
+    // for scripts/memo-diary-compare.ts.
+    const args = await memoArgsFor(memoId, data, { place, homeHint, imageBase64: await photo.base64() })
+    // A fact like the place: kept on the memo for the app (a weather chip), whoever writes the text.
+    if (args.weather) weatherFact = { code: args.weather.code, label: args.weather.label, tempC: args.weather.tempC }
+    const result = await deps.generate(args)
     activity = result.activity
     memo = result.memo
     scene = result.scene
@@ -300,6 +396,7 @@ export async function processMemo(memoId: string, attempt: number, deps: MemoDep
     deviceMemoSource: FieldValue.delete(),
   }
   if (firstCompletion) update.notifiedAt = FieldValue.serverTimestamp()
+  if (weatherFact) update.weather = weatherFact
   if (located) {
     update.place = place
     update.address = address

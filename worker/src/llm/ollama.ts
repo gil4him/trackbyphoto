@@ -44,6 +44,8 @@ export interface LlmResult {
   activity: string
   memo: string
   scene: string
+  /** The model's one-line reasoning (clues → what the parent was doing); not stored, shown by scripts. */
+  guess?: string
   model: string
   /** Which kind of model wrote it; stored as the memo's memoSource. */
   source?: 'local-llm' | 'cloud-llm' | 'local-llm-v2'
@@ -64,11 +66,13 @@ export class LlmUnavailableError extends Error {}
 const RESPONSE_SCHEMA = {
   type: 'object',
   properties: {
+    // First, so the model reasons (photo + time + place → what the parent was doing) before it writes.
+    guess: { type: 'string' },
     activity: { type: 'string', enum: [...VALID_CATEGORIES] },
     memo: { type: 'string' },
     scene: { type: 'string' },
   },
-  required: ['activity', 'memo', 'scene'],
+  required: ['guess', 'activity', 'memo', 'scene'],
 }
 
 // Resolve the active model. Priority:
@@ -151,7 +155,7 @@ export async function generateMemo(args: PromptHints & {
 }): Promise<LlmResult> {
   const model = args.model || await resolveModel()
   const { raw, promptTokens, outputTokens } = await ollamaGenerate(model, {
-    prompt: buildPrompt({ timeHint: args.timeHint, placeHint: args.placeHint, homeHint: args.homeHint, textHint: args.textHint, diary: args.diary, dateHint: args.dateHint }),
+    prompt: buildPrompt({ timeHint: args.timeHint, placeHint: args.placeHint, homeHint: args.homeHint, textHint: args.textHint, nearHint: args.nearHint, placeFull: args.placeFull, dayHint: args.dayHint, sunHint: args.sunHint, todayHint: args.todayHint, weather: args.weather, diary: args.diary, dateHint: args.dateHint }),
     images: [args.imageBase64],
     format: RESPONSE_SCHEMA,
     options: { temperature: args.temperature ?? TEMPERATURE, num_predict: 600 },

@@ -15,6 +15,7 @@ import { WorkerError as HttpsError, type Caller } from '../context.js'
 import { generateMemo } from '../llm/ollama.js'
 import { areaOf, readableText } from '../llm/prompt.js'
 import { homeHintFor, localTimeHint } from '../travel.js'
+import { momentHintsFor } from './memo.js'
 
 export const ADMIN_EMAIL = 'zymer4him@gmail.com'
 
@@ -61,9 +62,11 @@ export async function regenerateMemo(caller: Caller, data: { memoId?: string }) 
   let result
   try {
     // Same hints the pipeline gives, so the comparison is like for like.
+    const tzOffsetMin = memo.tzOffsetMin as number | undefined
     result = await generateMemo({
+      ...(await momentHintsFor({ memoId, patientUid, takenAt: memo.takenAt?.toDate?.(), lat, lng, tzOffsetMin })),
       imageBase64: buffer.toString('base64'),
-      timeHint: await localTimeHint(patientUid, memo.takenAt?.toDate?.(), lat, lng),
+      timeHint: await localTimeHint(patientUid, memo.takenAt?.toDate?.(), lat, lng, tzOffsetMin),
       placeHint: areaOf((memo.place as string | undefined) || '') || undefined,
       homeHint: await homeHintFor(patientUid, lat, lng),
       textHint: readableText((memo.tags as { text?: string[] } | undefined)?.text),
