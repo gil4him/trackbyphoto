@@ -47,6 +47,13 @@ describe('diary prompt', () => {
     expect(without).toContain('사진의 빛이나 하늘을 보고 날씨를 짐작하지 마세요')
   })
 
+  it('takes invented feeling words out of the sentence, and asks the model not to write them', () => {
+    expect(tidyScene('비가 내리는 선선한 수요일 밤, 집 안에서 편안하게 시간을 보내며 사진을 남기셨어요.'))
+      .toBe('비가 내리는 선선한 수요일 밤, 집 안에서 시간을 보내며 사진을 남기셨어요.')
+    expect(tidyScene('맑은 일요일, 일행과 즐겁게 맛있게 점심을 드셨어요.')).toBe('맑은 일요일, 일행과 점심을 드셨어요.')
+    expect(buildPrompt({})).toContain('"편안하게", "여유롭게", "즐겁게", "맛있게"')
+  })
+
   it('drops sentences that list what is lying around, never the first one; a memoDiary body keeps them', () => {
     const raw = '맑은 화요일, 집에서 점심을 드셨어요. 식탁 위에 물잔이 놓여 있어요. 뒤로 상점들이 보여요.'
     expect(tidyScene(raw)).toBe('맑은 화요일, 집에서 점심을 드셨어요.')

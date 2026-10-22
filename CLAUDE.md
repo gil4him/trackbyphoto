@@ -8,7 +8,7 @@
 - **scene** = one sentence (max 2, ≤50 chars) weaving 1–2 memory anchors with the action: real weather/temperature (WeatherKit, never guessed from the photo), weekday/holiday, part of day, a trip far from home, the flow from earlier photos today.
   - "맑고 따뜻한 일요일, 점심을 드시고 나와 일행과 기념사진을 남기셨어요."
   - "비가 내리는 쌀쌀한 월요일 아침, 우산을 쓰고 출근길에 나서셨어요."
-- Never list or describe objects/background ("식탁 위에 물잔이 놓여 있어요", "뒤로 상점들이 보여요"). Never invent feelings ("맛있는", "즐거운", "예쁜"). Code drops background/inventory sentences (except the first): `tidyScene` / `isBackgroundSentence`.
+- Never list or describe objects/background ("식탁 위에 물잔이 놓여 있어요", "뒤로 상점들이 보여요"). Never invent feelings ("맛있는", "즐거운", "예쁜"), nor feeling adverbs on the action ("편안하게", "여유롭게", "즐겁게", "맛있게"; stripped in code by `dropFeelingWords`). Code drops background/inventory sentences (except the first): `tidyScene` / `isBackgroundSentence`.
 - The `memoDiary` mode (description-first diary) stays in the code for `scripts/memo-diary-compare.ts` only. The pipeline never uses it, whatever the flag says.
 - **Changing the memo tone or any prompt requires the CEO's explicit approval in the current conversation.**
 

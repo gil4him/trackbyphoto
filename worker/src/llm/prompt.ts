@@ -228,7 +228,7 @@ export function buildPrompt(hints: PromptHints = {}, variant: PromptVariant = 'l
       '- 제목을 그대로 되풀이하지 말고, 제목에 없는 그날의 맥락을 더하세요.',
       '- 사진 묘사는 명소나 일부러 담은 배경일 때만 짧게 쓰세요 ("다보탑 앞에서"). 물건·배경을 나열하는 문장은 금지예요: "식탁 위에 물잔이 놓여 있어요", "나무가 늘어서 있어요", "뒤로 상점들이 보여요", "흰색 차가 주차되어 있어요". "~가 놓여 있어요", "~가 보여요"로 끝나는 문장은 쓰지 않아요.',
       '- 날씨는 상황 정보의 실제 값만 쓰세요. 값이 없으면 날씨를 쓰지 말고, 사진의 빛이나 하늘을 보고 날씨를 짐작하지 마세요.',
-      '- 기분·감상("즐거운", "맛있는", "행복한", "예쁜")은 지어내지 마세요.',
+      '- 기분·감상("즐거운", "맛있는", "행복한", "예쁜")은 지어내지 마세요. 하신 일을 꾸미는 말("편안하게", "여유롭게", "즐겁게", "맛있게")도 쓰지 마세요.',
     ]),
     '',
     'activity (정확히 하나, 하고 계셨던 일 기준):',
@@ -315,6 +315,14 @@ const MEANINGFUL = /["'“”‘’「」]|간판|현수막|안내판|전광판|
 // A sentence that lists what is lying around ("식탁 위에 냄비가 놓여 있어요",
 // "축제 현수막이 보여요") is an inventory, not a diary: dropped (never the first).
 const INVENTORY = /(놓여 ?있|차려져 ?있|늘어서 ?있|늘어선|붙어 ?있|걸려 ?있|주차되어|진열되어|보여요|보입니다|보이네요|보이고|가득해요|가득합니다)/
+// Words that put a feeling onto what the parent did ("집에서 편안하게 시간을
+// 보내셨어요"): the photo can't show it. Gemini writes them now and then
+// despite the rule, so they are taken out of the sentence in code.
+const FEELING_ADVERBS = /(편안하게|편안히|여유롭게|느긋하게|즐겁게|행복하게|기분 좋게|맛있게|흐뭇하게)\s+/g
+export function dropFeelingWords(s: string): string {
+  return s.replace(FEELING_ADVERBS, '')
+}
+
 export function isBackgroundSentence(s: string): boolean {
   return (BACKGROUND.test(s) && !MEANINGFUL.test(s)) || INVENTORY.test(s)
 }
@@ -332,7 +340,7 @@ export function tidyScene(raw: string, relaxed = false, diary = false): string {
     .filter((s, i) => diary || i === 0 || !isBackgroundSentence(s))
     .filter((s) => relaxed || !FOREIGN_SCRIPT.test(s))
     .slice(0, diary ? DIARY_MAX_SENTENCES : SCENE_MAX_SENTENCES)
-    .map((s) => s.trim())
+    .map((s) => (diary ? s : dropFeelingWords(s)).trim())
   if (diary) while (kept.length > 1 && kept.join(' ').length > DIARY_MAX_CHARS) kept.pop()
   return kept.join(' ')
 }
