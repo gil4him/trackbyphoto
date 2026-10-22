@@ -30,7 +30,7 @@ vi.mock('../firebase', () => ({ app: {} }))
 vi.mock('./install', () => ({ isStandalone: () => false }))
 vi.mock('./worker', () => ({ callWorker: async (type: string, data: unknown) => { worker.calls.push({ type, data }); return { ok: true } } }))
 
-import { disablePush, enablePush, onPushOpened, pushState, refreshPush } from './push'
+import { disablePush, enableElderPush, enablePush, onPushOpened, pushState, refreshElderPush, refreshPush } from './push'
 
 const store = new Map<string, string>()
 vi.stubGlobal('localStorage', {
@@ -105,5 +105,29 @@ describe('push in the installed app', () => {
     stop()
     await Promise.resolve(); await Promise.resolve()
     expect(native.removed).toBe(1)
+  })
+})
+
+describe("a parent's paired phone", () => {
+  it('asks once from the plain sentence and registers the token against its device', async () => {
+    expect(await enableElderPush('dev1')).toBe(true)
+    expect(native.asked).toBe(1)
+    expect(worker.calls).toEqual([{ type: 'registerFcmToken', data: { token: 'fcm-token-1', deviceId: 'dev1' } }])
+  })
+
+  it('registers nothing when the parent says no', async () => {
+    native.answer = 'denied'
+    expect(await enableElderPush('dev1')).toBe(false)
+    expect(worker.calls).toEqual([])
+  })
+
+  it('hands the worker a changed token on later openings, without asking again', async () => {
+    await enableElderPush('dev1')
+    await refreshElderPush('dev1')
+    expect(worker.calls).toHaveLength(1)
+    native.token = 'fcm-token-2'
+    await refreshElderPush('dev1')
+    expect(native.asked).toBe(1)
+    expect(worker.calls.at(-1)).toEqual({ type: 'registerFcmToken', data: { token: 'fcm-token-2', deviceId: 'dev1' } })
   })
 })

@@ -564,6 +564,9 @@ export async function revokeDevice(patientUid: string, deviceId: string, actorUi
     )
   }
   await batch.commit()
+  // The phone's push token goes with it (handlers/push.ts registerFcmToken).
+  await db.doc(`users/${patientUid}/private/push`).set({ elderTokens: { [deviceId]: FieldValue.delete() } }, { merge: true })
+    .catch((err) => logger.warn('[pairing] elder token not removed', { patientUid, deviceId, err: String(err) }))
 
   // Last phone gone → also cut every refresh token (rules already deny the
   // revoked device; this stops even a token refresh).

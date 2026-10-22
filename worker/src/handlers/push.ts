@@ -129,9 +129,61 @@ export async function pushToUsers(uids: string[], message: PushMessage, deps: Pu
   return reached
 }
 
+/** The number on the parent's icon: photos from family not looked at, and
+ *  hearts and words from family not read. Small lists; counted here. */
+export async function elderBadge(patientUid: string): Promise<number> {
+  const db = getFirestore()
+  const photos = await db.collection('familyPhotos')
+    .where('patientUid', '==', patientUid).where('status', '==', 'ready').limit(100).get()
+  const unseen = photos.docs.filter((d) => !d.data().seenAt && !d.data().seenAtMs).length
+  const reactions = await db.collection('reactions')
+    .where('patientUid', '==', patientUid).where('status', '==', 'ready').limit(200).get()
+  const unread = reactions.docs.filter((d) => d.data().actorUid !== patientUid && !d.data().readByElderAt).length
+  return unseen + unread
+}
+
+/**
+ * One message to a parent's paired phones (the tokens registerFcmToken keeps
+ * per device), carrying the icon number. Only a photo from family and a
+ * family heart or word ever call this. Returns how many phones it reached.
+ * Never throws.
+ */
+export async function pushToElder(patientUid: string, message: PushMessage, deps: PushDeps = defaultPushDeps): Promise<number> {
+  try {
+    if (!(await flagOn('pushFamily'))) return 0
+    const ref = pushDoc(patientUid)
+    const byDevice = ((await ref.get()).data()?.elderTokens as Record<string, string> | undefined) ?? {}
+    const tokens = Object.values(byDevice).filter((t) => typeof t === 'string' && t)
+    if (tokens.length === 0) return 0
+    const badge = await elderBadge(patientUid).catch(() => null)
+    const own = badge == null ? message : { ...message, data: { ...message.data, badge: String(badge) } }
+    const { dead } = await deps.send(tokens, own)
+    if (dead.length > 0) {
+      const gone = Object.fromEntries(Object.entries(byDevice).filter(([, t]) => dead.includes(t)).map(([id]) => [id, FieldValue.delete()]))
+      await ref.set({ elderTokens: gone }, { merge: true })
+      logger.info('[push] pruned dead elder tokens', { patientUid, pruned: dead.length })
+    }
+    logger.info('[push] sent to parent', { patientUid, devices: tokens.length - dead.length, type: message.data?.type })
+    return tokens.length > dead.length ? 1 : 0
+  } catch (err) {
+    logger.warn('[push] to parent failed', { patientUid, err: String(err) })
+    return 0
+  }
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // Requests
 // ────────────────────────────────────────────────────────────────────────────
+
+/** The caller is a parent's paired phone: signed in as the parent, and the
+ *  device it names is one of the parent's active phones. */
+async function requireElderDevice(caller: Caller, deviceId: unknown): Promise<string> {
+  if (!caller.uid) throw new HttpsError('unauthenticated', 'sign in required')
+  if (typeof deviceId !== 'string' || !deviceId) throw new HttpsError('permission-denied', 'a signed-in family account is required')
+  const device = await getFirestore().doc(`users/${caller.uid}/devices/${deviceId}`).get()
+  if (!device.exists || device.data()?.status !== 'active') throw new HttpsError('permission-denied', 'not a linked phone')
+  return caller.uid
+}
 
 function requireFamilyAccount(caller: Caller): string {
   // Anonymous pairing sessions have no e-mail; a parent's linked phone can't
@@ -141,10 +193,22 @@ function requireFamilyAccount(caller: Caller): string {
 }
 
 /** Remember (or forget) one device's FCM token for the caller. */
-export async function registerFcmToken(caller: Caller, data: { token?: unknown; remove?: unknown }): Promise<{ ok: true }> {
-  const uid = requireFamilyAccount(caller)
+export async function registerFcmToken(caller: Caller, data: { token?: unknown; remove?: unknown; deviceId?: unknown }): Promise<{ ok: true }> {
   const token = typeof data?.token === 'string' ? data.token : ''
   if (token.length < 20 || token.length > 4096) throw new HttpsError('invalid-argument', 'token required')
+  // A parent's paired phone (its session is the parent's uid, with no e-mail)
+  // registers against the device it was paired as, so unlinking that phone
+  // takes its token with it (pairing.ts revokeDevice).
+  if (!caller.email && typeof data?.deviceId === 'string') {
+    const uid = await requireElderDevice(caller, data.deviceId)
+    const deviceId = data.deviceId
+    await pushDoc(uid).set({
+      elderTokens: { [deviceId]: data.remove === true ? FieldValue.delete() : token },
+      updatedAt: FieldValue.serverTimestamp(),
+    }, { merge: true })
+    return { ok: true }
+  }
+  const uid = requireFamilyAccount(caller)
 
   const ref = pushDoc(uid)
   await getFirestore().runTransaction(async (tx) => {

@@ -11,6 +11,7 @@ import { ElderInstallButton } from '../components/ElderInstallButton'
 import { FamilyPhotosCard } from '../components/FamilyPhotosCard'
 import { FamilyPhotoViewer } from './FamilyPhotoViewer'
 import { useFamilyPhotos } from '../hooks/useFamilyPhotos'
+import { setAppBadge } from '../lib/appBadge'
 import { useElderNews, type OpenNews } from '../hooks/useElderNews'
 import { byMemo } from '../lib/reactionsModel'
 import type { ReactionsContext } from '../components/Reactions'
@@ -18,7 +19,7 @@ import { unlinkedFrom } from '../lib/device'
 import { resetIfAccountGone } from '../hooks/useAuth'
 import { isSimple } from '../lib/edition'
 import type { Memo, Reaction, TextReplies } from '../types'
-import { cardLine } from '../lib/familyPhotosModel'
+import { cardLine, unseen } from '../lib/familyPhotosModel'
 import { CameraFab } from '../components/CameraFab'
 import { useToast } from '../components/Toast'
 import { useIdleReturn } from '../hooks/useIdleReturn'
@@ -71,6 +72,13 @@ export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn
   const familyPhotos = useFamilyPhotos(familyPhotosOn ? uid : undefined)
   // The family-photo viewer: open from the camera's bubble (true), or on one photo tapped in 내 사진 (its id).
   const [photosOpen, setPhotosOpen] = useState<boolean | string>(false)
+
+  // The number on the phone's icon: photos from family not looked at, and
+  // hearts and words not read. Pushes set it while the app is closed
+  // (worker pushToElder); here it follows what the parent has seen.
+  useEffect(() => {
+    setAppBadge(unseen(familyPhotos).length + (news?.state === 'new' ? news.unreadIds.length : 0))
+  }, [familyPhotos, news])
 
   useEffect(() => {
     if (!deviceId) { setRevoked(true); return }
@@ -156,6 +164,7 @@ export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn
         ) : isSimple() ? (
           <ElderCamera
             uid={uid}
+            deviceId={deviceId}
             reactions={reactions}
             photos={familyPhotosOn ? cardLine(familyPhotos) : null}
             recent={memos[0] ?? null}

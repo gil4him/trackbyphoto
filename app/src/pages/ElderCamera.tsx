@@ -5,7 +5,8 @@ import { capturePhoto, flipCamera, resetFacing, startPreview, stopPreview } from
 import { savePhoto } from '../lib/capture'
 import { keepInPhotos } from '../lib/gallery'
 import { askLocation, warmUpLocation } from '../lib/location'
-import { ASK_CAMERA, ASK_LOCATION, cameraPermission, locationPermission } from '../lib/permissions'
+import { ASK_CAMERA, ASK_LOCATION, ASK_NOTIFY, cameraPermission, locationPermission, notificationPermission } from '../lib/permissions'
+import { enableElderPush, refreshElderPush } from '../lib/push'
 import { appStateAction } from '../lib/cameraState'
 import { ElderAsk } from '../components/ElderAsk'
 import { ElderInstallButton } from '../components/ElderInstallButton'
@@ -32,6 +33,8 @@ const FEED_ID = 'elder-cam-feed'
 const OVERLAY_MS = 1500
 
 export type CameraPhase = 'starting' | 'live' | 'denied'
+/** The plain-sentence screens, in the order the phone's questions come. */
+type Ask = 'camera' | 'location' | 'notify'
 export type Overlay = { ok: true; text: string } | { ok: false; text: string; sub: string }
 
 export function ElderCameraView({ phase, busy, overlay, news, photos = null, recent = null, ask = null, askNext, corner = null, onShutter, onDismissNews, onOpenRecords, onRetry, onOpenPhotos = () => {}, onAskNext = () => {}, onFlip = () => {} }: {
@@ -153,8 +156,10 @@ export function ElderCameraView({ phase, busy, overlay, news, photos = null, rec
   )
 }
 
-export function ElderCamera({ uid, reactions, photos = null, recent = null, onOpenRecords, onOpenPhotos, onOpenNews }: {
+export function ElderCamera({ uid, deviceId, reactions, photos = null, recent = null, onOpenRecords, onOpenPhotos, onOpenNews }: {
   uid: string
+  /** The phone's device record; the push token is registered against it. */
+  deviceId?: string
   /** The parent's newest photo, for the 내 사진 circle. */
   recent?: Memo | null
   /** This parent's reactions; null while reactions aren't rolled out. */
@@ -176,9 +181,9 @@ export function ElderCamera({ uid, reactions, photos = null, recent = null, onOp
   const toName = sentToName(caregivers)
   const alive = useRef(true)
   // The plain-sentence screen before the phone's camera / location question.
-  const [ask, setAsk_] = useState<'camera' | 'location' | null>(null)
-  const asking = useRef<'camera' | 'location' | null>(null)
-  const setAsk = useCallback((a: 'camera' | 'location' | null) => {
+  const [ask, setAsk_] = useState<Ask | null>(null)
+  const asking = useRef<Ask | null>(null)
+  const setAsk = useCallback((a: Ask | null) => {
     asking.current = a
     setAsk_(a)
   }, [])
@@ -186,15 +191,26 @@ export function ElderCamera({ uid, reactions, photos = null, recent = null, onOp
   // location answers: the phone's own question may be up (appStateAction).
   const phoneAsking = useRef(false)
 
+  // After location: family news on the icon. The plain sentence first if the
+  // phone hasn't asked; already allowed → just keep the token current.
+  const afterLocation = useCallback(() => {
+    if (!deviceId) return
+    void notificationPermission().then((s) => {
+      if (!alive.current) return
+      if (s === 'prompt') setAsk('notify')
+      else if (s === 'granted') void refreshElderPush(deviceId)
+    })
+  }, [deviceId, setAsk])
+
   // Once the camera is on: location next — its plain sentence first if the
   // phone hasn't asked yet, else just start locating for the first shot.
   const afterLive = useCallback(() => {
     void locationPermission().then((s) => {
       if (!alive.current) return
       if (s === 'prompt') setAsk('location')
-      else warmUpLocation()
+      else { warmUpLocation(); afterLocation() }
     })
-  }, [setAsk])
+  }, [setAsk, afterLocation])
 
   // Only sets state once the camera answers, so the mount effect may call it.
   const launch = useCallback(() => {
@@ -249,7 +265,12 @@ export function ElderCamera({ uid, reactions, photos = null, recent = null, onOp
       setAsk(null)
       phoneAsking.current = true
       // Denial is fine: photos then just have no place.
-      void askLocation().finally(() => { phoneAsking.current = false })
+      void askLocation().finally(() => { phoneAsking.current = false; if (alive.current) afterLocation() })
+    } else if (asking.current === 'notify' && deviceId) {
+      setAsk(null)
+      phoneAsking.current = true
+      // Denial is fine too: the news still waits on the camera screen.
+      void enableElderPush(deviceId).catch((err) => console.warn('[ElderCamera] push not enabled', err)).finally(() => { phoneAsking.current = false })
     }
   }
 
@@ -301,7 +322,7 @@ export function ElderCamera({ uid, reactions, photos = null, recent = null, onOp
       corner={<ElderInstallButton compact />}
       onFlip={() => { void flipCamera().catch((err) => console.warn('[ElderCamera] flip failed', err)) }}
       onOpenPhotos={() => { void stopPreview(); onOpenPhotos?.() }}
-      ask={ask === 'camera' ? ASK_CAMERA : ask === 'location' ? ASK_LOCATION : null}
+      ask={ask === 'camera' ? ASK_CAMERA : ask === 'location' ? ASK_LOCATION : ask === 'notify' ? ASK_NOTIFY : null}
       askNext={ask === 'camera' ? '카메라 켜기' : '다음'}
       onAskNext={onAskNext}
     />

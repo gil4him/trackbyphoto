@@ -3,7 +3,8 @@
 
 import { describe, it, expect, beforeEach } from 'vitest'
 import { Timestamp } from 'firebase-admin/firestore'
-import { deadTokens, fcmMessage, openPath, pushToUsers, registerFcmToken, setChannels, type PushDeps, type PushMessage } from '../src/handlers/push'
+import { deadTokens, elderBadge, fcmMessage, openPath, pushToElder, pushToUsers, registerFcmToken, setChannels, type PushDeps, type PushMessage } from '../src/handlers/push'
+import { revokeDevice } from '../src/handlers/pairing'
 import { processMemo, type MemoDeps } from '../src/handlers/memo'
 import { processReaction, type ReactionDeps } from '../src/handlers/reactions'
 import { processSettingsChange } from '../src/handlers/audit'
@@ -202,5 +203,48 @@ describe('what gets pushed', () => {
     for (const id of ['v1', 'h1', 'c1']) await processReaction(id, 1, deps)
     expect(pushes.length).toBe(1)
     expect(pushes[0]).toMatchObject({ uids: ['cg1'], message: { body: '어머니님이 음성 답장을 남기셨어요', data: { type: 'reaction.voice', reactionId: 'v1' }, path: '?open=memo&p=p1&m=m1' } })
+  })
+})
+
+describe("a parent's paired phone", () => {
+  const PHONE = { uid: 'p1', email: null, name: null }
+  const elderTokens = async () => (await db.doc('users/p1/private/push').get()).data()?.elderTokens ?? {}
+  beforeEach(async () => {
+    await db.doc('users/p1').set({ patientName: '어머니', accountType: 'managed' })
+    await db.doc('users/p1/devices/d1').set({ name: 'iPhone', platform: 'ios', status: 'active' })
+    await db.doc('users/p1/devices/old').set({ name: 'old', platform: 'ios', status: 'revoked' })
+    await seedMembership('p1', 'cg1')
+  })
+
+  it('registers its token against its device, and only an active one', async () => {
+    await registerFcmToken(PHONE, { token: TOKEN('e1'), deviceId: 'd1' })
+    expect(await elderTokens()).toEqual({ d1: TOKEN('e1') })
+    await expect(registerFcmToken(PHONE, { token: TOKEN('e2'), deviceId: 'old' })).rejects.toMatchObject({ code: 'permission-denied' })
+    await expect(registerFcmToken(PHONE, { token: TOKEN('e2') })).rejects.toThrow(/family account/)
+    await expect(registerFcmToken({ uid: 'cg9', email: null, name: null }, { token: TOKEN('e2'), deviceId: 'd1' })).rejects.toMatchObject({ code: 'permission-denied' })
+    expect(await tokensOf('p1')).toEqual([])
+  })
+
+  it('is pushed with the number of photos not looked at and news not read', async () => {
+    await registerFcmToken(PHONE, { token: TOKEN('e1'), deviceId: 'd1' })
+    const fp = (id: string, extra: Record<string, unknown> = {}) => db.doc(`familyPhotos/${id}`).set({ patientUid: 'p1', senderUid: 'cg1', status: 'ready', createdAtMs: 1, ...extra })
+    await fp('a'); await fp('b'); await fp('c', { seenAtMs: 5 }); await fp('d', { status: 'pending' })
+    const rx = (id: string, extra: Record<string, unknown> = {}) => db.doc(`reactions/${id}`).set({ patientUid: 'p1', memoId: 'm1', status: 'ready', actorUid: 'cg1', kind: 'heart', ...extra })
+    await rx('r1'); await rx('r2', { readByElderAt: Timestamp.now() }); await rx('r3', { actorUid: 'p1' })
+    expect(await elderBadge('p1')).toBe(3)
+    const f = fcm()
+    expect(await pushToElder('p1', MSG, f)).toBe(1)
+    expect(f.sent).toEqual([{ tokens: [TOKEN('e1')], message: { ...MSG, data: { ...MSG.data, badge: '3' } } }])
+    expect(await pushToElder('p9', MSG, fcm())).toBe(0)
+  })
+
+  it('loses the token when the phone is unlinked, or when FCM says it is dead', async () => {
+    await registerFcmToken(PHONE, { token: TOKEN('e1'), deviceId: 'd1' })
+    await db.doc('users/p1/devices/d2').set({ name: 'Galaxy', platform: 'android', status: 'active' })
+    await registerFcmToken(PHONE, { token: TOKEN('e2'), deviceId: 'd2' })
+    await revokeDevice('p1', 'd2', 'cg1')
+    expect(await elderTokens()).toEqual({ d1: TOKEN('e1') })
+    await pushToElder('p1', MSG, fcm([TOKEN('e1')]))
+    expect(await elderTokens()).toEqual({})
   })
 })

@@ -16,12 +16,14 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore'
 import { logger } from '../log.js'
 import { downloadLink } from '../storageLinks.js'
 import { flagOn } from '../plans.js'
-import { openPath, pushToUsers, type PushMessage } from './push.js'
+import { openPath, pushToElder, pushToUsers, type PushMessage } from './push.js'
 
 export interface FamilyPhotoDeps {
   /** A plain link to the photo; null when the file isn't there. */
   linkTo: (photoPath: string) => Promise<string | null>
   push?: (uids: string[], message: PushMessage) => Promise<unknown>
+  /** Tell the parent's phone (default: handlers/push pushToElder). */
+  pushElder?: (patientUid: string, message: PushMessage) => Promise<unknown>
 }
 
 export const defaultFamilyPhotoDeps: FamilyPhotoDeps = {
@@ -43,6 +45,12 @@ export async function readyFamilyPhoto(id: string, deps: FamilyPhotoDeps = defau
   }
   await ref.update({ photoUrl, status: 'ready', readyAt: FieldValue.serverTimestamp() })
   logger.info('[familyPhoto] ready', { id, patientUid: data.patientUid, senderUid: data.senderUid })
+  // The parent's phone: a banner and the icon number (only its paired phones have tokens).
+  await (deps.pushElder ?? pushToElder)(data.patientUid as string, {
+    title: 'Daylie',
+    body: `${(data.senderName as string) || '가족'}님이 사진을 보냈어요`,
+    data: { type: 'familyPhoto.new', patientUid: data.patientUid as string, familyPhotoId: id },
+  })
   return 'ready'
 }
 

@@ -38,12 +38,12 @@ beforeAll(async () => {
     firestore: {
       rules: readFileSync(resolve(__dirname, '../firestore.rules'), 'utf8'),
       host: '127.0.0.1',
-      port: 8080,
+      port: Number(process.env.RULES_FIRESTORE_PORT ?? 8080),
     },
     storage: {
       rules: readFileSync(resolve(__dirname, '../storage.rules'), 'utf8'),
       host: '127.0.0.1',
-      port: 9199,
+      port: Number(process.env.RULES_STORAGE_PORT ?? 9199),
     },
   })
 })
@@ -850,10 +850,14 @@ describe('managed elder sessions', () => {
     }))
   })
 
-  it('elder phone makes no worker requests', async () => {
-    await assertFails(setDoc(doc(elderDb(), 'requests', 'r1'), {
-      type: 'createInvite', uid: ELDER, email: null, emailVerified: false, name: null, payload: {}, status: 'pending', createdAt: serverTimestamp(),
-    }))
+  it('elder phone makes one worker request, its push token, and no other', async () => {
+    const elderReq = (type: string, payload: Record<string, unknown> = {}) => ({
+      type, uid: ELDER, email: null, emailVerified: false, name: null, payload, status: 'pending', createdAt: serverTimestamp(),
+    })
+    await assertSucceeds(setDoc(doc(elderDb(), 'requests', 'r1'), elderReq('registerFcmToken', { token: 't'.repeat(40), deviceId: 'dev1' })))
+    await assertFails(setDoc(doc(elderDb(), 'requests', 'r2'), elderReq('createInvite')))
+    await assertFails(setDoc(doc(elderDb(), 'requests', 'r3'), elderReq('setChannels')))
+    await assertFails(setDoc(doc(elderDb('dev2'), 'requests', 'r4'), elderReq('registerFcmToken', { token: 't'.repeat(40), deviceId: 'dev2' })))
   })
 
   it('anonymous session may only redeem a pairing code', async () => {

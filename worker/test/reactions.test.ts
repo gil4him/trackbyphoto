@@ -65,6 +65,17 @@ describe('family reactions', () => {
     expect(await count('notifications', 'recipientUid', 'p1')).toBe(1)
   })
 
+  it("reaches the parent's phone as a push, once, and never the family's", async () => {
+    await familyHeart()
+    const elder: Array<{ uid: string; body: string; type?: string }> = []
+    const family: unknown[] = []
+    const d = deps({ pushElder: async (uid, message) => { elder.push({ uid, body: message.body, type: message.data?.type }) }, push: async (uids) => { family.push(uids) } })
+    await processReaction('r1', 1, d)
+    await processReaction('r1', 1, d)
+    expect(elder).toEqual([{ uid: 'p1', body: '민수님이 하트를 보냈어요', type: 'reaction.heart' }])
+    expect(family).toEqual([])
+  })
+
   it('rejects a kind the sender may not use', async () => {
     await seed('bad', { actorUid: 'cg1', actorName: '민수', kind: 'voice', status: 'pending', audioPath: 'voice/p1/m1/x.webm' })
     const d = deps()

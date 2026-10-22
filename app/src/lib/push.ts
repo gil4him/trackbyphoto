@@ -8,8 +8,10 @@
 // client can read it, and the worker sends one message to all of a person's
 // devices.
 //
-// Never called for a parent's linked phone: they get no permission prompt
-// and no token is ever made for them.
+// A parent's linked phone registers too (enableElderPush, from the plain
+// sentence after the camera and location ones), against the device it was
+// paired as; the worker pushes it only a photo from family and a family
+// heart or word, with the icon number.
 
 import { Capacitor } from '@capacitor/core'
 import { FirebaseMessaging } from '@capacitor-firebase/messaging'
@@ -108,6 +110,36 @@ export async function refreshPush(): Promise<void> {
     }
   } catch (err) {
     console.warn('[push] token refresh failed', err)
+  }
+}
+
+const ELDER_TOKEN_KEY = 'tbp.push.elderToken'
+const rememberedElder = () => { try { return localStorage.getItem(ELDER_TOKEN_KEY) } catch { return null } }
+const rememberElder = (token: string) => { try { localStorage.setItem(ELDER_TOKEN_KEY, token) } catch { /* private mode */ } }
+
+/** A parent's paired phone: the phone's own question, then the token to the
+ *  worker with the device it belongs to. True once pushes are on. */
+export async function enableElderPush(deviceId: string): Promise<boolean> {
+  if (!isNative || !nativeReady()) return false
+  const { receive } = await FirebaseMessaging.requestPermissions()
+  if (receive !== 'granted') return false
+  const token = await nativeToken()
+  await callWorker('registerFcmToken', { token, deviceId })
+  rememberElder(token)
+  return true
+}
+
+/** A parent's phone that already allows notifications: keep the worker's
+ *  copy of the token current. Never asks. */
+export async function refreshElderPush(deviceId: string): Promise<void> {
+  if (!isNative || !nativeReady()) return
+  try {
+    const token = await nativeToken()
+    if (token === rememberedElder()) return
+    await callWorker('registerFcmToken', { token, deviceId })
+    rememberElder(token)
+  } catch (err) {
+    console.warn('[push] elder token refresh failed', err)
   }
 }
 

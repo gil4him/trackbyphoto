@@ -27,7 +27,7 @@ import { getStorage } from 'firebase-admin/storage'
 import { logger } from '../log.js'
 import { withModelLock } from '../llm/lock.js'
 import { SttError, SttUnavailableError, transcribe } from '../llm/stt.js'
-import { openPath, pushToUsers, type PushMessage } from './push.js'
+import { openPath, pushToElder, pushToUsers, type PushMessage } from './push.js'
 
 export const MAX_ATTEMPTS = 5
 const RETRY_DELAYS_MS = [15_000, 60_000, 2 * 60_000, 5 * 60_000]
@@ -46,6 +46,8 @@ export interface ReactionDeps {
   transcribe: (audio: Buffer) => Promise<string>
   /** Push a voice reply to family devices (default: handlers/push). */
   push?: (uids: string[], message: PushMessage) => Promise<unknown>
+  /** A family heart or word → the parent's phone (default: handlers/push pushToElder). */
+  pushElder?: (patientUid: string, message: PushMessage) => Promise<unknown>
 }
 
 export const defaultReactionDeps: ReactionDeps = {
@@ -168,8 +170,15 @@ export async function processReaction(reactionId: string, attempt: number, deps:
     return true
   })
   if (finished) logger.info('[reaction] handled', { reactionId, kind, fromElder, notified: recipients.length })
-  // The parent's own words (spoken or written) are worth a push; hearts and
-  // family comments stay in the app.
+  // A family heart or word: the parent's phone shows a banner and the icon number.
+  if (finished && !fromElder) {
+    await (deps.pushElder ?? pushToElder)(patientUid, {
+      title: 'Daylie',
+      body: message,
+      data: { type: `reaction.${kind}`, patientUid, memoId: String(data.memoId ?? ''), reactionId },
+    })
+  }
+  // The parent's own words (spoken or written) are worth a push; hearts stay in the app.
   if (finished && fromElder && (kind === 'voice' || kind === 'comment')) {
     await (deps.push ?? pushToUsers)(recipients, {
       title: 'Daylie',

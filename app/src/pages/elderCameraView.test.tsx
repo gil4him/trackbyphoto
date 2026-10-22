@@ -15,6 +15,7 @@ vi.mock('../hooks/useMemberships', () => ({ useMemberships: () => ({ caregivers:
 
 import { ElderCameraView, type CameraPhase, type Overlay } from './ElderCamera'
 import { appStateAction } from '../lib/cameraState'
+import { ASK_NOTIFY } from '../lib/permissions'
 import type { ElderNews } from '../lib/reactionsModel'
 import type { Memo, Reaction } from '../types'
 
@@ -177,5 +178,17 @@ describe('the camera while the phone asks its own permission question', () => {
   })
   it('does not restart on top of the camera’s plain sentence', () => {
     expect(appStateAction(true, false, true)).toBe('ignore')
+  })
+})
+
+describe('the third plain sentence, for family news on the icon', () => {
+  it('asks for notifications in one sentence with 다음, no shutter', () => {
+    const html = renderToString(
+      <ElderCameraView phase="live" busy={false} overlay={null} news={null} ask={ASK_NOTIFY}
+        onShutter={() => {}} onDismissNews={() => {}} onOpenRecords={() => {}} onRetry={() => {}} onAskNext={() => {}} />,
+    )
+    expect(html).toContain('가족이 보낸 사진과 소식을 알려드리려면 알림을 허용해 주세요')
+    expect(html).toContain('다음')
+    expect(html).not.toContain('사진 찍기')
   })
 })

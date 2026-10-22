@@ -1,6 +1,7 @@
 import { Capacitor } from '@capacitor/core'
 import { Camera } from '@capacitor/camera'
 import { Geolocation } from '@capacitor/geolocation'
+import { FirebaseMessaging } from '@capacitor-firebase/messaging'
 
 /**
  * Where a permission stands before the parent is asked (ElderAsk). Only
@@ -13,6 +14,7 @@ export type PermissionState = 'prompt' | 'granted' | 'denied' | 'unknown'
 export const ASK_CAMERA_TO_LINK = '가족과 연결하려면 카메라를 허용해 주세요'
 export const ASK_CAMERA = '사진을 찍으려면 카메라를 허용해 주세요'
 export const ASK_LOCATION = '사진에 장소를 남기려면 위치를 허용해 주세요'
+export const ASK_NOTIFY = '가족이 보낸 사진과 소식을 알려드리려면 알림을 허용해 주세요'
 
 export function toPermissionState(s: string | undefined): PermissionState {
   if (s === 'granted' || s === 'limited') return 'granted'
@@ -24,6 +26,16 @@ export function toPermissionState(s: string | undefined): PermissionState {
 export async function cameraPermission(): Promise<PermissionState> {
   try {
     return toPermissionState((await Camera.checkPermissions()).camera)
+  } catch {
+    return 'unknown'
+  }
+}
+
+/** The phone app only; a browser answers 'unknown' and nothing is asked. */
+export async function notificationPermission(): Promise<PermissionState> {
+  try {
+    if (!Capacitor.isNativePlatform()) return 'unknown'
+    return toPermissionState((await FirebaseMessaging.checkPermissions()).receive)
   } catch {
     return 'unknown'
   }

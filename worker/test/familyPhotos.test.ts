@@ -10,10 +10,11 @@ const flag = async (on: boolean) => {
   resetPlansCache()
 }
 function fakes(files = new Set<string>()) {
-  const f = { pushes: [] as Array<{ uids: string[]; body: string }>, paths: [] as Array<string | undefined>, files }
+  const f = { pushes: [] as Array<{ uids: string[]; body: string }>, paths: [] as Array<string | undefined>, elder: [] as Array<{ uid: string; body: string; type?: string }>, files }
   const deps: FamilyPhotoDeps = {
     linkTo: async (path) => (files.has(path) ? `https://example.test/${path}` : null),
     push: async (uids, message) => { f.pushes.push({ uids, body: message.body }); f.paths.push(message.path); return 1 },
+    pushElder: async (uid, message) => { f.elder.push({ uid, body: message.body, type: message.data?.type }); return 1 },
   }
   return { f, deps }
 }
@@ -31,14 +32,16 @@ beforeEach(async () => {
 })
 
 describe('a photo from the family', () => {
-  it('gets its link and becomes ready', async () => {
+  it("gets its link and becomes ready, and the parent's phone hears about it once", async () => {
     await photo('a')
-    const { deps } = fakes(new Set(['familyPhotos/p1/a.jpg']))
+    const { f, deps } = fakes(new Set(['familyPhotos/p1/a.jpg']))
     expect(await readyFamilyPhoto('a', deps)).toBe('ready')
     const d = (await db.doc('familyPhotos/a').get()).data()!
     expect(d.status).toBe('ready')
     expect(d.photoUrl).toBe('https://example.test/familyPhotos/p1/a.jpg')
+    expect(f.elder).toEqual([{ uid: 'p1', body: '민수님이 사진을 보냈어요', type: 'familyPhoto.new' }])
     expect(await readyFamilyPhoto('a', deps)).toBe('skipped')
+    expect(f.elder).toHaveLength(1)
   })
 
   it('waits while the file has not arrived, and while the switch is off', async () => {
