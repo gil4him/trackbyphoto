@@ -64,7 +64,8 @@ export function toSubscriberState(json: unknown): SubscriberState {
     const ent = subscriber?.entitlements?.[tier]
     if (!ent) continue
     const productId = typeof ent.product_identifier === 'string' ? ent.product_identifier : PRODUCT_IDS[tier as PaidTier]
-    const sub = subscriber?.subscriptions?.[productId]
+    // Play subscriptions can come as `id:basePlan`; the subscription is keyed by the bare id.
+    const sub = subscriber?.subscriptions?.[productId] ?? subscriber?.subscriptions?.[productId.split(':')[0]]
     entitlements[tier] = {
       expiresAt: asDate(ent.expires_date),
       productId,

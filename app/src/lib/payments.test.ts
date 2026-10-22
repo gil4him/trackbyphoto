@@ -73,6 +73,17 @@ describe('the purchase', () => {
     expect(rc.purchased).toEqual(['daylie_plus_monthly'])
   })
 
+  it('finds Play subscriptions, which Android names with their base plan', async () => {
+    const ios = rc.packages
+    rc.packages = [{ identifier: '$rc_monthly', product: { identifier: 'daylie_plus_monthly:monthly', priceString: '₩4,900' } }]
+    try {
+      await configurePayments('kid2')
+      expect(await storePrices()).toEqual({ plus: '₩4,900/월' })
+      await startCheckout({ patientUid: 'p1', tier: 'plus' }, true)
+      expect(rc.purchased).toEqual(['daylie_plus_monthly:monthly'])
+    } finally { rc.packages = ios }
+  })
+
   it('tells closing the store sheet apart from a failure', async () => {
     await configurePayments('kid2')
     rc.cancelNext = true

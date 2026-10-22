@@ -144,6 +144,13 @@ describe('the subscriber JSON', () => {
     expect(entitlementActive(state.entitlements.basic!)).toBe(true)
   })
 
+  it('finds the Play subscription when the entitlement names its base plan', () => {
+    const json = subscriberJson('plus', iso(20 * DAY_MS), { refunded_at: iso(-DAY_MS), store: 'play_store' }, { product_identifier: 'daylie_plus_monthly:monthly' })
+    const ent = toSubscriberState(json).entitlements.plus!
+    expect(ent.productId).toBe('daylie_plus_monthly:monthly')
+    expect(ent.refunded).toBe(true)
+  })
+
   it('says nothing at all about a subscriber who never bought anything', async () => {
     expect(toSubscriberState({ subscriber: { entitlements: {}, subscriptions: {} } })).toEqual({ entitlements: {} })
     expect(toSubscriberState({})).toEqual({ entitlements: {} })

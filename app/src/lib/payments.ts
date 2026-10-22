@@ -25,6 +25,12 @@ export const STORE_PRODUCT: Record<Exclude<PlanTier, 'free'>, string> = {
 }
 const TIER_OF_PRODUCT = Object.fromEntries(Object.entries(STORE_PRODUCT).map(([t, p]) => [p, t])) as Record<string, PlanTier>
 
+/** The store product id without Play's base plan: Android reports a
+ *  subscription as `daylie_basic_monthly:<base plan>`, iOS as the bare id. */
+export function baseProductId(identifier: string): string {
+  return identifier.split(':')[0]
+}
+
 /** The store's public SDK key for this phone (simple/app/.env.simple); none on the web. */
 function apiKey(): string | undefined {
   const platform = Capacitor.getPlatform()
@@ -68,7 +74,7 @@ export async function storePrices(): Promise<Partial<Record<PlanTier, string>>> 
     const { current } = await Purchases.getOfferings()
     const out: Partial<Record<PlanTier, string>> = {}
     for (const p of current?.availablePackages ?? []) {
-      const tier = TIER_OF_PRODUCT[p.product.identifier]
+      const tier = TIER_OF_PRODUCT[baseProductId(p.product.identifier)]
       if (tier) out[tier] = `${p.product.priceString}/월`
     }
     return out
@@ -93,7 +99,7 @@ export async function startCheckout(order: { patientUid: string; tier: PlanTier 
   if (!live || order.tier === 'free' || !configuredFor) return { provider: 'stub', token: null }
   const product = STORE_PRODUCT[order.tier]
   const { current } = await Purchases.getOfferings()
-  const pkg = current?.availablePackages.find((p) => p.product.identifier === product)
+  const pkg = current?.availablePackages.find((p) => baseProductId(p.product.identifier) === product)
   if (!pkg) throw new Error(`no store product for ${order.tier}`)
   try {
     await Purchases.purchasePackage({ aPackage: pkg })
