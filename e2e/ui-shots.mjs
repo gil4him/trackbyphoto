@@ -158,6 +158,12 @@ const PHASES = {
       open: momPhone,
       go: async (p) => { await openViewer(p); await click(p, '글로 답하기', '.fp-btn'); await waitText(p, '무엇이라고 답할까요?') },
     },
+    // 내 사진 on the parent's phone: the photos the family sent sit among the day's own, tinted.
+    'records-received': {
+      prepare: () => seedTodayMemos({ momUid, kidUid: self, kidName: KID.name, count: 2 }),
+      open: momPhone,
+      go: async (p) => { await viewfinder(p); await p.click('.elder-cam-records'); await waitText(p, '보냈어요'); await sleep(800) },
+    },
   },
   // A11: the parent's camera in the iPhone-camera layout. 엄마's phone has
   // photos (the newest fills the 내 사진 circle) and an answered family photo

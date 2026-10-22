@@ -69,7 +69,8 @@ export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn
     onReply: (item, unreadIds) => setOpenNews({ state: 'new', item, unreadIds }),
   } : undefined, [reactions, uid, patientName, voiceOn])
   const familyPhotos = useFamilyPhotos(familyPhotosOn ? uid : undefined)
-  const [photosOpen, setPhotosOpen] = useState(false)
+  // The family-photo viewer: open from the camera's bubble (true), or on one photo tapped in 내 사진 (its id).
+  const [photosOpen, setPhotosOpen] = useState<boolean | string>(false)
 
   useEffect(() => {
     if (!deviceId) { setRevoked(true); return }
@@ -100,7 +101,7 @@ export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn
   }, [])
   // Simple edition: any screen but the camera goes back to it after a minute
   // without a touch (A9), so the phone is always ready for the next photo.
-  useIdleReturn(isSimple() && !revoked && (openNews !== null || photosOpen || openId !== null || view === 'records'), backToCamera)
+  useIdleReturn(isSimple() && !revoked && (openNews !== null || photosOpen !== false || openId !== null || view === 'records'), backToCamera)
 
   const open = openId ? memos.find((m) => m.id === openId) ?? null : null
 
@@ -138,6 +139,7 @@ export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn
           <FamilyPhotoViewer
             photos={familyPhotos}
             textMode={textMode}
+            startId={typeof photosOpen === 'string' ? photosOpen : undefined}
             onDone={(allSeen) => { setPhotosOpen(false); if (allSeen) toast.show(S.familyPhotoAllSeen, '') }}
           />
         ) : open ? (
@@ -148,7 +150,7 @@ export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn
         ) : view === 'records' ? (
           <div className="elder-scroll">
             <button className="elder-back" onClick={() => setView('home')}>‹ 처음으로</button>
-            <Today memos={memos} onOpen={setOpenId} uid={uid} readOnly rx={rx} />
+            <Today memos={memos} onOpen={setOpenId} uid={uid} readOnly rx={rx} received={familyPhotosOn ? familyPhotos : []} onOpenReceived={setPhotosOpen} />
             <CameraFab label="카메라로 돌아가기" onClick={backToCamera} />
           </div>
         ) : isSimple() ? (

@@ -32,10 +32,14 @@ export function cardLine(photos: FamilyPhoto[]): { line: string; lit: boolean } 
   return { line: S.familyPhotoCardNew(senders[0], senders.length - 1, fresh.length), lit: true }
 }
 
-/** The order the parent's phone walks through: new ones first, then the rest, newest first within each. */
-export function viewerOrder(photos: FamilyPhoto[]): FamilyPhoto[] {
+/** The order the parent's phone walks through: new ones first, then the rest, newest first within each.
+ *  With `startId` (a photo tapped in 내 사진) that photo comes first and the others follow as usual. */
+export function viewerOrder(photos: FamilyPhoto[], startId?: string): FamilyPhoto[] {
   const all = showable(photos)
-  return [...all.filter((p) => !p.seenAtMs), ...all.filter((p) => !!p.seenAtMs)]
+  const usual = [...all.filter((p) => !p.seenAtMs), ...all.filter((p) => !!p.seenAtMs)]
+  const first = startId ? usual.find((p) => p.id === startId) : undefined
+  if (!first) return usual
+  return [first, ...usual.filter((p) => p.id !== startId)]
 }
 
 /** What the sender sees under a photo they sent. */

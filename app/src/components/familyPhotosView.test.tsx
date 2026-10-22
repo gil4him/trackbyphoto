@@ -7,6 +7,7 @@ vi.mock('../lib/familyPhotos', () => ({ markFamilyPhotoSeen: vi.fn(async () => {
 
 import { FamilyPhotosCard } from './FamilyPhotosCard'
 import { FamilyPhotoViewer } from '../pages/FamilyPhotoViewer'
+import { viewerOrder } from '../lib/familyPhotosModel'
 import type { FamilyPhoto } from '../types'
 
 const text = (html: string) => html.replace(/<!-- -->/g, '').replace(/\u00a0/g, ' ').replace(/<[^>]+>/g, '\n').split('\n').map((s) => s.trim()).filter(Boolean)
@@ -99,5 +100,14 @@ describe('FamilyPhotoViewer', () => {
     const t = text(renderToString(<FamilyPhotoViewer photos={[]} onDone={() => {}} />))
     expect(t).toContain('가족이 보낸 사진이 아직 없어요')
     expect(t).toContain('처음으로 ›')
+  })
+})
+
+describe('viewerOrder with a photo tapped in 내 사진', () => {
+  it('starts on that photo and keeps the usual order for the rest', () => {
+    const a = photo('a', { createdAtMs: 3, seenAtMs: 9 }), b = photo('b', { createdAtMs: 2 }), c = photo('c', { createdAtMs: 1, seenAtMs: 9 })
+    expect(viewerOrder([a, b, c]).map((p) => p.id)).toEqual(['b', 'a', 'c'])
+    expect(viewerOrder([a, b, c], 'c').map((p) => p.id)).toEqual(['c', 'b', 'a'])
+    expect(viewerOrder([a, b, c], 'nope').map((p) => p.id)).toEqual(['b', 'a', 'c'])
   })
 })

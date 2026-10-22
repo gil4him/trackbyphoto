@@ -15,7 +15,7 @@ import { Today } from './Today'
 import { rowCounts } from '../lib/memoViews'
 import { ToastProvider } from '../components/Toast'
 import type { ReactionsContext } from '../components/Reactions'
-import type { Memo, Reaction } from '../types'
+import type { FamilyPhoto, Memo, Reaction } from '../types'
 
 const day = (offset: number, h: number) => { const d = new Date(); d.setDate(d.getDate() - offset); d.setHours(h, 5, 0, 0); return d }
 const memo = (id: string, offset: number, h: number, extra: Record<string, unknown> = {}) => ({
@@ -75,5 +75,34 @@ describe('Today', () => {
     // Not without the trail map, and not on a day whose photos have no location.
     expect(render()).not.toContain('다녀온 곳')
     expect(render({ memos: [memo('a', 0, 15, { lat: null, lng: null })], onOpenTrail: () => {} })).not.toContain('다녀온 곳')
+  })
+})
+
+describe('photos the family sent, on the parent\'s 내 사진', () => {
+  const sent = (id: string, offset: number, h: number, o: Partial<FamilyPhoto> = {}): FamilyPhoto => ({
+    id, patientUid: 'p1', senderUid: 'me', senderName: '지민', photoPath: `familyPhotos/${id}.jpg`, photoUrl: `https://x/${id}.jpg`, caption: '엄마, 주말에 한강 같이 가요!', status: 'ready', createdAtMs: day(offset, h).getTime(), ...o,
+  })
+
+  it('slot into the same day by time as tinted rows: who sent it, the time and their words, a dot while unseen', () => {
+    const out = render({ received: [sent('f1', 0, 12)], onOpenReceived: () => {} })
+    const rows = [...out.matchAll(/class="memo-row( received)?"/g)].map((m) => m[1] ? 'received' : 'own')
+    expect(rows).toEqual(['own', 'received', 'own']) // 15:05 own, 12:05 sent, yesterday 09:05 own
+    expect(out).toContain('지민이 보냈어요')
+    expect(out).toContain('<span class="memo-row-meta">오후 12:05 · 엄마, 주말에 한강 같이 가요!</span>')
+    expect(out).toContain('aria-label="새 사진"')
+    expect(out).toContain('aria-label="가족 사진 보기"')
+  })
+
+  it('show the parent\'s answer instead of the caption once there is one, and no dot once seen', () => {
+    const out = render({ received: [sent('f1', 0, 12, { seenAtMs: 1, reply: { kind: 'heart', atMs: 2 } })] })
+    expect(out).toContain('<span class="memo-row-meta">오후 12:05 · ❤️ 고마워요</span>')
+    expect(out).not.toContain('aria-label="새 사진"')
+  })
+
+  it('a day with only a sent photo still gets its header; photos not ready stay out', () => {
+    const out = render({ memos: [], received: [sent('f1', 3, 10), sent('f2', 0, 9, { status: 'pending', photoUrl: undefined })] })
+    expect(out.split('class="memo-row received"').length - 1).toBe(1)
+    expect(out).toContain('class="tl-day"')
+    expect(out).not.toContain('아직 기록이 없어요')
   })
 })

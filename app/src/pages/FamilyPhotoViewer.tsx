@@ -26,9 +26,11 @@ const tail = (s: string) => s.replace(/ ›$/, '\u00a0›')
  * its own shape, the message and the time under it, and the actions pinned
  * above the safe area — ❤️ 고마워요, then 글로 답하기 · 다음 사진 › side by side.
  */
-export function FamilyPhotoViewer({ photos, textMode = 'full', onDone, mark = markFamilyPhotoSeen, reply = replyToFamilyPhoto, keep = keepFamilyPhotoOnDevice }: {
+export function FamilyPhotoViewer({ photos, textMode = 'full', onDone, startId, mark = markFamilyPhotoSeen, reply = replyToFamilyPhoto, keep = keepFamilyPhotoOnDevice }: {
   photos: FamilyPhoto[]
   textMode?: TextReplies
+  /** Open on this photo (tapped in 내 사진); the rest follow in the usual order. */
+  startId?: string
   /** `allSeen`: the parent went through to the last photo (true), or there was nothing to show. */
   onDone: (allSeen: boolean) => void
   /** Injected for tests. */
@@ -37,7 +39,7 @@ export function FamilyPhotoViewer({ photos, textMode = 'full', onDone, mark = ma
   /** A copy on this phone, once (familyPhotoKeep). */
   keep?: (p: FamilyPhoto) => Promise<void>
 }) {
-  const [order] = useState(() => viewerOrder(photos))
+  const [order] = useState(() => viewerOrder(photos, startId))
   const [index, setIndex] = useState(0)
   const [phase, setPhase] = useState<'view' | 'text' | 'sent'>('view')
   const typed = useRef<HTMLInputElement>(null)
