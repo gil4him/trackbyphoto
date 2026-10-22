@@ -136,7 +136,11 @@ export async function processRequest(requestId: string): Promise<void> {
     // The client deleted the doc after timing out — nothing left to report to.
     logger.warn('[request] could not write result (client gave up?)', { requestId, type, err: String(err) })
   }
-  logger.info('[request] handled', { requestId, type, uid: caller.uid, status: outcome.status, ms: Date.now() - started })
+  // A refusal says why in the log: the client deletes the request doc once it
+  // has read the answer, so this line is the only record of what went wrong
+  // (handler messages are fixed strings, never the caller's input).
+  const why = outcome.status === 'error' ? { code: outcome.code, message: outcome.message } : {}
+  logger.info('[request] handled', { requestId, type, uid: caller.uid, status: outcome.status, ...why, ms: Date.now() - started })
 }
 
 /** Subscribe to pending requests. Handlers are pure Firestore work (except
