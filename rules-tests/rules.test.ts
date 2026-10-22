@@ -440,6 +440,13 @@ describe('users', () => {
   it('stranger cannot read patient settings', async () => {
     await assertFails(getDoc(doc(authedDb(STRANGER), 'users', PATIENT)))
   })
+
+  it('what the store charges a family member is the worker\'s alone', async () => {
+    // planPayments has no match block: the default-deny is the protection.
+    const db = authedDb(CAREGIVER_ACTIVE_ADMIN)
+    await assertFails(getDoc(doc(db, 'planPayments', 'x')))
+    await assertFails(setDoc(doc(db, 'planPayments', 'x'), { patientUid: PATIENT, tier: 'family' }))
+  })
 })
 
 // ────────────────────────────────────────────────────────────────────────────

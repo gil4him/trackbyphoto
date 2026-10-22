@@ -10,6 +10,7 @@ vi.mock('../lib/reactions', () => ({
 }))
 
 import { PlanCards, PlanSheetView } from './PlanSheet'
+import { planFailureLine } from '../lib/planErrors'
 import { Reactions, type ReactionsContext } from './Reactions'
 import { ToastProvider } from './Toast'
 import { VoiceAlbumView } from '../pages/VoiceAlbum'
@@ -167,5 +168,43 @@ describe('목소리 앨범', () => {
 
   it('says so when there are none yet', () => {
     expect(renderToString(<VoiceAlbumView patientName="어머니" patientUid="p1" voices={[]} memoOf={() => undefined} />)).toContain('아직 음성 답장이 없어요.')
+  })
+})
+
+describe('the sheet with the store taking the money', () => {
+  it("shows the store's prices over the table's labels", () => {
+    const priced = { ...PLANS, plus: { ...PLANS.plus, priceLabel: '₩9,999/월' } } as Plans
+    const out = text(renderToString(<PlanCards plans={priced} current="free" patientName="어머니" canChange prices={{ plus: '₩4,900/월' }} onChoose={noop} />))
+    expect(out).toContain('₩4,900/월')
+    expect(out).toContain('Plus 시작하기 ₩4,900/월')
+    expect(out.join(' ')).not.toContain('₩9,999')
+  })
+
+  it('says how the subscription works, offers 구매 복원, and 구독 관리 on a paid plan, with the legal links', () => {
+    const out = sheet({ live: true, current: 'plus', manageUrl: 'https://store.example/subs', until: '10월 30일', onRestore: noop })
+    expect(out).toContain('구독은 매월 자동 결제되고')
+    expect(out).toContain('구매 복원')
+    expect(out).toContain('href="https://store.example/subs"')
+    expect(out).toContain('10월 30일까지 이용')
+    expect(out).toContain('이용약관')
+    expect(out).not.toContain('베타 기간')
+    const free = sheet({ live: true, current: 'free', manageUrl: 'https://store.example/subs', onRestore: noop })
+    expect(free).not.toContain('구독 관리')
+  })
+
+  it('on the website while payments are on: look, but buy in the app', () => {
+    const webPlans = { ...PLANS, flags: { ...PLANS.flags, payments: true } } as Plans
+    const out = sheet({ plans: webPlans })
+    expect(out).toContain('Daylie 앱에서 할 수 있어요')
+    expect(out).not.toContain('시작하기')
+    expect(out).not.toContain('베타 기간')
+  })
+
+  it('names the reason a change was refused in plain words', () => {
+    expect(planFailureLine(new Error('subscription used for another parent'))).toContain('Family')
+    expect(planFailureLine(new Error('parent paid by another'))).toContain('다른 가족')
+    expect(planFailureLine(new Error('cancel in store'))).toContain('스토어에서 해지')
+    expect(planFailureLine(new Error('not entitled'))).toContain('결제가 확인되지')
+    expect(planFailureLine(new Error('boom'))).toBe('잠시 후 다시 시도해 주세요')
   })
 })

@@ -1482,3 +1482,11 @@ html:not(.camera-live) .elder-cam { background: #000; }
 .memo-opening-btn { margin-top: 18px; width: 100%; min-height: 56px; border-radius: 14px; border: 2px solid var(--line); background: var(--surface); font: inherit; font-size: 17px; font-weight: 700; color: var(--ink); cursor: pointer; }
 @keyframes memo-opening-pulse { 50% { opacity: .55; } }
 @media (prefers-reduced-motion: reduce) { .detail-photo.memo-opening, .memo-opening-lines span { animation: none; } }
+
+/* The plan sheet's store footer (components/PlanSheet.tsx): the terms in
+   plain words, 구독 관리 · 구매 복원, and the legal links. */
+.plan-until { font-size: 15px; color: var(--muted); margin: -6px 0 10px; }
+.plan-store { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
+.plan-store-row { display: flex; gap: 18px; align-items: center; min-height: 48px; }
+.plan-store-link { min-height: 48px; padding: 0; border: 0; background: none; font: inherit; font-size: 15px; font-weight: 700; color: var(--ink); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.plan-store-link:disabled { opacity: .55; }

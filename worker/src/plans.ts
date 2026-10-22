@@ -37,12 +37,14 @@ export interface PlanEntitlements {
 }
 
 /** Rollout switches. Everything ships off and is turned on per feature. */
-export const PLAN_FLAGS = ['reactions', 'voiceReplies', 'digest', 'emailDigest', 'pushFamily', 'usageCaps', 'retentionJob', 'messengerFree', 'trailMap', 'planSheet', 'familyPhotos', 'cloudMemo', 'memoV2', 'memoWeather', 'memoDiary'] as const
+export const PLAN_FLAGS = ['reactions', 'voiceReplies', 'digest', 'emailDigest', 'pushFamily', 'usageCaps', 'retentionJob', 'messengerFree', 'trailMap', 'planSheet', 'familyPhotos', 'cloudMemo', 'memoV2', 'memoWeather', 'memoDiary', 'payments'] as const
 export type PlanFlag = (typeof PLAN_FLAGS)[number]
 
 export interface PlansDoc extends Partial<Record<PlanTier, PlanEntitlements>> {
   fairUse: { photosPerDay: number | null }
   flags: Record<PlanFlag, boolean>
+  /** Who may use the plan sheet while `planSheet` is still off. */
+  planSheetAllow?: string[]
 }
 
 let cache: { value: PlansDoc | null; expiresAt: number } | null = null
@@ -65,6 +67,15 @@ export async function getPlans(): Promise<PlansDoc | null> {
 /** The plans in the table, lowest first. */
 export function offeredTiers(plans: PlansDoc): PlanTier[] {
   return PLAN_TIERS.filter((t) => !!plans[t])
+}
+
+/**
+ * May this person use the plan sheet? Before the sheet opens to everyone,
+ * the owner puts their own uid on planSheetAllow and buys a plan for real
+ * on their own parent, which is the only way to try the stores end to end.
+ */
+export function planSheetOpenFor(plans: PlansDoc, uid: string): boolean {
+  return plans.flags?.planSheet === true || plans.planSheetAllow?.includes(uid) === true
 }
 
 export async function flagOn(flag: PlanFlag): Promise<boolean> {

@@ -46,12 +46,13 @@ import { TIER_NAME, fromTier, type PlanReason } from './lib/plan'
 import { homeFor } from './lib/trail'
 import { deviceGeoLang, relativeDateLabel } from './util'
 import { disablePush, onPushOpened, refreshPush, type PushOpened } from './lib/push'
+import { configurePayments } from './lib/payments'
 import { PushNudge } from './components/PushNudge'
 import type { AppNotification } from './types'
 import { openFromUrl, parseOpen, type OpenTarget } from './lib/openFromUrl'
 import { noticesSeen, type NoticeView } from './lib/noticeViews'
 import { usePageVisible } from './hooks/usePageVisible'
-import { entitlements, flagOn } from './lib/plans'
+import { entitlements, flagOn, planSheetOpenFor } from './lib/plans'
 import { byMemo } from './lib/reactionsModel'
 import type { ReactionsContext } from './components/Reactions'
 import type { UserSettings } from './types'
@@ -212,7 +213,7 @@ function App() {
   const trailOn = flagOn(plans, 'trailMap')
   const [trail, setTrail] = useState<{ start: number; end: number; title: string } | null>(null)
   // v2 plans: 부모님께 드리는 선물 (opened from four places only) and 목소리 앨범.
-  const planOn = flagOn(plans, 'planSheet')
+  const planOn = planSheetOpenFor(plans, user?.uid)
   const [planSheet, setPlanSheet] = useState<PlanReason | null>(null)
   const [voiceAlbum, setVoiceAlbum] = useState(false)
   const familyUid = user && !elder ? user.uid : undefined
@@ -270,7 +271,10 @@ function App() {
   // Stamp our real name onto any memberships where we're the caregiver, so the
   // patient sees a name (not a UID) in 가족 관리. Backfills older rows too.
   useEffect(() => {
-    if (user && !elder) syncCaregiverName().catch((e) => console.warn('[caregiver] name sync failed', e))
+    if (user && !elder) {
+      syncCaregiverName().catch((e) => console.warn('[caregiver] name sync failed', e))
+      void configurePayments(user.uid) // the store app only; the paying family member is the RevenueCat user
+    }
   }, [user, elder])
 
   // /accept and /accept-invite both jump to the accept screen. The code is

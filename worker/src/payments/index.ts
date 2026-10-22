@@ -1,15 +1,18 @@
 /**
  * Paying for a plan sits behind this interface.
  *
- * Nothing is charged today: the only provider is a stand-in that approves
- * every change. A real provider (Toss Payments in Korea, Stripe elsewhere)
- * would have the app start a checkout and hand its token to changePlan; the
- * provider's `confirm` then verifies it with the payment company (an outbound
- * call, so the worker still needs no open port) and returns the reference
- * that changePlan stores on the plan.
+ * The real provider is RevenueCat (revenuecat.ts): the family buys in the
+ * store app and the worker asks RevenueCat what the payer is entitled to.
+ * `confirm` is an outbound call either way, so the worker still needs no
+ * open port, and it returns the reference changePlan stores on the plan.
+ *
+ * The stand-in approves every change and charges nothing; it is what runs
+ * until PAYMENT_PROVIDER names a real one, and what the `payments` flag
+ * falls back to so the plan sheet can be tried with nothing charged.
  */
 
 import type { PlanTier } from '../plans.js'
+import { revenueCatPayments } from './revenuecat.js'
 
 export interface PaymentRequest {
   /** The family member making the change. */
@@ -27,6 +30,11 @@ export interface PaymentResult {
   /** The payment company's id for this payment. */
   reference?: string
   reason?: string
+  /** When the plan runs out unless it renews; null for a payment that never
+   *  expires. Only a store subscription has one. */
+  expiresAt?: Date | null
+  /** The store product that was bought. */
+  productId?: string
 }
 
 export interface PaymentProvider {
@@ -44,6 +52,7 @@ export const stubPayments: PaymentProvider = {
 export function paymentProvider(): PaymentProvider {
   const name = process.env.PAYMENT_PROVIDER || 'stub'
   if (name === 'stub') return stubPayments
+  if (name === 'revenuecat') return revenueCatPayments()
   // toss / stripe: not built. Refuse rather than change plans unpaid.
   return {
     name,

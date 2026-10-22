@@ -46,3 +46,9 @@ export function entitlements(plans: Plans | null, tier: PlanTier | undefined): P
 export function flagOn(plans: Plans | null, flag: keyof Plans['flags']): boolean {
   return plans?.flags?.[flag] === true
 }
+
+/** The plan sheet is open to everyone once `planSheet` is on, and before that
+ *  to the few on the allow-list (sandbox purchases are tested that way). */
+export function planSheetOpenFor(plans: Plans | null, uid: string | undefined): boolean {
+  return flagOn(plans, 'planSheet') || (!!uid && (plans?.planSheetAllow ?? []).includes(uid))
+}

@@ -5,7 +5,7 @@ import {
   collection, getCountFromServer, getDocs, limit, orderBy, query, Timestamp, where,
 } from 'firebase/firestore'
 import { db } from '../firebase'
-import { startCheckout } from './payments'
+import { restorePurchases, startCheckout } from './payments'
 import { callWorker } from './worker'
 import type { Memory, PlanReason } from './plan'
 import type { PlanTier, Reaction } from '../types'
@@ -17,11 +17,21 @@ export interface ChangePlanResult {
   unlockedVoices: number
 }
 
-/** Put a parent on a plan. The worker checks who is asking and confirms the payment. */
-export async function changePlan(patientUid: string, tier: PlanTier, source: PlanReason['kind']): Promise<ChangePlanResult> {
-  const checkout = await startCheckout({ patientUid, tier })
+/** Put a parent on a plan. `live`: the store takes the payment first; the
+ *  worker then checks who is asking and confirms the purchase. */
+export async function changePlan(patientUid: string, tier: PlanTier, source: PlanReason['kind'], live = false): Promise<ChangePlanResult> {
+  const checkout = await startCheckout({ patientUid, tier }, live)
   // `source` is which of the sheet's doors was used; the worker keeps it on the audit entry.
   return callWorker<ChangePlanResult>('changePlan', { patientUid, tier, source, ...(checkout.token ? { paymentToken: checkout.token } : {}) })
+}
+
+/** 구매 복원: ask the store what this person already pays for, then put the
+ *  parent on it. Null when there is nothing to restore. */
+export async function restorePlan(patientUid: string): Promise<{ tier: PlanTier; result: ChangePlanResult } | null> {
+  const { tier, token } = await restorePurchases()
+  if (!tier || !token) return null
+  const result = await callWorker<ChangePlanResult>('changePlan', { patientUid, tier, source: 'settings', paymentToken: token })
+  return { tier, result }
 }
 
 const memosOf = (patientUid: string) => [collection(db, 'memos'), where('patientUid', '==', patientUid)] as const

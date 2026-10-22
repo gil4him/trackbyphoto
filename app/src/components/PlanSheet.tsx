@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react'
 import { useToast } from './Toast'
-import { PAYMENTS_LIVE } from '../lib/payments'
+import { managementUrl, paymentsElsewhere, paymentsLive, PurchaseCancelled, storePrices } from '../lib/payments'
+import { LegalLinks } from './LegalLinks'
 import {
   TIERS, TIER_NAME, daysUntilOldestGoes, keptFor, offered, planLines, reasonLine, shortensKeeping, suggestedTier,
   type Memory, type PlanReason,
 } from '../lib/plan'
-import { changePlan, countPhotosBefore, loadMemory } from '../lib/planApi'
+import { changePlan, countPhotosBefore, loadMemory, restorePlan } from '../lib/planApi'
 import { S } from '../lib/strings'
-import { isWorkerOffline, WORKER_OFFLINE_MESSAGE } from '../lib/worker'
+import { planFailureLine } from '../lib/planErrors'
 import type { Plans, PlanTier } from '../types'
 
 const TIER_TO: Record<PlanTier, string> = { free: 'Free로', basic: 'Basic으로', plus: 'Plus로', family: 'Family로' }
@@ -18,10 +19,12 @@ const DAY_MS = 24 * 3600 * 1000
  * One card for each plan in admin_config/plans. They say what a plan gives
  * the family; nothing here counts photos.
  */
-export function PlanCards({ plans, current, patientName, suggested, canChange, busy, onChoose }: {
+export function PlanCards({ plans, current, patientName, suggested, canChange, busy, prices = {}, onChoose }: {
   plans: Plans
   current: PlanTier
   patientName: string
+  /** The store's own price per tier when payments are live; the table's label otherwise. */
+  prices?: Partial<Record<PlanTier, string>>
   /** The plan this visit points at (추천). */
   suggested?: PlanTier | null
   /** The viewer manages this parent's records; others only look. */
@@ -36,17 +39,18 @@ export function PlanCards({ plans, current, patientName, suggested, canChange, b
         const ent = plans[t]!
         const isCurrent = t === current
         const up = TIERS.indexOf(t) > TIERS.indexOf(current)
+        const price = prices[t] ?? ent.priceLabel
         return (
           <div key={t} className={`plan-card${isCurrent ? ' current' : ''}${t === suggested ? ' suggested' : ''}`}>
             <div className="plan-head">
               <b className="plan-name">{TIER_NAME[t]}</b>
-              {ent.priceLabel && <span className="plan-price">{ent.priceLabel}</span>}
+              {price && <span className="plan-price">{price}</span>}
               {isCurrent ? <span className="plan-chip">{S.planCurrent}</span> : t === suggested ? <span className="plan-chip rec">추천</span> : null}
             </div>
             <div className="plan-lines">{planLines(ent, patientName, plans.flags).join(' · ')}</div>
             {canChange && !isCurrent && (
               <button type="button" className="plan-go" disabled={busy != null} onClick={() => onChoose(t)}>
-                {busy === t ? '바꾸는 중…' : up ? `${TIER_NAME[t]} 시작하기${ent.priceLabel ? ` ${ent.priceLabel}` : ''}` : `${TIER_TO[t]} 바꾸기`}
+                {busy === t ? '바꾸는 중…' : up ? `${TIER_NAME[t]} 시작하기${price ? ` ${price}` : ''}` : `${TIER_TO[t]} 바꾸기`}
               </button>
             )}
           </div>
@@ -64,10 +68,19 @@ export interface KeepingConfirm {
 }
 
 /** The sheet itself, without its data loading (so it can be rendered in tests). */
-export function PlanSheetView({ plans, patientName, current, hasPlanSinceMs, reason, canChange, memory, nowMs, busy, confirm, onChoose, onConfirm, onCancelConfirm, onClose }: {
+export function PlanSheetView({ plans, patientName, current, hasPlanSinceMs, reason, canChange, memory, nowMs, busy, confirm, live = false, prices = {}, manageUrl = null, until = null, restoring = false, onRestore, onChoose, onConfirm, onCancelConfirm, onClose }: {
   plans: Plans
   patientName: string
   current: PlanTier
+  /** The store takes the money on this device (lib/payments paymentsLive). */
+  live?: boolean
+  prices?: Partial<Record<PlanTier, string>>
+  /** The store's subscription page for 구독 관리, once known. */
+  manageUrl?: string | null
+  /** "10월 30일까지 이용" for a paid plan, from plan.payment.expiresAt. */
+  until?: string | null
+  restoring?: boolean
+  onRestore?: () => void
   /** When the parent was put on a plan; null when it has no date, undefined when nobody has. */
   hasPlanSinceMs: number | null | undefined
   reason: PlanReason
@@ -83,6 +96,9 @@ export function PlanSheetView({ plans, patientName, current, hasPlanSinceMs, rea
 }) {
   const suggested = suggestedTier(plans, current, reason)
   const why = reasonLine(reason, patientName, suggested)
+  // The website while payments are on: look, but buy in the app.
+  const appOnly = paymentsElsewhere(plans)
+  const mayBuy = canChange && !appOnly
   const days = memory && daysUntilOldestGoes({
     memory,
     retentionDays: plans[current]?.retentionDays ?? null,
@@ -117,9 +133,21 @@ export function PlanSheetView({ plans, patientName, current, hasPlanSinceMs, rea
           <div className="modal-body">
             {why && <div className="plan-reason">{why}</div>}
             {memory && memory.count > 0 && <div className="plan-memory">{S.planMemoryStrip(memory.count, days ?? null)}</div>}
-            <PlanCards plans={plans} current={current} patientName={patientName} suggested={suggested} canChange={canChange} busy={busy} onChoose={onChoose} />
+            {until && current !== 'free' && <div className="plan-until">{S.planUntil(until)}</div>}
+            <PlanCards plans={plans} current={current} patientName={patientName} suggested={suggested} canChange={mayBuy} busy={busy} prices={prices} onChoose={onChoose} />
             {!canChange && <div className="help">{S.planViewer}</div>}
-            {canChange && !PAYMENTS_LIVE && <div className="help">{S.planBeta}</div>}
+            {canChange && appOnly && <div className="help">{S.planAppOnly}</div>}
+            {canChange && !appOnly && !live && <div className="help">{S.planBeta}</div>}
+            {live && canChange && (
+              <div className="plan-store">
+                <div className="help">{S.planAutoRenew}</div>
+                <div className="plan-store-row">
+                  {manageUrl && current !== 'free' && <a className="plan-store-link" href={manageUrl} target="_blank" rel="noopener noreferrer">{S.planManage} ›</a>}
+                  {onRestore && <button type="button" className="plan-store-link" disabled={busy != null || restoring} onClick={onRestore}>{restoring ? S.planRestoring : S.planRestore}</button>}
+                </div>
+                <LegalLinks />
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -136,7 +164,7 @@ export function PlanSheet({ plans, patientUid, patientName, plan, reason, canCha
   patientUid: string
   patientName: string
   /** users/{patientUid}.plan as loaded; undefined when nobody has set one. */
-  plan: { tier: PlanTier; since?: { toMillis: () => number } } | undefined
+  plan: { tier: PlanTier; since?: { toMillis: () => number }; payment?: { expiresAt?: { toMillis: () => number } | null } } | undefined
   reason: PlanReason
   canChange: boolean
   onClose: () => void
@@ -147,6 +175,21 @@ export function PlanSheet({ plans, patientUid, patientName, plan, reason, canCha
   const [busy, setBusy] = useState<PlanTier | null>(null)
   const [confirm, setConfirm] = useState<KeepingConfirm | null>(null)
   const current = plan?.tier ?? 'free'
+  const live = paymentsLive(plans)
+  const [prices, setPrices] = useState<Partial<Record<PlanTier, string>>>({})
+  const [manageUrl, setManageUrl] = useState<string | null>(null)
+  const [restoring, setRestoring] = useState(false)
+  const expiresMs = plan?.payment?.expiresAt?.toMillis?.()
+  const until = expiresMs ? new Date(expiresMs).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' }) : null
+
+  // Live: the store's prices and its subscription page, when they come.
+  useEffect(() => {
+    if (!live) return
+    let on = true
+    void storePrices().then((p) => { if (on) setPrices(p) })
+    void managementUrl().then((u) => { if (on) setManageUrl(u) })
+    return () => { on = false }
+  }, [live])
 
   useEffect(() => {
     let live = true
@@ -159,13 +202,29 @@ export function PlanSheet({ plans, patientUid, patientName, plan, reason, canCha
   const change = async (tier: PlanTier) => {
     setBusy(tier)
     try {
-      const res = await changePlan(patientUid, tier, reason.kind)
+      const res = await changePlan(patientUid, tier, reason.kind, live)
       toast.show(`${TIER_TO[tier]} 바꿨어요`, res.unlockedVoices > 0 ? `지난 음성 답장 ${res.unlockedVoices}개가 열렸어요` : undefined)
       onClose()
     } catch (err) {
+      if (err instanceof PurchaseCancelled) { toast.show(S.planCancelled); setBusy(null); return }
       console.error('[plan] change failed', err)
-      toast.show('바꾸지 못했어요', isWorkerOffline(err) ? WORKER_OFFLINE_MESSAGE : '잠시 후 다시 시도해 주세요')
+      toast.show('바꾸지 못했어요', planFailureLine(err))
       setBusy(null)
+    }
+  }
+
+  // 구매 복원: what the store says this person pays for, put back on the parent.
+  const restore = async () => {
+    setRestoring(true)
+    try {
+      const got = await restorePlan(patientUid)
+      if (!got) toast.show(S.planNothingToRestore)
+      else { toast.show(S.planRestored(TIER_NAME[got.tier])); onClose() }
+    } catch (err) {
+      console.error('[plan] restore failed', err)
+      toast.show('되찾지 못했어요', planFailureLine(err))
+    } finally {
+      setRestoring(false)
     }
   }
 
@@ -192,6 +251,12 @@ export function PlanSheet({ plans, patientUid, patientName, plan, reason, canCha
       nowMs={nowMs}
       busy={busy}
       confirm={confirm}
+      live={live}
+      prices={prices}
+      manageUrl={manageUrl}
+      until={until}
+      restoring={restoring}
+      onRestore={live ? () => void restore() : undefined}
       onChoose={(tier) => void choose(tier)}
       onConfirm={() => confirm && void change(confirm.tier)}
       onCancelConfirm={() => setConfirm(null)}

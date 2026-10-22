@@ -313,6 +313,7 @@ export function Settings({ settings, onChange, user, onSignOut, activePatientUid
           <p className="sheet-sub">내 사진과 기록, 가족 연결이 모두 지워지고 되돌릴 수 없어요.</p>
           <div className="help" style={{ textAlign: 'center', margin: '-8px 0 14px' }}>
             부모님 기록은 지워지지 않아요 — 지우려면 먼저 부모님 관리에서 삭제해 주세요.
+            {onOpenPlans && <><br />구독 중이라면 스토어에서 먼저 해지해 주세요. 계정을 지워도 결제는 멈추지 않아요.</>}
           </div>
           <button type="button" className="sheet-danger-btn" disabled={deleteMeBusy} onClick={onDeleteMyAccount}>
             {deleteMeBusy ? '삭제하는 중…' : '계정 삭제'}

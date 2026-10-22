@@ -17,6 +17,8 @@
  *   OLLAMA_BASE_URL / OLLAMA_MODEL  default http://localhost:11434 / gemma4:e4b
  *   KAKAO_REST_KEY                  optional, Korean reverse geocoding
  *   GEMINI_API_KEY                  optional, Gemini memos for those let through (llm/route.ts)
+ *   PAYMENT_PROVIDER                'revenuecat' for store subscriptions; default the stand-in
+ *   REVENUECAT_SECRET_KEY           its REST key; without it no paid plan is confirmed
  *   WORKER_STATE_DIR                default ~/.trackbyphoto/state
  *   APP_URL                         default https://trackbyphoto.web.app (links in pair/push/digest)
  *   EDITION                         'simple' for the simple-core worker; default full (config.ts)
@@ -38,6 +40,7 @@ import { ReactionScheduler, watchReactions } from './handlers/reactions.js'
 import { startRetention } from './handlers/retention.js'
 import { startDigests } from './handlers/digest.js'
 import { startHousekeeping } from './handlers/housekeeping.js'
+import { startSubscriptionPoll } from './handlers/subscriptions.js'
 import { watchFamilyPhotos } from './handlers/familyPhotos.js'
 import { startHeartbeat } from './heartbeat.js'
 import { sttAvailable } from './llm/stt.js'
@@ -79,6 +82,8 @@ async function main() {
     startDigests(),
     startHousekeeping(),
     watchFamilyPhotos(),
+    // Store subscriptions only end on the store's say-so, so they are polled.
+    ...(process.env.PAYMENT_PROVIDER === 'revenuecat' ? [startSubscriptionPoll()] : []),
     // Simple edition: one notice a day instead of one per photo.
     ...(edition() === 'simple' ? [startDailyNotices()] : []),
   ]

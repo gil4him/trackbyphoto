@@ -37,6 +37,20 @@ export const S = {
   planVoiceWaiting: (patientName: string, n: number) => `${subject(patientName)} 남긴 답장 ${n}개가 기다리고 있어요`,
   planBeta: '지금은 베타 기간이라 요금이 청구되지 않아요.',
   planViewer: '요금제는 대표 가족이나 관리자가 바꿀 수 있어요.',
+  /** Store subscriptions (전자상거래법·App Review: the terms, in plain words, next to the buy buttons). */
+  planAutoRenew: '구독은 매월 자동 결제되고, 언제든 스토어에서 해지할 수 있어요. 해지하면 남은 기간까지 그대로 이용해요.',
+  planManage: '구독 관리',
+  planRestore: '구매 복원',
+  planRestoring: '확인하는 중…',
+  planRestored: (tier: string) => `${tier} 구독을 되찾았어요`,
+  planNothingToRestore: '되찾을 구독이 없어요',
+  planAppOnly: '요금제 구독은 Daylie 앱에서 할 수 있어요.',
+  planCancelled: '결제를 취소했어요',
+  planNotEntitled: '결제가 확인되지 않았어요. 잠시 후 다시 시도해 주세요.',
+  planUsedForAnother: '이 구독은 이미 다른 부모님께 쓰고 있어요. 두 분을 함께 돌보려면 Family 요금제를 골라 주세요.',
+  planPaidByAnother: '다른 가족이 이미 이 부모님의 요금제를 구독 중이에요.',
+  planCancelInStore: '구독은 스토어에서 해지해 주세요. 기간이 끝나면 Free로 돌아가요.',
+  planUntil: (date: string) => `${date}까지 이용`,
   voiceAlbum: '목소리 앨범',
   /** The parent's card: "민수가 사진을 보냈어요", "민수 외 1명이 사진 3장을 보냈어요". */
   familyPhotoCardNew: (name: string, others: number, count: number) =>

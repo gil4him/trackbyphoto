@@ -9,6 +9,12 @@
  *   npm run plans -- price=plus:₩0,000/월    the price shown on a plan's card (price=plus: removes it)
  *   npm run plans -- cloudAllow=<uid>  let one person's memos be written by Gemini before cloudMemo is on
  *   npm run plans -- cloudDeny=<uid>   take them off that list (admin_config/cloudLlm)
+ *   npm run plans -- sheetAllow=<uid>  let one family member open the plan sheet before planSheet is on
+ *   npm run plans -- sheetDeny=<uid>   take them off that list (planSheetAllow)
+ *
+ * Real charging is the `payments` flag, like any other: `payments=on` makes
+ * a paid plan need a live store subscription; off, the sheet works and
+ * nothing is charged.
  *
  * The tier table is kept out of this public repository: the seed is read
  * from ~/.trackbyphoto/plans.seed.json (or PLANS_SEED).
@@ -83,6 +89,10 @@ for (const arg of process.argv.slice(2)) {
     const cloud = db.doc('admin_config/cloudLlm')
     await cloud.set({ allow: key === 'cloudAllow' ? FieldValue.arrayUnion(value) : FieldValue.arrayRemove(value) }, { merge: true })
     console.log('admin_config/cloudLlm →', JSON.stringify((await cloud.get()).data()))
+  } else if (key === 'sheetAllow' || key === 'sheetDeny') {
+    if (!value) throw new Error(`${key}=<uid>`)
+    await ref.set({ planSheetAllow: key === 'sheetAllow' ? FieldValue.arrayUnion(value) : FieldValue.arrayRemove(value) }, { merge: true })
+    console.log('planSheetAllow →', JSON.stringify(((await ref.get()).data() as PlansDoc).planSheetAllow ?? []))
   } else if (PLAN_FLAGS.includes(key as PlanFlag) && (value === 'on' || value === 'off')) {
     await ref.update({ [`flags.${key}`]: value === 'on' })
     console.log(`flag ${key} → ${value}`)

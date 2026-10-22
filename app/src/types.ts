@@ -96,7 +96,8 @@ export interface UserSettings {
   /** How the worker's model words this parent's memos (설정 → 메모 말투); absent means warm. */
   memoStyle?: MemoStyle
   /** The patient's plan. Written only by the worker (changePlan); missing means free. */
-  plan?: { tier: PlanTier; status?: string; since?: Timestamp }
+  /** Written only by the worker (changePlan, the subscription poll). `payment` names who pays and until when. */
+  plan?: { tier: PlanTier; status?: 'active' | 'grace' | string; since?: Timestamp; payment?: { provider: string; reference?: string; payerUid?: string; expiresAt?: Timestamp | null } }
   /** When the digest of this person's day goes out (worker-owned; setDigest). */
   digest?: DigestSettings
   /** 'managed' when a family member registered this elder (부모님 등록하기):
@@ -249,7 +250,9 @@ export interface PlanEntitlements {
  *  A tier the doc leaves out is not offered. */
 export type Plans = Partial<Record<PlanTier, PlanEntitlements>> & {
   fairUse: { photosPerDay: number | null }
-  flags: Partial<Record<'reactions' | 'voiceReplies' | 'digest' | 'emailDigest' | 'pushFamily' | 'usageCaps' | 'retentionJob' | 'messengerFree' | 'trailMap' | 'planSheet' | 'familyPhotos' | 'cloudMemo', boolean>>
+  flags: Partial<Record<'reactions' | 'voiceReplies' | 'digest' | 'emailDigest' | 'pushFamily' | 'usageCaps' | 'retentionJob' | 'messengerFree' | 'trailMap' | 'planSheet' | 'familyPhotos' | 'cloudMemo' | 'payments', boolean>>
+  /** Who may use the plan sheet while `planSheet` is still off (the owner, testing purchases). */
+  planSheetAllow?: string[]
 }
 
 export type ReactionKind = 'heart' | 'comment' | 'voice'

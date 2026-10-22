@@ -8,7 +8,7 @@ import { acceptInvite, createInvite } from '../src/handlers/caregiver'
 import { INVITE_PROMPT_MESSAGE, invitePrompt, nextTierWithRoom } from '../src/handlers/family'
 import { changePlan } from '../src/handlers/plan'
 import { HANDLERS, processRequest } from '../src/handlers/requests'
-import { paymentProvider, stubPayments, type PaymentRequest } from '../src/payments/index'
+import { paymentProvider, stubPayments, type PaymentRequest, type PaymentResult } from '../src/payments/index'
 import { getPlans, offeredTiers, resetPlansCache, type PlansDoc } from '../src/plans'
 import { db, clearFirestore, seedMembership, count } from './setup'
 
@@ -130,6 +130,140 @@ describe('changePlan', () => {
     await db.doc('requests/r1').set({ type: 'changePlan', uid: 'cg1', email: null, name: '민수', payload: { patientUid: 'p1', tier: 'basic' }, status: 'pending' })
     await processRequest('r1')
     expect((await db.doc('requests/r1').get()).data()).toMatchObject({ status: 'done', result: { tier: 'basic', changed: true } })
+  })
+})
+
+// The store app buys a subscription; the worker believes RevenueCat, not the
+// app. Here a fake provider stands in for RevenueCat's answer.
+describe('paying for a plan through the store', () => {
+  const PRODUCT = 'daylie_plus_monthly'
+  const DAY = 24 * 3600 * 1000
+  const future = () => new Date(Date.now() + 20 * DAY)
+  const store = (res: Partial<PaymentResult> = {}, seen: PaymentRequest[] = []) => ({
+    name: 'revenuecat',
+    confirm: async (req: PaymentRequest): Promise<PaymentResult> => {
+      seen.push(req)
+      // Free is never a store product, as with the real provider.
+      if (req.to === 'free') return { ok: true, provider: 'revenuecat' }
+      return { ok: true, provider: 'revenuecat', reference: PRODUCT, productId: PRODUCT, expiresAt: future(), ...res }
+    },
+  })
+  /** Charging switched on, as it is once the stores are live. */
+  const live = () => plans({ planSheet: true, voiceReplies: true, payments: true })
+  const refused = async (p: Promise<unknown>) => {
+    const err = await fails(p) as { code: string; message: string }
+    return [err.code, err.message]
+  }
+  const row = async (payerUid = 'cg1') => (await db.doc(`planPayments/${payerUid}`).get()).data()
+  const secondParent = async () => {
+    await db.doc('users/p2').set({ patientName: '아버지', accountType: 'managed' })
+    await seedMembership('p2', 'cg1', { role: 'guardian' })
+  }
+
+  it('charges nothing and records no purchase until payments are switched on', async () => {
+    expect((await changePlan(as('cg1'), { patientUid: 'p1', tier: 'plus' })).changed).toBe(true)
+    expect((await user()).plan.payment).toEqual({ provider: 'stub' })
+    expect((await db.collection('planPayments').get()).size).toBe(0)
+  })
+
+  it('writes what the store charges for, on the plan and on the payer\'s own row', async () => {
+    await live()
+    const seen: PaymentRequest[] = []
+    expect(await changePlan(as('cg1'), { patientUid: 'p1', tier: 'plus', paymentToken: 'cg1' }, { payments: store({}, seen) }))
+      .toEqual({ tier: 'plus', changed: true, unlockedVoices: 0 })
+
+    const plan = (await user()).plan
+    expect(plan).toMatchObject({ tier: 'plus', status: 'active', changedBy: 'cg1' })
+    expect(plan.payment).toMatchObject({ provider: 'revenuecat', reference: PRODUCT, payerUid: 'cg1' })
+    expect(plan.payment.expiresAt).toBeInstanceOf(Timestamp)
+    expect(await row()).toMatchObject({ patientUid: 'p1', tier: 'plus', productId: PRODUCT })
+    expect((await row())!.expiresAt.toMillis()).toBe(plan.payment.expiresAt.toMillis())
+    // The lookup goes by the caller's own uid; the token is only proof the
+    // app really went to the store.
+    expect(seen).toEqual([{ payerUid: 'cg1', patientUid: 'p1', from: 'free', to: 'plus', token: 'cg1' }])
+  })
+
+  it('refuses a plan the store does not back', async () => {
+    await live()
+    expect(await refused(changePlan(as('cg1'), { patientUid: 'p1', tier: 'plus', paymentToken: 'cg1' }, { payments: store({ ok: false, reason: 'not entitled' }) })))
+      .toEqual(['payment-failed', 'not entitled'])
+    expect((await user()).plan).toBeUndefined()
+    expect(await row()).toBeUndefined()
+  })
+
+  it('refuses a paid plan the app never took to the store', async () => {
+    await live()
+    expect((await fails(changePlan(as('cg1'), { patientUid: 'p1', tier: 'plus' }, { payments: store() }))).code).toBe('invalid-argument')
+    // Free needs no purchase.
+    expect((await changePlan(as('cg1'), { patientUid: 'p1', tier: 'free' }, { payments: store() })).changed).toBe(true)
+  })
+
+  it('does not let one subscription pay for a second parent', async () => {
+    await live()
+    await secondParent()
+    await changePlan(as('cg1'), { patientUid: 'p1', tier: 'plus', paymentToken: 'cg1' }, { payments: store() })
+    expect(await refused(changePlan(as('cg1'), { patientUid: 'p2', tier: 'plus', paymentToken: 'cg1' }, { payments: store() })))
+      .toEqual(['failed-precondition', 'subscription used for another parent'])
+    expect((await user('p2')).plan).toBeUndefined()
+    expect(await row()).toMatchObject({ patientUid: 'p1' })
+  })
+
+  it('does let them buy for another parent once the first is back on Free', async () => {
+    await live()
+    await secondParent()
+    // What the poll leaves behind for a moment: a row whose parent is on Free.
+    await db.doc('planPayments/cg1').set({ patientUid: 'p1', tier: 'plus', productId: PRODUCT, expiresAt: Timestamp.fromMillis(Date.now() - DAY) })
+    expect((await changePlan(as('cg1'), { patientUid: 'p2', tier: 'plus', paymentToken: 'cg1' }, { payments: store() })).changed).toBe(true)
+    expect(await row()).toMatchObject({ patientUid: 'p2', tier: 'plus' })
+  })
+
+  it('leaves a parent somebody else is paying for alone', async () => {
+    await live()
+    await seedMembership('p1', 'cg2', { role: 'admin' })
+    await db.doc('users/p1').update({
+      plan: { tier: 'plus', status: 'active', changedBy: 'cg2', payment: { provider: 'revenuecat', reference: PRODUCT, payerUid: 'cg2', expiresAt: Timestamp.fromDate(future()) } },
+    })
+    for (const tier of ['family', 'free']) {
+      expect(await refused(changePlan(as('cg1'), { patientUid: 'p1', tier, paymentToken: 'cg1' }, { payments: store() })))
+        .toEqual(['failed-precondition', 'parent paid by another'])
+    }
+    expect((await user()).plan.tier).toBe('plus')
+  })
+
+  it('sends a family who want to stop to the store, and waits for it', async () => {
+    await live()
+    await changePlan(as('cg1'), { patientUid: 'p1', tier: 'plus', paymentToken: 'cg1' }, { payments: store() })
+    expect(await refused(changePlan(as('cg1'), { patientUid: 'p1', tier: 'free' }, { payments: store() })))
+      .toEqual(['failed-precondition', 'cancel in store'])
+    expect((await user()).plan.tier).toBe('plus')
+    expect(await row()).toMatchObject({ patientUid: 'p1' })
+  })
+
+  it('takes Free once the subscription has run out, and clears the row', async () => {
+    await live()
+    await changePlan(as('cg1'), { patientUid: 'p1', tier: 'plus', paymentToken: 'cg1' }, { payments: store({ expiresAt: new Date(Date.now() - DAY) }) })
+    expect((await changePlan(as('cg1'), { patientUid: 'p1', tier: 'free' }, { payments: store() })).changed).toBe(true)
+    expect((await user()).plan).toMatchObject({ tier: 'free', payment: { provider: 'revenuecat' } })
+    expect(await row()).toBeUndefined()
+  })
+
+  it('counts the same purchase once, however often the app asks', async () => {
+    await live()
+    await changePlan(as('cg1'), { patientUid: 'p1', tier: 'plus', paymentToken: 'cg1' }, { payments: store() })
+    expect(await changePlan(as('cg1'), { patientUid: 'p1', tier: 'plus', paymentToken: 'cg1' }, { payments: store() }))
+      .toEqual({ tier: 'plus', changed: false, unlockedVoices: 0 })
+    expect(await count('auditLogs', 'action', 'plan.change')).toBe(1)
+  })
+
+  it('opens the sheet to a listed family member while it is still closed to everyone else', async () => {
+    await db.doc('admin_config/plans').set({ ...PLANS, flags: { planSheet: false, voiceReplies: true }, planSheetAllow: ['cg1'] })
+    resetPlansCache()
+    expect((await changePlan(as('cg1'), { patientUid: 'p1', tier: 'plus' })).changed).toBe(true)
+
+    await db.doc('users/solo').set({ patientName: '승희' })
+    expect(await refused(changePlan(as('solo'), { patientUid: 'solo', tier: 'plus' })))
+      .toEqual(['failed-precondition', 'plan changes are not open yet'])
+    expect((await user('solo')).plan).toBeUndefined()
   })
 })
 
