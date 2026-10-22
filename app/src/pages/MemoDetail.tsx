@@ -9,7 +9,8 @@ import { useWorkerStatus } from '../hooks/useWorkerStatus'
 import { Reactions, type ReactionsContext } from '../components/Reactions'
 import { markRead } from '../lib/reactions'
 import type { Memo, MemoSource } from '../types'
-import { detailActions, mapLink, type DetailAction } from '../lib/memoViews'
+import { detailActions, type DetailAction } from '../lib/memoViews'
+import { PlaceMap } from '../components/PlaceMap'
 import { BottomSheet } from '../components/BottomSheet'
 import { isSimple } from '../lib/edition'
 import { sharePhoto } from '../lib/photoShare'
@@ -135,7 +136,9 @@ export function MemoDetail({ memo, onBack, readOnly = false, rx }: { memo: Memo;
       })
   }
 
-  const mapUrl = mapLink(memo, isSimple())
+  // 지도에서 보기: the map opens here, under the place, never in another app.
+  const located = typeof memo.lat === 'number' && typeof memo.lng === 'number'
+  const [mapOpen, setMapOpen] = useState(false)
 
   const [sharing, setSharing] = useState(false)
   const passOn = async (run: () => Promise<unknown>) => {
@@ -275,12 +278,13 @@ export function MemoDetail({ memo, onBack, readOnly = false, rx }: { memo: Memo;
             <span>📍 {memo.place || '위치 정보 없음'}</span>
             {memo.address && <span className="d-address">{memo.address}</span>}
           </div>
-          {mapUrl && (
-            <a href={mapUrl} target="_blank" rel="noreferrer" className="d-map-link">
-              지도에서 보기 →
-            </a>
+          {located && (
+            <button type="button" className="d-map-link" aria-expanded={mapOpen} onClick={() => setMapOpen((o) => !o)}>
+              {mapOpen ? '지도 닫기' : '지도에서 보기'}
+            </button>
           )}
         </div>
+        {located && mapOpen && <PlaceMap point={{ lat: memo.lat as number, lng: memo.lng as number }} />}
       </div>
     </section>
   )

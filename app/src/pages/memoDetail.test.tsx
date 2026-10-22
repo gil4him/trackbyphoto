@@ -61,3 +61,17 @@ describe('MemoDetail 가족 이야기', () => {
     expect(html(rx(false))).not.toContain('가족 이야기')
   })
 })
+
+describe('지도에서 보기', () => {
+  const located = { ...memo, lat: 37.5145, lng: 127.1059 } as unknown as Memo
+  it('opens the map inside the app, never another app', () => {
+    const out = renderToString(<ToastProvider><MemoDetail memo={located} onBack={() => {}} readOnly /></ToastProvider>)
+    expect(out).toContain('지도에서 보기')
+    expect(out).toContain('aria-expanded="false"')
+    expect(out).not.toMatch(/google\.com\/maps|maps\.apple\.com|target="_blank"/)
+  })
+  it('is not offered for a photo without a location', () => {
+    expect(render()).not.toContain('지도에서 보기')
+  })
+})
+

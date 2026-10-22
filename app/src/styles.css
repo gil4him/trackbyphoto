@@ -459,7 +459,9 @@ main { padding: 18px 22px calc(110px + var(--safe-bot)); }
 }
 .d-place-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .d-address { font-size: 15px; color: var(--muted); }
-.d-map-link { color: var(--ink); font-size: 15px; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; flex-shrink: 0; }
+.d-map-link { min-height: 48px; padding: 0; border: 0; background: none; font: inherit; color: var(--ink); font-size: 15px; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; flex-shrink: 0; cursor: pointer; }
+/* The photo's place on a map, inside the app (components/PlaceMap.tsx). */
+.place-map { display: block; width: 100%; height: 220px; margin-top: 10px; border: 0; border-radius: 14px; object-fit: cover; background: var(--surface-dim); overflow: hidden; }
 
 
 /* ---------- SETTINGS ---------- */

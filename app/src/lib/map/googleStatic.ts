@@ -8,11 +8,12 @@ import type { LatLng } from '../trail'
 const MAX_POINTS = 25
 const ROUTE_COLOR = '0xFF6B2CFF'
 
-export function staticMapUrl(points: LatLng[], key: string, size = { width: 640, height: 400 }): string {
+/** `numbered` false: one plain pin (a single photo's place). */
+export function staticMapUrl(points: LatLng[], key: string, size = { width: 640, height: 400 }, numbered = true): string {
   const pts = points.slice(0, MAX_POINTS)
   const at = (p: LatLng) => `${p.lat.toFixed(5)},${p.lng.toFixed(5)}`
   const params = new URLSearchParams({ size: `${size.width}x${size.height}`, scale: '2', language: 'ko', key })
   if (pts.length > 1) params.append('path', [`color:${ROUTE_COLOR}`, 'weight:4', ...pts.map(at)].join('|'))
-  pts.forEach((p, i) => params.append('markers', [`color:0xFF6B2C`, ...(i < 9 ? [`label:${i + 1}`] : []), at(p)].join('|')))
+  pts.forEach((p, i) => params.append('markers', [`color:0xFF6B2C`, ...(numbered && i < 9 ? [`label:${i + 1}`] : []), at(p)].join('|')))
   return `https://maps.googleapis.com/maps/api/staticmap?${params.toString()}`
 }
