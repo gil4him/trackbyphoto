@@ -3,7 +3,7 @@ import { flushSync } from 'react-dom'
 import { TextReply } from '../components/TextReply'
 import { markFamilyPhotoSeen, replyToFamilyPhoto } from '../lib/familyPhotos'
 import { keepFamilyPhotoOnDevice } from '../lib/familyPhotoKeep'
-import { viewerOrder } from '../lib/familyPhotosModel'
+import { unseen, viewerOrder } from '../lib/familyPhotosModel'
 import { S } from '../lib/strings'
 import { fmtTime } from '../util'
 import type { FamilyPhoto, TextReplies } from '../types'
@@ -15,16 +15,17 @@ const tail = (s: string) => s.replace(/ ›$/, '\u00a0›')
 
 /**
  * The photos the family sent, on the parent's phone, one at a time and
- * nothing else: the photo, a line from the sender, ❤️ 고마워요, and the way
- * on. New photos come first (the camera's banner opens the newest unseen),
- * then the rest, newest first; the order is fixed when the screen opens, so
- * a photo doesn't jump away as it is marked seen. After the last photo the
- * camera comes back by itself (`onDone(true)` — the caller says 다 보셨어요).
+ * nothing else: the photo, a line from the sender, 글로 답하기, and the way
+ * on (다음 사진 while more new ones wait, else 돌아가기). From the camera's
+ * bubble it walks the new photos, newest first; from 내 사진 it shows the one
+ * photo tapped. The order is fixed when the screen opens, so a photo doesn't
+ * jump away as it is marked seen. After the last photo the caller's screen
+ * comes back (`onDone(true)` — the caller says 다 보셨어요).
  * A written reply is one tap on a phrase, never the keyboard. Each photo
  * shown is marked seen and kept on the phone (docs/DAYLIE_V3_UI_FIX.md A9).
  * Layout (A12): who sent it and where we are in the run on top, the photo at
  * its own shape, the message and the time under it, and the actions pinned
- * above the safe area — ❤️ 고마워요, then 글로 답하기 · 다음 사진 › side by side.
+ * above the safe area: 글로 답하기 · 다음 사진 (or 돌아가기) side by side.
  */
 export function FamilyPhotoViewer({ photos, textMode = 'full', onDone, startId, mark = markFamilyPhotoSeen, reply = replyToFamilyPhoto, keep = keepFamilyPhotoOnDevice }: {
   photos: FamilyPhoto[]
@@ -39,7 +40,12 @@ export function FamilyPhotoViewer({ photos, textMode = 'full', onDone, startId, 
   /** A copy on this phone, once (familyPhotoKeep). */
   keep?: (p: FamilyPhoto) => Promise<void>
 }) {
-  const [order] = useState(() => viewerOrder(photos, startId))
+  // From 내 사진: just that photo. From the camera's bubble: the new ones.
+  const [order] = useState(() => {
+    if (startId) return viewerOrder(photos, startId).filter((p) => p.id === startId)
+    const fresh = unseen(photos)
+    return fresh.length > 0 ? fresh : viewerOrder(photos)
+  })
   const [index, setIndex] = useState(0)
   const [phase, setPhase] = useState<'view' | 'text' | 'sent'>('view')
   const typed = useRef<HTMLInputElement>(null)
@@ -111,7 +117,7 @@ export function FamilyPhotoViewer({ photos, textMode = 'full', onDone, startId, 
     <section className="page fp-view">
       <div className="fp-top">
         <div className="fp-from">{S.familyPhotoFrom(current.senderName)}</div>
-        {order.length > DOTS_MAX
+        {order.length < 2 ? null : order.length > DOTS_MAX
           ? <div className="fp-count">{place}</div>
           : (
             <div className="fp-dots" aria-label={place}>
@@ -131,7 +137,7 @@ export function FamilyPhotoViewer({ photos, textMode = 'full', onDone, startId, 
             />}
       </div>
       {current.caption && <div className="fp-message">{current.caption}</div>}
-      <div className="fp-caption">{fmtTime(new Date(current.createdAtMs))} · {place}</div>
+      <div className="fp-caption">{fmtTime(new Date(current.createdAtMs))}{order.length > 1 ? ` · ${place}` : ''}</div>
       {/* Answered already: say so, and offer only the way on — one reply per photo. */}
       {current.reply && (
         <div className="fp-replied" role="status">
@@ -139,7 +145,6 @@ export function FamilyPhotoViewer({ photos, textMode = 'full', onDone, startId, 
         </div>
       )}
       <div className="fp-actions">
-        {!current.reply && <button className="fp-heart" onClick={() => send({ kind: 'heart' })}>{S.elderReplyHeart}</button>}
         <div className="fp-row2">
           {!current.reply && textMode !== 'off' && <button className="fp-btn" onClick={openText}>{S.familyPhotoReplyText}</button>}
           {onward}

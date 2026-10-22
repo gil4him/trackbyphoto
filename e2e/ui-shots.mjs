@@ -151,7 +151,7 @@ const PHASES = {
       go: async (p) => {
         await openViewer(p)
         await click(p, '다음 사진', '.fp-btn'); await waitText(p, '2 / 3')
-        await click(p, '다음 사진', '.fp-btn'); await waitText(p, '처음으로')
+        await click(p, '다음 사진', '.fp-btn'); await waitText(p, '돌아가기')
       },
     },
     'viewer-text': {
@@ -171,7 +171,8 @@ const PHASES = {
   A11: {
     camera: {
       open: momPhone,
-      go: async (p) => { await viewfinder(p); await waitText(p, '가족 사진 다시 보기') },
+      // The seen family photos live in 내 사진 now; the camera has no quiet re-view bubble.
+      go: async (p) => { await viewfinder(p); await sleep(800) },
     },
     'camera-news': {
       prepare: () => seedTodayMemos({ momUid, kidUid: self, kidName: KID.name, count: 1 }),
@@ -287,7 +288,7 @@ async function openViewer(p) {
   await viewfinder(p)
   await p.waitForSelector('.elder-cam-bubble', { timeout: 30_000 })
   await p.click('.elder-cam-bubble')
-  await waitText(p, '❤️ 고마워요')
+  await waitText(p, '글로 답하기')
   await p.waitForFunction(() => [...document.querySelectorAll('.fp-photo img')].every((i) => i.complete && i.naturalWidth > 0), { timeout: 20_000 }).catch(() => {})
 }
 
@@ -343,7 +344,7 @@ async function shootA6() {
       await click(p, '글을 남겼어요')
       await sleep(600)
       // Photos from the family (A9): the banner opens the newest unseen photo,
-      // 다음 walks on, ❤️ on the last one brings the camera back with a toast.
+      // 다음 walks on, 돌아가기 on the last one brings the camera back with a toast.
       // Only the two new ones: the demo seed's answered photo would be a third stop.
       const old = await getFirestore().collection('familyPhotos').where('patientUid', '==', momUid).get()
       await Promise.all(old.docs.map((d) => d.ref.delete()))
@@ -351,11 +352,11 @@ async function shootA6() {
       await waitText(p, '사진 2장을 보냈어요', 30_000)
       await snap(p, PHASE === 'A9' ? 'banner' : 'photo-bubble')
       await click(p, '사진 2장을 보냈어요', '.elder-cam-bubble')
-      await waitText(p, '❤️ 고마워요')
+      await waitText(p, '글로 답하기')
       await snap(p, 'photo-view')
       await click(p, '다음 사진', '.fp-btn')
-      await waitText(p, '처음으로')
-      await click(p, '❤️ 고마워요', '.fp-heart')
+      await waitText(p, '돌아가기')
+      await click(p, '돌아가기', '.fp-btn')
       await waitText(p, '다 보셨어요', 10_000)
       await snap(p, 'last-to-camera', { quick: true })
       await p.waitForSelector('.elder-cam-shutter:not([disabled])', { timeout: 30_000 })

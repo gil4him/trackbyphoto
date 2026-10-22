@@ -20,6 +20,9 @@ import { resetIfAccountGone } from '../hooks/useAuth'
 import { isSimple } from '../lib/edition'
 import type { Memo, Reaction, TextReplies } from '../types'
 import { cardLine, unseen } from '../lib/familyPhotosModel'
+
+/** The camera's photo bubble: only while a photo from family is new. */
+const newPhotosLine = (photos: Parameters<typeof cardLine>[0]) => { const line = cardLine(photos); return line?.lit ? line : null }
 import { CameraFab } from '../components/CameraFab'
 import { useToast } from '../components/Toast'
 import { useIdleReturn } from '../hooks/useIdleReturn'
@@ -166,7 +169,8 @@ export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn
             uid={uid}
             deviceId={deviceId}
             reactions={reactions}
-            photos={familyPhotosOn ? cardLine(familyPhotos) : null}
+            // Only a new photo is announced on the camera; the ones already seen live in 내 사진.
+            photos={familyPhotosOn ? newPhotosLine(familyPhotos) : null}
             recent={memos[0] ?? null}
             onOpenRecords={() => setView('records')}
             onOpenPhotos={() => setPhotosOpen(true)}

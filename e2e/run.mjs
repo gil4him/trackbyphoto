@@ -394,7 +394,7 @@ await step('family sends the parent a photo with a line → it reaches the paren
   await snap(parent, 'parent-photo-card')
 })
 
-await step('parent opens it and answers with ❤️ → the sender sees it and is told', async () => {
+await step('parent opens it and answers 고마워 → the sender sees it and is told', async () => {
   await parent.click('.fp-card')
   await waitText(parent, '보고 싶어요', 20_000)
   expect(await has(parent, KID.name), 'the sender is not named')
@@ -402,19 +402,22 @@ await step('parent opens it and answers with ❤️ → the sender sees it and i
   // The photo itself is on screen (through the worker's link).
   await parent.waitForFunction(() => { const i = document.querySelector('.fp-photo img'); return !!i && i.complete && i.naturalWidth > 0 }, { timeout: 20_000 })
   await snap(parent, 'parent-photo-view')
-  await click(parent, '❤️ 고마워요')
+  // No heart button any more: the answer is a phrase (글로 답하기).
+  expect(!(await has(parent, '❤️ 고마워요')), 'the heart button is still offered')
+  await click(parent, '글로 답하기')
+  await click(parent, '고마워', { selector: '.news-btn' })
   await waitText(parent, '보냈어요', 20_000)
   await parent.waitForSelector('input[type=file]', { timeout: 20_000 }) // back home by itself
   await parent.waitForFunction(() => !document.querySelector('.fp-card.on') && !!document.querySelector('.fp-card'), { timeout: 20_000 })
-  await waitText(family, '❤️ 고마워요', 30_000)
+  await waitText(family, '“고마워”', 30_000)
   const end = Date.now() + 30_000
   let found = false
   while (!found && Date.now() < end) {
     const n = await db.collection('notifications').where('recipientUid', '==', familyUid).where('type', '==', 'familyPhoto.reply').get()
-    found = n.docs.some((d) => String(d.get('message')).includes('❤️'))
+    found = n.docs.some((d) => String(d.get('message')).includes('고마워'))
     if (!found) await sleep(500)
   }
-  expect(found, 'no notice for the parent\'s ❤️')
+  expect(found, 'no notice for the parent\'s reply')
 })
 
 await step('the 대표 가족 can switch family photos off for this parent, and on again', async () => {

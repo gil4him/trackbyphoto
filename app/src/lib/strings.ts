@@ -60,7 +60,7 @@ export const S = {
   familyPhotoLoadFail: '사진을 불러오지 못했어요',
   familyPhotoNext: '다음 사진 ›',
   familyPhotoAllSeen: '다 보셨어요 ♥',
-  familyPhotoToCamera: '처음으로 ›',
+  familyPhotoToCamera: '돌아가기',
   familyPhotoReplyText: '글로 답하기',
   familyPhotoSend: '사진 보내기',
   familyPhotoSendTitle: (name: string) => `${honorific(name)}께 사진 보내기`,
