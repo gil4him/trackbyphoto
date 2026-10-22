@@ -467,9 +467,6 @@ export function Settings({ settings, onChange, user, onSignOut, activePatientUid
   if (simple) {
     return (
       <section className="page settings-simple">
-        <div className="h-eyebrow">가족 설정</div>
-        <h2 className="h-title">설정</h2>
-
         <div className="sect">
           <SectLab>계정</SectLab>
           <div className="row">
@@ -640,9 +637,6 @@ export function Settings({ settings, onChange, user, onSignOut, activePatientUid
 
   return (
     <section className="page">
-      <div className="h-eyebrow">가족 설정</div>
-      <h2 className="h-title">설정</h2>
-
       {/* Account — kept so the user can sign out / see which Google account
           is in use. Not in the visual prototype but functionally important. */}
       <div className="sect">

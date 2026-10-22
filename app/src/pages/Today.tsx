@@ -69,8 +69,6 @@ export function Today({ memos, onOpen, uid, rx, onOpenTrail, onOpenVoiceAlbum, f
 
   return (
     <section className="page">
-      <div className="h-eyebrow">최근 기록</div>
-      <h2 className="h-title">사진</h2>
       {onOpenVoiceAlbum && (
         <button type="button" className="va-link" onClick={onOpenVoiceAlbum}>🎙️ {S.voiceAlbum} ›</button>
       )}

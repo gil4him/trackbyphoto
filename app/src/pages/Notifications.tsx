@@ -84,8 +84,6 @@ export function Notifications({ uid, onOpen, digestOn = false, emailOffered = fa
   if (isSimple()) {
     return (
       <section className="page">
-        <div className="h-eyebrow">가족 소식</div>
-        <h2 className="h-title">알림</h2>
         {pushRollout && <PushNudge />}
         <div className="sect">
           <div className="sect-lab ntf-head">
@@ -100,9 +98,6 @@ export function Notifications({ uid, onOpen, digestOn = false, emailOffered = fa
 
   return (
     <section className="page">
-      <div className="h-eyebrow">가족 소식</div>
-      <h2 className="h-title">알림</h2>
-
       <InstallHint />
 
       <div className="sect">

@@ -160,7 +160,7 @@ describe('목소리 앨범', () => {
         voices={[v('a', new Date(2026, 8, 3, 9), '잘 다녀왔어'), v('b', new Date(2026, 9, 4, 15, 41), '괜찮아, 오늘 많이 걸었어'), v('c', new Date(2026, 9, 1, 8))]} />,
     )
     const lines = text(out)
-    expect(lines).toEqual(expect.arrayContaining(['목소리 앨범', '2026년 10월', '2026년 9월', '“괜찮아, 오늘 많이 걸었어”', '“잘 다녀왔어”', '받아쓴 글이 없어요. 눌러서 들어 보세요.']))
+    expect(lines).toEqual(expect.arrayContaining(['2026년 10월', '2026년 9월', '“괜찮아, 오늘 많이 걸었어”', '“잘 다녀왔어”', '받아쓴 글이 없어요. 눌러서 들어 보세요.']))
     expect(lines.indexOf('2026년 10월')).toBeLessThan(lines.indexOf('2026년 9월'))
     expect((out.match(/<audio/g) ?? []).length).toBe(3)
   })
