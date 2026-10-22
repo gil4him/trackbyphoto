@@ -13,7 +13,7 @@ import { useWorkerStatus } from '../hooks/useWorkerStatus'
 import { clock, dayCaption, dayEyebrow, farthestKm, memosOnDay } from '../lib/memoViews'
 import { addressed, honorific } from '../lib/people'
 import { AWAY_KM, trailStops, trailSummary, type LatLng, type TrailStop } from '../lib/trail'
-import { MAP_KEYS, pickProvider, type MapKeys } from '../lib/map'
+import { MAP_KEYS, KAKAO_USABLE, pickProvider, type MapKeys } from '../lib/map'
 import { staticMapUrl } from '../lib/map/googleStatic'
 import { renderKakaoMap } from '../lib/map/kakao'
 import { TrailSketch } from '../components/TrailSketch'
@@ -57,8 +57,11 @@ function DayMap({ stops, home, away, onOpen, keys }: { stops: TrailStop[]; home:
   const mapRef = useRef<HTMLDivElement>(null)
   // Without IntersectionObserver (an old WebView) the map may load at once.
   const [seen, setSeen] = useState(() => typeof IntersectionObserver === 'undefined')
+  // A Kakao map that fails to load gives way to the Google picture; a Google
+  // picture that fails leaves the sketch.
+  const [kakaoFailed, setKakaoFailed] = useState(false)
   const [failed, setFailed] = useState(false)
-  const provider = pickProvider(stops, keys)
+  const provider = pickProvider(stops, keys, KAKAO_USABLE && !kakaoFailed)
   const kakao = seen && !failed && provider === 'kakao' && !!keys.kakao
   const picture = seen && !failed && provider === 'googleStatic' && !!keys.google
 
@@ -80,8 +83,8 @@ function DayMap({ stops, home, away, onOpen, keys }: { stops: TrailStop[]; home:
       home,
       { pad: 28 },
     ).catch((err) => {
-      console.warn('[home] map unavailable; keeping the sketch', err)
-      if (live) setFailed(true)
+      console.warn('[home] kakao map unavailable; trying the Google picture', err)
+      if (live) setKakaoFailed(true)
     })
     return () => { live = false }
     // The map is drawn once per set of stops.

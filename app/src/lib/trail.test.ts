@@ -108,8 +108,14 @@ describe('map provider', () => {
     expect(pickProvider([...SEOUL, ...NAGOYA], BOTH)).toBe('googleStatic')
   })
 
-  it('without the key for that area, the sketch is used', () => {
-    expect(pickProvider(SEOUL, { google: 'g' })).toBe('sketch')
+  it('in the store apps (Kakao refuses their origin) or after Kakao failed, Korea gets the Google picture', () => {
+    expect(pickProvider(SEOUL, BOTH, false)).toBe('googleStatic')
+    expect(pickProvider(NAGOYA, BOTH, false)).toBe('googleStatic')
+    expect(pickProvider(SEOUL, { kakao: 'k' }, false)).toBe('sketch')
+  })
+
+  it('without a key that can draw the area, the sketch is used', () => {
+    expect(pickProvider(SEOUL, { google: 'g' })).toBe('googleStatic')
     expect(pickProvider(NAGOYA, { kakao: 'k' })).toBe('sketch')
     expect(pickProvider(SEOUL, {})).toBe('sketch')
     expect(pickProvider([], BOTH)).toBe('sketch')

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { fmtTime } from '../util'
 import { TrailSketch } from '../components/TrailSketch'
 import { MemoRow } from '../components/MemoRow'
-import { MAP_KEYS, pickProvider, type MapKeys } from '../lib/map'
+import { MAP_KEYS, KAKAO_USABLE, pickProvider, type MapKeys } from '../lib/map'
 import { staticMapUrl } from '../lib/map/googleStatic'
 import { renderKakaoMap } from '../lib/map/kakao'
 import { AWAY_KM, fmtKm, trailStops, trailSummary, type LatLng, type TrailStop } from '../lib/trail'
@@ -43,9 +43,10 @@ export function Trail({ title, memos, home, onBack, onOpenMemo, keys = MAP_KEYS 
 }) {
   const stops = useMemo(() => trailStops(memos, home), [memos, home])
   const summary = trailSummary(stops)
-  const provider = pickProvider(stops, keys)
   const mapRef = useRef<HTMLDivElement>(null)
   const [kakaoFailed, setKakaoFailed] = useState(false)
+  // A Kakao map that fails to load gives way to the Google picture.
+  const provider = pickProvider(stops, keys, KAKAO_USABLE && !kakaoFailed)
   const [staticFailed, setStaticFailed] = useState(false)
   // Home belongs in the picture on a day out, not on a trip far away.
   const nearHome = home && !summary.away && summary.maxKm !== null && summary.maxKm < AWAY_KM ? home : null
@@ -59,7 +60,7 @@ export function Trail({ title, memos, home, onBack, onOpenMemo, keys = MAP_KEYS 
       stops.map((s, i) => ({ lat: s.lat, lng: s.lng, label: String(i + 1), photoUrl: s.memos[0].photoUrl, onClick: () => onOpenMemo(s.memos[0].id) })),
       nearHome,
     ).catch((err) => {
-      console.warn('[trail] map unavailable; showing the sketch', err)
+      console.warn('[trail] kakao map unavailable; trying the Google picture', err)
       if (live) setKakaoFailed(true)
     })
     return () => { live = false }
