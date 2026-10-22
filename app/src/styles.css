@@ -151,8 +151,11 @@ main { padding: 18px 22px calc(110px + var(--safe-bot)); }
 .pc-title { font-size: 17px; font-weight: 800; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pc-caption { font-size: 15px; color: var(--muted); line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; word-break: keep-all; overflow-wrap: anywhere; }
 .pc-go { flex: none; font-size: 15px; font-weight: 700; color: var(--muted); }
-.pc-thumbs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.pc-thumb { display: block; aspect-ratio: 1 / 1; border-radius: 12px; overflow: hidden; background: var(--surface-dim); }
+/* Today's photos: 72px squares (a third smaller than the old three-up grid)
+   in a strip that scrolls sideways, bleeding to the card's edges. */
+.pc-thumbs { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin: 0 -14px; padding: 0 14px; }
+.pc-thumbs::-webkit-scrollbar { display: none; height: 0; }
+.pc-thumb { flex: none; display: block; width: 72px; height: 72px; border-radius: 12px; overflow: hidden; background: var(--surface-dim); }
 .pc-thumb .tl-thumb { width: 100%; height: 100%; border-radius: 12px; }
 .pc-empty { display: block; padding: 14px; background: var(--surface-dim); border-radius: 12px; font-size: 15px; color: var(--muted); line-height: 1.4; word-break: keep-all; overflow-wrap: anywhere; }
 .pc-news { display: flex; align-items: center; gap: 8px; min-width: 0; }

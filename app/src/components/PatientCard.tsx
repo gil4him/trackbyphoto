@@ -6,7 +6,8 @@ import type { ParentSummary } from '../lib/dashboard'
 
 /**
  * A connected parent on the family's own home (docs/DAYLIE_V3_UI_FIX.md A10):
- * who, how many photos today and when the last came, today's three newest,
+ * who, how many photos today and when the last came, today's photos in a
+ * small strip that scrolls sideways,
  * and the newest unread news. No buttons — the whole card opens that
  * parent's day.
  */
@@ -34,9 +35,10 @@ export function PatientCard({ parent, onOpen, now = new Date() }: {
         </span>
         <span className="pc-go" aria-hidden="true">보기 ›</span>
       </span>
+      {/* A strip that scrolls sideways, newest first; small, so the card stays short. */}
       {todays.length > 0 ? (
-        <span className="pc-thumbs">
-          {todays.slice(0, 3).map((m) => <span key={m.id} className="pc-thumb"><MemoThumb memo={m} /></span>)}
+        <span className="pc-thumbs" aria-hidden="true">
+          {todays.slice(0, 12).map((m) => <span key={m.id} className="pc-thumb"><MemoThumb memo={m} /></span>)}
         </span>
       ) : (
         <span className="pc-empty">오늘 아직 사진이 없어요{yesterdays > 0 ? ` · 어제 사진 ${yesterdays}장` : ''}</span>

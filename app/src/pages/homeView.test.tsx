@@ -161,7 +161,7 @@ describe("Home in the simple edition: the family dashboard (A10)", () => {
     expect(out).not.toContain('오늘 하루를 기록해요')
   })
 
-  it("one card per parent: 엄마의 하루, today's count and last time, three thumbnails, 보기 ›, no buttons inside", () => {
+  it("one card per parent: 엄마의 하루, today's count and last time, today's thumbnails in a strip, 보기 ›, no buttons inside", () => {
     const out = render({ parents: [mom] })
     expect(count(out, 'class="patient-card"')).toBe(1)
     expect(out).toContain('엄마의 하루')
@@ -172,6 +172,11 @@ describe("Home in the simple edition: the family dashboard (A10)", () => {
     expect(out).not.toContain('pc-news')
     const card = out.slice(out.indexOf('<button type="button" class="patient-card"'), out.indexOf('class="mine"'))
     expect(card.match(/<button/g)?.length).toBe(1)
+  })
+
+  it('the strip shows every photo of the day (up to twelve), not just three', () => {
+    const busy = { ...mom, memos: [pm('mom', 'e', 17, 0), pm('mom', 'd', 16, 0), ...mom.memos] }
+    expect(count(render({ parents: [busy] }), 'class="pc-thumb"')).toBe(5)
   })
 
   it('새 소식 only while something is unread, re-addressed: 엄마가 새 사진을 올렸어요 · the time', () => {
