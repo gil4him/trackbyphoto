@@ -14,6 +14,7 @@ vi.mock('@capacitor/haptics', () => ({ Haptics: { impact: vi.fn(async () => {}) 
 vi.mock('../hooks/useMemberships', () => ({ useMemberships: () => ({ caregivers: [], patients: [], loading: false }) }))
 
 import { ElderCameraView, type CameraPhase, type Overlay } from './ElderCamera'
+import { appStateAction } from '../lib/cameraState'
 import type { ElderNews } from '../lib/reactionsModel'
 import type { Memo, Reaction } from '../types'
 
@@ -162,5 +163,19 @@ describe('the family-photo bubble, looked at already', () => {
     const out = view({ state: 'new', item: heart, unreadIds: ['r2'] }, { line: '지은이 사진을 보냈어요', lit: true })
     expect(out).toContain('지은이 사진을 보냈어요')
     expect(out).not.toContain('하트')
+  })
+})
+
+describe('the camera while the phone asks its own permission question', () => {
+  it('ignores the app going inactive and active again, so tapping 허용 keeps the camera', () => {
+    expect(appStateAction(false, true, false)).toBe('ignore')
+    expect(appStateAction(true, true, false)).toBe('ignore')
+  })
+  it('otherwise stops in the background and restarts on coming back', () => {
+    expect(appStateAction(false, false, false)).toBe('stop')
+    expect(appStateAction(true, false, false)).toBe('restart')
+  })
+  it('does not restart on top of the camera’s plain sentence', () => {
+    expect(appStateAction(true, false, true)).toBe('ignore')
   })
 })

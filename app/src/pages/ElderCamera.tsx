@@ -6,6 +6,7 @@ import { savePhoto } from '../lib/capture'
 import { keepInPhotos } from '../lib/gallery'
 import { askLocation, warmUpLocation } from '../lib/location'
 import { ASK_CAMERA, ASK_LOCATION, cameraPermission, locationPermission } from '../lib/permissions'
+import { appStateAction } from '../lib/cameraState'
 import { ElderAsk } from '../components/ElderAsk'
 import { ElderInstallButton } from '../components/ElderInstallButton'
 import { MemoThumb } from '../components/MemoThumb'
@@ -181,6 +182,9 @@ export function ElderCamera({ uid, reactions, photos = null, recent = null, onOp
     asking.current = a
     setAsk_(a)
   }, [])
+  // From the parent's tap under the plain sentence until the camera or the
+  // location answers: the phone's own question may be up (appStateAction).
+  const phoneAsking = useRef(false)
 
   // Once the camera is on: location next — its plain sentence first if the
   // phone hasn't asked yet, else just start locating for the first shot.
@@ -204,6 +208,7 @@ export function ElderCamera({ uid, reactions, photos = null, recent = null, onOp
         console.warn('[ElderCamera] preview failed', err)
         if (alive.current) setPhase('denied')
       })
+      .finally(() => { phoneAsking.current = false })
   }, [afterLive])
   const restart = useCallback(() => {
     setPhase('starting')
@@ -224,8 +229,9 @@ export function ElderCamera({ uid, reactions, photos = null, recent = null, onOp
       else launch()
     })
     const sub = CapApp.addListener('appStateChange', ({ isActive }) => {
-      if (isActive) { resetFacing(); if (asking.current !== 'camera') restart() }
-      else void stopPreview()
+      const action = appStateAction(isActive, phoneAsking.current, asking.current === 'camera')
+      if (action === 'stop') void stopPreview()
+      else if (action === 'restart') { resetFacing(); restart() }
     })
     return () => {
       alive.current = false
@@ -237,10 +243,13 @@ export function ElderCamera({ uid, reactions, photos = null, recent = null, onOp
   const onAskNext = () => {
     if (asking.current === 'camera') {
       setAsk(null)
-      restart() // the phone asks now
+      phoneAsking.current = true
+      restart() // the phone asks now; launch clears the flag once it answers
     } else if (asking.current === 'location') {
       setAsk(null)
-      void askLocation() // denial is fine: photos then just have no place
+      phoneAsking.current = true
+      // Denial is fine: photos then just have no place.
+      void askLocation().finally(() => { phoneAsking.current = false })
     }
   }
 
