@@ -56,6 +56,13 @@ The worker only makes outbound connections. Ollama stays on `localhost`. When th
 
    To update, re-run `install.sh` after pulling. To remove, run `./scripts/install.sh uninstall`.
 
+   **Deploy guard.** `install.sh` (and `simple/worker/install-simple.sh`, which calls it) refuses to deploy unless `worker/` has no uncommitted or untracked changes, HEAD contains `origin/main` and is pushed, and HEAD contains the commit that is running now. After a deploy it writes that commit to `DEPLOYED` in the install folder (`~/trackbyphoto-worker`, `~/daylie-worker-simple`), and the worker logs it as `deployedCommit` in its `[worker] starting` line.
+
+   ```sh
+   ./scripts/install.sh --check            # guard only: exit 0 = would deploy
+   FORCE_DEPLOY=1 ./scripts/install.sh     # emergencies only; says so loudly and marks DEPLOYED forced=1
+   ```
+
 ## Development
 
 ```sh
