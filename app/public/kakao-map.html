@@ -1,0 +1,83 @@
+<!doctype html>
+<!--
+  A Kakao map and nothing else, for the store apps (lib/map/kakaoFrame.ts).
+  Kakao's JavaScript key only works on this site's registered domains, and the
+  apps run on capacitor://localhost / https://localhost, so they show this page
+  in an iframe: the map is drawn here, on the site's own domain.
+
+  Everything comes in the URL hash as JSON:
+    { k: key, pins: [{ lat, lng, label, photoUrl? }], home: { lat, lng } | null, pad?, big? }
+  It tells the page around it how it went, with postMessage:
+    { source: 'daylie-map', type: 'ready' | 'error' | 'pick', index? }
+  Nothing private is sent back: only that the map is up, or which pin was tapped.
+-->
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="robots" content="noindex">
+<title>지도</title>
+<style>
+  /* The app's tokens (styles.css :root): --accent #FF8A1F, --ink #2C3A33. */
+  html, body, #map { margin: 0; width: 100%; height: 100%; background: #EEF1EE; }
+  .pin { position: relative; display: block; width: 44px; height: 44px; padding: 0; border: 3px solid #fff; border-radius: 50%; background: #FF8A1F; box-shadow: 0 2px 8px rgba(0,0,0,.25); overflow: visible; cursor: pointer; }
+  .pin img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block; }
+  .pin span { position: absolute; top: -8px; right: -8px; min-width: 20px; height: 20px; border-radius: 10px; background: #FF8A1F; color: #2C3A33; font: 800 13px/20px system-ui, sans-serif; text-align: center; border: 2px solid #fff; }
+  .small .pin { width: 26px; height: 26px; border-width: 2px; box-shadow: 0 1px 4px rgba(0,0,0,.2); }
+  .small .pin span { position: static; display: block; min-width: 0; height: auto; border: 0; background: none; font-size: 15px; line-height: 22px; }
+  .home { width: 28px; height: 28px; border: 3px solid #fff; border-radius: 50%; background: #fff; color: #2C3A33; font: 800 12px/22px system-ui, sans-serif; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,.25); }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+(function () {
+  var tell = function (msg) { msg.source = 'daylie-map'; try { parent.postMessage(msg, '*') } catch (e) {} }
+  var data
+  try { data = JSON.parse(decodeURIComponent(location.hash.slice(1))) } catch (e) { tell({ type: 'error' }); return }
+  if (!data || !data.k || !data.pins || !data.pins.length) { tell({ type: 'error' }); return }
+  if (!data.big) document.body.className = 'small'
+
+  var s = document.createElement('script')
+  s.src = 'https://dapi.kakao.com/v2/maps/sdk.js?appkey=' + encodeURIComponent(data.k) + '&autoload=false'
+  s.onerror = function () { tell({ type: 'error' }) }
+  s.onload = function () {
+    var kakao = window.kakao
+    if (!kakao || !kakao.maps || !kakao.maps.load) { tell({ type: 'error' }); return }
+    kakao.maps.load(function () {
+      try {
+        var at = function (p) { return new kakao.maps.LatLng(p.lat, p.lng) }
+        var map = new kakao.maps.Map(document.getElementById('map'), { center: at(data.pins[0]), level: 4 })
+        var pad = typeof data.pad === 'number' ? data.pad : 40
+        if (data.pins.length > 1) {
+          var bounds = new kakao.maps.LatLngBounds()
+          data.pins.forEach(function (p) { bounds.extend(at(p)) })
+          map.setBounds(bounds, pad, pad, pad, pad)
+          new kakao.maps.Polyline({ map: map, path: data.pins.map(at), strokeWeight: 4, strokeColor: '#FF8A1F', strokeOpacity: 0.9 })
+        }
+        if (data.home) {
+          var h = document.createElement('div')
+          h.className = 'home'
+          h.textContent = '집'
+          new kakao.maps.CustomOverlay({ map: map, position: at(data.home), content: h, yAnchor: 0.5 })
+        }
+        data.pins.forEach(function (p, i) {
+          var pin = document.createElement('button')
+          pin.type = 'button'
+          pin.className = 'pin'
+          if (p.photoUrl) { var img = document.createElement('img'); img.src = p.photoUrl; img.alt = ''; pin.appendChild(img) }
+          var n = document.createElement('span')
+          n.textContent = p.label
+          pin.appendChild(n)
+          pin.addEventListener('click', function () { tell({ type: 'pick', index: i }) })
+          new kakao.maps.CustomOverlay({ map: map, position: at(p), content: pin, yAnchor: 1 })
+        })
+        tell({ type: 'ready' })
+      } catch (e) { tell({ type: 'error' }) }
+    })
+  }
+  document.head.appendChild(s)
+})()
+</script>
+</body>
+</html>

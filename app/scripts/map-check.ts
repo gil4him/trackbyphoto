@@ -18,6 +18,7 @@ import { resolve } from 'node:path'
 import { trailStops, homeFor } from '../src/lib/trail'
 import { pickProvider, type MapKeys } from '../src/lib/map/index'
 import { staticMapUrl } from '../src/lib/map/googleStatic'
+import { kakaoFrameUrl } from '../src/lib/map/kakaoFrame'
 import type { Memo } from '../src/types'
 
 const arg = (name: string, fallback?: string) => {
@@ -45,6 +46,39 @@ const db = getFirestore()
 
 /** Where the apps run: the website, the iPhone app's web view, the Android app's. */
 const ORIGINS = ['https://dayliesimple.web.app', 'capacitor://localhost', 'https://localhost']
+const SITE = (envVal('VITE_PUBLIC_URL') || ORIGINS[0]).replace(/\/+$/, '')
+const CHROME = process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+
+/**
+ * The store apps' Kakao map end to end: a page on an origin Kakao doesn't
+ * know (as the apps' capacitor://localhost is) frames the site's live map
+ * page, which must report back that the map is drawn.
+ */
+async function checkKakaoFrame(): Promise<string | null> {
+  if (!keys.kakao) return 'no key'
+  const page = await fetch(`${SITE}/kakao-map.html`)
+  const html = await page.text()
+  if (page.status !== 200 || !html.includes('daylie-map')) return `the site has no map page (HTTP ${page.status}); deploy the site`
+  const http = await import('node:http')
+  const src = kakaoFrameUrl({ key: keys.kakao, pins: [{ lat: 37.5145, lng: 127.1059, label: '1' }, { lat: 37.52, lng: 127.12, label: '2' }], home: null, big: true }, SITE)
+  const host = `<!doctype html><body style="margin:0"><iframe id="f" src="${src}" style="width:390px;height:300px;border:0"></iframe>
+<script>addEventListener('message', (e) => { if (e.data && e.data.source === 'daylie-map') document.title = e.data.type })</script>`
+  const server = http.createServer((_q, r) => { r.setHeader('content-type', 'text/html'); r.end(host) })
+  await new Promise<void>((ok) => server.listen(0, '127.0.0.1', ok))
+  const port = (server.address() as { port: number }).port
+  const puppeteer = createRequire(resolve(__dirname, '../../e2e/package.json'))('puppeteer-core')
+  const browser = await puppeteer.launch({ executablePath: CHROME, headless: true })
+  try {
+    const tab = await browser.newPage()
+    await tab.goto(`http://127.0.0.1:${port}/`)
+    await tab.waitForFunction(() => document.title === 'ready' || document.title === 'error', { timeout: 20_000 }).catch(() => {})
+    const title = await tab.title()
+    return title === 'ready' ? null : `the framed map did not come up (${title || 'no answer'})`
+  } finally {
+    await browser.close()
+    server.close()
+  }
+}
 const problems: string[] = []
 
 /** A Google static map as an app gets it: 200, an image, and more than the error tile. */
@@ -73,12 +107,15 @@ async function checkKakao(origin: string): Promise<string | null> {
 
 async function main() {
   console.log(`keys: kakao ${keys.kakao ? 'yes' : 'NO'}, google ${keys.google ? 'yes' : 'NO'}`)
-  // Only the website loads Kakao; the apps are expected to be refused (and use Google).
+  // The website loads Kakao itself; the apps can't (401) and frame the site's map page.
   for (const o of ORIGINS) {
     const k = await checkKakao(o)
-    console.log(`kakao sdk from ${o}: ${k ?? 'ok'}${o === ORIGINS[0] ? '' : ' (app: not used)'}`)
+    console.log(`kakao sdk from ${o}: ${k ?? 'ok'}${o === ORIGINS[0] ? '' : ' (apps use the framed page)'}`)
     if (k && o === ORIGINS[0]) problems.push(`kakao from ${o}: ${k}`)
   }
+  const frame = await checkKakaoFrame()
+  console.log(`kakao in the apps (framed ${SITE}/kakao-map.html): ${frame ?? 'ok, map drawn'}`)
+  if (frame) problems.push(`kakao in the apps: ${frame}`)
 
   const since = Timestamp.fromDate(new Date(Date.now() - DAYS * 24 * 3600 * 1000))
   const snap = await db.collection('memos').where('takenAt', '>=', since).get()
@@ -103,17 +140,18 @@ async function main() {
     for (const [day, dayMemos] of [...days].sort()) {
       const stops = trailStops(dayMemos, home)
       if (stops.length === 0) continue
-      // The website may use Kakao; the store apps can't (its key refuses their origin).
-      const provider = pickProvider(stops, keys, true)
+      // Kakao for a day in Korea, on the website and (framed) in the apps; Google elsewhere.
+      const provider = pickProvider(stops, keys)
+      // What a failed Kakao map gives way to.
       const appProvider = pickProvider(stops, keys, false)
-      const where = `${user.patientName ?? uid.slice(0, 6)} ${day} (${stops.length} stops, web ${provider}, app ${appProvider})`
+      const where = `${user.patientName ?? uid.slice(0, 6)} ${day} (${stops.length} stops, ${provider}${provider === 'kakao' ? `, fallback ${appProvider}` : ''})`
       if (appProvider === 'sketch') {
         problems.push(`${where}: no map key for this area, sketch only`)
         console.log(`✗ ${where}: sketch only`)
         continue
       }
-      // Kakao is checked per origin above; the website uses it only from its own domain.
-      const staticOrigins = provider === 'kakao' ? ORIGINS.slice(1) : ORIGINS
+      // Kakao days are covered by the SDK and frame checks above; their Google fallback is checked too.
+      const staticOrigins = ORIGINS
       for (const [label, size] of [['home card', { width: 640, height: 300 }], ['다녀온 곳', { width: 640, height: 400 }]] as const) {
         const url = staticMapUrl(stops, keys.google!, size)
         for (const o of staticOrigins) {

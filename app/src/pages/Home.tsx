@@ -13,9 +13,10 @@ import { useWorkerStatus } from '../hooks/useWorkerStatus'
 import { clock, dayCaption, dayEyebrow, farthestKm, memosOnDay } from '../lib/memoViews'
 import { addressed, honorific } from '../lib/people'
 import { AWAY_KM, trailStops, trailSummary, type LatLng, type TrailStop } from '../lib/trail'
-import { MAP_KEYS, KAKAO_USABLE, pickProvider, type MapKeys } from '../lib/map'
+import { MAP_KEYS, KAKAO_IN_FRAME, pickProvider, type MapKeys } from '../lib/map'
 import { staticMapUrl } from '../lib/map/googleStatic'
 import { renderKakaoMap } from '../lib/map/kakao'
+import { KakaoFrame } from '../components/KakaoFrame'
 import { TrailSketch } from '../components/TrailSketch'
 import type { Memo, AppNotification, Reaction } from '../types'
 
@@ -61,7 +62,7 @@ function DayMap({ stops, home, away, onOpen, keys }: { stops: TrailStop[]; home:
   // picture that fails leaves the sketch.
   const [kakaoFailed, setKakaoFailed] = useState(false)
   const [failed, setFailed] = useState(false)
-  const provider = pickProvider(stops, keys, KAKAO_USABLE && !kakaoFailed)
+  const provider = pickProvider(stops, keys, !kakaoFailed)
   const kakao = seen && !failed && provider === 'kakao' && !!keys.kakao
   const picture = seen && !failed && provider === 'googleStatic' && !!keys.google
 
@@ -74,7 +75,7 @@ function DayMap({ stops, home, away, onOpen, keys }: { stops: TrailStop[]; home:
   }, [seen])
 
   useEffect(() => {
-    if (!kakao || !mapRef.current) return
+    if (!kakao || KAKAO_IN_FRAME || !mapRef.current) return
     let live = true
     renderKakaoMap(
       mapRef.current,
@@ -94,7 +95,9 @@ function DayMap({ stops, home, away, onOpen, keys }: { stops: TrailStop[]; home:
   return (
     <div ref={boxRef} className="day-map">
       <TrailSketch stops={stops} home={home} wide />
-      {kakao && <div ref={mapRef} className="day-map-kakao" aria-hidden="true" />}
+      {kakao && (KAKAO_IN_FRAME
+        ? <KakaoFrame className="day-map-kakao" map={{ key: keys.kakao!, pins: stops.map((s, i) => ({ lat: s.lat, lng: s.lng, label: String(i + 1) })), home, pad: 28 }} onFail={() => setKakaoFailed(true)} />
+        : <div ref={mapRef} className="day-map-kakao" aria-hidden="true" />)}
       {picture && <img className="day-map-static" src={staticMapUrl(stops, keys.google!, { width: 640, height: 300 })} alt="" onError={() => setFailed(true)} />}
       <button type="button" className="day-map-open" onClick={onOpen} aria-label={`다녀온 곳 ${stops.length}곳 보기`}>
         <span className="day-map-pill">

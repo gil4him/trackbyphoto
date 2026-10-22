@@ -2,9 +2,10 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { fmtTime } from '../util'
 import { TrailSketch } from '../components/TrailSketch'
 import { MemoRow } from '../components/MemoRow'
-import { MAP_KEYS, KAKAO_USABLE, pickProvider, type MapKeys } from '../lib/map'
+import { MAP_KEYS, KAKAO_IN_FRAME, pickProvider, type MapKeys } from '../lib/map'
 import { staticMapUrl } from '../lib/map/googleStatic'
 import { renderKakaoMap } from '../lib/map/kakao'
+import { KakaoFrame } from '../components/KakaoFrame'
 import { AWAY_KM, fmtKm, trailStops, trailSummary, type LatLng, type TrailStop } from '../lib/trail'
 import type { Memo } from '../types'
 
@@ -46,13 +47,13 @@ export function Trail({ title, memos, home, onBack, onOpenMemo, keys = MAP_KEYS 
   const mapRef = useRef<HTMLDivElement>(null)
   const [kakaoFailed, setKakaoFailed] = useState(false)
   // A Kakao map that fails to load gives way to the Google picture.
-  const provider = pickProvider(stops, keys, KAKAO_USABLE && !kakaoFailed)
+  const provider = pickProvider(stops, keys, !kakaoFailed)
   const [staticFailed, setStaticFailed] = useState(false)
   // Home belongs in the picture on a day out, not on a trip far away.
   const nearHome = home && !summary.away && summary.maxKm !== null && summary.maxKm < AWAY_KM ? home : null
 
   useEffect(() => {
-    if (provider !== 'kakao' || kakaoFailed || !mapRef.current || !keys.kakao || stops.length === 0) return
+    if (provider !== 'kakao' || KAKAO_IN_FRAME || kakaoFailed || !mapRef.current || !keys.kakao || stops.length === 0) return
     let live = true
     renderKakaoMap(
       mapRef.current,
@@ -88,7 +89,14 @@ export function Trail({ title, memos, home, onBack, onOpenMemo, keys = MAP_KEYS 
         <>
           <div className="trail-map">
             {provider === 'kakao' && !kakaoFailed
-              ? <div ref={mapRef} className="trail-kakao" />
+              ? (KAKAO_IN_FRAME
+                ? <KakaoFrame
+                    className="trail-kakao"
+                    map={{ key: keys.kakao!, pins: stops.map((s, i) => ({ lat: s.lat, lng: s.lng, label: String(i + 1), photoUrl: s.memos[0].photoUrl })), home: nearHome, big: true }}
+                    onFail={() => setKakaoFailed(true)}
+                    onPick={(i) => { const s = stops[i]; if (s) onOpenMemo(s.memos[0].id) }}
+                  />
+                : <div ref={mapRef} className="trail-kakao" />)
               : provider === 'googleStatic' && keys.google && !staticFailed
                 ? <img className="trail-static" src={staticMapUrl(stops, keys.google)} alt="다녀온 곳 지도" onError={() => setStaticFailed(true)} />
                 : <TrailSketch stops={stops} home={nearHome} thumbs onPick={(s) => onOpenMemo(s.memos[0].id)} />}

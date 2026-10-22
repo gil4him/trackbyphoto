@@ -7,7 +7,9 @@ import { Capacitor } from '@capacitor/core'
 //
 // Kakao's JavaScript key only works on the website's registered domains: in
 // the store apps (capacitor://localhost, https://localhost) the SDK answers
-// 401, so there Korea gets the Google picture too (scripts/map-check.ts).
+// 401, so the apps show the site's own map page in an iframe instead
+// (public/kakao-map.html, components/KakaoFrame.tsx). A Kakao map that fails
+// either way gives way to the Google picture (scripts/map-check.ts).
 //
 // The digest page only ever uses the sketch, so opening a digest never makes
 // a map request.
@@ -28,11 +30,11 @@ export function inKorea(p: LatLng): boolean {
   return p.lat >= 33 && p.lat <= 38.7 && p.lng >= 124.5 && p.lng <= 132
 }
 
-/** Kakao can draw here: the website, not the store apps. */
-export const KAKAO_USABLE = !Capacitor.isNativePlatform()
+/** The store apps draw Kakao through the site's map page in an iframe. */
+export const KAKAO_IN_FRAME = Capacitor.isNativePlatform()
 
-/** `kakaoUsable` false: the store apps, or a Kakao map that already failed to load. */
-export function pickProvider(points: LatLng[], keys: MapKeys = MAP_KEYS, kakaoUsable = KAKAO_USABLE): MapProvider {
+/** `kakaoUsable` false: a Kakao map that already failed to load here. */
+export function pickProvider(points: LatLng[], keys: MapKeys = MAP_KEYS, kakaoUsable = true): MapProvider {
   if (points.length === 0) return 'sketch'
   if (points.every(inKorea) && kakaoUsable && keys.kakao) return 'kakao'
   return keys.google ? 'googleStatic' : 'sketch'

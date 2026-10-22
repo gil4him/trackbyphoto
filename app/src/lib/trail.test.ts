@@ -108,7 +108,8 @@ describe('map provider', () => {
     expect(pickProvider([...SEOUL, ...NAGOYA], BOTH)).toBe('googleStatic')
   })
 
-  it('in the store apps (Kakao refuses their origin) or after Kakao failed, Korea gets the Google picture', () => {
+  it('after a Kakao map failed to load, Korea gets the Google picture', () => {
+    expect(pickProvider(SEOUL, BOTH)).toBe('kakao')
     expect(pickProvider(SEOUL, BOTH, false)).toBe('googleStatic')
     expect(pickProvider(NAGOYA, BOTH, false)).toBe('googleStatic')
     expect(pickProvider(SEOUL, { kakao: 'k' }, false)).toBe('sketch')
