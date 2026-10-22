@@ -51,6 +51,15 @@ describe('the message sent to FCM', () => {
     // iPhone app: the banner makes a sound.
     expect(m.apns?.payload?.aps?.sound).toBe('default')
   })
+
+  it('puts the unread count on the store apps\' icon, and leaves it alone when there is none', () => {
+    const m = fcmMessage([TOKEN(1)], { ...MSG, data: { ...MSG.data, badge: '3' } })
+    expect(m.apns?.payload?.aps?.badge).toBe(3)
+    expect(m.android?.notification?.notificationCount).toBe(3)
+    const none = fcmMessage([TOKEN(1)], MSG)
+    expect(none.apns?.payload?.aps?.badge).toBeUndefined()
+    expect(none.android).toBeUndefined()
+  })
 })
 
 describe('pushToUsers', () => {

@@ -52,13 +52,18 @@ export interface PushDeps {
  * themselves.
  */
 export function fcmMessage(tokens: string[], message: PushMessage): MulticastMessage {
+  // The number on the app icon. The home-screen web app reads data.badge;
+  // the store apps only show what the phone's own badge field says.
+  const badge = Number(message.data?.badge)
+  const hasBadge = message.data?.badge !== undefined && Number.isFinite(badge)
   return {
     tokens,
     notification: { title: message.title, body: message.body },
     data: message.data ?? {},
     webpush: { fcmOptions: { link: appLink(message.path) } },
     // iPhone app: without this the banner arrives silently.
-    apns: { payload: { aps: { sound: 'default' } } },
+    apns: { payload: { aps: { sound: 'default', ...(hasBadge ? { badge } : {}) } } },
+    ...(hasBadge ? { android: { notification: { notificationCount: badge } } } : {}),
   }
 }
 

@@ -20,6 +20,7 @@ import { listedPeople, pickActivePatient } from './lib/people'
 import { useFamilyPhotos } from './hooks/useFamilyPhotos'
 import { normalizeInviteCode, syncCaregiverName } from './lib/caregiver'
 import { setFaviconBadge } from './lib/favicon'
+import { setAppBadge } from './lib/appBadge'
 import { Tabs, type TabKey } from './components/Tabs'
 import { tabFromUrl } from './lib/tabFromUrl'
 import { ToastProvider } from './components/Toast'
@@ -369,14 +370,12 @@ function App() {
     document.documentElement.style.fontSize = settings.bigText ? '17px' : '16px'
   }, [settings.bigText])
 
-  // Surface unread notifications on the "web icon": a count badge on an
-  // installed PWA's app icon (setAppBadge, no-op in plain tabs) and a count in
-  // the browser tab title so it's visible everywhere.
+  // Surface unread notifications on the app icon (the store apps and an
+  // installed home-screen web app; lib/appBadge.ts), and in a plain tab on
+  // the favicon and in the title so it's visible everywhere.
   useEffect(() => {
     const n = notifications.length
-    const nav = navigator as Navigator & { setAppBadge?: (n?: number) => Promise<void>; clearAppBadge?: () => Promise<void> }
-    if (n > 0) nav.setAppBadge?.(n).catch(() => {})
-    else nav.clearAppBadge?.().catch(() => {})
+    setAppBadge(n)
     setFaviconBadge(n)
     document.title = n > 0 ? `(${n}) ${appTitle()}` : appTitle()
   }, [notifications.length])
