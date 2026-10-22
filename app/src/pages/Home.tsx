@@ -5,6 +5,7 @@ import { useOutbox } from '../hooks/useOutbox'
 import { useCapture } from '../hooks/useCapture'
 import { fmtDate, fmtTime } from '../util'
 import { MemoThumb } from '../components/MemoThumb'
+import { CameraGlyph } from '../components/CameraFab'
 import { MemoRow } from '../components/MemoRow'
 import { PatientCard } from '../components/PatientCard'
 import { latestActivity, type ParentSummary } from '../lib/dashboard'
@@ -249,7 +250,8 @@ export function Home({ uid, patientName, greetingName, memos, onOpenAsk, onOpen,
                 <MemoThumb memo={m} />
               </button>
             ))}
-            <button type="button" className="mine-add" aria-label="사진 찍기" disabled={capture.busy} onClick={capture.takePhoto}>+</button>
+            {/* The same camera as the floating button, so the square reads as 사진 찍기 too. */}
+            <button type="button" className="mine-add" aria-label="사진 찍기" disabled={capture.busy} onClick={capture.takePhoto}><CameraGlyph /></button>
             {mine.length === 0 && <span className="mine-hint">카메라 버튼으로 남겨요</span>}
           </div>
           {outbox}

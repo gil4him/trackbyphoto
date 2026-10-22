@@ -168,8 +168,9 @@ main { padding: 18px 22px calc(110px + var(--safe-bot)); }
 .mine-add {
   flex: none; width: 52px; height: 52px; display: grid; place-items: center;
   border: 2px dashed var(--line); border-radius: 12px; background: var(--surface);
-  color: var(--muted); font: inherit; font-size: 28px; font-weight: 700; line-height: 1; cursor: pointer;
+  color: var(--muted); padding: 0; cursor: pointer;
 }
+.mine-add svg { width: 28px; height: 28px; display: block; }
 .mine-add:active { background: var(--accent-tint); }
 .mine-add:disabled { opacity: .55; }
 .mine-hint { font-size: 15px; color: var(--muted); white-space: nowrap; }

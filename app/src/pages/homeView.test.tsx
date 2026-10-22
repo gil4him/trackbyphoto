@@ -192,7 +192,7 @@ describe("Home in the simple edition: the family dashboard (A10)", () => {
     expect(quiet).not.toContain('어제 사진')
   })
 
-  it('내 오늘: the photos taken today as 52px squares, then the dashed +; none → the + and 카메라 버튼으로 남겨요', () => {
+  it('내 오늘: the photos taken today as 52px squares, then the dashed camera square; none → the square and 카메라 버튼으로 남겨요', () => {
     const mine = [pm('me', 'm2', 12, 0), pm('me', 'm1', 9, 0), pm('me', 'old', 9, 0, -1)]
     const out = render({ parents: [mom], memos: mine })
     expect(out).toContain('내 오늘 · 사진 2장')
