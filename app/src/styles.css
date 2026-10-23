@@ -24,6 +24,8 @@
   --accent-pressed: #F07A0E;  /* :active on primary buttons */
   --good:           #1F9D55;  /* success, "on" toggles */
   --danger:         #D93D42;  /* destructive confirm only */
+  --good-tint:      #E3F4EA;  /* 운영실: behind a good dot or tag */
+  --danger-tint:    #FDECEC;  /* 운영실: behind a bad dot or tag */
   --radius-card:    20px;
   --radius-btn:     22px;
   --shadow: 0 12px 28px -12px rgba(255,138,31,.35);
@@ -1375,26 +1377,82 @@ html:not(.camera-live) .elder-cam { background: #000; }
 }
 
 /* ---------- ADMIN DASHBOARD (/admin) ---------- */
-/* Its own wide shell: the app's 480px column is for phones. */
-.admin-shell { flex: 1; width: 100%; max-width: 1140px; margin: 0 auto; padding: calc(12px + var(--safe-top)) 20px 60px; }
-.admin-shell .muted { color: var(--muted); font-size: 13px; }
-.admin-shell code { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 12px; background: var(--surface-dim); padding: 1px 6px; border-radius: 6px; user-select: text; }
-.admin-shell table, .admin-shell dl { user-select: text; }
-.admin-shell-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
-.admin-shell-title h1 { margin: 0; font-size: 22px; letter-spacing: -0.02em; }
-.admin-shell-meta { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.admin-worker { font-size: 12px; font-weight: 700; }
-.admin-worker.ok { color: var(--good); }
-.admin-worker.down { color: var(--danger); }
-.admin-worker.unknown { color: var(--muted); }
-.admin-me { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 운영실 (docs/admin/admin-hq-mockup.html): a 236px white menu on the left and
+   one view at a time; at 900px and below the menu is one scrolling tab row
+   on top. Light only, app tokens only. */
+.hq {
+  /* The mockup's darker orange for text on tint, for the 운영실 alone: in the
+     app --accent-ink stays ink (orange is never text there). */
+  --accent-ink: #8A4300;
+  flex: 1; width: 100%; min-height: 100svh;
+  display: grid; grid-template-columns: 236px minmax(0, 1fr);
+  font-size: 15px; line-height: 1.5; user-select: text;
+}
+.hq .muted { color: var(--muted); font-size: 13px; }
+.hq .num { font-variant-numeric: tabular-nums; }
+.hq code { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 12px; background: var(--surface-dim); padding: 1px 6px; border-radius: 6px; user-select: text; }
+.hq :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+/* The white column runs the page's full length; the menu in it stays put. */
+.hq-side { background: var(--surface); border-right: 1px solid var(--line); min-width: 0; }
+.hq-side-in {
+  padding: calc(22px + var(--safe-top)) 14px 22px max(14px, env(safe-area-inset-left, 0px));
+  display: flex; flex-direction: column; gap: 4px;
+  position: sticky; top: 0; height: 100svh; overflow-y: auto;
+}
+.hq-brand { display: flex; align-items: center; gap: 10px; padding: 0 10px 18px; }
+.hq-brand i { width: 34px; height: 34px; flex: none; border-radius: 11px; background: var(--accent); display: grid; place-items: center; font-style: normal; font-weight: 800; color: var(--ink); }
+.hq-brand b { display: block; font-size: 17px; font-weight: 800; white-space: nowrap; }
+.hq-brand small { font-size: 13px; color: var(--muted); }
+.hq-nav { display: flex; flex-direction: column; gap: 2px; }
+.hq-nav button {
+  font: inherit; border: 0; background: none; cursor: pointer; text-align: left;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  min-height: 44px; padding: 10px 12px; border-radius: 12px;
+  font-size: 15px; font-weight: 700; color: var(--ink); white-space: nowrap;
+}
+.hq-nav button:hover { background: var(--surface-dim); }
+.hq-nav button[aria-current="page"] { background: var(--accent-tint); color: var(--accent-ink); }
+.hq-badge { min-width: 22px; height: 22px; padding: 0 7px; border-radius: 999px; background: var(--danger); color: var(--surface); font-size: 13px; font-weight: 800; display: inline-grid; place-items: center; }
+.hq-badge.soft { background: var(--surface-dim); color: var(--muted); }
+.hq-foot { margin-top: auto; padding: 14px 12px 0; border-top: 1px solid var(--line); font-size: 13px; color: var(--muted); display: flex; flex-direction: column; gap: 4px; }
+.hq-live { display: flex; align-items: center; gap: 8px; font-weight: 700; color: var(--ink); }
+.hq-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; background: var(--muted); box-shadow: 0 0 0 4px var(--surface-dim); }
+.hq-dot.ok { background: var(--good); box-shadow: 0 0 0 4px var(--good-tint); }
+.hq-dot.down { background: var(--danger); box-shadow: 0 0 0 4px var(--danger-tint); }
 
-.admin-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 22px; overflow-x: auto; }
-.admin-tab { font: inherit; font-size: 15px; font-weight: 700; color: var(--muted); background: none; border: none; border-bottom: 2px solid transparent; padding: 10px 14px; cursor: pointer; white-space: nowrap; margin-bottom: -1px; }
-.admin-tab:hover { color: var(--ink-2); }
-.admin-tab.active { color: var(--accent-ink); border-bottom-color: var(--coral2); }
-.admin-tab-n { margin-left: 6px; font-size: 12px; background: var(--surface-dim); color: var(--ink-2); border-radius: 999px; padding: 1px 7px; }
-.admin-shell-main { min-height: 50vh; }
+.hq-main { min-width: 0; padding: calc(18px + var(--safe-top)) max(16px, min(4vw, 40px)) 56px; padding-right: max(16px, env(safe-area-inset-right, 0px), min(4vw, 40px)); }
+.hq-bar { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: wrap; max-width: 1180px; margin: 0 auto 18px; }
+.hq-bar .admin-btn.small, .hq-bar .admin-signout { min-height: 44px; font-size: 14px; margin-left: 0; padding: 0 14px; border-radius: 14px; background: var(--surface); }
+.hq-bar-status { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-right: auto; min-width: 0; }
+.hq-bar-live { display: none; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; }
+.hq-me { max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hq-view { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.hq-view > .admin-error { margin-bottom: 0; }
+.hq-card { background: var(--surface); border-radius: var(--radius-card); padding: 18px 20px; min-width: 0; }
+.hq-soon h2 { margin: 0 0 6px; font-size: 22px; font-weight: 800; }
+.hq-soon p { margin: 0; font-size: 15px; color: var(--muted); word-break: keep-all; overflow-wrap: anywhere; }
+.hq-seg { align-self: flex-start; display: flex; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 3px; }
+.hq-seg button { font: inherit; border: 0; background: none; cursor: pointer; min-height: 44px; padding: 0 18px; border-radius: 999px; font-size: 14px; font-weight: 700; color: var(--muted); }
+.hq-seg button[aria-pressed="true"] { background: var(--ink); color: var(--surface); }
+@media (max-width: 900px) {
+  .hq { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr; min-height: 0; }
+  .hq-side { position: sticky; top: 0; z-index: 5; border-right: 0; border-bottom: 1px solid var(--line); }
+  .hq-side-in {
+    position: static; height: auto;
+    flex-direction: row; align-items: center; gap: 10px; overflow-x: auto; overflow-y: hidden;
+    padding: calc(10px + var(--safe-top)) max(16px, env(safe-area-inset-right, 0px)) 10px max(16px, env(safe-area-inset-left, 0px));
+  }
+  .hq-brand { padding: 0 6px 0 0; }
+  .hq-brand span { display: none; }
+  .hq-nav { flex-direction: row; }
+  .hq-nav button { padding: 0 12px; }
+  .hq-foot { display: none; }
+  .hq-bar { flex-wrap: nowrap; }
+  .hq-bar-status { flex-direction: column; align-items: flex-start; gap: 2px; }
+  .hq-bar-live { display: inline-flex; }
+  .hq-me { display: none; }
+  .hq-main { padding-top: 16px; }
+}
 
 .admin-section-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 12px; }
 .admin-section-head h2 { margin: 0; font-size: 16px; }

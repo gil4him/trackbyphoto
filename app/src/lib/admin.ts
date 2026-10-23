@@ -255,31 +255,61 @@ export function confirmTyped(prompt: string, expected: string): boolean {
   return typed !== null && typed.trim() === expected
 }
 
-// ── /admin?tab=…&uid=… ──────────────────────────────────────────────────────
+// ── /admin?tab=…&kind=…&uid=… ───────────────────────────────────────────────
 
-export type AdminTab = 'overview' | 'parents' | 'children' | 'ai'
+/** The 운영실 views, in menu order. AI 도구 (SuperAdmin) stays last. */
+export type AdminTab = 'today' | 'inbox' | 'growth' | 'families' | 'revenue' | 'costs' | 'system' | 'flags' | 'ai'
 export const ADMIN_TABS: { key: AdminTab; label: string }[] = [
-  { key: 'overview', label: '대시보드' },
-  { key: 'parents', label: '부모님' },
-  { key: 'children', label: '가족' },
-  { key: 'ai', label: 'AI · 통계' },
+  { key: 'today', label: '오늘' },
+  { key: 'inbox', label: '할 일' },
+  { key: 'growth', label: '성장' },
+  { key: 'families', label: '가족' },
+  { key: 'revenue', label: '매출' },
+  { key: 'costs', label: '비용' },
+  { key: 'system', label: '시스템' },
+  { key: 'flags', label: '기능 스위치' },
+  { key: 'ai', label: 'AI 도구' },
 ]
 
-export interface AdminRoute { tab: AdminTab; uid: string | null }
+/** `kind` matters on 가족 only: whose list (부모님 or 가족) is showing. */
+export interface AdminRoute { tab: AdminTab; kind: PersonKind; uid: string | null }
+
+/** The tab names before 운영실, so old links and bookmarks still land. */
+const OLD_TABS: Record<string, Pick<AdminRoute, 'tab'> & Partial<Pick<AdminRoute, 'kind'>>> = {
+  overview: { tab: 'today' },
+  parents: { tab: 'families', kind: 'parent' },
+  children: { tab: 'families', kind: 'child' },
+}
 
 export function routeFromSearch(search: string): AdminRoute {
   const q = new URLSearchParams(search)
-  const tab = q.get('tab') as AdminTab | null
-  return {
-    tab: tab && ADMIN_TABS.some((t) => t.key === tab) ? tab : 'overview',
-    uid: q.get('uid'),
-  }
+  const raw = q.get('tab') ?? ''
+  const old = OLD_TABS[raw]
+  const tab = old?.tab ?? (ADMIN_TABS.some((t) => t.key === raw) ? raw as AdminTab : 'today')
+  const kind = old?.kind ?? (q.get('kind') === 'child' ? 'child' : 'parent')
+  return { tab, kind, uid: q.get('uid') }
 }
 
 export function searchFromRoute(r: AdminRoute): string {
   const q = new URLSearchParams()
-  if (r.tab !== 'overview') q.set('tab', r.tab)
+  if (r.tab !== 'today') q.set('tab', r.tab)
+  if (r.tab === 'families') q.set('kind', r.kind)
   if (r.uid) q.set('uid', r.uid)
   const s = q.toString()
   return s ? `?${s}` : ''
+}
+
+/** The 운영실 footer: how long since the worker's last beat. */
+export function beatAgo(lastSeenMs: number | null, now = Date.now()): string {
+  if (lastSeenMs == null) return '신호 없음'
+  const s = Math.max(0, Math.round((now - lastSeenMs) / 1000))
+  if (s < 60) return `마지막 신호 ${s}초 전`
+  const m = Math.floor(s / 60)
+  if (m < 60) return `마지막 신호 ${m}분 전`
+  return `마지막 신호 ${Math.floor(m / 60)}시간 전`
+}
+
+/** A 가족 = a parent someone actively looks after (an active membership). */
+export function familyCount(people: AdminPerson[]): number {
+  return people.filter((p) => p.kind === 'parent' && p.links.active > 0).length
 }

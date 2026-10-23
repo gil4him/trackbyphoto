@@ -10,12 +10,15 @@ vi.mock('firebase/firestore', () => ({
 vi.mock('../../lib/worker', () => ({
   callWorker: vi.fn(), isWorkerOffline: () => false, WorkerError: class extends Error { code = '' }, WORKER_OFFLINE_MESSAGE: '',
 }))
-vi.mock('../../hooks/useWorkerStatus', () => ({ useWorkerStatus: () => 'ok' }))
+vi.mock('../../hooks/useWorkerStatus', () => ({
+  useWorkerStatus: () => 'ok',
+  useWorkerBeat: () => ({ status: 'ok', lastSeenMs: 1_000_000 - 22_000, now: 1_000_000 }),
+}))
 
 import { PeopleTab } from './PeopleTab'
 import { OverviewTab } from './OverviewTab'
 import { AdminPage } from './AdminPage'
-import { fmtAgo, matchesQuery, personFlags, routeFromSearch, searchFromRoute, sortPeople, type AdminPerson } from '../../lib/admin'
+import { ADMIN_TABS, beatAgo, familyCount, fmtAgo, matchesQuery, personFlags, routeFromSearch, searchFromRoute, sortPeople, type AdminPerson } from '../../lib/admin'
 import type { User } from 'firebase/auth'
 
 const base = {
@@ -39,16 +42,59 @@ const KID: AdminPerson = {
 const people = [MOM, DAD, KID]
 
 describe('AdminPage', () => {
-  it('shows the tabs, the signed-in admin and the worker state', () => {
-    const html = renderToString(<AdminPage user={{ uid: 'a', email: 'zymer4him@gmail.com' } as unknown as User} onSignOut={async () => {}} />)
-    for (const s of ['대시보드', '부모님', '가족', 'AI · 통계', 'zymer4him@gmail.com', '서버 정상', '로그아웃']) expect(html).toContain(s)
+  const page = () => renderToString(<AdminPage user={{ uid: 'a', email: 'zymer4him@gmail.com' } as unknown as User} onSignOut={async () => {}} />)
+
+  it('shows the 운영실 menu in order, AI 도구 last, with the signed-in admin', () => {
+    const html = page()
+    expect(html).toContain('Daylie 운영실')
+    expect(html).toContain('aria-label="운영실 메뉴"')
+    const labels = ['오늘', '할 일', '성장', '가족', '매출', '비용', '시스템', '기능 스위치', 'AI 도구']
+    expect(ADMIN_TABS.map((t) => t.label)).toEqual(labels)
+    const at = labels.map((l) => html.indexOf(`>${l}<`))
+    expect(at.every((i) => i > 0)).toBe(true)
+    expect([...at].sort((a, b) => a - b)).toEqual(at)
+    for (const s of ['zymer4him@gmail.com', '로그아웃', '불러오는 중…']) expect(html).toContain(s)
   })
 
-  it('keeps the tab and the open person in the query string', () => {
-    expect(routeFromSearch('?tab=parents&uid=mom1')).toEqual({ tab: 'parents', uid: 'mom1' })
-    expect(routeFromSearch('?tab=nope')).toEqual({ tab: 'overview', uid: null })
-    expect(searchFromRoute({ tab: 'overview', uid: null })).toBe('')
-    expect(searchFromRoute({ tab: 'children', uid: 'kid1' })).toBe('?tab=children&uid=kid1')
+  it('has the live worker dot and the age of its last beat in the footer', () => {
+    const html = page()
+    expect(html).toContain('메모 서버 정상')
+    expect(html).toContain('마지막 신호 22초 전')
+    expect(html).toContain('hq-dot ok')
+  })
+})
+
+describe('운영실 routes', () => {
+  it('keeps the view, the 가족 kind and the open person in the query string', () => {
+    expect(routeFromSearch('')).toEqual({ tab: 'today', kind: 'parent', uid: null })
+    expect(routeFromSearch('?tab=inbox')).toEqual({ tab: 'inbox', kind: 'parent', uid: null })
+    expect(routeFromSearch('?tab=families&kind=child&uid=kid1')).toEqual({ tab: 'families', kind: 'child', uid: 'kid1' })
+    expect(routeFromSearch('?tab=nope')).toEqual({ tab: 'today', kind: 'parent', uid: null })
+    expect(searchFromRoute({ tab: 'today', kind: 'parent', uid: null })).toBe('')
+    expect(searchFromRoute({ tab: 'flags', kind: 'parent', uid: null })).toBe('?tab=flags')
+    expect(searchFromRoute({ tab: 'families', kind: 'child', uid: 'kid1' })).toBe('?tab=families&kind=child&uid=kid1')
+  })
+
+  it('lands the old tab names on their new views', () => {
+    expect(routeFromSearch('?tab=overview')).toEqual({ tab: 'today', kind: 'parent', uid: null })
+    expect(routeFromSearch('?tab=parents')).toEqual({ tab: 'families', kind: 'parent', uid: null })
+    expect(routeFromSearch('?tab=children&uid=kid1')).toEqual({ tab: 'families', kind: 'child', uid: 'kid1' })
+    expect(routeFromSearch('?tab=ai')).toEqual({ tab: 'ai', kind: 'parent', uid: null })
+    expect(searchFromRoute(routeFromSearch('?tab=parents'))).toBe('?tab=families&kind=parent')
+    expect(searchFromRoute(routeFromSearch('?tab=overview'))).toBe('')
+  })
+
+  it('says how long ago the worker last beat', () => {
+    expect(beatAgo(null, 0)).toBe('신호 없음')
+    expect(beatAgo(78_000, 100_000)).toBe('마지막 신호 22초 전')
+    expect(beatAgo(0, 5 * 60_000 + 30_000)).toBe('마지막 신호 5분 전')
+    expect(beatAgo(0, 2 * 3600_000)).toBe('마지막 신호 2시간 전')
+    expect(beatAgo(200_000, 100_000)).toBe('마지막 신호 0초 전')
+  })
+
+  it('counts a family as a parent someone actively looks after', () => {
+    expect(familyCount(people)).toBe(1)
+    expect(familyCount([])).toBe(0)
   })
 })
 
@@ -81,7 +127,7 @@ describe('PeopleTab', () => {
 
 describe('OverviewTab', () => {
   it('counts people and points at the ones that need a look', () => {
-    const html = renderToString(<OverviewTab people={people} loading={false} onOpen={() => {}} onTab={() => {}} />)
+    const html = renderToString(<OverviewTab people={people} loading={false} onOpen={() => {}} onKind={() => {}} />)
     expect(html).toContain('연결된 휴대폰')
     expect(html).toContain('1명 미연결')
     expect(html).toContain('확인 필요')

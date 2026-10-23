@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { collection, getDocs, limit, onSnapshot, orderBy, query } from 'firebase/firestore'
 import { db } from '../../firebase'
-import { actionLabel, personFlags, summarize, type AdminLogRow, type AdminPerson, type AdminTab } from '../../lib/admin'
+import { actionLabel, personFlags, summarize, type AdminLogRow, type AdminPerson, type PersonKind } from '../../lib/admin'
 import { fmtDate, fmtTime } from '../../util'
 import { Empty, PersonChip, Section, Stat } from './ui'
 
@@ -11,11 +11,12 @@ interface DailyDoc { id: string; memos?: number }
 
 const DAY_MS = 24 * 3600 * 1000
 
-export function OverviewTab({ people, loading, onOpen, onTab }: {
+export function OverviewTab({ people, loading, onOpen, onKind }: {
   people: AdminPerson[]
   loading: boolean
   onOpen: (uid: string) => void
-  onTab: (tab: AdminTab) => void
+  /** A count tapped: the 가족 view's list of that kind. */
+  onKind: (kind: PersonKind) => void
 }) {
   const [daily, setDaily] = useState<DailyDoc[]>([])
   const [log, setLog] = useState<AdminLogRow[]>([])
@@ -61,8 +62,8 @@ export function OverviewTab({ people, loading, onOpen, onTab }: {
   return (
     <div>
       <section className="admin-grid">
-        <Stat label="부모님" value={dash ?? parents.length} sub={`최근 7일 사진 있음 ${activeParents}명`} onClick={() => onTab('parents')} />
-        <Stat label="가족" value={dash ?? children.length} sub={`최근 7일 로그인 ${activeChildren}명`} onClick={() => onTab('children')} />
+        <Stat label="부모님" value={dash ?? parents.length} sub={`최근 7일 사진 있음 ${activeParents}명`} onClick={() => onKind('parent')} />
+        <Stat label="가족" value={dash ?? children.length} sub={`최근 7일 로그인 ${activeChildren}명`} onClick={() => onKind('child')} />
         <Stat label="연결된 휴대폰" value={dash ?? phones} sub={`${parents.filter((p) => p.devices.active === 0).length}명 미연결`} />
         <Stat label="오늘 사진" value={today} sub={`최근 7일 ${week}장`} />
         <Stat label="확인 필요" value={dash ?? attention.length} sub="대표 가족 없음 · 휴대폰 미연결 · 차단" />
