@@ -194,6 +194,8 @@ main { padding: 18px 22px calc(110px + var(--safe-bot)); }
   box-shadow: var(--shadow); cursor: pointer;
 }
 .connect-btn:active { background: var(--accent-pressed); }
+.connect-parent { width: 100%; padding-top: 14px; border-top: 1px solid var(--line); display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.connect-parent-msg { margin: 0; font-size: 15px; line-height: 1.5; color: var(--ink-2); word-break: keep-all; text-align: center; }
 
 /* Recent shots — one row that scrolls sideways, edge to edge; newest first. */
 .recent-strip {

@@ -17,11 +17,13 @@ describe('SignIn', () => {
     expect(html).toContain('부모님 휴대폰이에요')
     expect(html).toContain('사진을 찍어 가족에게 보내요')
     expect(html).not.toContain('가족에게 받은 연결 코드가 있어요')
+    expect(html).toContain('로그인은 가족용이에요')
   })
 
   it('full edition: the small code link as before', () => {
     const html = render(false)
     expect(html).toContain('가족에게 받은 연결 코드가 있어요')
     expect(html).not.toContain('부모님 휴대폰이에요')
+    expect(html).toContain('가족과 메모를 공유하기 위해 로그인해 주세요')
   })
 })

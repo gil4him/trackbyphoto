@@ -253,5 +253,14 @@ describe('Home with no parent yet (simple edition)', () => {
     expect(out).toContain('connect-only')
     expect(out).not.toContain('class="capbtn"')
     expect(out).not.toContain('안녕하세요')
+    expect(out).not.toContain('부모님이신가요')
+  })
+
+  it('tells a parent who signed in by mistake that the account is for family, with a way out', () => {
+    const out = renderToString(<ConnectParentCard onOpen={() => {}} onImParent={() => {}} />)
+    expect(out).toContain('엄마 연결하기')
+    expect(out).toContain('부모님이신가요? 이 계정은 가족용이에요.')
+    expect(out).toContain('가족에게 받은 연결 링크로 들어오세요.')
+    expect(out).toContain('부모님 휴대폰이에요')
   })
 })
