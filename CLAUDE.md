@@ -29,3 +29,4 @@
 - Plus: ₩4,400 in Korea, $4.99 in the US. Family: ₩7,700 in Korea, $7.99 in the US. Same on both stores (Apple has no ₩4,900/₩7,900 price points). Other countries: the stores' automatic conversion.
 - RevenueCat project "Daylie": entitlement ids `plus` / `family` (and an unused `basic`), offering `default`.
 - Changing prices or plans requires the CEO's explicit approval in the current conversation.
+- Where families pay (owner decision, 2026-10-23): the simple edition's 요금제 is in the payer's **own** Settings, one "부모님께 드리는 선물" row per parent they manage (대표 가족/관리자); it opens the plan sheet for that parent. Not on the parent's page.

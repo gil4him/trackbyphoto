@@ -69,6 +69,8 @@ interface Props {
   weeklyFrom?: string | null
   /** Set while the plan sheet is rolled out: opens 부모님께 드리는 선물. */
   onOpenPlans?: (reason: PlanReason) => void
+  /** Simple edition: open the plan sheet for one of the parents this person manages. */
+  onOpenPlansFor?: (patientUid: string) => void
   /** "Free", "Basic" …: the plan this person is on. */
   planName?: string
   /** How many family members the plan shares with; null when it isn't known. */
@@ -83,7 +85,7 @@ const simple = isSimple()
 /** 설정 → 메모 말투 (memo v2): the worker's model words the memos this way. */
 const MEMO_STYLES: [MemoStyle, string][] = [['plain', '담백하게'], ['warm', '다정하게'], ['playful', '재치있게']]
 
-export function Settings({ settings, onChange, user, onSignOut, activePatientUid, isSelf, onSwitchPatient, myRole, voiceRollout = false, reactionsRollout = false, digestRollout = false, weeklyIncluded = false, weeklyFrom = null, people = [], familyPhotosRollout = false, onOpenPlans, planName, familyLimit = null, pushRollout = false }: Props) {
+export function Settings({ settings, onChange, user, onSignOut, activePatientUid, isSelf, onSwitchPatient, myRole, voiceRollout = false, reactionsRollout = false, digestRollout = false, weeklyIncluded = false, weeklyFrom = null, people = [], familyPhotosRollout = false, onOpenPlans, onOpenPlansFor, planName, familyLimit = null, pushRollout = false }: Props) {
   const toast = useToast()
   // A family-managed elder (부모님 등록하기): family runs 가족 관리 and
   // 기기 관리 for them, since the elder's phone has no settings at all.
@@ -580,19 +582,22 @@ export function Settings({ settings, onChange, user, onSignOut, activePatientUid
           </div>
         )}
 
-        {/* 요금제: a plan is a gift for one parent, so it sits on that parent's page. */}
-        {onOpenPlans && !isSelf && (
-          <div className="sect">
-            <SectLab info="가족이 함께 보는 방법과 사진을 보관하는 기간이 요금제마다 달라요.">요금제</SectLab>
-            <div className="row">
-              <div className="who"><b>{S.planCurrent}</b><br /><span>{planName ?? ''}</span></div>
+        {/* 요금제 in the payer's own settings: a plan belongs to one parent, so
+            each parent this person manages gets a row that opens the sheet for them. */}
+        {onOpenPlansFor && isSelf && (() => {
+          const payable = people.filter((p) => p.membership.role === 'guardian' || p.membership.role === 'admin')
+          return payable.length > 0 && (
+            <div className="sect">
+              <SectLab info="가족이 함께 보는 방법과 사진을 보관하는 기간이 요금제마다 달라요.">요금제</SectLab>
+              {payable.map((p) => (
+                <button key={p.patientUid} className="linkbtn" onClick={() => onOpenPlansFor(p.patientUid)}>
+                  <span>{payable.length > 1 ? `${S.planTitle} · ${honorific(p.name)}` : S.planTitle}</span>
+                  <span aria-hidden="true">→</span>
+                </button>
+              ))}
             </div>
-            <button className="linkbtn" onClick={() => onOpenPlans({ kind: 'settings' })}>
-              <span>{S.planTitle}</span>
-              <span aria-hidden="true">→</span>
-            </button>
-          </div>
-        )}
+          )
+        })()}
 
         <div className="sect">
           <SectLab>도움말·약관</SectLab>

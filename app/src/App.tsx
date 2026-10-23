@@ -215,6 +215,11 @@ function App() {
   // v2 plans: 부모님께 드리는 선물 (opened from four places only) and 목소리 앨범.
   const planOn = planSheetOpenFor(plans, user?.uid)
   const [planSheet, setPlanSheet] = useState<PlanReason | null>(null)
+  // The simple edition's own settings open the sheet for a parent: switch to
+  // that parent until their settings (and plan) are loaded, then come back.
+  const [planFor, setPlanFor] = useState<{ uid: string; back: string } | null>(null)
+  const shownPlanSheet: PlanReason | null = planSheet
+    ?? (planFor && activePatientUid === planFor.uid && settingsUid === planFor.uid ? { kind: 'settings' } : null)
   const [voiceAlbum, setVoiceAlbum] = useState(false)
   const familyUid = user && !elder ? user.uid : undefined
   // Photos family send to a parent: the switch, and the 대표 가족's setting
@@ -703,6 +708,17 @@ function App() {
   const sendToParent = viewingParent && familyPhotosFlag && canSendFamilyPhoto(settings.familyPhotos, myRole)
     ? { uid: activePatientUid!, name: settings.patientName }
     : null
+  const openPlansFor = (uid: string) => {
+    setPlanFor({ uid, back: activePatientUid || user.uid })
+    onSwitchPatient(uid)
+  }
+  const closePlanSheet = () => {
+    setPlanSheet(null)
+    if (planFor) {
+      onSwitchPatient(planFor.back)
+      setPlanFor(null)
+    }
+  }
   const canChangePlan = isSelf ? settings.accountType !== 'managed' : myRole === 'admin' || myRole === 'guardian'
   // 목소리 앨범: family only, on a plan that includes it.
   const voiceAlbumOn = planOn && !isSelf && flagOn(plans, 'voiceReplies') && ent?.voiceAlbum === true
@@ -859,6 +875,7 @@ function App() {
                   familyPhotosRollout={familyPhotosFlag}
                   weeklyFrom={fromTier(plans, 'weekly')}
                   onOpenPlans={planOn && plans ? setPlanSheet : undefined}
+                  onOpenPlansFor={planOn && plans && isSimple() ? openPlansFor : undefined}
                   planName={TIER_NAME[settings.plan?.tier ?? 'free']}
                   familyLimit={ent?.familyMembers ?? null}
                   pushRollout={pushOn}
@@ -877,15 +894,15 @@ function App() {
             onClose={() => setSendTarget(null)}
           />
         )}
-        {planSheet && planOn && plans && settingsUid === (activePatientUid || user.uid) && (
+        {shownPlanSheet && planOn && plans && settingsUid === (activePatientUid || user.uid) && (
           <PlanSheet
             plans={plans}
             patientUid={activePatientUid || user.uid}
             patientName={settings.patientName}
             plan={settings.plan}
-            reason={planSheet}
+            reason={shownPlanSheet}
             canChange={canChangePlan}
-            onClose={() => setPlanSheet(null)}
+            onClose={closePlanSheet}
           />
         )}
 
