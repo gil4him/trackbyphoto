@@ -378,10 +378,17 @@ async function issueDevice(
   const family = await activeFamilyUids(p.patientUid)
 
   // Transaction so two phones redeeming the same code can't both get in.
+  // A parent has one phone: the new one replaces any phone linked before
+  // (owner decision, 2026-10-23), which then shows 연결이 해제되었어요.
   const expected = p.status
-  await db.runTransaction(async (tx) => {
+  const devices = db.collection('users').doc(p.patientUid).collection('devices')
+  const replaced = await db.runTransaction(async (tx) => {
     const fresh = (await tx.get(ref)).data() as Pairing | undefined
     if (!fresh || fresh.status !== expected) throw new HttpsError('failed-precondition', 'code already used')
+    const older = (await tx.get(devices.where('status', '==', 'active'))).docs
+    for (const d of older) {
+      tx.update(d.ref, { status: 'revoked', revokedAt: FieldValue.serverTimestamp(), revokedBy: callerUid, replacedBy: deviceRef.id })
+    }
     tx.update(ref, { status: 'used', usedAt: FieldValue.serverTimestamp(), claimedBy: callerUid, deviceInfo: device })
     tx.set(deviceRef, {
       name: device.name,
@@ -396,19 +403,24 @@ async function issueDevice(
       patientUid: p.patientUid,
       actorUid: callerUid,
       action: 'device.pair',
-      details: { pairingId: ref.id, deviceId: deviceRef.id, purpose: p.purpose, mode: p.mode, device },
+      details: { pairingId: ref.id, deviceId: deviceRef.id, purpose: p.purpose, mode: p.mode, device, replaced: older.map((d) => d.id) },
       timestamp: FieldValue.serverTimestamp(),
     })
+    const line = `${name}님 휴대폰(${device.name})이 연결되었어요.${older.length ? ' 전에 쓰던 휴대폰은 연결을 해제했어요.' : ''}`
     for (const uid of family) {
-      tx.set(
-        db.collection('notifications').doc(),
-        familyNotice(uid, p.patientUid, callerUid, 'device.pair', `${name}님 휴대폰(${device.name})이 연결되었어요.`),
-      )
+      tx.set(db.collection('notifications').doc(), familyNotice(uid, p.patientUid, callerUid, 'device.pair', line))
     }
+    return older.map((d) => d.id)
   })
+  // The replaced phones' push tokens go too (as in revokeDevice).
+  if (replaced.length) {
+    await db.doc(`users/${p.patientUid}/private/push`)
+      .set({ elderTokens: Object.fromEntries(replaced.map((id) => [id, FieldValue.delete()])) }, { merge: true })
+      .catch((err) => logger.warn('[pairing] replaced elder tokens not removed', { patientUid: p.patientUid, err: String(err) }))
+  }
   scheduleAnonCleanup(callerUid)
 
-  logger.info('[pairing] device paired', { patientUid: p.patientUid, deviceId: deviceRef.id, purpose: p.purpose, mode: p.mode })
+  logger.info('[pairing] device paired', { patientUid: p.patientUid, deviceId: deviceRef.id, purpose: p.purpose, mode: p.mode, replaced })
   return { status: 'paired', customToken, patientUid: p.patientUid, deviceId: deviceRef.id }
 }
 

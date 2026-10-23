@@ -30,3 +30,4 @@
 - RevenueCat project "Daylie": entitlement ids `plus` / `family` (and an unused `basic`), offering `default`.
 - Changing prices or plans requires the CEO's explicit approval in the current conversation.
 - Where families pay (owner decision, 2026-10-23): the simple edition's 요금제 is in the payer's **own** Settings, one "부모님께 드리는 선물" row per parent they manage (대표 가족/관리자); it opens the plan sheet for that parent. Not on the parent's page.
+- One phone per parent (owner decision, 2026-10-23): linking a new phone to a parent unlinks the phone linked before (worker `issueDevice`); the old phone shows 연결이 해제되었어요 and family get one notice saying so.

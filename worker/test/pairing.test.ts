@@ -191,6 +191,23 @@ describe('re-linking an account that already has a phone', () => {
     expect((await db.collection(`users/${patientUid}/devices`).get()).size).toBe(2)
   })
 
+  it('the new phone replaces the old one: one active phone per parent', async () => {
+    const patientUid = await pairedElder()
+    const [old] = (await db.collection(`users/${patientUid}/devices`).get()).docs
+    await db.doc(`users/${patientUid}/private/push`).set({ elderTokens: { [old.id]: 'tok-old' } })
+    const { code } = await createPairingLink(FAMILY, { patientUid, mode: 'qr' })
+    const res = await pairDevice(ANON('anon2'), { code, device: { name: 'Galaxy', platform: 'android' } })
+    if (res.status !== 'paired') throw new Error('expected pairing')
+
+    const devices = await db.collection(`users/${patientUid}/devices`).get()
+    const byId = Object.fromEntries(devices.docs.map((d) => [d.id, d.data()]))
+    expect(byId[res.deviceId]).toMatchObject({ status: 'active' })
+    expect(byId[old.id]).toMatchObject({ status: 'revoked', revokedBy: 'anon2', replacedBy: res.deviceId })
+    expect((await db.doc(`users/${patientUid}/private/push`).get()).get('elderTokens')).toEqual({})
+    const notice = (await db.collection('notifications').where('type', '==', 'device.pair').get()).docs.map((d) => d.data().message as string)
+    expect(notice.some((m) => m.includes('전에 쓰던 휴대폰은 연결을 해제했어요'))).toBe(true)
+  })
+
   it('denied re-link never gets a token', async () => {
     const patientUid = await pairedElder()
     const { code } = await createPairingLink(FAMILY, { patientUid })
