@@ -4,11 +4,20 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const badge = vi.hoisted(() => ({ set: vi.fn(async () => {}), clear: vi.fn(async () => {}) }))
 vi.mock('@capawesome/capacitor-badge', () => ({ Badge: badge }))
+const messaging = vi.hoisted(() => ({ removeAllDeliveredNotifications: vi.fn(async () => {}) }))
+vi.mock('@capacitor-firebase/messaging', () => ({ FirebaseMessaging: messaging }))
 vi.mock('@capacitor/core', () => ({ Capacitor: { isNativePlatform: () => false } }))
 
 import { setAppBadge } from './appBadge'
 
-beforeEach(() => { badge.set.mockClear(); badge.clear.mockClear() })
+const page = { visibilityState: 'visible' as DocumentVisibilityState }
+beforeEach(() => {
+  badge.set.mockClear(); badge.clear.mockClear(); messaging.removeAllDeliveredNotifications.mockClear()
+  page.visibilityState = 'visible'
+  vi.stubGlobal('document', page)
+  // The test runs in Node: a bare navigator to hang the browser badge on.
+  vi.stubGlobal('navigator', {})
+})
 
 describe('setAppBadge', () => {
   it('sets the phone\'s icon number in the store app, and clears it at zero', () => {
@@ -16,6 +25,16 @@ describe('setAppBadge', () => {
     expect(badge.set).toHaveBeenCalledWith({ count: 3 })
     setAppBadge(0, true)
     expect(badge.clear).toHaveBeenCalled()
+  })
+
+  it('clears the app\'s notifications from the tray while it is on screen, so Samsung\'s count follows', () => {
+    setAppBadge(0, true)
+    expect(messaging.removeAllDeliveredNotifications).toHaveBeenCalledOnce()
+    // In the background a notice that just arrived must stay in the tray.
+    page.visibilityState = 'hidden'
+    setAppBadge(1, true)
+    expect(messaging.removeAllDeliveredNotifications).toHaveBeenCalledOnce()
+    expect(badge.set).toHaveBeenCalledWith({ count: 1 })
   })
 
   it('uses the browser badge on the web, and survives a browser without one', () => {
