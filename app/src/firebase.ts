@@ -9,7 +9,14 @@ import {
   setPersistence,
   type Auth,
 } from 'firebase/auth'
-import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore'
+import {
+  connectFirestoreEmulator,
+  getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+  type Firestore,
+} from 'firebase/firestore'
 import { getStorage, connectStorageEmulator } from 'firebase/storage'
 
 // authDomain must match the page origin so the Firebase Auth helper iframe
@@ -54,7 +61,21 @@ function createAuth(): Auth {
   return a
 }
 export const auth = createAuth()
-export const db = getFirestore(app)
+// Firestore keeps its copy on the phone, so a page shows the last data at
+// once and the server's answer follows. One account's copy is never shown to
+// another (lib/localCache.ts). Against the emulators (e2e), memory only, so
+// runs never see each other's data, unless VITE_EMULATOR_CACHE=1 tests it.
+function createFirestore(): Firestore {
+  const emulatorOnly = import.meta.env.VITE_USE_EMULATOR === '1' && import.meta.env.VITE_EMULATOR_CACHE !== '1'
+  if (typeof indexedDB === 'undefined' || emulatorOnly) return getFirestore(app)
+  try {
+    return initializeFirestore(app, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) })
+  } catch (err) {
+    console.warn('[firebase] no copy on the phone; memory only', err)
+    return getFirestore(app)
+  }
+}
+export const db = createFirestore()
 export const storage = getStorage(app)
 
 // Local emulator wiring: set VITE_USE_EMULATOR=1 in .env.local

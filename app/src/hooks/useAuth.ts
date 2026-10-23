@@ -17,6 +17,7 @@ import {
 } from 'firebase/auth'
 import { auth } from '../firebase'
 import { accountGone, forgetAccountKeys } from '../lib/account'
+import { claimLocalCache, dropLocalCache } from '../lib/localCache'
 import { outbox } from '../lib/outboxBackend'
 import { voiceOutbox } from '../lib/voiceOutbox'
 import { forgetLastFix } from '../lib/location'
@@ -110,7 +111,7 @@ export async function resetIfAccountGone(): Promise<boolean> {
   await Promise.all([outbox.drop(uid), voiceOutbox.drop(uid)]).catch(() => {})
   if (isNative) await FirebaseAuthentication.signOut().catch(() => {})
   await fbSignOut(auth).catch(() => {})
-  window.location.replace('/')
+  await dropLocalCache('/')
   return true
 }
 
@@ -131,6 +132,8 @@ export function useAuth() {
     }
 
     const unsub = onAuthStateChanged(auth, async (u) => {
+      // Another account's copy on this phone: the page starts again without it.
+      if (u && !u.isAnonymous && await claimLocalCache(u.uid)) return
       const session = u && !u.isAnonymous ? await readElderSession(u) : null
       setElder(session)
       setUser(u)

@@ -31,6 +31,7 @@ import { PUBLIC_ORIGIN } from '../lib/publicUrl'
 import { SectLab } from '../components/SectLab'
 import { PushToggle } from '../components/PushToggle'
 import { HomePicker } from '../components/HomePicker'
+import { dropLocalCache } from '../lib/localCache'
 
 /** Version of the 음성 답장 consent text shown below. */
 const VOICE_CONSENT_VERSION = 'voice-v1'
@@ -139,8 +140,10 @@ export function Settings({ settings, onChange, user, onSignOut, activePatientUid
       await deleteMyAccount(user.uid)
       setDeleteMeOpen(false)
       // The account itself is already gone; this clears the sign-in off the
-      // phone so the app lands back on the first screen.
+      // phone so the app lands back on the first screen, without the copy of
+      // the account's data the phone kept.
       await onSignOut()
+      await dropLocalCache('/')
     } catch (err) {
       console.error('[account] delete failed', err)
       toast.show('삭제하지 못했어요', isWorkerOffline(err) ? WORKER_OFFLINE_MESSAGE : '잠시 후 다시 시도해 주세요')
