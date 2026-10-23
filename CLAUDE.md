@@ -18,3 +18,9 @@
 - Before deploying, read the running commit (`~/daylie-worker-simple/DEPLOYED`, `~/trackbyphoto-worker/DEPLOYED`) and make sure your checkout contains it: `git merge-base --is-ancestor <deployed> HEAD`. If not, stop and ask: someone else's work would be lost.
 - After a deploy, verify from the worker log (`~/Library/Logs/daylie-worker-simple.log`, `~/Library/Logs/trackbyphoto-worker.log`) that the `[worker] starting` line shows the expected `deployedCommit` and features (e.g. `"weather":"WeatherKit"`), and tell the user what is running.
 - Production deploys (workers, Firebase, store submissions) are run by the user unless they say otherwise.
+
+### Subscription prices (CEO decision, 2026-10-22)
+- Plans sold: Free, Plus, Family (Basic is not offered). Monthly auto-renewing store subscriptions, ids `daylie_plus_monthly` / `daylie_family_monthly` (Play base plan `monthly`), in App Store group "Daylie".
+- Plus: ₩4,400 in Korea, $4.99 in the US. Family: ₩7,700 in Korea, $7.99 in the US. Same on both stores (Apple has no ₩4,900/₩7,900 price points). Other countries: the stores' automatic conversion.
+- RevenueCat project "Daylie": entitlement ids `plus` / `family` (and an unused `basic`), offering `default`.
+- Changing prices or plans requires the CEO's explicit approval in the current conversation.
