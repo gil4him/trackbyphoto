@@ -44,6 +44,18 @@ describe('a photo from the family', () => {
     expect(f.elder).toHaveLength(1)
   })
 
+  it('carries a list-sized link when one could be made, and is ready without one', async () => {
+    await photo('t')
+    const { deps } = fakes(new Set(['familyPhotos/p1/t.jpg']))
+    expect(await readyFamilyPhoto('t', { ...deps, thumbOf: async (p) => `https://example.test/${p}.thumb` })).toBe('ready')
+    expect((await db.doc('familyPhotos/t').get()).get('thumbUrl')).toBe('https://example.test/familyPhotos/p1/t.jpg.thumb')
+
+    await photo('u')
+    const { deps: d2 } = fakes(new Set(['familyPhotos/p1/u.jpg']))
+    expect(await readyFamilyPhoto('u', { ...d2, thumbOf: async () => { throw new Error('no') } })).toBe('ready')
+    expect((await db.doc('familyPhotos/u').get()).get('thumbUrl')).toBeUndefined()
+  })
+
   it('waits while the file has not arrived, and while the switch is off', async () => {
     await photo('a')
     const { deps } = fakes()

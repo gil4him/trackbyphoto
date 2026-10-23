@@ -21,11 +21,13 @@
     "plans": "npm run build && node dist/scripts/plans.js",
     "payments-sim": "npm run build && node dist/scripts/payments-sim.js",
     "test": "firebase emulators:exec --only firestore,auth --project demo-trackbyphoto 'vitest run'",
-    "test:watch": "firebase emulators:exec --only firestore,auth --project demo-trackbyphoto 'vitest'"
+    "test:watch": "firebase emulators:exec --only firestore,auth --project demo-trackbyphoto 'vitest'",
+    "photo-thumbs": "npm run build && node dist/scripts/photo-thumbs.js"
   },
   "dependencies": {
     "firebase-admin": "^13.10.0",
-    "nodemailer": "^6.10.1"
+    "nodemailer": "^6.10.1",
+    "sharp": "^0.34.5"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

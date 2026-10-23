@@ -35,6 +35,7 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore'
 import { getStorage } from 'firebase-admin/storage'
 import { logger } from '../log.js'
 import { downloadLink } from '../storageLinks.js'
+import { ensureThumb } from '../thumbs.js'
 import { bumpAdminCounters } from '../counters.js'
 import { reverseGeocode, type GeoLang, type GeoResult } from '../geocode.js'
 import {
@@ -64,6 +65,19 @@ const UNAVAILABLE_RETRY_MS = 60_000
 export interface PhotoInfo {
   base64: () => Promise<string>
   photoUrl: string
+  /** The list-sized copy's link, made when missing (thumbs.ts); none in tests that leave it out. */
+  thumbUrl?: () => Promise<string | null>
+}
+
+/** A thumbnail never holds a memo up: without one the lists show the full photo. */
+async function thumbOf(photo: PhotoInfo, memoId: string): Promise<string | null> {
+  if (!photo.thumbUrl) return null
+  try {
+    return await photo.thumbUrl()
+  } catch (err) {
+    logger.warn('[memo] thumbnail not made', { memoId, err: String(err) })
+    return null
+  }
 }
 
 /** Injected I/O so tests can run without Storage, Ollama, or the network. */
@@ -84,7 +98,7 @@ export const defaultMemoDeps: MemoDeps = {
     const photoUrl = await downloadLink(photoPath)
     if (!photoUrl) return null
     const file = getStorage().bucket().file(photoPath)
-    return { photoUrl, base64: async () => (await file.download())[0].toString('base64') }
+    return { photoUrl, base64: async () => (await file.download())[0].toString('base64'), thumbUrl: () => ensureThumb(photoPath) }
   },
   geocode: reverseGeocode,
   generate: generateMemoRouted,
@@ -112,9 +126,11 @@ export async function prepareMemo(memoId: string, deps: MemoDeps = defaultMemoDe
   const lng = typeof data.lng === 'number' ? data.lng : null
 
   const update: Record<string, unknown> = {}
-  if (!data.photoUrl) {
+  if (!data.photoUrl || !data.thumbUrl) {
     const photo = await deps.loadPhoto(photoPath)
-    if (photo) update.photoUrl = photo.photoUrl
+    if (photo && !data.photoUrl) update.photoUrl = photo.photoUrl
+    const thumbUrl = photo && !data.thumbUrl ? await thumbOf(photo, memoId) : null
+    if (thumbUrl) update.thumbUrl = thumbUrl
   }
   if (lat != null && lng != null && !placeKnown(data)) {
     const { place, address } = await deps.geocode(lat, lng, await resolveGeoLang(patientUid))
@@ -388,8 +404,10 @@ export async function processMemo(memoId: string, attempt: number, deps: MemoDep
   // Skip the interpretive fields when a guardian has already corrected the
   // memo. photoUrl + place/address are still safe to refresh (they're factual).
   const firstCompletion = !data.notifiedAt
+  const thumbUrl = data.thumbUrl ? null : await thumbOf(photo, memoId)
   const update: Record<string, unknown> = {
     photoUrl: photo.photoUrl,
+    ...(thumbUrl ? { thumbUrl } : {}),
     status: 'ready',
     // Sent by older app builds; never used (see header).
     deviceMemo: FieldValue.delete(),

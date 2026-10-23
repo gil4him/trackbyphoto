@@ -53,6 +53,33 @@ const memo = async (id: string) => (await db.doc(`memos/${id}`).get()).data()!
 
 beforeEach(async () => { await clearFirestore(); resetHomeCache(); setTravelGeocoder(async () => ({ place: '', address: '' })) })
 
+describe('thumbnails', () => {
+  const withThumb = (thumbUrl: () => Promise<string | null>) =>
+    deps({ loadPhoto: async () => ({ photoUrl: PHOTO_URL, base64: async () => 'aGk=', thumbUrl }) })
+
+  it('the quick pass and the finished memo both carry the list-sized link', async () => {
+    await seedPending('t1')
+    await prepareMemo('t1', withThumb(async () => 'https://example.test/t1.thumb.jpg'))
+    expect((await db.doc('memos/t1').get()).get('thumbUrl')).toBe('https://example.test/t1.thumb.jpg')
+
+    await seedPending('t2')
+    expect(await processMemo('t2', 1, withThumb(async () => 'https://example.test/t2.thumb.jpg'))).toBe('done')
+    const d = (await db.doc('memos/t2').get()).data()!
+    expect(d).toMatchObject({ status: 'ready', thumbUrl: 'https://example.test/t2.thumb.jpg' })
+  })
+
+  it('a thumbnail that fails never holds the memo up', async () => {
+    await seedPending('t3')
+    const d = withThumb(async () => { throw new Error('sharp exploded') })
+    await prepareMemo('t3', d)
+    expect(await processMemo('t3', 1, d)).toBe('done')
+    const memo = (await db.doc('memos/t3').get()).data()!
+    expect(memo.status).toBe('ready')
+    expect(memo.photoUrl).toBe(PHOTO_URL)
+    expect(memo.thumbUrl).toBeUndefined()
+  })
+})
+
 describe('processMemo', () => {
   it('writes the local-model memo, notifies caregivers once, bumps counters', async () => {
     await seedMembership('p1', 'cg1')

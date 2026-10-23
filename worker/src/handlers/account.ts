@@ -29,6 +29,7 @@
 
 import { getAuth } from 'firebase-admin/auth'
 import { getStorage } from 'firebase-admin/storage'
+import { deleteThumb } from '../thumbs.js'
 import { getFirestore } from 'firebase-admin/firestore'
 import { logger } from '../log.js'
 import { WorkerError as HttpsError, type Caller } from '../context.js'
@@ -130,6 +131,7 @@ export async function eraseFamilyAccount(uid: string): Promise<number> {
     for (const path of strays) {
       await bucket.file(path).delete({ ignoreNotFound: true }).catch((err) =>
         logger.warn('[account] file cleanup failed', { uid, path, err: String(err) }))
+      await deleteThumb(path).catch(() => {})
     }
   }
 

@@ -15,12 +15,15 @@
 import { getFirestore, FieldValue } from 'firebase-admin/firestore'
 import { logger } from '../log.js'
 import { downloadLink } from '../storageLinks.js'
+import { ensureThumb } from '../thumbs.js'
 import { flagOn } from '../plans.js'
 import { openPath, pushToElder, pushToUsers, type PushMessage } from './push.js'
 
 export interface FamilyPhotoDeps {
   /** A plain link to the photo; null when the file isn't there. */
   linkTo: (photoPath: string) => Promise<string | null>
+  /** The list-sized copy's link (thumbs.ts); a failure leaves the lists on the full photo. */
+  thumbOf?: (photoPath: string) => Promise<string | null>
   push?: (uids: string[], message: PushMessage) => Promise<unknown>
   /** Tell the parent's phone (default: handlers/push pushToElder). */
   pushElder?: (patientUid: string, message: PushMessage) => Promise<unknown>
@@ -28,6 +31,7 @@ export interface FamilyPhotoDeps {
 
 export const defaultFamilyPhotoDeps: FamilyPhotoDeps = {
   linkTo: downloadLink,
+  thumbOf: (photoPath) => ensureThumb(photoPath),
 }
 
 /** Give a pending photo its link. Returns what happened. */
@@ -43,7 +47,13 @@ export async function readyFamilyPhoto(id: string, deps: FamilyPhotoDeps = defau
     // the next pass picks it up again.
     return 'no-file'
   }
-  await ref.update({ photoUrl, status: 'ready', readyAt: FieldValue.serverTimestamp() })
+  const thumbUrl = deps.thumbOf
+    ? await deps.thumbOf(data.photoPath as string).catch((err) => {
+      logger.warn('[familyPhoto] thumbnail not made', { id, err: String(err) })
+      return null
+    })
+    : null
+  await ref.update({ photoUrl, ...(thumbUrl ? { thumbUrl } : {}), status: 'ready', readyAt: FieldValue.serverTimestamp() })
   logger.info('[familyPhoto] ready', { id, patientUid: data.patientUid, senderUid: data.senderUid })
   // The parent's phone: a banner and the icon number (only its paired phones have tokens).
   await (deps.pushElder ?? pushToElder)(data.patientUid as string, {

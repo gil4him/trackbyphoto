@@ -20,6 +20,7 @@
 
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { getStorage } from 'firebase-admin/storage'
+import { deleteThumb } from '../thumbs.js'
 import { logger } from '../log.js'
 import { PLAN_TIERS, getPlans, type PlansDoc, type PlanTier } from '../plans.js'
 
@@ -44,6 +45,7 @@ export interface RetentionDeps {
 export const defaultRetentionDeps: RetentionDeps = {
   deletePhoto: async (photoPath) => {
     await getStorage().bucket().file(photoPath).delete({ ignoreNotFound: true })
+    await deleteThumb(photoPath)
   },
 }
 
