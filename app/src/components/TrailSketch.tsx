@@ -1,5 +1,6 @@
 import { useId } from 'react'
 import { project, type LatLng, type TrailStop } from '../lib/trail'
+import { listPhoto } from '../lib/listPhoto'
 
 const W = 320
 const H = 200
@@ -47,7 +48,7 @@ export function TrailSketch({ stops, home, thumbs = false, wide = false, onPick 
       )}
       {stops.map((s, i) => {
         const p = xy[i]
-        const photo = thumbs ? s.memos[0].photoUrl : ''
+        const photo = thumbs ? listPhoto(s.memos[0]) : ''
         return (
           <g key={i} onClick={onPick ? () => onPick(s) : undefined} style={onPick ? { cursor: 'pointer' } : undefined}>
             {photo && (

@@ -1,6 +1,7 @@
 import type { FamilyPhoto } from '../types'
 import { fmtTime } from '../util'
 import { S } from '../lib/strings'
+import { listPhoto } from '../lib/listPhoto'
 
 /**
  * A photo the family sent, as a row in the parent's 내 사진, among the
@@ -15,7 +16,7 @@ export function ReceivedRow({ photo, onOpen }: { photo: FamilyPhoto; onOpen: (id
   return (
     <button type="button" className="memo-row received" onClick={() => onOpen(photo.id)} aria-label="가족 사진 보기">
       <span className="memo-row-pic">
-        <span className="tl-thumb">{photo.photoUrl && <img src={photo.photoUrl} alt="" loading="lazy" />}</span>
+        <span className="tl-thumb">{photo.photoUrl && <img src={listPhoto(photo)} alt="" loading="lazy" />}</span>
       </span>
       <span className="memo-row-body">
         <span className="memo-row-title">{S.familyPhotoFrom(photo.senderName)}</span>

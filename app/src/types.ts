@@ -35,6 +35,8 @@ export interface Memo {
   patientUid: string
   photoPath: string        // gs path: photos/{patientUid}/{photoId}.jpg
   photoUrl: string         // public download URL
+  /** The ~480px copy for lists (worker thumbs.ts); missing on photos it hasn't reached. */
+  thumbUrl?: string
   takenAt: Timestamp
   lat: number | null
   lng: number | null
@@ -267,6 +269,8 @@ export interface FamilyPhoto {
   senderName: string
   photoPath: string
   photoUrl?: string
+  /** The ~480px copy for lists (worker thumbs.ts). */
+  thumbUrl?: string
   caption: string
   status: 'pending' | 'ready'
   createdAtMs: number

@@ -6,6 +6,7 @@ import { db } from '../firebase'
 import { callWorker } from '../lib/worker'
 import { fmtDate, fmtTime } from '../util'
 import type { Memo, MemoSource } from '../types'
+import { listPhoto } from '../lib/listPhoto'
 
 interface RegenResult {
   memoId: string
@@ -479,7 +480,7 @@ export function SuperAdmin() {
             <div className="adm-row" key={m.id}>
               <div className="adm-thumb">
                 {m.photoUrl
-                  ? <img src={m.photoUrl} alt="" />
+                  ? <img src={listPhoto(m)} alt="" loading="lazy" />
                   : <div className="adm-thumb-empty" />}
               </div>
               <div className="adm-info">

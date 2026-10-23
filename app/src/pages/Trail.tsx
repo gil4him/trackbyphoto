@@ -8,6 +8,7 @@ import { renderKakaoMap } from '../lib/map/kakao'
 import { KakaoFrame } from '../components/KakaoFrame'
 import { AWAY_KM, fmtKm, trailStops, trailSummary, type LatLng, type TrailStop } from '../lib/trail'
 import type { Memo } from '../types'
+import { listPhoto } from '../lib/listPhoto'
 
 /** Under the map: each stop in order as a memo row (A13), numbered like its
  *  pin — the stop's first photo, with the time, the neighbourhood and how far
@@ -58,7 +59,7 @@ export function Trail({ title, memos, home, onBack, onOpenMemo, keys = MAP_KEYS 
     renderKakaoMap(
       mapRef.current,
       keys.kakao,
-      stops.map((s, i) => ({ lat: s.lat, lng: s.lng, label: String(i + 1), photoUrl: s.memos[0].photoUrl, onClick: () => onOpenMemo(s.memos[0].id) })),
+      stops.map((s, i) => ({ lat: s.lat, lng: s.lng, label: String(i + 1), photoUrl: listPhoto(s.memos[0]), onClick: () => onOpenMemo(s.memos[0].id) })),
       nearHome,
     ).catch((err) => {
       console.warn('[trail] kakao map unavailable; trying the Google picture', err)
@@ -92,7 +93,7 @@ export function Trail({ title, memos, home, onBack, onOpenMemo, keys = MAP_KEYS 
               ? (KAKAO_IN_FRAME
                 ? <KakaoFrame
                     className="trail-kakao"
-                    map={{ key: keys.kakao!, pins: stops.map((s, i) => ({ lat: s.lat, lng: s.lng, label: String(i + 1), photoUrl: s.memos[0].photoUrl })), home: nearHome, big: true }}
+                    map={{ key: keys.kakao!, pins: stops.map((s, i) => ({ lat: s.lat, lng: s.lng, label: String(i + 1), photoUrl: listPhoto(s.memos[0]) })), home: nearHome, big: true }}
                     onFail={() => setKakaoFailed(true)}
                     onPick={(i) => { const s = stops[i]; if (s) onOpenMemo(s.memos[0].id) }}
                   />

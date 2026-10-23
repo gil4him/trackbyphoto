@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { ref, getDownloadURL } from 'firebase/storage'
 import { storage } from '../firebase'
 import { categoryThumbClass } from '../lib/categoryStyle'
+import { listPhoto } from '../lib/listPhoto'
 import type { Memo } from '../types'
 
 /**
@@ -14,21 +15,23 @@ import type { Memo } from '../types'
  * lookup; memos that already carry a photoUrl render immediately.
  */
 export function MemoThumb({ memo, showLocation = false }: { memo: Memo; showLocation?: boolean }) {
-  const [url, setUrl] = useState(memo.photoUrl || '')
+  const small = listPhoto(memo)
+  const [url, setUrl] = useState(small)
 
   useEffect(() => {
-    if (memo.photoUrl) { setUrl(memo.photoUrl); return }
+    if (small) { setUrl(small); return }
     if (!memo.photoPath) { setUrl(''); return }
     let alive = true
     getDownloadURL(ref(storage, memo.photoPath))
       .then((u) => { if (alive) setUrl(u) })
       .catch(() => { /* leave the gradient fallback in place */ })
     return () => { alive = false }
-  }, [memo.photoUrl, memo.photoPath])
+  }, [small, memo.photoPath])
 
   return (
     <div className={`tl-thumb ${url ? '' : categoryThumbClass(memo.activity)}`}>
-      {url && <img src={url} alt="" />}
+      {/* A thumbnail that won't load (removed by hand, say) gives way to the full photo. */}
+      {url && <img src={url} alt="" onError={() => { if (memo.photoUrl && url !== memo.photoUrl) setUrl(memo.photoUrl) }} />}
       {showLocation && memo.place && <span className="rt-loc">{memo.place}</span>}
     </div>
   )

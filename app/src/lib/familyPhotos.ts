@@ -20,6 +20,7 @@ function fromDoc(id: string, d: Record<string, unknown>): FamilyPhoto {
     senderName: (d.senderName as string) || '가족',
     photoPath: d.photoPath as string,
     photoUrl: d.photoUrl as string | undefined,
+    thumbUrl: d.thumbUrl as string | undefined,
     caption: (d.caption as string) || '',
     status: d.status === 'ready' ? 'ready' : 'pending',
     createdAtMs: ms(d.createdAt) || Date.now(),

@@ -6,6 +6,7 @@ import { FAMILY_PHOTO_CAPTIONS, FAMILY_PHOTOS_PER_DAY, S } from '../lib/strings'
 import { fmtTime } from '../util'
 import { honorificWith } from '../lib/people'
 import type { FamilyPhoto } from '../types'
+import { listPhoto } from '../lib/listPhoto'
 
 /**
  * A family member sends a photo to the parent: pick it, add a line (one of
@@ -100,7 +101,7 @@ export function SentFamilyPhotos({ photos, myUid, onRemove = removeFamilyPhoto, 
       {headed && photos.length === 0 && <div className="fp-none" role="status">아직 보낸 사진이 없어요</div>}
       {photos.slice(0, 12).map((p) => (
         <div className="fp-row" key={p.id}>
-          <div className="fp-thumb">{p.photoUrl ? <img src={p.photoUrl} alt="" /> : <span aria-hidden="true">🖼️</span>}</div>
+          <div className="fp-thumb">{p.photoUrl ? <img src={listPhoto(p)} alt="" loading="lazy" /> : <span aria-hidden="true">🖼️</span>}</div>
           <div className="fp-body">
             <div className="fp-cap">{p.caption || '(사진만)'}</div>
             <div className="fp-meta">{p.senderName} · {fmtTime(new Date(p.createdAtMs))} · <b className={p.reply ? 'fp-replied-mark' : ''}>{sentStatus(p)}</b></div>

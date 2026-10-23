@@ -4,6 +4,7 @@ import { TrailSketch } from '../components/TrailSketch'
 import { trailStops } from '../lib/trail'
 import type { Digest, Memo } from '../types'
 import { honorific } from '../lib/people'
+import { listPhoto } from '../lib/listPhoto'
 
 const TITLE: Record<Digest['kind'], string> = { daily: '오늘 하루', weekly: '이번 주 하이라이트', monthly: '지난달 앨범' }
 
@@ -33,7 +34,7 @@ export function DigestView({ digest, memos, onOpenMemo, onMore, onOpenTrail }: {
         <div className="dg-grid">
           {memos.map((m) => (
             <button key={m.id} type="button" className="dg-tile" onClick={() => onOpenMemo(m.id)} aria-label={m.memo || '사진'}>
-              {m.photoUrl ? <img src={m.photoUrl} alt="" loading="lazy" /> : <span className="dg-tile-empty" />}
+              {m.photoUrl ? <img src={listPhoto(m)} alt="" loading="lazy" /> : <span className="dg-tile-empty" />}
             </button>
           ))}
         </div>
