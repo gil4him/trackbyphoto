@@ -580,6 +580,20 @@ export function Settings({ settings, onChange, user, onSignOut, activePatientUid
           </div>
         )}
 
+        {/* 요금제: a plan is a gift for one parent, so it sits on that parent's page. */}
+        {onOpenPlans && !isSelf && (
+          <div className="sect">
+            <SectLab info="가족이 함께 보는 방법과 사진을 보관하는 기간이 요금제마다 달라요.">요금제</SectLab>
+            <div className="row">
+              <div className="who"><b>{S.planCurrent}</b><br /><span>{planName ?? ''}</span></div>
+            </div>
+            <button className="linkbtn" onClick={() => onOpenPlans({ kind: 'settings' })}>
+              <span>{S.planTitle}</span>
+              <span aria-hidden="true">→</span>
+            </button>
+          </div>
+        )}
+
         <div className="sect">
           <SectLab>도움말·약관</SectLab>
           {/* In this window, not a new tab: the page's own ‹ 설정으로 돌아가기 brings the app back here. */}
