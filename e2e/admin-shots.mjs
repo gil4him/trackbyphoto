@@ -14,8 +14,8 @@ import { spawn } from 'node:child_process'
 import { initializeApp } from 'firebase-admin/app'
 import { getFirestore } from 'firebase-admin/firestore'
 import { serveFakeModel, serveSite } from './servers.mjs'
-import { seedDemoFamily, seedTodayMemos } from './demo-seed.mjs'
-import { ADMIN_QA_MATRIX, audit, familyAccount, launchBrowser, openPage, settle, sleep, textScale, waitText } from './shot-kit.mjs'
+import { seedDemoFamily, seedSecondParent, seedTodayMemos } from './demo-seed.mjs'
+import { ADMIN_QA_MATRIX, audit, click, familyAccount, launchBrowser, openPage, settle, sleep, textScale, waitText } from './shot-kit.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const PHASE = process.env.ADMIN_PHASE || 'D0'
@@ -30,7 +30,9 @@ const only = process.env.ADMIN_ONLY ? new Set(process.env.ADMIN_ONLY.split(','))
 
 /** Each view: its address and a sentence that is on it once it has loaded. */
 const VIEWS = [
-  { id: 'today', search: '', ready: '관리자 작업 기록' },
+  // 오늘 waits for the worker's numbers (no skeleton left).
+  { id: 'today', search: '', ready: '북극성 지표', settled: '.hq-today:not(:has(.hq-skel))' },
+  { id: 'today-30', search: '', ready: '북극성 지표', settled: '.hq-today:not(:has(.hq-skel))', press: '30일' },
   { id: 'inbox', search: '?tab=inbox', ready: '곧 만들어요' },
   { id: 'growth', search: '?tab=growth', ready: '곧 만들어요' },
   { id: 'families-parent', search: '?tab=families&kind=parent', ready: '엄마' },
@@ -51,6 +53,8 @@ await getFirestore().doc('admin_config/plans').set({ flags: { reactions: true, f
 const kid = await familyAccount(KID)
 const { momUid } = await seedDemoFamily({ kidUid: kid.localId, kidName: KID.name })
 await seedTodayMemos({ momUid, kidUid: kid.localId, kidName: KID.name, count: 5 })
+// A second parent who sent photos yesterday, so the story has a yesterday.
+await seedSecondParent({ kidUid: kid.localId, kidName: KID.name, name: '아빠', yesterday: 3 })
 const admin = await familyAccount(ADMIN)
 
 // The worker answers adminListPeople and beats system/worker.
@@ -81,6 +85,8 @@ try {
       const p = await openPage(browser, { device: q.device, acct: admin, kid: ADMIN })
       await p.goto(`${SITE}/admin${v.search}`, { waitUntil: 'load' })
       await waitText(p, v.ready, 45_000)
+      if (v.settled) await p.waitForSelector(v.settled, { timeout: 90_000 })
+      if (v.press) { await click(p, v.press); await sleep(400) }
       // The list from the worker, and a live beat for the footer.
       await p.waitForFunction(() => !document.body.innerText.includes('불러오는 중'), { timeout: 45_000 }).catch(() => {})
       await p.waitForFunction(() => document.body.innerText.includes('메모 서버 정상'), { timeout: 90_000 }).catch(() => {})

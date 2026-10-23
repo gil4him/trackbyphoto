@@ -36,6 +36,7 @@ import {
   adminUnlinkDevice,
   adminUpdateSettings,
 } from './adminPeople.js'
+import { adminMetrics } from './adminMetrics.js'
 import { deleteMyAccount } from './account.js'
 import {
   approvePairing,
@@ -73,6 +74,7 @@ export const HANDLERS: Record<string, Handler> = {
   adminSetPlan,
   adminUpdateSettings,
   adminSetDisabled,
+  adminMetrics,
   createManagedElder,
   createPairingLink,
   pairDevice,

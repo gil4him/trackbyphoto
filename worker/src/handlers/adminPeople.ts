@@ -123,7 +123,7 @@ function requireUid(v: unknown, what = 'uid'): string {
   return v.trim()
 }
 
-async function allAuthUsers(): Promise<UserRecord[]> {
+export async function allAuthUsers(): Promise<UserRecord[]> {
   const out: UserRecord[] = []
   let pageToken: string | undefined
   do {
@@ -137,7 +137,7 @@ async function allAuthUsers(): Promise<UserRecord[]> {
 /** A parent is a family-managed account; an Auth user with no email and no
  *  sign-in provider (the shape createManagedElder makes) counts even when
  *  its settings doc is gone. */
-function kindOf(auth: UserRecord, settings: DocumentData | undefined): PersonKind {
+export function kindOf(auth: UserRecord, settings: DocumentData | undefined): PersonKind {
   if (settings?.accountType === 'managed') return 'parent'
   if (!auth.email && auth.providerData.length === 0 && !settings) return 'parent'
   return 'child'

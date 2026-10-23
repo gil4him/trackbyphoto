@@ -11,12 +11,12 @@ import { useCallback, useEffect, useState } from 'react'
 import type { User } from 'firebase/auth'
 import {
   ADMIN_TABS, adminListPeople, beatAgo, familyCount, routeFromSearch, searchFromRoute,
-  type AdminPerson, type AdminRoute, type AdminTab, type PersonKind,
+  type AdminPerson, type AdminRoute, type AdminTab,
 } from '../../lib/admin'
 import { WorkerError } from '../../lib/worker'
 import { isSimple } from '../../lib/edition'
 import { useWorkerBeat } from '../../hooks/useWorkerStatus'
-import { OverviewTab } from './OverviewTab'
+import { TodayView } from './TodayView'
 import { PeopleTab } from './PeopleTab'
 import { PersonDetail } from './PersonDetail'
 import { SuperAdmin } from '../SuperAdmin'
@@ -83,7 +83,6 @@ export function AdminPage({ user, onSignOut }: { user: User; onSignOut: () => Pr
     const p = people.find((x) => x.uid === uid)
     go({ tab: 'families', kind: p?.kind ?? route.kind, uid })
   }
-  const openKind = (kind: PersonKind) => go({ tab: 'families', kind, uid: null })
   const families = loading ? null : familyCount(people)
   const label = ADMIN_TABS.find((t) => t.key === route.tab)?.label ?? ''
 
@@ -140,7 +139,7 @@ export function AdminPage({ user, onSignOut }: { user: User; onSignOut: () => Pr
               onChanged={reload}
             />
           ) : route.tab === 'today' ? (
-            <OverviewTab people={people} loading={loading} onOpen={openPerson} onKind={openKind} />
+            <TodayView people={people} peopleLoading={loading} worker={worker} refreshKey={gen - 1} onOpen={openPerson} onGo={(tab) => go({ tab, uid: null })} />
           ) : route.tab === 'families' ? (
             <>
               <div className="hq-seg" role="group" aria-label="보기">

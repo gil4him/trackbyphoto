@@ -5,18 +5,18 @@ import { renderToString } from 'react-dom/server'
 vi.mock('../../firebase', () => ({ db: {}, auth: {}, storage: {} }))
 vi.mock('firebase/firestore', () => ({
   collection: () => ({}), doc: () => ({}), query: () => ({}), orderBy: () => ({}), limit: () => ({}),
-  getDocs: async () => ({ docs: [] }), onSnapshot: () => () => {}, setDoc: async () => {},
+  getDocs: async () => ({ docs: [] }), getDoc: async () => ({ exists: () => false }), onSnapshot: () => () => {}, setDoc: async () => {},
 }))
 vi.mock('../../lib/worker', () => ({
   callWorker: vi.fn(), isWorkerOffline: () => false, WorkerError: class extends Error { code = '' }, WORKER_OFFLINE_MESSAGE: '',
 }))
 vi.mock('../../hooks/useWorkerStatus', () => ({
   useWorkerStatus: () => 'ok',
-  useWorkerBeat: () => ({ status: 'ok', lastSeenMs: 1_000_000 - 22_000, now: 1_000_000 }),
+  useWorkerBeat: () => ({ status: 'ok', lastSeenMs: 1_000_000 - 22_000, modelUp: true, waiting: 0, now: 1_000_000 }),
 }))
 
 import { PeopleTab } from './PeopleTab'
-import { OverviewTab } from './OverviewTab'
+import { TodayView } from './TodayView'
 import { AdminPage } from './AdminPage'
 import { ADMIN_TABS, beatAgo, familyCount, fmtAgo, matchesQuery, personFlags, routeFromSearch, searchFromRoute, sortPeople, type AdminPerson } from '../../lib/admin'
 import type { User } from 'firebase/auth'
@@ -125,14 +125,30 @@ describe('PeopleTab', () => {
   })
 })
 
-describe('OverviewTab', () => {
-  it('counts people and points at the ones that need a look', () => {
-    const html = renderToString(<OverviewTab people={people} loading={false} onOpen={() => {}} onKind={() => {}} />)
-    expect(html).toContain('연결된 휴대폰')
-    expect(html).toContain('1명 미연결')
-    expect(html).toContain('확인 필요')
+describe('TodayView', () => {
+  const worker = { status: 'ok' as const, lastSeenMs: 1_000, modelUp: true, waiting: 3, now: 23_000 }
+  const view = () => renderToString(<TodayView people={people} peopleLoading={false} worker={worker} refreshKey={0} onOpen={() => {}} onGo={() => {}} />)
+
+  it('opens on the briefing, with a 7일 | 30일 switch and skeletons until the numbers come', () => {
+    const html = view()
+    expect(html).toMatch(/브리핑/)
+    expect(html).toContain('7일')
+    expect(html).toContain('30일')
+    expect(html).toContain('북극성 지표 · 하루를 나눈 가족 (7일)')
+    expect(html).toContain('hq-skel')
+    // No number is made up while the worker has not answered.
+    expect(html).not.toMatch(/\d+장을 보냈/)
+  })
+
+  it('shows the people who need a look, and the memo server from its heartbeat', () => {
+    const html = view()
+    expect(html).toContain('처리할 일 1')
     expect(html).toContain('아빠')
-    expect(html).toContain('최근 가입')
+    expect(html).toContain('대표 가족 없음 · 휴대폰 미연결')
+    expect(html).toContain('응답 중')
+    expect(html).toContain('3장')
+    expect(html).toContain('22초 전')
+    expect(html).toContain('입력 전')
   })
 })
 
