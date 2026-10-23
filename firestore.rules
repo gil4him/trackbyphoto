@@ -467,7 +467,9 @@ service cloud.firestore {
                     && fp().caption is string && fp().caption.size() <= 60
                     && fp().status == 'pending'
                     && fp().createdAt == request.time
-                    && fp().keys().hasOnly(['patientUid', 'senderUid', 'senderName', 'photoPath', 'caption', 'status', 'createdAt']);
+                    // fromMemoId: sent from one of the sender's own photos (부모님께 보내기).
+                    && (!('fromMemoId' in fp()) || (fp().fromMemoId is string && fp().fromMemoId.size() <= 80))
+                    && fp().keys().hasOnly(['patientUid', 'senderUid', 'senderName', 'photoPath', 'caption', 'status', 'createdAt', 'fromMemoId']);
 
       allow update: if isOwner(resource.data.patientUid)
                     && fp().diff(resource.data).affectedKeys().hasOnly(['seenAt', 'reply'])

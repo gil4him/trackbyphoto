@@ -1495,3 +1495,16 @@ html:not(.camera-live) .elder-cam { background: #000; }
 .plan-store-row { display: flex; gap: 18px; align-items: center; min-height: 48px; }
 .plan-store-link { min-height: 48px; padding: 0; border: 0; background: none; font: inherit; font-size: 15px; font-weight: 700; color: var(--ink); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .plan-store-link:disabled { opacity: .55; }
+
+/* A photo the family member sent, in their own 사진: the received card, edged in the parent's colour. */
+.memo-row.received.sent { background: var(--accent-tint); background: color-mix(in srgb, var(--pc) 12%, var(--surface)); border-color: transparent; box-shadow: inset 4px 0 0 var(--pc); }
+.memo-row.sent .sent-to { color: var(--pc); }
+.sent-view img { display: block; width: 100%; max-height: 60vh; object-fit: contain; border-radius: 14px; background: #000; }
+.sent-view .sent-view-meta { margin: 10px 2px 0; font-size: 16px; color: var(--muted); }
+.send-pick { display: flex; align-items: center; gap: 12px; width: 100%; padding: 14px 4px; font-size: 18px; font-weight: 700; background: none; border: 0; border-bottom: 1px solid var(--line); text-align: left; }
+.send-pick .dot { flex: none; width: 14px; height: 14px; border-radius: 50%; background: var(--pc); }
+.send-pick .done { margin-left: auto; font-size: 14px; font-weight: 600; color: var(--muted); }
+.send-pick input { width: 22px; height: 22px; accent-color: var(--pc); }
+.patient-card[style] { box-shadow: inset 4px 0 0 var(--pc); }
+.sheet-danger-btn.send-go { background: var(--accent); color: var(--ink); }
+.sheet-danger-btn.send-go:disabled { opacity: .45; }

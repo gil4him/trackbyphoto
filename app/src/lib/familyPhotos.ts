@@ -21,6 +21,7 @@ function fromDoc(id: string, d: Record<string, unknown>): FamilyPhoto {
     photoPath: d.photoPath as string,
     photoUrl: d.photoUrl as string | undefined,
     thumbUrl: d.thumbUrl as string | undefined,
+    fromMemoId: d.fromMemoId as string | undefined,
     caption: (d.caption as string) || '',
     status: d.status === 'ready' ? 'ready' : 'pending',
     createdAtMs: ms(d.createdAt) || Date.now(),
@@ -36,12 +37,12 @@ export function watchFamilyPhotos(patientUid: string, onChange: (photos: FamilyP
 }
 
 /** Shrink, upload, and create the record the worker finishes. */
-export async function sendFamilyPhoto(a: { patientUid: string; sender: { uid: string; name: string }; file: Blob; caption: string }): Promise<string> {
+export async function sendFamilyPhoto(a: { patientUid: string; sender: { uid: string; name: string }; file: Blob; caption: string; fromMemoId?: string }): Promise<string> {
   const id = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
   const photoPath = `familyPhotos/${a.patientUid}/${id}.jpg`
   const blob = await shrinkPhoto(a.file)
   await uploadBytes(ref(storage, photoPath), blob, { contentType: 'image/jpeg' })
-  await setDoc(doc(db, 'familyPhotos', id), {
+  const record = {
     patientUid: a.patientUid,
     senderUid: a.sender.uid,
     senderName: a.sender.name.slice(0, 40),
@@ -49,7 +50,14 @@ export async function sendFamilyPhoto(a: { patientUid: string; sender: { uid: st
     caption: a.caption.trim().slice(0, 60),
     status: 'pending',
     createdAt: serverTimestamp(),
-  })
+  }
+  try {
+    await setDoc(doc(db, 'familyPhotos', id), a.fromMemoId ? { ...record, fromMemoId: a.fromMemoId.slice(0, 80) } : record)
+  } catch (err) {
+    // Rules from before fromMemoId: the photo still goes, only unmarked.
+    if (!a.fromMemoId || (err as { code?: string }).code !== 'permission-denied') throw err
+    await setDoc(doc(db, 'familyPhotos', id), record)
+  }
   return id
 }
 

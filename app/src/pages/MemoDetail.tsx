@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 import { doc, updateDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useToast } from '../components/Toast'
@@ -14,6 +14,7 @@ import { PlaceMap } from '../components/PlaceMap'
 import { BottomSheet } from '../components/BottomSheet'
 import { isSimple } from '../lib/edition'
 import { sharePhoto } from '../lib/photoShare'
+import { honorific } from '../lib/people'
 
 // 'stored-only' has no badge on purpose: nothing says a step was skipped.
 const SOURCE_BADGES: Partial<Record<MemoSource, { label: string; tone: 'good' | 'neutral' | 'warn' }>> = {
@@ -40,7 +41,16 @@ const BODY_MAX = 200
  * The header holds back, the date and ⋯, which opens the actions (공유하기,
  * 수정, 다시 쓰기, 삭제) in a sheet.
  */
-export function MemoDetail({ memo, onBack, readOnly = false, rx }: { memo: Memo; onBack: () => void; readOnly?: boolean; rx?: ReactionsContext }) {
+/** A parent this family member may send the photo to (부모님께 보내기). */
+export interface SendTarget { uid: string; name: string; color: string; /** This photo already went to them. */ sent: boolean }
+export interface SendTo {
+  /** Who may receive it now (their family-photo settings and one's role). */
+  targets: () => Promise<SendTarget[]>
+  /** Send only the photo to these parents. */
+  send: (uids: string[]) => Promise<void>
+}
+
+export function MemoDetail({ memo, onBack, readOnly = false, rx, sendTo }: { memo: Memo; onBack: () => void; readOnly?: boolean; rx?: ReactionsContext; /** A family member's own photo: 부모님께 보내기. */ sendTo?: SendTo }) {
   const toast = useToast()
   const [draftTitle, setDraftTitle] = useState('')
   const [draftBody, setDraftBody] = useState('')
@@ -123,7 +133,7 @@ export function MemoDetail({ memo, onBack, readOnly = false, rx }: { memo: Memo;
   }
 
   // The ⋯ sheet: its menu, or 삭제's confirmation in its place.
-  const [sheet, setSheet] = useState<null | 'menu' | 'confirm'>(null)
+  const [sheet, setSheet] = useState<null | 'menu' | 'confirm' | 'send'>(null)
   const closeSheet = () => setSheet(null)
 
   const onDelete = () => {
@@ -154,15 +164,42 @@ export function MemoDetail({ memo, onBack, readOnly = false, rx }: { memo: Memo;
   }
   const onShare = () => passOn(() => sharePhoto(memo))
 
+  // 부모님께 보내기: whom it may go to, then the photo alone to the ones picked.
+  const [targets, setTargets] = useState<SendTarget[] | null>(null)
+  const [picked, setPicked] = useState<string[]>([])
+  const openSend = async () => {
+    setSheet(null)
+    try {
+      const list = await sendTo!.targets()
+      if (list.length === 0) { toast.show('사진을 받을 수 있는 부모님이 없어요'); return }
+      setTargets(list)
+      setPicked(list.length === 1 ? [list[0].uid] : [])
+      setSheet('send')
+    } catch (err) {
+      console.error('[send] targets', err)
+      toast.show('잠시 후 다시 시도해 주세요')
+    }
+  }
+  const onSend = async () => {
+    const to = (targets ?? []).filter((t) => picked.includes(t.uid))
+    if (to.length === 0) return
+    setSheet(null)
+    await passOn(async () => {
+      await sendTo!.send(to.map((t) => t.uid))
+      toast.show(`${to.map((t) => honorific(t.name)).join(', ')}께 보냈어요`)
+    })
+  }
+
   const actions = detailActions({
     simple: isSimple(), readOnly,
-    hasPhoto: !!memo.photoUrl, hasMemo: !!memo.memo, rewriting,
+    hasPhoto: !!memo.photoUrl, hasMemo: !!memo.memo, rewriting, canSend: !!sendTo,
   })
-  const ACTION_LABELS: Record<DetailAction, string> = { share: '공유하기', edit: '직접 수정', rewrite: 'AI로 다시 쓰기', delete: '지우기' }
+  const ACTION_LABELS: Record<DetailAction, string> = { share: '공유하기', send: '부모님께 보내기', edit: '직접 수정', rewrite: 'AI로 다시 쓰기', delete: '지우기' }
   const runAction = (a: DetailAction) => {
     if (a === 'delete') return setSheet('confirm')
     setSheet(null)
     if (a === 'share') void onShare()
+    else if (a === 'send') void openSend()
     else if (a === 'edit') startEdit()
     else void rewrite()
   }
@@ -184,10 +221,35 @@ export function MemoDetail({ memo, onBack, readOnly = false, rx }: { memo: Memo;
               key={a}
               type="button"
               className={`sheet-item${a === 'delete' ? ' danger sep' : ''}`}
-              disabled={a === 'share' ? sharing : (a !== 'delete' && saving)}
+              disabled={a === 'share' || a === 'send' ? sharing : (a !== 'delete' && saving)}
               onClick={() => runAction(a)}
             >{ACTION_LABELS[a]}</button>
           ))}
+          <button type="button" className="sheet-cancel" onClick={closeSheet}>취소</button>
+        </BottomSheet>
+      )}
+      {sheet === 'send' && targets && (
+        <BottomSheet
+          title={targets.length === 1 ? `${honorific(targets[0].name)}께 이 사진을 보낼까요?` : '누구에게 보낼까요?'}
+          onClose={closeSheet}
+        >
+          <p className="sheet-sub">사진만 보내요. 글과 장소는 보내지 않아요.</p>
+          {targets.length === 1
+            ? targets[0].sent && <p className="sheet-sub">이미 {honorific(targets[0].name)}께 보낸 사진이에요.</p>
+            : targets.map((t) => (
+              <label key={t.uid} className="send-pick" style={{ '--pc': t.color } as CSSProperties}>
+                <span className="dot" aria-hidden="true" />
+                <span>{honorific(t.name)}</span>
+                {t.sent && <span className="done">보냈어요</span>}
+                <input
+                  type="checkbox"
+                  checked={picked.includes(t.uid)}
+                  onChange={(e) => setPicked((cur) => e.target.checked ? [...cur, t.uid] : cur.filter((u) => u !== t.uid))}
+                  style={t.sent ? undefined : { marginLeft: 'auto' }}
+                />
+              </label>
+            ))}
+          <button type="button" className="sheet-danger-btn send-go" disabled={picked.length === 0 || sharing} onClick={() => void onSend()}>보내기</button>
           <button type="button" className="sheet-cancel" onClick={closeSheet}>취소</button>
         </BottomSheet>
       )}

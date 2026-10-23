@@ -2,6 +2,7 @@ import { useEffect, useMemo } from 'react'
 import { fmtTime, relativeDateLabel } from '../util'
 import { MemoRow } from '../components/MemoRow'
 import { ReceivedRow } from '../components/ReceivedRow'
+import { SentRow } from '../components/SentRow'
 import { useOutbox } from '../hooks/useOutbox'
 import { useWorkerStatus } from '../hooks/useWorkerStatus'
 import type { OutboxItem } from '../lib/outbox'
@@ -13,7 +14,10 @@ import type { FamilyPhoto, Memo } from '../types'
 const dayKey = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
 
 /** One row of the list: the parent's own photo, or one the family sent. */
-type Entry = { kind: 'memo'; at: number; memo: Memo } | { kind: 'received'; at: number; photo: FamilyPhoto }
+type Entry = { kind: 'memo'; at: number; memo: Memo } | { kind: 'received'; at: number; photo: FamilyPhoto } | { kind: 'sent'; at: number; photo: FamilyPhoto; to: string; color: string }
+
+/** A photo this family member sent to one of their parents (SentRow). */
+export interface SentEntry { photo: FamilyPhoto; to: string; color: string }
 
 /** A photo still on this phone, waiting to be sent. */
 function WaitingPhoto({ item }: { item: OutboxItem }) {
@@ -42,7 +46,7 @@ function WaitingPhoto({ item }: { item: OutboxItem }) {
  * included). `readOnly` is accepted for the elder's linked phone (nothing to
  * hide here any more).
  */
-export function Today({ memos, onOpen, uid, rx, onOpenTrail, onOpenVoiceAlbum, focusDay, onFocused, received = [], onOpenReceived }: { memos: Memo[]; onOpen: (id: string) => void; uid?: string; readOnly?: boolean; /** The parent's phone: photos the family sent, listed among the day's own (ReceivedRow). */ received?: FamilyPhoto[]; onOpenReceived?: (id: string) => void; /** Hearts and comments per photo (family feed), for the counts. */ rx?: ReactionsContext; /** 다녀온 곳 for one day (shown on days that have a located photo). */ onOpenTrail?: (day: Date) => void; /** 목소리 앨범, on a plan that includes it (family only). */ onOpenVoiceAlbum?: () => void; /** Open scrolled to this day's photos (어제 보기 on the home), once. */ focusDay?: Date | null; onFocused?: () => void }) {
+export function Today({ memos, onOpen, uid, rx, onOpenTrail, onOpenVoiceAlbum, focusDay, onFocused, received = [], onOpenReceived, sent = [], onOpenSent }: { memos: Memo[]; onOpen: (id: string) => void; uid?: string; readOnly?: boolean; /** The parent's phone: photos the family sent, listed among the day's own (ReceivedRow). */ received?: FamilyPhoto[]; onOpenReceived?: (id: string) => void; /** A family member's own 사진: the photos they sent their parents (SentRow). */ sent?: SentEntry[]; onOpenSent?: (id: string) => void; /** Hearts and comments per photo (family feed), for the counts. */ rx?: ReactionsContext; /** 다녀온 곳 for one day (shown on days that have a located photo). */ onOpenTrail?: (day: Date) => void; /** 목소리 앨범, on a plan that includes it (family only). */ onOpenVoiceAlbum?: () => void; /** Open scrolled to this day's photos (어제 보기 on the home), once. */ focusDay?: Date | null; onFocused?: () => void }) {
   // Hide a waiting photo once its memo shows up from the server.
   const memoIds = useMemo(() => new Set(memos.map((m) => m.id)), [memos])
   const waiting = useOutbox(uid).filter((i) => !memoIds.has(i.photoId))
@@ -57,6 +61,7 @@ export function Today({ memos, onOpen, uid, rx, onOpenTrail, onOpenVoiceAlbum, f
     const entries: Entry[] = [
       ...memos.map((m) => ({ kind: 'memo' as const, at: m.takenAt.toDate().getTime(), memo: m })),
       ...received.filter((f) => f.status === 'ready' && !!f.photoUrl).map((f) => ({ kind: 'received' as const, at: f.createdAtMs, photo: f })),
+      ...sent.filter((s) => !!s.photo.photoUrl).map((s) => ({ kind: 'sent' as const, at: s.photo.createdAtMs, ...s })),
     ].sort((a, b) => b.at - a.at)
     const map = new Map<string, { date: Date; items: Memo[]; entries: Entry[] }>()
     for (const e of entries) {
@@ -68,7 +73,7 @@ export function Today({ memos, onOpen, uid, rx, onOpenTrail, onOpenVoiceAlbum, f
       if (e.kind === 'memo') g.items.push(e.memo)
     }
     return Array.from(map.values())
-  }, [memos, received])
+  }, [memos, received, sent])
 
   // 어제 보기: land on that day's header, then forget the request.
   useEffect(() => {
@@ -108,6 +113,7 @@ export function Today({ memos, onOpen, uid, rx, onOpenTrail, onOpenVoiceAlbum, f
             </div>
             {g.entries.map((e) => {
               if (e.kind === 'received') return <ReceivedRow key={`f-${e.photo.id}`} photo={e.photo} onOpen={(id) => onOpenReceived?.(id)} />
+              if (e.kind === 'sent') return <SentRow key={`s-${e.photo.id}`} photo={e.photo} to={e.to} color={e.color} onOpen={(id) => onOpenSent?.(id)} />
               const m = e.memo
               const items = rx?.byMemo.get(m.id)
               // On the parent's own phone: family left something they have not seen yet.

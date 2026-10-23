@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, lazy, Suspense, useCallback } from 'react'
 import { Capacitor } from '@capacitor/core'
-import { doc, onSnapshot, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
+import { doc, getDoc, onSnapshot, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from './firebase'
 import { appleSignInAvailable, useAuth } from './hooks/useAuth'
 import { useLaunchUrl } from './hooks/useLaunchUrl'
@@ -16,7 +16,7 @@ import { reloadToLatest } from './lib/sw'
 import { recallSettings, rememberSettings } from './lib/settingsCache'
 import { usePatientDocs } from './hooks/usePatientNames'
 import { canSendFamilyPhoto } from './lib/familyPhotosModel'
-import { listedPeople, pickActivePatient } from './lib/people'
+import { honorific, listedPeople, pickActivePatient } from './lib/people'
 import { useFamilyPhotos } from './hooks/useFamilyPhotos'
 import { normalizeInviteCode, syncCaregiverName } from './lib/caregiver'
 import { setFaviconBadge } from './lib/favicon'
@@ -56,6 +56,11 @@ import { entitlements, flagOn, planSheetOpenFor } from './lib/plans'
 import { byMemo } from './lib/reactionsModel'
 import type { ReactionsContext } from './components/Reactions'
 import type { UserSettings } from './types'
+import { parentColors } from './lib/parentColors'
+import { useSentByMe } from './hooks/useSentByMe'
+import { SentPhotoSheet } from './components/SentRow'
+import { sendFamilyPhoto } from './lib/familyPhotos'
+import { photoBlob } from './lib/photoShare'
 
 // Pages most visits never open load when first needed, so the first screen
 // (sign-in, the /pair page, the parent's camera) downloads less. Shortly
@@ -228,6 +233,17 @@ function App() {
   const familyPhotosOn = familyPhotosFlag && settings.familyPhotos?.enabled !== false
   const viewingParent = !!user && !elder && !!activePatientUid && activePatientUid !== user.uid
   const familyPhotos = useFamilyPhotos(familyPhotosOn && viewingParent ? activePatientUid! : undefined)
+  // A family member's own 사진: what they sent their parents, each parent in
+  // their own colour (also on the dashboard cards), and 부모님께 보내기.
+  const ownPage = isSimple() && !!user && !elder && activePatientUid === user.uid
+  const colorOf = useMemo(() => parentColors(people.map((p) => p.patientUid)), [people])
+  const sentByMe = useSentByMe(ownPage && familyPhotosFlag ? people.map((p) => p.patientUid) : [], user?.uid)
+  const sentEntries = useMemo(() => sentByMe.map((photo) => ({
+    photo,
+    to: honorific(people.find((p) => p.patientUid === photo.patientUid)?.name ?? '부모님'),
+    color: colorOf[photo.patientUid] ?? 'var(--accent)',
+  })), [sentByMe, people, colorOf])
+  const [openSent, setOpenSent] = useState<string | null>(null)
   // Whom the 사진 보내기 sheet is open for (the parent whose pages are open).
   const [sendTarget, setSendTarget] = useState<{ uid: string; name: string } | null>(null)
   const sendTargetPhotos = useFamilyPhotos(sendTarget?.uid)
@@ -773,7 +789,31 @@ function App() {
             />
           ) : selectedMemo ? (
             <Suspense fallback={<MemoOpening state="loading" onBack={() => setSelectedMemoId(null)} onRetry={() => {}} onPhotos={() => onTabChange('today')} />}>
-              <MemoDetail memo={selectedMemo} onBack={() => setSelectedMemoId(null)} rx={rx} />
+              <MemoDetail
+                memo={selectedMemo}
+                onBack={() => setSelectedMemoId(null)}
+                rx={rx}
+                sendTo={ownPage && familyPhotosFlag && people.length > 0 && selectedMemo.patientUid === user.uid ? {
+                  targets: async () => {
+                    const settled = await Promise.all(people.map(async (p) => {
+                      const fp = (await getDoc(doc(db, 'users', p.patientUid))).data()?.familyPhotos as UserSettings['familyPhotos']
+                      return canSendFamilyPhoto(fp, p.membership.role) ? {
+                        uid: p.patientUid,
+                        name: p.name,
+                        color: colorOf[p.patientUid] ?? 'var(--accent)',
+                        sent: sentByMe.some((f) => f.patientUid === p.patientUid && f.fromMemoId === selectedMemo.id),
+                      } : null
+                    }))
+                    return settled.filter((t): t is NonNullable<typeof t> => t !== null)
+                  },
+                  send: async (uids) => {
+                    const file = await photoBlob(selectedMemo.photoUrl)
+                    for (const uid of uids) {
+                      await sendFamilyPhoto({ patientUid: uid, sender: { uid: user.uid, name: user.displayName || selfLabel }, file, caption: '', fromMemoId: selectedMemo.id })
+                    }
+                  },
+                } : undefined}
+              />
             </Suspense>
           ) : memoOpening ? (
             <MemoOpening
@@ -845,7 +885,7 @@ function App() {
                   sentPhotos={familyPhotosOn ? <SentFamilyPhotos photos={familyPhotos} myUid={user.uid} headed onSend={sendToParent ? () => setSendTarget(sendToParent) : undefined} /> : undefined}
                 />
               ) : (
-                <Home uid={activePatientUid || user.uid} patientName={settings.patientName} greetingName={isSelf ? selfLabel : settings.patientName} memos={memos} onOpenAsk={openAsk} onOpen={setSelectedMemoId} canCapture={isSelf} notifications={bannerNotices} onDismissNotification={dismissNotification} topCard={isSimple() && isSelf && !membershipsLoading && patients.length === 0 ? <ConnectParentCard onOpen={() => setConnectingParent(true)} onImParent={signOutToParent} /> : pushOn && patients.length > 0 && !isSimple() ? <PushNudge /> : undefined} canSendPhoto={!!sendToParent} sentPhotos={familyPhotosOn && !isSelf ? <SentFamilyPhotos photos={familyPhotos} myUid={user.uid} /> : undefined} connectOnly={isSimple() && isSelf && !membershipsLoading && patients.length === 0} simple={isSimple()} parents={dashOn ? people.map((p) => ({ uid: p.patientUid, name: p.name, memos: parentsMemos[p.patientUid] ?? [], unread: notifications.find((n) => n.patientUid === p.patientUid && isFamilyEvent(n.type)) })) : undefined} onOpenParent={(uid) => { onSwitchPatient(uid); setTab('home') }} />
+                <Home uid={activePatientUid || user.uid} patientName={settings.patientName} greetingName={isSelf ? selfLabel : settings.patientName} memos={memos} onOpenAsk={openAsk} onOpen={setSelectedMemoId} canCapture={isSelf} notifications={bannerNotices} onDismissNotification={dismissNotification} topCard={isSimple() && isSelf && !membershipsLoading && patients.length === 0 ? <ConnectParentCard onOpen={() => setConnectingParent(true)} onImParent={signOutToParent} /> : pushOn && patients.length > 0 && !isSimple() ? <PushNudge /> : undefined} canSendPhoto={!!sendToParent} sentPhotos={familyPhotosOn && !isSelf ? <SentFamilyPhotos photos={familyPhotos} myUid={user.uid} /> : undefined} connectOnly={isSimple() && isSelf && !membershipsLoading && patients.length === 0} simple={isSimple()} parents={dashOn ? people.map((p) => ({ uid: p.patientUid, name: p.name, color: people.length > 1 ? colorOf[p.patientUid] : undefined, memos: parentsMemos[p.patientUid] ?? [], unread: notifications.find((n) => n.patientUid === p.patientUid && isFamilyEvent(n.type)) })) : undefined} onOpenParent={(uid) => { onSwitchPatient(uid); setTab('home') }} />
               ))}
               {connectingParent && (
                 <RegisterElder
@@ -854,7 +894,7 @@ function App() {
                   takenNames={people.map((p) => p.name)}
                 />
               )}
-              {tab === 'today'    && <Today memos={memos} onOpen={setSelectedMemoId} uid={activePatientUid || user.uid} rx={rx} onOpenTrail={trailOn ? openDayTrail : undefined} onOpenVoiceAlbum={voiceAlbumOn ? () => setVoiceAlbum(true) : undefined} focusDay={todayFocus} onFocused={clearTodayFocus} />}
+              {tab === 'today'    && <Today memos={memos} onOpen={setSelectedMemoId} sent={ownPage ? sentEntries : undefined} onOpenSent={setOpenSent} uid={activePatientUid || user.uid} rx={rx} onOpenTrail={trailOn ? openDayTrail : undefined} onOpenVoiceAlbum={voiceAlbumOn ? () => setVoiceAlbum(true) : undefined} focusDay={todayFocus} onFocused={clearTodayFocus} />}
               {tab === 'ask'      && <Ask memos={memos} onOpen={setSelectedMemoId} />}
               {tab === 'settings' && (
                 <Settings
@@ -885,6 +925,10 @@ function App() {
           )}
         </main>
 
+        {openSent && (() => {
+          const e = sentEntries.find((x) => x.photo.id === openSent)
+          return e ? <SentPhotoSheet photo={e.photo} to={e.to} onClose={() => setOpenSent(null)} /> : null
+        })()}
         {sendTarget && (
           <SendFamilyPhoto
             patientUid={sendTarget.uid}
