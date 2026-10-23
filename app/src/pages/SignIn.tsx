@@ -112,7 +112,9 @@ export function SignIn({ onGoogle, onApple, onEmail, invited, onEnterCode, paren
       <p className="signin-note">
         {invited
           ? '가족초대를 받으셨어요. 로그인하면 바로 참여할 수 있어요.'
-          : '가족과 메모를 공유하기 위해 로그인해 주세요. 사진과 메모는 본인 계정에만 저장됩니다.'}
+          : parentButton
+            ? '로그인은 가족용이에요. 부모님은 위의 ‘부모님 휴대폰이에요’를 눌러 주세요.'
+            : '가족과 메모를 공유하기 위해 로그인해 주세요. 사진과 메모는 본인 계정에만 저장됩니다.'}
       </p>
       {onEmail && (emailOpen ? (
         <form className="signin-email" onSubmit={submitEmail}>

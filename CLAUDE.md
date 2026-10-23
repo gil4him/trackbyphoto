@@ -12,6 +12,11 @@
 - The `memoDiary` mode (description-first diary) stays in the code for `scripts/memo-diary-compare.ts` only. The pipeline never uses it, whatever the flag says.
 - **Changing the memo tone or any prompt requires the CEO's explicit approval in the current conversation.**
 
+### Parents never log in (owner decision, 2026-10-22)
+- A parent's phone is linked only by the family's QR/link (managed record, no Google/Apple account). Google/Apple/email sign-in is for family members. Adding a parent's own Google login was considered and declined.
+- A link stays until a family member taps 연결 해제, removes the parent, or deletes the account. Signing out never unlinks.
+- Simple edition: the sign-in note says "로그인은 가족용이에요. 부모님은 위의 ‘부모님 휴대폰이에요’를 눌러 주세요."; a signed-in account with no parent shows "부모님이신가요? 이 계정은 가족용이에요. 가족에게 받은 연결 링크로 들어오세요." with 부모님 휴대폰이에요 (signs out, opens the parent's way in).
+
 ### Deploying
 - Never deploy uncommitted code. Order: commit → push to main (or merge the PR) → deploy from an up-to-date checkout of main, preferably a worktree from `origin/main`.
 - `worker/scripts/install.sh` and `simple/worker/install-simple.sh` enforce this (`--check` runs the guard alone; `FORCE_DEPLOY=1` only in emergencies, and tell the user).

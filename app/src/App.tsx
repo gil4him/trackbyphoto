@@ -687,6 +687,14 @@ function App() {
     await signOut()
   }
 
+  // A parent who signed in with Google by mistake: back out to the parent's
+  // way in (the pairing camera in the app, the code screen on the web).
+  const signOutToParent = async () => {
+    await signOutHere().catch(() => {})
+    if (Capacitor.isNativePlatform()) setParentMode(true)
+    else setPairCode('')
+  }
+
   const ent = entitlements(plans, settings.plan?.tier)
   // Whoever manages these records may change the plan; other family only look.
   const myRole = patients.find((p) => p.patientUid === activePatientUid)?.role
@@ -821,7 +829,7 @@ function App() {
                   sentPhotos={familyPhotosOn ? <SentFamilyPhotos photos={familyPhotos} myUid={user.uid} headed onSend={sendToParent ? () => setSendTarget(sendToParent) : undefined} /> : undefined}
                 />
               ) : (
-                <Home uid={activePatientUid || user.uid} patientName={settings.patientName} greetingName={isSelf ? selfLabel : settings.patientName} memos={memos} onOpenAsk={openAsk} onOpen={setSelectedMemoId} canCapture={isSelf} notifications={bannerNotices} onDismissNotification={dismissNotification} topCard={isSimple() && isSelf && !membershipsLoading && patients.length === 0 ? <ConnectParentCard onOpen={() => setConnectingParent(true)} /> : pushOn && patients.length > 0 && !isSimple() ? <PushNudge /> : undefined} canSendPhoto={!!sendToParent} sentPhotos={familyPhotosOn && !isSelf ? <SentFamilyPhotos photos={familyPhotos} myUid={user.uid} /> : undefined} connectOnly={isSimple() && isSelf && !membershipsLoading && patients.length === 0} simple={isSimple()} parents={dashOn ? people.map((p) => ({ uid: p.patientUid, name: p.name, memos: parentsMemos[p.patientUid] ?? [], unread: notifications.find((n) => n.patientUid === p.patientUid && isFamilyEvent(n.type)) })) : undefined} onOpenParent={(uid) => { onSwitchPatient(uid); setTab('home') }} />
+                <Home uid={activePatientUid || user.uid} patientName={settings.patientName} greetingName={isSelf ? selfLabel : settings.patientName} memos={memos} onOpenAsk={openAsk} onOpen={setSelectedMemoId} canCapture={isSelf} notifications={bannerNotices} onDismissNotification={dismissNotification} topCard={isSimple() && isSelf && !membershipsLoading && patients.length === 0 ? <ConnectParentCard onOpen={() => setConnectingParent(true)} onImParent={signOutToParent} /> : pushOn && patients.length > 0 && !isSimple() ? <PushNudge /> : undefined} canSendPhoto={!!sendToParent} sentPhotos={familyPhotosOn && !isSelf ? <SentFamilyPhotos photos={familyPhotos} myUid={user.uid} /> : undefined} connectOnly={isSimple() && isSelf && !membershipsLoading && patients.length === 0} simple={isSimple()} parents={dashOn ? people.map((p) => ({ uid: p.patientUid, name: p.name, memos: parentsMemos[p.patientUid] ?? [], unread: notifications.find((n) => n.patientUid === p.patientUid && isFamilyEvent(n.type)) })) : undefined} onOpenParent={(uid) => { onSwitchPatient(uid); setTab('home') }} />
               ))}
               {connectingParent && (
                 <RegisterElder
