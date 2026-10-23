@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { PLAY_STORE_URL, inAnyStore, inStore, playStoreUrl, storeKind, storeUrlFor } from './storeLinks'
+import { PLAY_STORE_URL, androidOpenUrl, inAnyStore, inStore, playStoreUrl, storeKind, storeUrlFor } from './storeLinks'
 
 const IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 KAKAOTALK 10.8.0'
 const GALAXY = 'Mozilla/5.0 (Linux; Android 15; SM-S921N) AppleWebKit/537.36 Chrome/130.0 Mobile Safari/537.36'
@@ -41,5 +41,15 @@ describe('which store has the app', () => {
     expect(inStore('ios', false, 'https://apps.apple.com/app/id1')).toBe(true)
     expect(inAnyStore(false, '')).toBe(false)
     expect(inAnyStore(false, 'https://apps.apple.com/app/id1')).toBe(true)
+  })
+})
+
+describe('opening a /pair link in the Android app', () => {
+  it('names the app and falls back to Play with the code as referrer', () => {
+    const url = androidOpenUrl('ABCD2345', 'https://dayliesimple.web.app')
+    expect(url.startsWith('intent://dayliesimple.web.app/pair?c=ABCD2345#Intent;scheme=https;package=com.zymer.daylie;')).toBe(true)
+    expect(url.endsWith(';end')).toBe(true)
+    const fallback = decodeURIComponent(url.match(/S\.browser_fallback_url=([^;]+)/)![1])
+    expect(fallback).toBe(playStoreUrl('ABCD2345'))
   })
 })

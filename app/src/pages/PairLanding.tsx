@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { formatPairCode, normalizePairCode } from '../lib/pairing'
 import { PUBLIC_ORIGIN } from '../lib/publicUrl'
-import { storeKind, storeUrlFor, type StoreKind } from '../lib/storeLinks'
+import { androidOpenUrl, storeKind, storeUrlFor, type StoreKind } from '../lib/storeLinks'
 
 /**
  * Simple edition, web: what a /pair link shows when the app didn't open it —
@@ -30,8 +30,18 @@ export function PairLandingView({ code, kind, storeUrl, onInstall, onWebPair, on
       <h1 className="pair-title">{storeUrl ? <>Daylie 앱으로<br />연결해요</> : <>휴대폰을 가족과<br />연결해요</>}</h1>
       {storeUrl ? (
         <>
-          <p className="pair-sub">앱을 설치해 주세요.<br /><b>{code.length === 8 ? '설치 후 이 링크를 한 번 더 눌러주세요.' : '설치 후 앱을 열고 ‘코드 입력’을 눌러 주세요.'}</b></p>
-          <button className="pair-btn" onClick={onInstall}>앱 설치하기</button>
+          {kind === 'android' && code.length === 8 ? (
+            // The button opens the app when it is there, else Play (androidOpenUrl).
+            <>
+              <p className="pair-sub">아래 버튼을 눌러 주세요.<br /><b>앱이 없으면 설치 화면이 열려요.</b></p>
+              <button className="pair-btn" onClick={onInstall}>앱으로 연결하기</button>
+            </>
+          ) : (
+            <>
+              <p className="pair-sub">앱을 설치해 주세요.<br /><b>{code.length === 8 ? '설치 후 이 링크를 한 번 더 눌러주세요.' : '설치 후 앱을 열고 ‘코드 입력’을 눌러 주세요.'}</b></p>
+              <button className="pair-btn" onClick={onInstall}>앱 설치하기</button>
+            </>
+          )}
         </>
       ) : kind !== 'other' && onWebPair && code.length === 8 ? (
         // Not in this phone's store yet: connect right here in the browser.
@@ -71,7 +81,8 @@ export function PairLanding({ initialCode, onWebPair, onBack }: { initialCode: s
 
   const onInstall = async () => {
     await copyLink(code).catch(() => {})
-    if (storeUrl) window.location.href = storeUrl
+    if (kind === 'android' && storeUrl && code.length === 8) window.location.href = androidOpenUrl(code, PUBLIC_ORIGIN)
+    else if (storeUrl) window.location.href = storeUrl
   }
 
   return <PairLandingView code={code} kind={kind} storeUrl={storeUrl} onInstall={() => void onInstall()} onWebPair={onWebPair} onBack={onBack} />

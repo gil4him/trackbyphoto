@@ -11,10 +11,18 @@ const render = (kind: StoreKind, storeUrl: string | null, code = 'ABCD2345') =>
   renderToString(<PairLandingView code={code} kind={kind} storeUrl={storeUrl} onInstall={() => {}} onWebPair={() => {}} />)
 
 describe('PairLandingView', () => {
-  it('offers 앱 설치하기 and says to tap the link again', () => {
-    const html = render('android', 'https://play.google.com/store/apps/details?id=com.zymer.daylie')
+  it('iPhone: offers 앱 설치하기 and says to tap the link again', () => {
+    const html = render('ios', 'https://apps.apple.com/app/id1')
     expect(html).toContain('앱 설치하기')
     expect(html).toContain('설치 후 이 링크를 한 번 더 눌러주세요.')
+    expect(html).toContain('ABCD 2345')
+  })
+
+  it('Android: one button that opens the app, or its install page when it is missing', () => {
+    const html = render('android', 'https://play.google.com/store/apps/details?id=com.zymer.daylie')
+    expect(html).toContain('>앱으로 연결하기</button>')
+    expect(html).toContain('앱이 없으면 설치 화면이 열려요.')
+    expect(html).not.toContain('앱 설치하기')
     expect(html).toContain('ABCD 2345')
   })
 
@@ -34,7 +42,7 @@ describe('PairLandingView', () => {
   it('with the app in the store, offers only the app: no linking in the browser', () => {
     for (const kind of ['ios', 'android'] as const) {
       const html = render(kind, 'x')
-      expect(html).toContain('앱 설치하기')
+      expect(html).toContain(kind === 'ios' ? '앱 설치하기' : '앱으로 연결하기')
       expect(html).not.toContain('앱 없이')
       expect(html).not.toContain('>연결하기</button>')
     }

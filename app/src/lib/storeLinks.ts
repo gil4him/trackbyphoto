@@ -41,3 +41,15 @@ export function storeUrlFor(kind: StoreKind, appStoreUrl = APP_STORE_URL, code?:
   if (kind === 'ios') return appStoreUrl || null
   return null
 }
+
+/**
+ * Android: open the /pair link in the app itself, or Play (with the code as
+ * referrer) when it isn't installed. An https link alone stays in the browser
+ * when KakaoTalk or Samsung Internet opened it, so a phone that already has
+ * the app was asked to install it again.
+ */
+export function androidOpenUrl(code: string, origin: string): string {
+  const host = origin.replace(/^https?:\/\//, '')
+  return `intent://${host}/pair?c=${encodeURIComponent(code)}#Intent;scheme=https;package=com.zymer.daylie;`
+    + `S.browser_fallback_url=${encodeURIComponent(playStoreUrl(code))};end`
+}
