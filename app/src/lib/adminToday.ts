@@ -3,7 +3,6 @@
 // Every number on the screen comes from adminMetrics; nothing here invents one.
 
 import { callWorker } from './worker'
-import { personFlags, type AdminPerson } from './admin'
 
 export interface MetricsDay {
   date: string
@@ -122,13 +121,4 @@ export function busiestHour(byHour: number[]): number | null {
   let best: number | null = null
   for (let h = 5; h <= 22; h++) if ((byHour[h] ?? 0) > 0 && (best === null || byHour[h] > byHour[best])) best = h
   return best
-}
-
-/** Until 할 일 (D2): the people the dashboard already flags, worst first. */
-export function attention(people: AdminPerson[]): { person: AdminPerson; flags: ReturnType<typeof personFlags> }[] {
-  const rank = { bad: 0, warn: 1, info: 2 } as const
-  return people
-    .map((person) => ({ person, flags: personFlags(person).filter((f) => f.tone !== 'info') }))
-    .filter((x) => x.flags.length > 0)
-    .sort((a, b) => Math.min(...a.flags.map((f) => rank[f.tone])) - Math.min(...b.flags.map((f) => rank[f.tone])))
 }

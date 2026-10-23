@@ -17,6 +17,8 @@ import { WorkerError } from '../../lib/worker'
 import { isSimple } from '../../lib/edition'
 import { useWorkerBeat } from '../../hooks/useWorkerStatus'
 import { TodayView } from './TodayView'
+import { InboxView } from './InboxView'
+import { adminInbox, type Inbox } from '../../lib/adminInbox'
 import { PeopleTab } from './PeopleTab'
 import { PersonDetail } from './PersonDetail'
 import { SuperAdmin } from '../SuperAdmin'
@@ -25,7 +27,6 @@ const WORKER_KO = { ok: '메모 서버 정상', down: '메모 서버 멈춤', un
 
 /** The views of later phases (docs/admin/DAYLIE_ADMIN_DASHBOARD.md D2–D8). */
 const COMING: Partial<Record<AdminTab, string>> = {
-  inbox: '처리할 일을 한곳에 모아 보여드릴 거예요.',
   growth: '가입부터 매일 쓰기까지, 가족이 어디서 멈추는지 보여드릴 거예요.',
   revenue: '플랜별 가족과 한 달에 남는 돈을 보여드릴 거예요.',
   costs: 'AI 메모와 Firebase 비용을 보여드릴 거예요.',
@@ -79,6 +80,27 @@ export function AdminPage({ user, onSignOut }: { user: User; onSignOut: () => Pr
     return () => { cancelled = true }
   }, [gen])
 
+  // 할 일: loaded with the list, so the menu badge and 오늘 have it too.
+  const [inboxState, setInboxState] = useState<{ gen: number; inbox: Inbox | null; error: string | null }>({ gen: 0, inbox: null, error: null })
+  useEffect(() => {
+    let cancelled = false
+    adminInbox(gen > 1).then(
+      (inbox) => { if (!cancelled) setInboxState({ gen, inbox, error: null }) },
+      (err) => {
+        if (cancelled) return
+        console.error('[admin] inbox', err)
+        setInboxState((cur) => ({ ...cur, gen, error: err instanceof WorkerError && err.code === 'unavailable'
+          ? '서버(Mac mini)가 응답하지 않아요. 할 일은 서버가 돌아오면 불러와져요.'
+          : `할 일을 불러오지 못했어요: ${(err as Error).message}` }))
+      },
+    )
+    return () => { cancelled = true }
+  }, [gen])
+  const inboxDone = (id: string) => setInboxState((cur) => cur.inbox
+    ? { ...cur, inbox: { ...cur.inbox, items: cur.inbox.items.filter((i) => i.id !== id), hidden: cur.inbox.hidden + 1 } }
+    : cur)
+  const inbox = inboxState.inbox
+
   const openPerson = (uid: string) => {
     const p = people.find((x) => x.uid === uid)
     go({ tab: 'families', kind: p?.kind ?? route.kind, uid })
@@ -103,6 +125,7 @@ export function AdminPage({ user, onSignOut }: { user: User; onSignOut: () => Pr
               onClick={() => go({ tab: t.key, uid: null })}
             >
               {t.label}
+              {t.key === 'inbox' && !!inbox?.items.length && <span className="hq-badge num" aria-label={`처리할 일 ${inbox.items.length}개`}>{inbox.items.length}</span>}
               {t.key === 'families' && families !== null && <span className="hq-badge soft num">{families}</span>}
             </button>
           ))}
@@ -139,7 +162,7 @@ export function AdminPage({ user, onSignOut }: { user: User; onSignOut: () => Pr
               onChanged={reload}
             />
           ) : route.tab === 'today' ? (
-            <TodayView people={people} peopleLoading={loading} worker={worker} refreshKey={gen - 1} onOpen={openPerson} onGo={(tab) => go({ tab, uid: null })} />
+            <TodayView inbox={inbox} inboxError={inboxState.error} worker={worker} refreshKey={gen - 1} onGo={(tab) => go({ tab, uid: null })} />
           ) : route.tab === 'families' ? (
             <>
               <div className="hq-seg" role="group" aria-label="보기">
@@ -148,6 +171,9 @@ export function AdminPage({ user, onSignOut }: { user: User; onSignOut: () => Pr
               </div>
               <PeopleTab key={route.kind} kind={route.kind} people={people} loading={loading} onOpen={openPerson} />
             </>
+          ) : route.tab === 'inbox' ? (
+            <InboxView inbox={inbox} error={inboxState.error} onDone={inboxDone} onOpenPerson={openPerson}
+              onGo={(to) => go({ ...to, uid: null })} />
           ) : route.tab === 'ai' ? (
             <SuperAdmin />
           ) : (

@@ -17,6 +17,9 @@ vi.mock('../../hooks/useWorkerStatus', () => ({
 
 import { PeopleTab } from './PeopleTab'
 import { TodayView } from './TodayView'
+import { InboxView } from './InboxView'
+import { ToastProvider } from '../../components/Toast'
+import type { Inbox } from '../../lib/adminInbox'
 import { AdminPage } from './AdminPage'
 import { ADMIN_TABS, beatAgo, familyCount, fmtAgo, matchesQuery, personFlags, routeFromSearch, searchFromRoute, sortPeople, type AdminPerson } from '../../lib/admin'
 import type { User } from 'firebase/auth'
@@ -125,9 +128,17 @@ describe('PeopleTab', () => {
   })
 })
 
+const INBOX: Inbox = {
+  at: '2026-10-24T00:00:00.000Z', hidden: 1,
+  items: [
+    { id: 'workerDown-1', rule: 'workerDown', when: 'now', category: '시스템', title: '메모 서버(Mac mini)의 신호가 끊겼어요', sub: '마지막 신호 9분 전', why: '사진은 안전하게 쌓여요.', rows: [{ name: '마지막 신호', fact: '', value: '9분 전' }], targets: [] },
+    { id: 'noGuardian-2', rule: 'noGuardian', when: 'day', category: '가족', title: '대표 가족이 없는 부모님 1분', sub: '설정을 바꿀 사람이 없어요', why: '대표를 정해 주세요.', rows: [{ name: '아빠', fact: '가족 0명', value: '휴대폰 없음' }], targets: [{ uid: 'dad1', kind: 'parent' }] },
+  ],
+}
+
 describe('TodayView', () => {
   const worker = { status: 'ok' as const, lastSeenMs: 1_000, modelUp: true, waiting: 3, now: 23_000 }
-  const view = () => renderToString(<TodayView people={people} peopleLoading={false} worker={worker} refreshKey={0} onOpen={() => {}} onGo={() => {}} />)
+  const view = (inbox: Inbox | null = INBOX) => renderToString(<TodayView inbox={inbox} inboxError={null} worker={worker} refreshKey={0} onGo={() => {}} />)
 
   it('opens on the briefing, with a 7일 | 30일 switch and skeletons until the numbers come', () => {
     const html = view()
@@ -140,15 +151,41 @@ describe('TodayView', () => {
     expect(html).not.toMatch(/\d+장을 보냈/)
   })
 
-  it('shows the people who need a look, and the memo server from its heartbeat', () => {
+  it('shows 할 일 from the inbox, and the memo server from its heartbeat', () => {
     const html = view()
-    expect(html).toContain('처리할 일 1')
-    expect(html).toContain('아빠')
-    expect(html).toContain('대표 가족 없음 · 휴대폰 미연결')
+    expect(html).toContain('지금 처리할 일 1')
+    expect(html).toContain('메모 서버(Mac mini)의 신호가 끊겼어요')
+    expect(html).toContain('대표 가족이 없는 부모님 1분')
     expect(html).toContain('응답 중')
     expect(html).toContain('3장')
     expect(html).toContain('22초 전')
     expect(html).toContain('입력 전')
+    expect(view({ ...INBOX, items: [] })).toContain('지금 처리할 일 없음')
+  })
+})
+
+describe('InboxView', () => {
+  const view = (inbox: Inbox | null, error: string | null = null) => renderToString(
+    <ToastProvider><InboxView inbox={inbox} error={error} onDone={() => {}} onOpenPerson={() => {}} onGo={() => {}} /></ToastProvider>,
+  )
+
+  it('groups the items and opens the first, with only safe actions', () => {
+    const html = view(INBOX)
+    expect(html).toContain('처리할 일 2')
+    expect(html.indexOf('>지금<')).toBeLessThan(html.indexOf('>오늘<'))
+    expect(html).toContain('aria-selected="true"')
+    expect(html).toContain('사진은 안전하게 쌓여요.')
+    for (const a of ['열기', '내일 다시 보기', '해결됨']) expect(html).toContain(`>${a}<`)
+    expect(html).not.toMatch(/알림 보내기|보내기</)
+    expect(html).toContain('미뤄 두거나 해결한 일 1')
+    expect(html).toContain('할 일은 이렇게 골라요')
+    expect(html).toContain('스토어 리뷰')
+  })
+
+  it('has empty, loading and error states', () => {
+    expect(view({ ...INBOX, items: [], hidden: 0 })).toContain('처리할 일이 없어요. 오늘은 여기까지!')
+    expect(view(null)).toContain('hq-skel')
+    expect(view(null, '서버(Mac mini)가 응답하지 않아요.')).toContain('서버(Mac mini)가 응답하지 않아요.')
   })
 })
 

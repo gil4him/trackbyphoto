@@ -143,7 +143,7 @@ export function kindOf(auth: UserRecord, settings: DocumentData | undefined): Pe
   return 'child'
 }
 
-function nameOf(auth: UserRecord, settings: DocumentData | undefined, kind: PersonKind): string {
+export function nameOf(auth: UserRecord, settings: DocumentData | undefined, kind: PersonKind): string {
   if (kind === 'parent') {
     const n = settings?.patientName
     return (typeof n === 'string' && n.trim()) || auth.displayName || '부모님'

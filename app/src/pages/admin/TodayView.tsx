@@ -5,22 +5,23 @@
 // connected yet says so.
 
 import { useEffect, useState } from 'react'
-import { beatAgo, type AdminPerson, type AdminTab } from '../../lib/admin'
-import { adminMetrics, attention, briefing, busiestHour, fmtN, kpis, story, type AdminMetrics, type Range } from '../../lib/adminToday'
+import { beatAgo, type AdminTab } from '../../lib/admin'
+import { adminMetrics, briefing, busiestHour, fmtN, kpis, story, type AdminMetrics, type Range } from '../../lib/adminToday'
 import { loadPlans } from '../../lib/plans'
 import { WorkerError } from '../../lib/worker'
 import type { WorkerBeatView } from '../../hooks/useWorkerStatus'
 import { HourBars, Sparkline } from './charts'
+import { topItems, type Inbox } from '../../lib/adminInbox'
 
 const WORKER_KO = { ok: '정상', down: '멈춤', unknown: '확인 중' } as const
 
-export function TodayView({ people, peopleLoading, worker, refreshKey, onOpen, onGo }: {
-  people: AdminPerson[]
-  peopleLoading: boolean
+export function TodayView({ inbox, inboxError, worker, refreshKey, onGo }: {
+  /** 할 일 from the worker; null while it loads. */
+  inbox: Inbox | null
+  inboxError: string | null
   worker: WorkerBeatView
   /** Bumped by 새로고침: ask the worker again, past its 5-minute cache. */
   refreshKey: number
-  onOpen: (uid: string) => void
   onGo: (tab: AdminTab) => void
 }) {
   const [range, setRange] = useState<Range>(7)
@@ -51,7 +52,7 @@ export function TodayView({ people, peopleLoading, worker, refreshKey, onOpen, o
 
   const { line, greeting } = briefing()
   const m = state.m
-  const todo = attention(people)
+  const nowCount = inbox?.items.filter((i) => i.when === 'now').length ?? 0
   const busiest = m ? busiestHour(m.photosByHourToday) : null
 
   return (
@@ -79,9 +80,9 @@ export function TodayView({ people, peopleLoading, worker, refreshKey, onOpen, o
             </p>
           ) : <Skeleton lines={2} big />}
           <div className="hq-chips">
-            {peopleLoading ? <span className="hq-tag t-dim">처리할 일 …</span>
-              : todo.length ? <span className="hq-tag t-bad">{`처리할 일 ${todo.length}`}</span>
-                : <span className="hq-tag t-good">처리할 일 없음</span>}
+            {!inbox ? <span className="hq-tag t-dim">{inboxError ? '처리할 일 확인 불가' : '처리할 일 …'}</span>
+              : nowCount ? <span className="hq-tag t-bad">{`지금 처리할 일 ${nowCount}`}</span>
+                : <span className="hq-tag t-good">지금 처리할 일 없음</span>}
             <span className={`hq-tag ${worker.status === 'ok' ? 't-good' : worker.status === 'down' ? 't-bad' : 't-dim'}`}>
               <span className={`hq-dot small ${worker.status}`} aria-hidden="true" />{`메모 서버 ${WORKER_KO[worker.status]}`}
             </span>
@@ -122,16 +123,16 @@ export function TodayView({ people, peopleLoading, worker, refreshKey, onOpen, o
 
       <div className="hq-g2">
         <section className="hq-card">
-          <h3>처리할 일 <button type="button" className="hq-link" onClick={() => onGo('families')}>모두 보기 ›</button></h3>
-          {peopleLoading ? <Skeleton lines={4} />
-            : todo.length === 0 ? <div className="hq-empty">처리할 일이 없어요. 오늘은 여기까지!</div>
+          <h3>처리할 일 <button type="button" className="hq-link" onClick={() => onGo('inbox')}>모두 보기 ›</button></h3>
+          {!inbox ? (inboxError ? <div className="hq-empty">{inboxError}</div> : <Skeleton lines={4} />)
+            : inbox.items.length === 0 ? <div className="hq-empty">처리할 일이 없어요. 오늘은 여기까지!</div>
               : (
                 <div className="hq-inbox">
-                  {todo.slice(0, 4).map(({ person, flags }) => (
-                    <button key={person.uid} type="button" className="hq-it" onClick={() => onOpen(person.uid)}>
-                      <span className={`stripe ${flags.some((f) => f.tone === 'bad') ? 's-now' : 's-day'}`} aria-hidden="true" />
-                      <span className="tx"><b>{person.name}</b><small>{flags.map((f) => f.label).join(' · ')}</small></span>
-                      <span className="cat">{person.kind === 'parent' ? '부모님' : '가족'}</span>
+                  {topItems(inbox.items, 4).map((it) => (
+                    <button key={it.id} type="button" className="hq-it" onClick={() => onGo('inbox')}>
+                      <span className={`stripe ${it.when === 'now' ? 's-now' : it.when === 'day' ? 's-day' : 's-wk'}`} aria-hidden="true" />
+                      <span className="tx"><b>{it.title}</b><small>{it.sub}</small></span>
+                      <span className="cat">{it.category}</span>
                     </button>
                   ))}
                 </div>

@@ -3,8 +3,7 @@ import { describe, it, expect, vi } from 'vitest'
 
 vi.mock('./worker', () => ({ callWorker: vi.fn() }))
 
-import { attention, briefing, busiestHour, kpis, story, vsYesterday, type AdminMetrics, type MetricsDay } from './adminToday'
-import type { AdminPerson } from './admin'
+import { briefing, busiestHour, kpis, story, vsYesterday, type AdminMetrics, type MetricsDay } from './adminToday'
 
 const day = (i: number, over: Partial<MetricsDay> = {}): MetricsDay => ({
   date: `2026-10-${String(i).padStart(2, '0')}`, families: 0, activeParents7d: 0, photos: 0, reactions: 0, signups: 0, northStar: null, ...over,
@@ -83,22 +82,5 @@ describe('busiestHour', () => {
     expect(busiestHour(h)).toBeNull()
     h[9] = 12; h[14] = 7; h[3] = 50
     expect(busiestHour(h)).toBe(9)
-  })
-})
-
-describe('attention', () => {
-  const p = (over: Partial<AdminPerson>): AdminPerson => ({
-    uid: 'u', kind: 'parent', name: '엄마', email: null, providers: [], disabled: false, isAdmin: false, createdAt: null,
-    lastSignInAt: null, lastRefreshAt: null, hasSettings: true, plan: { tier: 'free', status: null, since: null, explicit: false },
-    memos: { count: 0, lastAt: null }, links: { active: 1, guardians: 1 }, devices: { active: 1, total: 1 }, ...over,
-  })
-  it('lists who needs a look, worst first, leaving out the admin badge', () => {
-    const list = attention([
-      p({ uid: 'ok' }),
-      p({ uid: 'nophone', devices: { active: 0, total: 0 } }),
-      p({ uid: 'noguard', links: { active: 1, guardians: 0 } }),
-      p({ uid: 'admin', kind: 'child', isAdmin: true, links: { active: 0, guardians: 0 } }),
-    ])
-    expect(list.map((x) => x.person.uid)).toEqual(['noguard', 'nophone'])
   })
 })
