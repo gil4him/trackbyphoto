@@ -37,7 +37,7 @@ const VIEWS = [
   // 해결됨 on the first item: saved, gone from the list, and still gone after a reload (one viewport).
   { id: 'inbox-resolved', search: '?tab=inbox', ready: '할 일은 이렇게 골라요', settled: '.hq-inbox-view .hq-ibx:not(:has(.hq-skel))', press: '해결됨', reload: true, only: '1440' },
   { id: 'inbox', search: '?tab=inbox', ready: '할 일은 이렇게 골라요', settled: '.hq-inbox-view .hq-ibx:not(:has(.hq-skel))' },
-  { id: 'growth', search: '?tab=growth', ready: '곧 만들어요' },
+  { id: 'growth', search: '?tab=growth', ready: '한 가족이 들어와', settled: '.hq-growth:not(:has(.hq-skel)):not(:has(.hq-err))' },
   { id: 'families-parent', search: '?tab=families&kind=parent', ready: '엄마' },
   { id: 'families-child', search: '?tab=families&kind=child', ready: KID.email },
   { id: 'revenue', search: '?tab=revenue', ready: '곧 만들어요' },
@@ -66,12 +66,13 @@ const admin = await familyAccount(ADMIN)
 {
   const db = getFirestore()
   const day = 86_400_000
-  const parent = async (uid, name, role) => {
+  const parent = async (uid, name, role, sinceDays = 0) => {
     await getAuth().createUser({ uid })
     await db.doc(`users/${uid}`).set({ accountType: 'managed', patientName: name, createdBy: kid.localId })
-    await db.doc(`memberships/${uid}_${kid.localId}`).set({ patientUid: uid, caregiverUid: kid.localId, caregiverName: KID.name, role, status: 'active', createdAt: Timestamp.now(), acceptedAt: Timestamp.now(), revokedAt: null })
+    await db.doc(`memberships/${uid}_${kid.localId}`).set({ patientUid: uid, caregiverUid: kid.localId, caregiverName: KID.name, role, status: 'active', createdAt: Timestamp.fromMillis(Date.now() - sinceDays * day), acceptedAt: Timestamp.fromMillis(Date.now() - sinceDays * day), revokedAt: null })
   }
-  await parent('granQuiet0000000000000000000', '할머니', 'guardian')
+  // Looked after for 12 days, so the 90-day chart has some history.
+  await parent('granQuiet0000000000000000000', '할머니', 'guardian', 12)
   for (let d = 4; d <= 10; d++) await db.collection('memos').add({ patientUid: 'granQuiet0000000000000000000', takenAt: Timestamp.fromMillis(Date.now() - d * day), createdAt: Timestamp.fromMillis(Date.now() - d * day), status: 'ready', memo: '산책', place: '공원' })
   await parent('grandpaViewer000000000000000', '할아버지', 'viewer')
   await getAuth().createUser({ uid: 'blockedKid00000000000000000', email: 'blocked@example.com', displayName: '민수', disabled: true })

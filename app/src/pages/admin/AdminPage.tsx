@@ -18,6 +18,7 @@ import { isSimple } from '../../lib/edition'
 import { useWorkerBeat } from '../../hooks/useWorkerStatus'
 import { TodayView } from './TodayView'
 import { InboxView } from './InboxView'
+import { GrowthView } from './GrowthView'
 import { adminInbox, type Inbox } from '../../lib/adminInbox'
 import { PeopleTab } from './PeopleTab'
 import { PersonDetail } from './PersonDetail'
@@ -27,7 +28,6 @@ const WORKER_KO = { ok: '메모 서버 정상', down: '메모 서버 멈춤', un
 
 /** The views of later phases (docs/admin/DAYLIE_ADMIN_DASHBOARD.md D2–D8). */
 const COMING: Partial<Record<AdminTab, string>> = {
-  growth: '가입부터 매일 쓰기까지, 가족이 어디서 멈추는지 보여드릴 거예요.',
   revenue: '플랜별 가족과 한 달에 남는 돈을 보여드릴 거예요.',
   costs: 'AI 메모와 Firebase 비용을 보여드릴 거예요.',
   system: '메모 서버의 신호와 메모 시간을 자세히 보여드릴 거예요.',
@@ -171,6 +171,8 @@ export function AdminPage({ user, onSignOut }: { user: User; onSignOut: () => Pr
               </div>
               <PeopleTab key={route.kind} kind={route.kind} people={people} loading={loading} onOpen={openPerson} />
             </>
+          ) : route.tab === 'growth' ? (
+            <GrowthView refreshKey={gen - 1} />
           ) : route.tab === 'inbox' ? (
             <InboxView inbox={inbox} error={inboxState.error} onDone={inboxDone} onOpenPerson={openPerson}
               onGo={(to) => go({ ...to, uid: null })} />

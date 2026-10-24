@@ -18,6 +18,7 @@ vi.mock('../../hooks/useWorkerStatus', () => ({
 import { PeopleTab } from './PeopleTab'
 import { TodayView } from './TodayView'
 import { InboxView } from './InboxView'
+import { GrowthView } from './GrowthView'
 import { ToastProvider } from '../../components/Toast'
 import type { Inbox } from '../../lib/adminInbox'
 import { AdminPage } from './AdminPage'
@@ -186,6 +187,16 @@ describe('InboxView', () => {
     expect(view({ ...INBOX, items: [], hidden: 0 })).toContain('처리할 일이 없어요. 오늘은 여기까지!')
     expect(view(null)).toContain('hq-skel')
     expect(view(null, '서버(Mac mini)가 응답하지 않아요.')).toContain('서버(Mac mini)가 응답하지 않아요.')
+  })
+})
+
+describe('GrowthView', () => {
+  it('waits for the worker without inventing a number, and says what is not recorded', () => {
+    const html = renderToString(<GrowthView refreshKey={0} />)
+    expect(html).toContain('한 가족이 들어와 매일 쓰기까지')
+    expect(html).toContain('hq-skel')
+    expect(html).toContain('아직 기록 안 함')
+    expect(html).not.toMatch(/\d+곳을 따라가/)
   })
 })
 

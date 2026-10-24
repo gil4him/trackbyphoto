@@ -38,6 +38,7 @@ import {
 } from './adminPeople.js'
 import { adminMetrics } from './adminMetrics.js'
 import { adminInbox } from './adminInbox.js'
+import { adminGrowth } from './adminGrowth.js'
 import { deleteMyAccount } from './account.js'
 import {
   approvePairing,
@@ -77,6 +78,7 @@ export const HANDLERS: Record<string, Handler> = {
   adminSetDisabled,
   adminMetrics,
   adminInbox,
+  adminGrowth,
   createManagedElder,
   createPairingLink,
   pairDevice,

@@ -90,13 +90,13 @@ export function familiesAt(spans: MembershipSpan[], parents: Set<string>, t: num
 
 const within = (ms: number, from: number, to: number) => ms >= from && ms < to
 
-export function computeMetrics(input: MetricsInput): AdminMetrics {
+export function computeMetrics(input: MetricsInput, seriesDays = SERIES_DAYS): AdminMetrics {
   const { now } = input
   const parentSet = new Set(input.parents.map((p) => p.uid))
   const today = seoulDayStart(now)
 
   const days: MetricsDay[] = []
-  for (let i = SERIES_DAYS - 1; i >= 0; i--) {
+  for (let i = seriesDays - 1; i >= 0; i--) {
     const start = today - i * DAY
     const end = i === 0 ? now + 1 : start + DAY
     const weekFrom = start - 6 * DAY
