@@ -41,7 +41,16 @@ const VIEWS = [
   { id: 'families-parent', search: '?tab=families&kind=parent', ready: '엄마', settled: '.hq-families .hq-tbl' },
   { id: 'families-unpaired', search: '?tab=families&kind=parent&f=unpaired', ready: '엄마', settled: '.hq-families .hq-tbl' },
   { id: 'families-child', search: '?tab=families&kind=child', ready: KID.email },
-  { id: 'revenue', search: '?tab=revenue', ready: '곧 만들어요' },
+  { id: 'revenue', search: '?tab=revenue', ready: '가정으로 계산해 보기', settled: '.hq-revenue:not(:has(.hq-skel))' },
+  // A new price, saved, and still there after a reload (one viewport).
+  { id: 'revenue-saved', search: '?tab=revenue', ready: '가정으로 계산해 보기', settled: '.hq-revenue:not(:has(.hq-skel))', only: '1440',
+    act: async (p) => {
+      const input = await p.$('input[aria-label="Plus 유료 가족 수"]')
+      await input.click({ clickCount: 3 }); await input.type('12')
+      await click(p, '가정 저장'); await waitText(p, '가정을 저장했어요', 15_000)
+      await p.reload({ waitUntil: 'load' }); await p.waitForSelector('.hq-revenue:not(:has(.hq-skel))', { timeout: 60_000 })
+      console.log('  Plus families after reload:', await p.$eval('input[aria-label="Plus 유료 가족 수"]', (e) => e.value))
+    } },
   { id: 'costs', search: '?tab=costs', ready: '곧 만들어요' },
   { id: 'system', search: '?tab=system', ready: '곧 만들어요' },
   { id: 'flags', search: '?tab=flags', ready: '곧 만들어요' },
@@ -54,7 +63,11 @@ const VIEWS = [
 
 await mkdir(OUT, { recursive: true })
 initializeApp({ projectId: PROJECT, storageBucket: `${PROJECT}.appspot.com` })
-await getFirestore().doc('admin_config/plans').set({ flags: { reactions: true, familyPhotos: true } })
+// The plans table as the owner set it (CLAUDE.md, 2026-10-22): Free, Plus, Family.
+await getFirestore().doc('admin_config/plans').set({
+  flags: { reactions: true, familyPhotos: true },
+  free: { familyMembers: 3 }, plus: { familyMembers: 6, priceLabel: '₩4,400/월' }, family: { familyMembers: 10, priceLabel: '₩7,700/월' },
+})
 
 const kid = await familyAccount(KID)
 const { momUid } = await seedDemoFamily({ kidUid: kid.localId, kidName: KID.name })
@@ -78,6 +91,9 @@ const admin = await familyAccount(ADMIN)
   await parent('granQuiet0000000000000000000', '할머니', 'guardian', 12)
   for (let d = 4; d <= 10; d++) await db.collection('memos').add({ patientUid: 'granQuiet0000000000000000000', takenAt: Timestamp.fromMillis(Date.now() - d * day), createdAt: Timestamp.fromMillis(Date.now() - d * day), status: 'ready', memo: '산책', place: '공원' })
   await parent('grandpaViewer000000000000000', '할아버지', 'viewer')
+  // 할머니 is on Plus since this week (매출: plan mix and an upgrade).
+  await db.doc('users/granQuiet0000000000000000000').set({ plan: { tier: 'plus', status: 'active', since: Timestamp.now() } }, { merge: true })
+  await db.collection('auditLogs').add({ patientUid: 'granQuiet0000000000000000000', actorUid: kid.localId, action: 'plan.change', details: { from: 'free', to: 'plus', provider: 'admin', source: 'admin' }, timestamp: Timestamp.now() })
   await getAuth().createUser({ uid: 'blockedKid00000000000000000', email: 'blocked@example.com', displayName: '민수', disabled: true })
   const month = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit' }).format(new Date())
   await db.doc('admin_config/dashboard').set({ costs: { [month]: { firebaseUSD: 11.4, budgetUSD: 5 } } }, { merge: true })
@@ -117,6 +133,7 @@ try {
         throw err
       })
       if (v.press) { await click(p, v.press, v.pressSel); await sleep(1500) }
+      if (v.act) await v.act(p)
       if (v.reload) {
         const before = await p.evaluate(() => document.querySelector('.hq-vhead h1')?.textContent)
         await waitText(p, '해결됨으로 옮겼어요', 15_000)

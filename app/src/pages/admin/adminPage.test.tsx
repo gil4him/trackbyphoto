@@ -5,7 +5,7 @@ import { renderToString } from 'react-dom/server'
 vi.mock('../../firebase', () => ({ db: {}, auth: {}, storage: {} }))
 vi.mock('firebase/firestore', () => ({
   collection: () => ({}), doc: () => ({}), query: () => ({}), orderBy: () => ({}), limit: () => ({}),
-  getDocs: async () => ({ docs: [] }), getDoc: async () => ({ exists: () => false }), onSnapshot: () => () => {}, setDoc: async () => {},
+  getDocs: async () => ({ docs: [] }), getDoc: async () => ({ exists: () => false }), where: () => ({}), serverTimestamp: () => null, Timestamp: { fromMillis: () => null }, onSnapshot: () => () => {}, setDoc: async () => {},
 }))
 vi.mock('../../lib/worker', () => ({
   callWorker: vi.fn(), isWorkerOffline: () => false, WorkerError: class extends Error { code = '' }, WORKER_OFFLINE_MESSAGE: '',
@@ -20,6 +20,7 @@ import { TodayView } from './TodayView'
 import { InboxView } from './InboxView'
 import { GrowthView } from './GrowthView'
 import { FamiliesTable } from './FamiliesTable'
+import { RevenueView } from './RevenueView'
 import { ToastProvider } from '../../components/Toast'
 import type { Inbox } from '../../lib/adminInbox'
 import { AdminPage } from './AdminPage'
@@ -230,6 +231,17 @@ describe('가족 address', () => {
     expect(searchFromRoute({ tab: 'families', kind: 'parent', uid: null, filter: 'unpaired' })).toBe('?tab=families&kind=parent&f=unpaired')
     expect(searchFromRoute({ tab: 'families', kind: 'child', uid: null, filter: 'unpaired' })).toBe('?tab=families&kind=child')
     expect(searchFromRoute({ tab: 'today', kind: 'parent', uid: null, filter: 'quiet' })).toBe('')
+  })
+})
+
+describe('RevenueView', () => {
+  it('says payments are not live yet and waits before showing any number', () => {
+    const html = renderToString(<ToastProvider><RevenueView people={people} peopleLoading={false} /></ToastProvider>)
+    expect(html).toContain('매출')
+    expect(html).toContain('가정으로 계산해 보기')
+    expect(html).toContain('hq-skel')
+    expect(html).not.toContain('₩')
+    expect(html).toContain('아직 기록 안 함')
   })
 })
 
