@@ -55,4 +55,9 @@ describe('내 하루', () => {
     const pending = { ...sentPhoto('p', at(11)), photoUrl: undefined }
     expect(diaryEntries([], [], [{ photo: pending, to: '엄마', color: 'x' }])).toEqual([])
   })
+
+  it('사진 보내기 sits on one\'s own day, only while family photos are on', () => {
+    expect(render({ onSendPhoto: () => {} })).toContain('📷 부모님께 사진 보내기')
+    expect(render()).not.toContain('사진 보내기')
+  })
 })

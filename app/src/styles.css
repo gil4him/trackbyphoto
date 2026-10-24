@@ -1516,3 +1516,4 @@ html:not(.camera-live) .elder-cam { background: #000; }
 .parent-memo .memo-row { background: var(--accent-tint); background: color-mix(in srgb, var(--pc) 12%, var(--surface)); border-color: transparent; box-shadow: inset 4px 0 0 var(--pc); }
 .parent-memo.sent-in-day .memo-row.received.sent { margin-bottom: 10px; }
 .day-tl .parent-memo .memo-row { margin-bottom: 10px; }
+.my-day-send { display: inline-block; margin-top: 10px; padding: 0; background: none; border: 0; }

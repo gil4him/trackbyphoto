@@ -22,7 +22,7 @@ export function ParentMemoRow({ item, onOpen }: { item: ParentMemo; onOpen: (mem
  * like the parent's day page — the photos they took, by time — with their
  * parents' photos of today and what they sent them woven in, indented.
  */
-export function MyDay({ memos, parents, sent, onOpen, onOpenParentMemo, onOpenSent, onYesterday, now = new Date() }: {
+export function MyDay({ memos, parents, sent, onOpen, onOpenParentMemo, onOpenSent, onYesterday, onSendPhoto, now = new Date() }: {
   /** One's own memos (any days; today's are picked here). */
   memos: Memo[]
   /** The parents' memos of today. */
@@ -34,6 +34,8 @@ export function MyDay({ memos, parents, sent, onOpen, onOpenParentMemo, onOpenSe
   onOpenSent: (id: string) => void
   /** 어제 보기 ›: 지난 기록 at yesterday. */
   onYesterday: () => void
+  /** 사진 보내기: a photo from the phone, with a line, to a parent (none when family photos are off). */
+  onSendPhoto?: () => void
   now?: Date
 }) {
   const mine = memosOnDay(memos, now)
@@ -45,6 +47,7 @@ export function MyDay({ memos, parents, sent, onOpen, onOpenParentMemo, onOpenSe
         <div className="h-eyebrow">{dayEyebrow(now)}</div>
         <h1 className="day-title">내 하루</h1>
         <div className="day-caption">사진 {mine.length}장</div>
+        {onSendPhoto && <button type="button" className="fp-send-link my-day-send" onClick={onSendPhoto}>📷 부모님께 사진 보내기 ›</button>}
       </header>
 
       {entries.length === 0 ? (
