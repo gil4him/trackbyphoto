@@ -5,7 +5,6 @@ import { useOutbox } from '../hooks/useOutbox'
 import { useCapture } from '../hooks/useCapture'
 import { fmtDate, fmtTime } from '../util'
 import { MemoThumb } from '../components/MemoThumb'
-import { CameraGlyph } from '../components/CameraFab'
 import { MemoRow } from '../components/MemoRow'
 import { PatientCard } from '../components/PatientCard'
 import { latestActivity, type ParentSummary } from '../lib/dashboard'
@@ -232,7 +231,6 @@ export function Home({ uid, patientName, greetingName, memos, onOpenAsk, onOpen,
     // The family dashboard (A10): the parents' cards, newest activity first,
     // then one's own photos today with the dashed + for the camera.
     const cards = [...parents].sort((a, b) => latestActivity(b) - latestActivity(a))
-    const mine = memosOnDay(memos, today)
     return (
       <section className="page home dash" aria-label={`${who}의 홈`}>
         {topCard}
@@ -248,20 +246,7 @@ export function Home({ uid, patientName, greetingName, memos, onOpenAsk, onOpen,
           </div>
         )}
 
-        <div className="mine">
-          <div className="h-eyebrow">내 오늘 · 사진 {mine.length}장</div>
-          <div className="mine-strip" aria-label="내 오늘 사진">
-            {mine.map((m) => (
-              <button type="button" key={m.id} className="mine-thumb" onClick={() => onOpen(m.id)} aria-label="자세히 보기">
-                <MemoThumb memo={m} />
-              </button>
-            ))}
-            {/* The same camera as the floating button, so the square reads as 사진 찍기 too. */}
-            <button type="button" className="mine-add" aria-label="사진 찍기" disabled={capture.busy} onClick={capture.takePhoto}><CameraGlyph /></button>
-            {mine.length === 0 && <span className="mine-hint">카메라 버튼으로 남겨요</span>}
-          </div>
-          {outbox}
-        </div>
+        {outbox}
 
         {capture.inputEl}
         {capture.processing}

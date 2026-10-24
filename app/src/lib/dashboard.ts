@@ -11,6 +11,8 @@ export interface ParentSummary {
   memos: Memo[]
   /** The newest unread family event about this parent, if any. */
   unread?: AppNotification
+  /** This parent's colour when there is more than one (lib/parentColors). */
+  color?: string
 }
 
 /** When the parent was last heard from — the newest photo or notice — for

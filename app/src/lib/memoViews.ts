@@ -71,15 +71,17 @@ export function cardMeta(m: Pick<Memo, 'place' | 'activity'>, items: Reaction[] 
     .filter(Boolean).join(' · ')
 }
 
-export type DetailAction = 'share' | 'edit' | 'rewrite' | 'delete'
+export type DetailAction = 'share' | 'send' | 'edit' | 'rewrite' | 'delete'
 
 /** What a photo page's ⋯ menu offers, top to bottom (삭제 last, in red).
  *  Sharing is the simple edition's (its share sheet also saves the photo on
  *  an iPhone). Nothing for someone who may only look. */
-export function detailActions(o: { simple: boolean; readOnly: boolean; hasPhoto: boolean; hasMemo: boolean; rewriting: boolean }): DetailAction[] {
+export function detailActions(o: { simple: boolean; readOnly: boolean; hasPhoto: boolean; hasMemo: boolean; rewriting: boolean; canSend?: boolean }): DetailAction[] {
   if (o.readOnly) return []
   const out: DetailAction[] = []
   if (o.simple && o.hasPhoto) out.push('share')
+  // 부모님께 보내기: a family member's own photo, to their parents.
+  if (o.canSend && o.hasPhoto) out.push('send')
   if (o.hasMemo && !o.rewriting) out.push('edit', 'rewrite')
   out.push('delete')
   return out

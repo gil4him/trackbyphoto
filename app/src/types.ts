@@ -271,6 +271,8 @@ export interface FamilyPhoto {
   photoUrl?: string
   /** The ~480px copy for lists (worker thumbs.ts). */
   thumbUrl?: string
+  /** Sent from one of the sender's own photos (부모님께 보내기): that memo. */
+  fromMemoId?: string
   caption: string
   status: 'pending' | 'ready'
   createdAtMs: number

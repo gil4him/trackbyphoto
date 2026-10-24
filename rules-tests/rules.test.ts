@@ -1087,6 +1087,14 @@ describe('photos family send to a parent (familyPhotos)', () => {
     await assertFails(setDoc(doc(elderDb(), 'familyPhotos', 'e1'), sent('e1', ELDER)))
   })
 
+  it('may name the sender\'s own photo it came from (부모님께 보내기), and nothing else extra', async () => {
+    await seed()
+    await assertSucceeds(setDoc(doc(authedDb(GUARDIAN), 'familyPhotos', 'm1'), { ...sent('m1', GUARDIAN), caption: '', fromMemoId: '1792757623048_26v9yk' }))
+    await assertFails(setDoc(doc(authedDb(GUARDIAN), 'familyPhotos', 'm2'), { ...sent('m2', GUARDIAN), fromMemoId: 'x'.repeat(81) }))
+    await assertFails(setDoc(doc(authedDb(GUARDIAN), 'familyPhotos', 'm3'), { ...sent('m3', GUARDIAN), fromMemoId: 42 }))
+    await assertFails(setDoc(doc(authedDb(GUARDIAN), 'familyPhotos', 'm4'), { ...sent('m4', GUARDIAN), other: 'x' }))
+  })
+
   it('the 대표 가족\'s settings decide: off, or admins only', async () => {
     await seed({ familyPhotos: { enabled: false } })
     await assertFails(setDoc(doc(authedDb(GUARDIAN), 'familyPhotos', 'g1'), sent('g1', GUARDIAN)))

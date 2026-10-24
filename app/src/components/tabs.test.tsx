@@ -20,10 +20,10 @@ describe('Tabs', () => {
     expect(html).not.toContain('tab-dot')
   })
 
-  it('simple edition: 홈 · 사진 · 알림 · 설정, unread as a dot', () => {
+  it('simple edition: 오늘 · 과거 · 알림 · 설정, unread as a dot', () => {
     edition.simple = true
     const html = renderToString(<Tabs active="today" onChange={() => {}} showAlerts unreadCount={3} />)
-    expect(labels(html)).toEqual(['주 메뉴', '홈', '사진', '알림', '설정'])
+    expect(labels(html)).toEqual(['주 메뉴', '오늘', '과거', '알림', '설정'])
     expect(html).not.toContain('물어보기')
     expect(html).toContain('class="tab-dot"')
     expect(html).toContain('aria-label="알림 3건"')
@@ -34,7 +34,7 @@ describe('Tabs', () => {
   it('the label is its own span, so the active tab can tint the icon and not the word', () => {
     edition.simple = true
     const html = renderToString(<Tabs active="home" onChange={() => {}} />)
-    expect(html).toContain('<span class="tab-label">홈</span>')
+    expect(html).toContain('<span class="tab-label">오늘</span>')
     expect(html).not.toContain('tab-dot')
   })
 })

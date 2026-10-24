@@ -44,9 +44,12 @@ const ICONS = {
   ),
 }
 
-const TABS: { key: TabKey; label: string }[] = [
-  { key: 'home',     label: '홈' },
-  { key: 'today',    label: '사진' },
+// The simple edition sorts the family's pages by time: 오늘 (today's
+// exchanges with the parents) and 과거 (everything before today).
+// The keys stay home/today everywhere else (links, notices).
+const TABS: { key: TabKey; label: string; simpleLabel?: string }[] = [
+  { key: 'home',     label: '홈',   simpleLabel: '오늘' },
+  { key: 'today',    label: '사진', simpleLabel: '과거' },
   { key: 'ask',      label: '물어보기' },
   { key: 'alerts',   label: '알림' },
   { key: 'settings', label: '설정' },
@@ -78,7 +81,7 @@ export function Tabs({
   const badgeTab: TabKey = showAlerts ? 'alerts' : 'home'
   return (
     <nav className="tabbar" aria-label="주 메뉴">
-      {TABS.filter((t) => (t.key !== 'alerts' || showAlerts) && (t.key !== 'ask' || !simple)).map((t) => (
+      {TABS.filter((t) => (t.key !== 'alerts' || showAlerts) && (t.key !== 'ask' || !simple)).map((t) => ({ ...t, label: (simple && t.simpleLabel) || t.label })).map((t) => (
         <button
           key={t.key}
           className={`tab ${active === t.key ? 'on' : ''}`}

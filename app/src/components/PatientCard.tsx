@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react'
 import { MemoThumb } from './MemoThumb'
 import { fmtTime, isSameDay, relativeDateLabel } from '../util'
 import { addressed, honorific } from '../lib/people'
@@ -26,7 +27,7 @@ export function PatientCard({ parent, onOpen, now = new Date() }: {
   const newsAt = unread?.createdAt?.toMillis?.()
   const newsDate = newsAt ? new Date(newsAt) : null
   return (
-    <button type="button" className="patient-card" onClick={onOpen} aria-label={`${who}의 하루 보기`}>
+    <button type="button" className="patient-card" style={parent.color ? { '--pc': parent.color } as CSSProperties : undefined} onClick={onOpen} aria-label={`${who}의 하루 보기`}>
       <span className="pc-head">
         <span className="pc-avatar" aria-hidden="true">{name.trim().slice(0, 1)}</span>
         <span className="pc-text">

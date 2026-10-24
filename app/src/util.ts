@@ -47,3 +47,23 @@ export function relativeDateLabel(d: Date): string {
   const md = `${d.getMonth() + 1}월 ${d.getDate()}일`
   return d.getFullYear() === now.getFullYear() ? md : `${d.getFullYear()}년 ${md}`
 }
+
+const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
+
+/** A day's heading in the photo lists: 오늘 · 10월 24일 (토), 어제 · 10월 23일 (금),
+ *  then the date alone (with the year when it isn't this year). */
+export function dayHeading(d: Date, now = new Date()): string {
+  const start = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime()
+  const diff = Math.round((start(now) - start(d)) / 86_400_000)
+  const date = `${d.getFullYear() === now.getFullYear() ? '' : `${d.getFullYear()}년 `}${d.getMonth() + 1}월 ${d.getDate()}일 (${WEEKDAYS[d.getDay()]})`
+  return diff === 0 ? `오늘 · ${date}` : diff === 1 ? `어제 · ${date}` : date
+}
+
+/** The day a picked date lands on: that day if it has photos, else the
+ *  nearest earlier one, else the oldest. `days` are newest first. */
+export function landingDay(days: Date[], picked: Date): Date | null {
+  if (days.length === 0) return null
+  const end = new Date(picked.getFullYear(), picked.getMonth(), picked.getDate() + 1).getTime()
+  return days.find((d) => d.getTime() < end) ?? days[days.length - 1]
+}
+

@@ -3,6 +3,11 @@ import { cardMeta, cardTitle, clock, dayCaption, dayEyebrow, detailActions, fart
 import type { Memo, Reaction } from '../types'
 
 describe('detailActions', () => {
+  it('offers 부모님께 보내기 after 공유하기 on a family member\'s own photo', () => {
+    const own = { simple: true, readOnly: false, hasPhoto: true, hasMemo: true, rewriting: false, canSend: true }
+    expect(detailActions(own)).toEqual(['share', 'send', 'edit', 'rewrite', 'delete'])
+    expect(detailActions({ ...own, hasPhoto: false })).toEqual(['edit', 'rewrite', 'delete'])
+  })
   const base = { simple: true, readOnly: false, hasPhoto: true, hasMemo: true, rewriting: false }
 
   it('simple: share, edit, rewrite, then delete', () => {
@@ -20,6 +25,7 @@ describe('detailActions', () => {
 
   it('nothing for someone who may only look', () => {
     expect(detailActions({ ...base, readOnly: true })).toEqual([])
+    expect(detailActions({ ...base, readOnly: true, canSend: true })).toEqual([])
   })
 })
 

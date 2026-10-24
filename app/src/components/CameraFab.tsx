@@ -47,3 +47,4 @@ export function FamilyCamera({ uid, show, onSend }: { uid: string; show: boolean
     </>
   )
 }
+
