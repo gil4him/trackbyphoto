@@ -197,15 +197,6 @@ describe("Home in the simple edition: the family dashboard (A10)", () => {
     expect(quiet).not.toContain('어제 사진')
   })
 
-  it("오늘 holds today's exchanges: what one sent today, and no strip of one's own photos in the page (it floats by the camera)", () => {
-    const mine = [pm('me', 'm2', 12, 0), pm('me', 'm1', 9, 0)]
-    const out = render({ parents: [mom], memos: mine, sentToday: <div className="sent-today">보낸 사진 · 오늘 1장</div> })
-    expect(out).toContain('보낸 사진 · 오늘 1장')
-    expect(out).not.toContain('내 오늘')
-    expect(out).not.toContain('mine-thumb')
-    expect(out).not.toContain('mine-add')
-    expect(render({ parents: [mom] })).not.toContain('sent-today')
-  })
 })
 
 describe("the 보낸 사진 row at the end of the parent's day (A10)", () => {

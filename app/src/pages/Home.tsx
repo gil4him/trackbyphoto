@@ -179,7 +179,7 @@ export function ParentDayHome({ parentName, memos, byMemo, home, onOpen, onYeste
   )
 }
 
-export function Home({ uid, patientName, greetingName, memos, onOpenAsk, onOpen, canCapture = true, notifications = [], onDismissNotification, recordsLabel, newsCard, topCard, canSendPhoto = false, sentPhotos, sentToday, connectOnly = false, simple = false, parents = [], onOpenParent, now }: { /** The parent's 가족 소식 card, shown under the buttons. */ newsCard?: React.ReactNode; /** A one-off card above the greeting (family's 알림 켜기). */ topCard?: React.ReactNode; /** Family on a parent's home: the floating camera button sends the parent a photo. */ canSendPhoto?: boolean; /** Family: what has been sent, with the parent's answers. */ sentPhotos?: React.ReactNode; /** Simple dashboard (오늘): the photos one sent the parents today (SentRow). */ sentToday?: React.ReactNode; /** Simple edition, no parent yet: only `topCard` (엄마 연결하기), centred. */ connectOnly?: boolean; /** Simple edition: the family dashboard (A10) — one card per parent and one's own photos today; no 사진 찍기 / 지난 기록 buttons and no notice banner (the cards carry 새 소식). */ simple?: boolean; /** Simple edition: the connected parents, for the cards. */ parents?: ParentSummary[]; /** A card tapped: that parent's day. */ onOpenParent?: (uid: string) => void; /** Injected in tests. */ now?: Date; recordsLabel?: boolean; uid: string; patientName: string; greetingName: string; memos: Memo[]; onOpenAsk: () => void; onOpen: (id: string) => void; canCapture?: boolean; notifications?: AppNotification[]; onDismissNotification?: (id: string) => void }) {
+export function Home({ uid, patientName, greetingName, memos, onOpenAsk, onOpen, canCapture = true, notifications = [], onDismissNotification, recordsLabel, newsCard, topCard, canSendPhoto = false, sentPhotos, connectOnly = false, simple = false, parents = [], onOpenParent, now }: { /** The parent's 가족 소식 card, shown under the buttons. */ newsCard?: React.ReactNode; /** A one-off card above the greeting (family's 알림 켜기). */ topCard?: React.ReactNode; /** Family on a parent's home: the floating camera button sends the parent a photo. */ canSendPhoto?: boolean; /** Family: what has been sent, with the parent's answers. */ sentPhotos?: React.ReactNode; /** Simple edition, no parent yet: only `topCard` (엄마 연결하기), centred. */ connectOnly?: boolean; /** Simple edition: the family dashboard (A10) — one card per parent and one's own photos today; no 사진 찍기 / 지난 기록 buttons and no notice banner (the cards carry 새 소식). */ simple?: boolean; /** Simple edition: the connected parents, for the cards. */ parents?: ParentSummary[]; /** A card tapped: that parent's day. */ onOpenParent?: (uid: string) => void; /** Injected in tests. */ now?: Date; recordsLabel?: boolean; uid: string; patientName: string; greetingName: string; memos: Memo[]; onOpenAsk: () => void; onOpen: (id: string) => void; canCapture?: boolean; notifications?: AppNotification[]; onDismissNotification?: (id: string) => void }) {
   const toast = useToast()
   const capture = useCapture(uid)
   const lastReadyId = useRef<string | null>(null)
@@ -246,9 +246,6 @@ export function Home({ uid, patientName, greetingName, memos, onOpenAsk, onOpen,
           </div>
         )}
 
-        {/* 오늘 is today's exchanges: what one sent the parents today. One's
-            own photos of today float by the camera button (MineStrip). */}
-        {sentToday}
         {outbox}
 
         {capture.inputEl}

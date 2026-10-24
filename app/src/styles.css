@@ -1509,18 +1509,10 @@ html:not(.camera-live) .elder-cam { background: #000; }
 .sheet-danger-btn.send-go { background: var(--accent); color: var(--ink); }
 .sheet-danger-btn.send-go:disabled { opacity: .45; }
 
-/* 오늘 (simple, one's own page): today's own photos floating on the camera
-   button's line, newest beside it (row-reverse, so it opens on the newest),
-   scrolling side to side (MineStrip). */
-.cam-fab-wrap { align-items: center; gap: 10px; }
-.mine-float {
-  pointer-events: auto; display: flex; flex-direction: row-reverse; gap: 8px; padding: 6px; margin-left: auto;
-  max-width: calc(100% - 74px); overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none;
-  background: color-mix(in srgb, var(--surface) 88%, transparent); border-radius: 18px; box-shadow: var(--shadow);
-  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
-}
-.mine-float::-webkit-scrollbar { display: none; }
-.mine-float-thumb { flex: none; width: 52px; height: 52px; padding: 0; border: 0; border-radius: 12px; overflow: hidden; background: none; scroll-snap-align: end; cursor: pointer; }
-.mine-float-thumb .tl-thumb { width: 52px; height: 52px; border-radius: 12px; }
-.page.home.dash { padding-bottom: calc(90px + var(--safe-bot)); }
-.sent-today { margin-top: 18px; display: flex; flex-direction: column; gap: 8px; }
+
+/* 내 하루 (a family member's own 오늘) and their 지난 기록: a parent's photo
+   among one's own, indented and edged in that parent's colour. */
+.parent-memo { flex: 1; min-width: 0; margin-left: 24px; }
+.parent-memo .memo-row { background: var(--accent-tint); background: color-mix(in srgb, var(--pc) 12%, var(--surface)); border-color: transparent; box-shadow: inset 4px 0 0 var(--pc); }
+.parent-memo.sent-in-day .memo-row.received.sent { margin-bottom: 10px; }
+.day-tl .parent-memo .memo-row { margin-bottom: 10px; }

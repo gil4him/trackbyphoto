@@ -131,3 +131,13 @@ describe('지난 기록 (the family\'s, simple edition): only what came before t
     expect(render({ memos: [] })).toContain('아직 기록이 없어요.')
   })
 })
+
+describe("one's own 지난 기록: the parents' photos woven in", () => {
+  it('indented in the parent\'s colour with their name, by time among one\'s own', () => {
+    const momMemo = memo('m', 1, 12)
+    const out = render({ parents: [{ memo: momMemo, name: '엄마', color: '#3BAA78' }] })
+    expect(out).toContain('class="parent-memo" style="--pc:#3BAA78"')
+    expect(out).toContain('엄마 · 석촌호수')
+    expect(out.indexOf('m 산책')).toBeLessThan(out.indexOf('b 산책'))
+  })
+})

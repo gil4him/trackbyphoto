@@ -78,17 +78,18 @@ let dad = null
 let dadPhone = null
 const momPhone = async (device) => { const k = await elderKit(); momSession ??= await k.phone(); return openPage(k.camera, { device, session: momSession }) }
 const PHASES = {
-  // T1: the family's tabs by time. 오늘 (own page): today's parent card,
-  // what one sent today, and one's own photos of today floating by the
-  // camera; 지난 기록: everything before today. The same two on 엄마's page.
+  // T1: the family's tabs by time. 오늘 (own page) is 내 하루: one's own
+  // photos by time with 엄마's and what one sent her woven in, indented;
+  // 지난 기록: everything before today. The same two on 엄마's page.
   T1: {
     'today-self': {
       as: self,
       prepare: async () => {
-        await seedTodayMemos({ momUid: self, kidUid: momUid, kidName: '엄마', count: 5 })
+        await seedTodayMemos({ momUid: self, kidUid: momUid, kidName: '엄마', count: 3 })
+        await seedTodayMemos({ momUid, kidUid: self, kidName: KID.name, count: 3 })
         await seedFamilyPhotos({ momUid, kidUid: self, kidName: KID.name, count: 1 })
       },
-      go: async (p) => { await home(p, '보낸 사진 · 오늘'); await p.waitForSelector('.mine-float') },
+      go: async (p) => { await home(p, '내 하루'); await p.waitForSelector('.parent-memo') },
     },
     'past-self': {
       as: self,
