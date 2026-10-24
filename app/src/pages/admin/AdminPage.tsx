@@ -11,7 +11,7 @@ import { useCallback, useEffect, useState } from 'react'
 import type { User } from 'firebase/auth'
 import {
   ADMIN_TABS, adminListPeople, beatAgo, familyCount, routeFromSearch, searchFromRoute,
-  type AdminPerson, type AdminRoute, type AdminTab,
+  type AdminPerson, type AdminRoute,
 } from '../../lib/admin'
 import { WorkerError } from '../../lib/worker'
 import { isSimple } from '../../lib/edition'
@@ -23,17 +23,13 @@ import { FamiliesTable } from './FamiliesTable'
 import { RevenueView } from './RevenueView'
 import { CostsView } from './CostsView'
 import { SystemView } from './SystemView'
+import { FlagsView } from './FlagsView'
 import { adminInbox, type Inbox } from '../../lib/adminInbox'
 import { PeopleTab } from './PeopleTab'
 import { PersonDetail } from './PersonDetail'
 import { SuperAdmin } from '../SuperAdmin'
 
 const WORKER_KO = { ok: '메모 서버 정상', down: '메모 서버 멈춤', unknown: '메모 서버 확인 중' } as const
-
-/** The views of later phases (docs/admin/DAYLIE_ADMIN_DASHBOARD.md D2–D8). */
-const COMING: Partial<Record<AdminTab, string>> = {
-  flags: '앱 기능을 켜고 끄고, 누가 언제 바꿨는지 보여드릴 거예요.',
-}
 
 /** 가족별 (one row per family) or 가족 계정 (the family members' accounts). */
 function KindSwitch({ kind, onKind }: { kind: 'parent' | 'child'; onKind: (k: 'parent' | 'child') => void }) {
@@ -117,7 +113,6 @@ export function AdminPage({ user, onSignOut }: { user: User; onSignOut: () => Pr
     go({ tab: 'families', kind: p?.kind ?? route.kind, uid })
   }
   const families = loading ? null : familyCount(people)
-  const label = ADMIN_TABS.find((t) => t.key === route.tab)?.label ?? ''
 
   return (
     <div className="hq">
@@ -187,6 +182,8 @@ export function AdminPage({ user, onSignOut }: { user: User; onSignOut: () => Pr
                   <PeopleTab key={route.kind} kind={route.kind} people={people} loading={loading} onOpen={openPerson} />
                 </div>}
             </>
+          ) : route.tab === 'flags' ? (
+            <FlagsView />
           ) : route.tab === 'system' ? (
             <SystemView worker={worker} people={people} refreshKey={gen - 1} />
           ) : route.tab === 'costs' ? (
@@ -198,13 +195,8 @@ export function AdminPage({ user, onSignOut }: { user: User; onSignOut: () => Pr
           ) : route.tab === 'inbox' ? (
             <InboxView inbox={inbox} error={inboxState.error} onDone={inboxDone} onOpenPerson={openPerson}
               onGo={(to) => go({ ...to, uid: null })} />
-          ) : route.tab === 'ai' ? (
-            <SuperAdmin />
           ) : (
-            <section className="hq-card hq-soon">
-              <h2>{label}</h2>
-              <p>곧 만들어요. {COMING[route.tab]}</p>
-            </section>
+            <SuperAdmin />
           )}
         </div>
       </main>

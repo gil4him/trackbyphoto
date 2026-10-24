@@ -23,6 +23,7 @@ import { FamiliesTable } from './FamiliesTable'
 import { RevenueView } from './RevenueView'
 import { CostsView } from './CostsView'
 import { SystemView } from './SystemView'
+import { FlagsView } from './FlagsView'
 import { ToastProvider } from '../../components/Toast'
 import type { Inbox } from '../../lib/adminInbox'
 import { AdminPage } from './AdminPage'
@@ -266,6 +267,15 @@ describe('SystemView', () => {
     expect(html).toContain('hq-skel')
     expect(html).toContain('Crashlytics 연결 필요')
     expect(html).toContain('iPhone')
+  })
+})
+
+describe('FlagsView', () => {
+  it('waits for the switch states before drawing a switch', () => {
+    const html = renderToString(<ToastProvider><FlagsView /></ToastProvider>)
+    expect(html).toContain('기능 스위치')
+    expect(html).toContain('hq-skel')
+    expect(html).not.toContain('role="switch"')
   })
 })
 

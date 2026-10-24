@@ -64,7 +64,20 @@ const VIEWS = [
       console.log('  Mac mini line after reload:', await p.evaluate(() => [...document.querySelectorAll('.hq-rows > div')].find((d) => d.textContent.includes('Mac mini'))?.textContent))
     } },
   { id: 'system', search: '?tab=system', ready: '최근 60분 신호', settled: '.hq-system .hq-beats' },
-  { id: 'flags', search: '?tab=flags', ready: '곧 만들어요' },
+  { id: 'flags', search: '?tab=flags', ready: '최근 바꾼 기록', settled: '.hq-flags' },
+  // A risky switch asks first, on the page.
+  { id: 'flags-ask', search: '?tab=flags', ready: '최근 바꾼 기록', settled: '.hq-flags', only: ['1440', '393'],
+    act: async (p) => { await p.click('button[role="switch"][aria-label="보관 기간 정리"]'); await p.waitForSelector('.hq-ask'); await sleep(600) } },
+  // A plain switch: the plans doc changes and the log shows it (one viewport).
+  { id: 'flags-switched', search: '?tab=flags', ready: '최근 바꾼 기록', settled: '.hq-flags', only: '1440',
+    act: async (p) => {
+      await p.click('button[role="switch"][aria-label="하루 요약"]')
+      await waitText(p, '하루 요약 켰어요', 30_000)
+      await waitText(p, '하루 요약 켬', 30_000)
+      const flags = (await getFirestore().doc('admin_config/plans').get()).get('flags')
+      const log = await getFirestore().collection('admin_log').where('action', '==', 'flag.set').get()
+      console.log('  plans.flags.digest:', flags.digest, '· admin_log flag.set rows:', log.size)
+    } },
   { id: 'ai', search: '?tab=ai', ready: 'AI' },
   // An old link lands on its new view.
   { id: 'old-parents-link', search: '?tab=parents', ready: '엄마', expectUrl: '/admin?tab=families&kind=parent' },
@@ -139,7 +152,7 @@ let failed = 0
 try {
   for (const v of VIEWS) {
     if (only && !only.has(v.id)) continue
-    for (const q of ADMIN_QA_MATRIX.filter((x) => !v.only || x.id === v.only)) {
+    for (const q of ADMIN_QA_MATRIX.filter((x) => !v.only || [].concat(v.only).includes(x.id))) {
       const p = await openPage(browser, { device: q.device, acct: admin, kid: ADMIN })
       await p.goto(`${SITE}/admin${v.search}`, { waitUntil: 'load' })
       await waitText(p, v.ready, 45_000)

@@ -209,7 +209,7 @@ async function buildPerson(
   }
 }
 
-async function adminLog(actorUid: string, action: string, targetUid: string, targetName: string, details: Record<string, unknown> = {}) {
+export async function adminLog(actorUid: string, action: string, targetUid: string, targetName: string, details: Record<string, unknown> = {}) {
   await getFirestore().collection('admin_log').add({
     action, actorUid, targetUid, targetName, details, timestamp: FieldValue.serverTimestamp(),
   })

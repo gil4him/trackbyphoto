@@ -1,0 +1,56 @@
+[
+ {
+  "view": "flags",
+  "viewport": "1440",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "flags",
+  "viewport": "1280",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "flags",
+  "viewport": "820",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "flags",
+  "viewport": "393",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "flags",
+  "viewport": "360",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "flags",
+  "viewport": "393-L",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "flags-ask",
+  "viewport": "1440",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "flags-ask",
+  "viewport": "393",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "flags-switched",
+  "viewport": "1440",
+  "shell": [],
+  "inside": []
+ }
+]
