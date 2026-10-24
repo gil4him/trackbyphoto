@@ -9,6 +9,7 @@ import type { Caller } from '../context.js'
 import { ADMIN_EMAIL, requireAdmin } from './admin.js'
 import { allAuthUsers, kindOf } from './adminPeople.js'
 import { computeMetrics, goalOf, LOOKBACK_DAYS, type AdminMetrics, type MembershipSpan } from '../adminMetrics.js'
+import { beatCells, history, memoStats, type BeatCell } from '../systemHistory.js'
 
 const CACHE_MS = 5 * 60_000
 let cache: { at: number; value: AdminMetrics } | null = null
@@ -18,10 +19,35 @@ export function resetMetricsCache() { cache = null }
 
 const ms = (v: unknown): number | null => (v instanceof Timestamp ? v.toMillis() : null)
 
-export async function adminMetrics(caller: Caller, data: { refresh?: unknown } = {}): Promise<AdminMetrics> {
+/** 시스템 (D7): this worker's recent history (memory only, empty after a
+ *  restart) and the last 24 hours of memo failures (from Firestore). */
+export interface SystemNow {
+  startedAt: string
+  beats60: BeatCell[]
+  memoP50: number | null
+  memoP90: number | null
+  memoCount: number
+  fail24h: { failed: number; total: number }
+}
+
+async function systemNow(now: number): Promise<SystemNow> {
+  const h = history()
+  const day = await getFirestore().collection('memos').where('createdAt', '>=', Timestamp.fromMillis(now - 86_400_000)).select('status').get()
+  const stats = memoStats(h.memoTimes, now)
+  return {
+    startedAt: new Date(h.startedAt).toISOString(),
+    beats60: beatCells(h.beats, now, h.startedAt),
+    memoP50: stats.p50,
+    memoP90: stats.p90,
+    memoCount: stats.count,
+    fail24h: { failed: day.docs.filter((d) => d.get('status') === 'error').length, total: day.size },
+  }
+}
+
+export async function adminMetrics(caller: Caller, data: { refresh?: unknown } = {}): Promise<AdminMetrics & { system: SystemNow }> {
   requireAdmin(caller)
   const now = Date.now()
-  if (cache && data?.refresh !== true && now - cache.at < CACHE_MS) return cache.value
+  if (cache && data?.refresh !== true && now - cache.at < CACHE_MS) return { ...cache.value, system: await systemNow(now) }
 
   const db = getFirestore()
   const since = Timestamp.fromMillis(now - LOOKBACK_DAYS * 86_400_000)
@@ -62,5 +88,5 @@ export async function adminMetrics(caller: Caller, data: { refresh?: unknown } =
     northStarGoal: goalOf(dashboard.get('northStarGoal')),
   })
   cache = { at: now, value }
-  return value
+  return { ...value, system: await systemNow(now) }
 }

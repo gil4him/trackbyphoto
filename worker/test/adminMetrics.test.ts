@@ -162,6 +162,9 @@ describe('adminMetrics handler', () => {
     expect(m.photosToday).toBe(1)
     expect(m.reactionsToday).toBe(1)
     expect(m.northStar).toMatchObject({ families: 1, total: 1, goal: 0.6 })
+    // 시스템: this process's memory and the last day's failures.
+    expect(m.system.beats60).toHaveLength(60)
+    expect(m.system.fail24h).toEqual({ failed: 0, total: 1 })
 
     await db.doc('memos/m2').set({ patientUid: 'mom', takenAt: Timestamp.now(), createdAt: Timestamp.now() })
     expect((await adminMetrics(ADMIN)).photosToday).toBe(1)

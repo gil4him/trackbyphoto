@@ -27,6 +27,15 @@ export interface AdminMetrics {
   yesterday: { parents: number; photos: number; familyReactions: number }
   days: MetricsDay[]
   at: string
+  /** 시스템 (D7): this worker's memory (empty after a restart) and the last day's failures. */
+  system?: {
+    startedAt: string
+    beats60: ('ok' | 'slow' | 'miss' | 'none')[]
+    memoP50: number | null
+    memoP90: number | null
+    memoCount: number
+    fail24h: { failed: number; total: number }
+  }
 }
 
 /** The worker counts the whole service; give it time. */

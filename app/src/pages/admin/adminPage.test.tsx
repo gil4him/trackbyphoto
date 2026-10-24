@@ -22,6 +22,7 @@ import { GrowthView } from './GrowthView'
 import { FamiliesTable } from './FamiliesTable'
 import { RevenueView } from './RevenueView'
 import { CostsView } from './CostsView'
+import { SystemView } from './SystemView'
 import { ToastProvider } from '../../components/Toast'
 import type { Inbox } from '../../lib/adminInbox'
 import { AdminPage } from './AdminPage'
@@ -253,6 +254,18 @@ describe('CostsView', () => {
     expect(html).toContain('hq-skel')
     expect(html).toContain('BigQuery')
     expect(html).not.toContain('₩')
+  })
+})
+
+describe('SystemView', () => {
+  it('shows the live server, waits for the worker\'s memory, and says what is not connected', () => {
+    const worker = { status: 'ok' as const, lastSeenMs: 1_000, modelUp: true, waiting: 0, now: 23_000 }
+    const html = renderToString(<SystemView worker={worker} people={people} refreshKey={0} />)
+    expect(html).toContain('정상')
+    expect(html).toContain('22초 전')
+    expect(html).toContain('hq-skel')
+    expect(html).toContain('Crashlytics 연결 필요')
+    expect(html).toContain('iPhone')
   })
 })
 

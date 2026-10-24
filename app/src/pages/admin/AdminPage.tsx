@@ -22,6 +22,7 @@ import { GrowthView } from './GrowthView'
 import { FamiliesTable } from './FamiliesTable'
 import { RevenueView } from './RevenueView'
 import { CostsView } from './CostsView'
+import { SystemView } from './SystemView'
 import { adminInbox, type Inbox } from '../../lib/adminInbox'
 import { PeopleTab } from './PeopleTab'
 import { PersonDetail } from './PersonDetail'
@@ -31,7 +32,6 @@ const WORKER_KO = { ok: '메모 서버 정상', down: '메모 서버 멈춤', un
 
 /** The views of later phases (docs/admin/DAYLIE_ADMIN_DASHBOARD.md D2–D8). */
 const COMING: Partial<Record<AdminTab, string>> = {
-  system: '메모 서버의 신호와 메모 시간을 자세히 보여드릴 거예요.',
   flags: '앱 기능을 켜고 끄고, 누가 언제 바꿨는지 보여드릴 거예요.',
 }
 
@@ -187,6 +187,8 @@ export function AdminPage({ user, onSignOut }: { user: User; onSignOut: () => Pr
                   <PeopleTab key={route.kind} kind={route.kind} people={people} loading={loading} onOpen={openPerson} />
                 </div>}
             </>
+          ) : route.tab === 'system' ? (
+            <SystemView worker={worker} people={people} refreshKey={gen - 1} />
           ) : route.tab === 'costs' ? (
             <CostsView people={people} peopleLoading={loading} />
           ) : route.tab === 'revenue' ? (

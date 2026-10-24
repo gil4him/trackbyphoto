@@ -11,6 +11,7 @@ import type { Caller } from '../context.js'
 import { getPlans, PLAN_TIERS, tierOf } from '../plans.js'
 import { requireAdmin } from './admin.js'
 import { allAuthUsers, kindOf, nameOf } from './adminPeople.js'
+import { history, memoStats } from '../systemHistory.js'
 import {
   applyStates, costOf, inboxItems, statesOf,
   type InboxAccount, type InboxItem, type InboxParent,
@@ -68,8 +69,8 @@ async function findItems(now: number, dashboard: Record<string, unknown> | undef
     accounts,
     memos: memos.docs.flatMap((d) => { const t = ms(d.get('takenAt')); return t === null ? [] : [{ patientUid: String(d.get('patientUid') ?? ''), atMs: t }] }),
     worker: { lastSeenMs: ms(beat.get('lastSeen')), modelUp: beat.exists ? beat.get('modelUp') !== false : null },
-    // Measured in the worker from D7 (시스템); until then the rule stays quiet.
-    memoP50Ms: null,
+    // This worker's memo times over the last 15 minutes (시스템, memory only).
+    memoP50Ms: memoStats(history().memoTimes, now).p50Last15,
     familyLimits,
     cost: costOf(dashboard, now),
   })

@@ -63,7 +63,7 @@ const VIEWS = [
       await p.reload({ waitUntil: 'load' }); await p.waitForSelector('.hq-costs:not(:has(.hq-skel))', { timeout: 60_000 })
       console.log('  Mac mini line after reload:', await p.evaluate(() => [...document.querySelectorAll('.hq-rows > div')].find((d) => d.textContent.includes('Mac mini'))?.textContent))
     } },
-  { id: 'system', search: '?tab=system', ready: '곧 만들어요' },
+  { id: 'system', search: '?tab=system', ready: '최근 60분 신호', settled: '.hq-system .hq-beats' },
   { id: 'flags', search: '?tab=flags', ready: '곧 만들어요' },
   { id: 'ai', search: '?tab=ai', ready: 'AI' },
   // An old link lands on its new view.
@@ -108,6 +108,8 @@ const admin = await familyAccount(ADMIN)
   await getAuth().createUser({ uid: 'blockedKid00000000000000000', email: 'blocked@example.com', displayName: '민수', disabled: true })
   const month = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit' }).format(new Date())
   await db.doc('admin_config/dashboard').set({ costs: { [month]: { firebaseUSD: 11.4, budgetUSD: 5, storageUSD: 8.21, firestoreUSD: 2.64, hostingUSD: 0.31, otherUSD: 0.24 } } }, { merge: true })
+  // 시스템: one photo today whose memo failed.
+  await db.collection('memos').add({ patientUid: momUid, takenAt: Timestamp.now(), createdAt: Timestamp.now(), status: 'error' })
   // 비용: two days of cloud AI memos this month (the worker's counters, by UTC day).
   const today = new Date().toISOString().slice(0, 10)
   await db.doc(`admin_daily/${today}`).set({ date: today, memos: 4, geminiCalls: 4, geminiUSD: 0.0123 }, { merge: true })
