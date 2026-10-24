@@ -1,0 +1,74 @@
+[
+ {
+  "view": "inbox",
+  "viewport": "1440",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "inbox",
+  "viewport": "1280",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "inbox",
+  "viewport": "820",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "inbox",
+  "viewport": "393",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "inbox",
+  "viewport": "360",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "inbox",
+  "viewport": "393-L",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "system",
+  "viewport": "1440",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "system",
+  "viewport": "1280",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "system",
+  "viewport": "820",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "system",
+  "viewport": "393",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "system",
+  "viewport": "360",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "system",
+  "viewport": "393-L",
+  "shell": [],
+  "inside": []
+ }
+]

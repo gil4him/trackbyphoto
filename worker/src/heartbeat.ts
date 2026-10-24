@@ -10,6 +10,7 @@
 import { getFirestore, FieldValue } from 'firebase-admin/firestore'
 import { logger } from './log.js'
 import { ollamaAvailable } from './llm/ollama.js'
+import { recordBeat } from './systemHistory.js'
 
 const EVERY_MS = 60_000
 
@@ -20,11 +21,15 @@ export interface HeartbeatDeps {
 }
 
 export async function beat(deps: HeartbeatDeps): Promise<void> {
+  const modelUp = await deps.modelUp()
+  const waiting = deps.waiting()
   await getFirestore().doc('system/worker').set({
     lastSeen: FieldValue.serverTimestamp(),
-    modelUp: await deps.modelUp(),
-    waiting: deps.waiting(),
+    modelUp,
+    waiting,
   })
+  // The 운영실's last 60 minutes (memory only).
+  recordBeat({ at: Date.now(), modelUp, waiting })
 }
 
 /** Beat now and every minute. Returns a stop function. */

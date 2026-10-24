@@ -1,0 +1,650 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<!-- Design reference for docs/admin/DAYLIE_ADMIN_DASHBOARD.md. All numbers are SAMPLE data. -->
+<title>Daylie 운영실</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Gothic:wght@400;700;800&display=swap">
+<style>
+/* Layout: app shell — left menu (top tab row on phones) + one view at a time.
+   Home mixes A (one-line story), D (to-do inbox), B (KPI strip + sparklines); 성장 = C; 가족 = B table.
+   Tokens are the Daylie app tokens (styles.css :root). Light only, by the owner's choice. */
+:root{
+  color-scheme: light;
+  --ground:#EAF6F0; --surface:#FFFFFF; --surface-dim:#F4F8F6; --ink:#2C3A33; --muted:#4F6A5E; --line:#CFE3D8;
+  --accent:#FF8A1F; --accent-tint:#FFF0DC; --accent-line:#FFD9A6; --accent-pressed:#F07A0E; --accent-ink:#8A4300;
+  --good:#1F9D55; --good-tint:#E3F4EA; --danger:#D93D42; --danger-tint:#FDECEC;
+  --f:"Nanum Gothic","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --r-card:20px; --r-btn:14px;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--f);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{margin:0;text-wrap:balance}
+p{margin:0}
+button{font-family:inherit}
+.num{font-variant-numeric:tabular-nums}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px;border-radius:6px}
+
+/* ── shell ── */
+.shell{display:grid;grid-template-columns:236px minmax(0,1fr);min-height:100%}
+.side{background:var(--surface);border-right:1px solid var(--line);padding:22px 14px;display:flex;flex-direction:column;gap:4px;
+  padding-left:max(14px, env(safe-area-inset-left, 0px))}
+.brand{display:flex;align-items:center;gap:10px;padding:0 10px 18px}
+.brand i{width:34px;height:34px;border-radius:11px;background:var(--accent);display:grid;place-items:center;font-style:normal;font-weight:800;color:var(--ink)}
+.brand b{font-size:17px;font-weight:800;display:block}
+.brand small{font-size:12px;color:var(--muted)}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav button{all:unset;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 12px;border-radius:12px;font-weight:700;font-size:15px;color:var(--ink);white-space:nowrap}
+.nav button:hover{background:var(--surface-dim)}
+.nav button[aria-current="page"]{background:var(--accent-tint);color:var(--accent-ink)}
+.nav .badge{min-width:22px;height:22px;padding:0 7px;border-radius:999px;background:var(--danger);color:#fff;font-size:12px;font-weight:800;display:inline-grid;place-items:center}
+.nav .soft{background:var(--surface-dim);color:var(--muted)}
+.side .foot{margin-top:auto;padding:14px 12px 0;font-size:12px;color:var(--muted);border-top:1px solid var(--line)}
+.side .foot .live{display:flex;align-items:center;gap:8px;font-weight:700;color:var(--ink);font-size:13px;margin-bottom:4px}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--good);box-shadow:0 0 0 4px var(--good-tint);flex:none}
+.dot.bad{background:var(--danger);box-shadow:0 0 0 4px var(--danger-tint)}
+
+.main{min-width:0;padding-block:26px 56px;padding-left:max(16px, min(4vw,40px));padding-right:max(16px, env(safe-area-inset-right, 0px), min(4vw,40px))}
+.view{display:flex;flex-direction:column;gap:18px;max-width:1180px;margin:0 auto}
+.vhead{display:flex;justify-content:space-between;align-items:flex-end;gap:14px;flex-wrap:wrap}
+.vhead .t{min-width:0;display:flex;flex-direction:column;gap:4px}
+.vhead small{font-size:14px;font-weight:700;color:var(--muted)}
+.vhead h1{font-size:clamp(22px,2.8vw,30px);font-weight:800;letter-spacing:-.015em;line-height:1.3}
+.seg{display:flex;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:3px}
+.seg button{all:unset;cursor:pointer;padding:7px 14px;border-radius:999px;font-size:13.5px;font-weight:700;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:#fff}
+
+.card{background:var(--surface);border-radius:var(--r-card);padding:18px 20px;min-width:0}
+.card h3{font-size:17px;font-weight:800;display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px}
+.card h3 small{font-size:13px;font-weight:700;color:var(--muted)}
+.link{all:unset;cursor:pointer;font-size:13.5px;font-weight:800;color:var(--accent-ink)}
+.link:hover{text-decoration:underline}
+.grid{display:grid;gap:14px}
+.g-2{grid-template-columns:minmax(0,1.35fr) minmax(0,1fr)}
+.g-2e{grid-template-columns:repeat(2,minmax(0,1fr))}
+.g-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.stack{display:flex;flex-direction:column;gap:14px;min-width:0}
+.muted{color:var(--muted)}
+.tag{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:800;border-radius:999px;padding:3px 10px;white-space:nowrap}
+.t-acc{background:var(--accent-tint);color:var(--accent-ink)}
+.t-good{background:var(--good-tint);color:#17733F}
+.t-bad{background:var(--danger-tint);color:#A82A2E}
+.t-dim{background:var(--surface-dim);color:var(--muted)}
+.sample{font-size:12px;color:var(--muted)}
+
+/* ── home: story + north star ── */
+.hero{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:14px}
+.story{background:var(--surface);border-radius:var(--r-card);padding:22px 24px;display:flex;flex-direction:column;justify-content:space-between;gap:16px}
+.story p.big{font-size:clamp(20px,2.4vw,27px);font-weight:800;line-height:1.45;letter-spacing:-.01em}
+.story em{font-style:normal;background:var(--accent-line);border-radius:8px;padding:0 6px}
+.story .chips{display:flex;gap:8px;flex-wrap:wrap}
+.north{background:var(--ink);color:#fff;border-radius:var(--r-card);padding:20px 22px;display:flex;flex-direction:column;gap:8px}
+.north small{color:#CFE3D8;font-size:13px;font-weight:700}
+.north .v{font-size:44px;font-weight:800;letter-spacing:-.02em;line-height:1.05}
+.north .v span{font-size:18px;color:#CFE3D8;font-weight:700}
+.north p{font-size:13.5px;color:#DCEBE3}
+.north svg{width:100%;height:56px}
+.north .goal{display:flex;justify-content:space-between;font-size:12.5px;color:#CFE3D8}
+
+/* ── KPI strip ── */
+.kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));background:var(--surface);border-radius:var(--r-card);overflow:hidden}
+.kpi{padding:16px 18px;display:flex;flex-direction:column;gap:2px;border-right:1px solid var(--line);min-width:0}
+.kpi:last-child{border-right:0}
+.kpi .k{font-size:13px;font-weight:700;color:var(--muted)}
+.kpi .v{font-size:26px;font-weight:800;letter-spacing:-.02em}
+.kpi .d{font-size:12.5px;font-weight:700}
+.up{color:var(--good)} .down{color:var(--danger)} .flat{color:var(--muted)}
+.kpi svg{width:100%;height:30px;margin-top:6px}
+
+/* ── inbox ── */
+.inbox{display:flex;flex-direction:column}
+.it{all:unset;box-sizing:border-box;cursor:pointer;display:flex;gap:12px;align-items:flex-start;padding:12px 10px;border-radius:14px}
+.it + .it{margin-top:2px}
+.it:hover{background:var(--surface-dim)}
+.it[aria-selected="true"]{background:var(--accent-tint)}
+.it .stripe{flex:none;width:5px;align-self:stretch;border-radius:3px}
+.s-now{background:var(--danger)} .s-day{background:var(--accent)} .s-wk{background:var(--line)}
+.it .tx{flex:1;min-width:0}
+.it .tx b{display:block;font-size:15px;font-weight:800;line-height:1.4}
+.it .tx small{display:block;font-size:13px;color:var(--muted)}
+.it .cat{flex:none;font-size:11.5px;font-weight:800;color:var(--muted);background:var(--surface-dim);border-radius:7px;padding:3px 8px}
+.grp{font-size:12px;font-weight:800;letter-spacing:.06em;color:var(--muted);padding:12px 10px 4px}
+.grp:first-child{padding-top:0}
+.empty{padding:28px 10px;text-align:center;color:var(--muted)}
+
+/* ── system mini ── */
+.rows{display:flex;flex-direction:column}
+.rows > div{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);font-size:14.5px}
+.rows > div:last-child{border-bottom:0}
+.rows b{font-weight:800}
+.st{display:inline-flex;align-items:center;gap:8px;font-weight:800;font-size:14px}
+
+/* ── money mini ── */
+.money{display:flex;flex-direction:column;gap:12px}
+.money .line{display:flex;justify-content:space-between;gap:8px;font-size:14.5px}
+.money .line b{font-weight:800}
+.meter{height:12px;border-radius:999px;background:var(--surface-dim);overflow:hidden;display:flex}
+.meter span{display:block;height:100%}
+
+/* ── bars ── */
+.bars{display:flex;align-items:flex-end;gap:6px;height:150px}
+.bars div{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:6px;height:100%}
+.bars span{width:100%;max-width:30px;border-radius:8px 8px 4px 4px;background:var(--accent-line)}
+.bars .hi span{background:var(--accent)}
+.bars small{font-size:11.5px;color:var(--muted)}
+.bars em{font-style:normal;font-size:11px;font-weight:800}
+
+/* ── inbox page ── */
+.ibx{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:14px;align-items:start}
+.detail{display:flex;flex-direction:column;gap:14px}
+.detail .crumb{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:var(--muted)}
+.detail h2{font-size:24px;font-weight:800;line-height:1.35;letter-spacing:-.015em}
+.detail .why{font-size:15px;max-width:56ch}
+.who{border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.who div{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:12px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line);font-size:14px}
+.who div:last-child{border-bottom:0}
+.who span{color:var(--muted);font-size:13px;white-space:nowrap}
+.acts{display:flex;gap:8px;flex-wrap:wrap}
+.btn{border:1.5px solid var(--line);background:var(--surface);color:var(--ink);border-radius:var(--r-btn);padding:11px 16px;font-size:14.5px;font-weight:800;cursor:pointer;min-height:44px}
+.btn:hover{border-color:var(--muted)}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:var(--ink)}
+.btn.pri:hover{background:var(--accent-pressed);border-color:var(--accent-pressed)}
+.rules{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}
+.rules div{background:var(--surface-dim);border-radius:14px;padding:12px 14px;font-size:13.5px;min-width:0}
+.rules b{display:flex;align-items:center;gap:8px;font-size:14px;margin-bottom:2px}
+.rules b i{width:8px;height:8px;border-radius:50%;display:inline-block}
+
+/* ── growth ── */
+.funnel{display:flex;flex-direction:column;gap:10px}
+.fr{display:grid;grid-template-columns:150px minmax(0,1fr) 92px;gap:12px;align-items:center}
+.fr .lab{font-weight:800;font-size:14.5px;word-break:keep-all}
+.fr .track{height:34px;background:var(--surface-dim);border-radius:10px;overflow:hidden}
+.fr .fill{height:100%;border-radius:10px;display:flex;align-items:center;padding-left:12px;font-weight:800;font-size:14px;color:var(--ink)}
+.fr .pct{font-size:13px;font-weight:800;text-align:right;color:var(--muted)}
+.fr.leak .pct{color:var(--danger)}
+.fr.wait .fill{background:repeating-linear-gradient(135deg,var(--surface-dim) 0 8px,var(--line) 8px 10px)!important;color:var(--muted)}
+.callout{display:flex;gap:16px;align-items:center;background:var(--danger-tint);border-radius:16px;padding:14px 18px;flex-wrap:wrap}
+.callout .big{font-size:34px;font-weight:800;color:var(--danger);line-height:1}
+.callout p{flex:1;min-width:220px;font-size:14.5px}
+.cohort{display:grid;grid-template-columns:minmax(96px,auto) repeat(5,minmax(0,1fr));gap:5px;font-size:12.5px;align-items:center}
+.cohort .h{color:var(--muted);text-align:center;font-weight:700}
+.cohort .r{font-weight:700;white-space:nowrap}
+.cohort .cell{border-radius:8px;text-align:center;padding:8px 0;font-weight:800;font-size:13px}
+.src{display:flex;flex-direction:column;gap:12px}
+.src div{display:grid;grid-template-columns:100px minmax(0,1fr) 72px;gap:10px;align-items:center;font-size:14px}
+.src .bar{height:16px;border-radius:8px;background:var(--accent)}
+.src b{text-align:right;font-weight:800;font-size:13.5px}
+.trend svg{width:100%;height:200px;display:block}
+.legend{display:flex;gap:14px;font-size:12.5px;font-weight:700;color:var(--muted)}
+.legend i{display:inline-block;width:12px;height:4px;border-radius:2px;margin-right:6px;vertical-align:middle}
+
+/* ── families table ── */
+.filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.filters button{all:unset;cursor:pointer;padding:8px 14px;border-radius:999px;background:var(--surface);border:1px solid var(--line);font-size:13.5px;font-weight:800}
+.filters button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:#fff}
+.search{flex:1;min-width:180px;max-width:320px;margin-left:auto;border:1px solid var(--line);border-radius:999px;padding:9px 16px;font-size:14px;font-family:inherit;background:var(--surface);color:var(--ink)}
+.tbl{overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:720px;font-size:14px}
+th{text-align:left;font-size:12.5px;font-weight:800;color:var(--muted);padding:10px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:12px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+tr:last-child td{border-bottom:0}
+tbody tr:hover{background:var(--surface-dim)}
+.plan{font-size:12px;font-weight:800;border:1px solid var(--line);border-radius:7px;padding:2px 8px}
+
+/* ── revenue ── */
+.banner{display:flex;gap:14px;align-items:center;background:var(--accent-tint);border:1px solid var(--accent-line);border-radius:16px;padding:14px 18px;flex-wrap:wrap}
+.banner p{flex:1;min-width:240px;font-size:14.5px}
+.calc{display:flex;flex-direction:column;gap:10px}
+.calc .row{display:grid;grid-template-columns:90px minmax(0,1fr) minmax(0,1fr) 110px;gap:10px;align-items:center;font-size:14px}
+.calc .row.h{font-size:12.5px;font-weight:800;color:var(--muted)}
+.calc input{width:100%;border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:14px;font-family:inherit;color:var(--ink);background:var(--surface-dim);font-variant-numeric:tabular-nums;min-width:0}
+.calc .out{text-align:right;font-weight:800}
+.wf{display:flex;flex-direction:column}
+.wf div{display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);font-size:14.5px}
+.wf div:last-child{border-bottom:0;font-size:17px;font-weight:800}
+.wf .neg{color:var(--danger)}
+.mix{display:flex;height:28px;border-radius:10px;overflow:hidden}
+.mix span{display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;min-width:0;overflow:hidden;white-space:nowrap}
+.trig{display:flex;flex-direction:column;gap:10px}
+.trig div{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:12px 14px;border-radius:14px;background:var(--surface-dim);font-size:14.5px}
+.trig div b{font-size:20px;font-weight:800}
+
+/* ── system ── */
+.beats{display:grid;grid-template-columns:repeat(60,minmax(0,1fr));gap:3px}
+.beats i{height:26px;border-radius:3px;background:var(--good)}
+.beats i.miss{background:var(--danger)}
+.beats i.slow{background:var(--accent)}
+.scale{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-top:6px}
+.vers{display:flex;flex-direction:column;gap:10px}
+.vers div{display:grid;grid-template-columns:120px minmax(0,1fr) 48px;gap:10px;align-items:center;font-size:14px}
+.vers .bar{height:12px;border-radius:6px;background:var(--muted)}
+.vers b{text-align:right}
+
+/* ── flags ── */
+.flags{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px}
+.flag{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-radius:14px;background:var(--surface-dim);min-width:0}
+.flag div{min-width:0}
+.flag b{display:block;font-size:14.5px}
+.flag code{font-size:12px;color:var(--muted);font-family:ui-monospace,Menlo,monospace}
+.sw{all:unset;cursor:pointer;flex:none;width:50px;height:30px;border-radius:999px;background:var(--line);position:relative}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.sw[aria-checked="true"]{background:var(--good)}
+.sw[aria-checked="true"]::after{left:23px}
+@media (prefers-reduced-motion:no-preference){ .sw::after{transition:left .15s} .sw{transition:background .15s} }
+
+/* ── toast ── */
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom, 0px));transform:translateX(-50%);background:var(--ink);color:#fff;padding:12px 18px;border-radius:14px;font-weight:700;font-size:14px;max-width:calc(100% - 32px);z-index:20}
+
+/* ── responsive ── */
+@media (max-width:1100px){
+  .kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .kpi:nth-child(3){border-right:0}
+  .kpi:nth-child(-n+3){border-bottom:1px solid var(--line)}
+}
+@media (max-width:900px){
+  .shell{grid-template-columns:1fr}
+  .side{flex-direction:row;align-items:center;gap:10px;padding:10px max(16px, env(safe-area-inset-right, 0px)) 10px max(16px, env(safe-area-inset-left, 0px));border-right:0;border-bottom:1px solid var(--line);overflow-x:auto}
+  .brand{padding:0 6px 0 0}
+  .brand span{display:none}
+  .nav{flex-direction:row}
+  .nav button{padding:9px 12px}
+  .side .foot{display:none}
+  .hero,.g-2,.g-2e,.g-3,.ibx{grid-template-columns:1fr}
+}
+@media (max-width:560px){
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .kpi{border-right:1px solid var(--line)!important;border-bottom:1px solid var(--line)}
+  .kpi:nth-child(2n){border-right:0!important}
+  .kpi:last-child{grid-column:1 / -1;border-bottom:0}
+  .fr{grid-template-columns:96px minmax(0,1fr) 64px;gap:8px}
+  .src div{grid-template-columns:84px minmax(0,1fr) 60px}
+  .calc .row{grid-template-columns:64px minmax(0,1fr) minmax(0,1fr) 84px;gap:6px}
+  .beats{gap:2px}
+  .north .v{font-size:38px}
+}
+</style>
+
+<div class="shell">
+  <aside class="side">
+    <div class="brand"><i>D</i><span><b>Daylie 운영실</b><small>Simple · 베타</small></span></div>
+    <nav class="nav" id="nav" aria-label="운영실 메뉴"></nav>
+    <div class="foot">
+      <div class="live"><span class="dot"></span>메모 서버 정상</div>
+      마지막 신호 22초 전 · 화면의 숫자는 예시
+    </div>
+  </aside>
+  <main class="main" id="main"></main>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(function(){
+const $=s=>document.querySelector(s);
+const fmt=n=>n.toLocaleString('ko-KR');
+const won=n=>'₩'+Math.round(n).toLocaleString('ko-KR');
+let toastT;
+function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,2600);}
+
+function spark(d,c,{h=30,fillO=.12,stroke=1.8,goal=null}={}){
+  const lo=Math.min(...d,goal??Infinity), hi=Math.max(...d,goal??-Infinity), r=(hi-lo)||1, W=100;
+  const Y=v=>h-3-((v-lo)/r)*(h-8);
+  const pts=d.map((v,i)=>[(i/(d.length-1)*W).toFixed(2), Y(v).toFixed(2)]);
+  const line=pts.map(p=>p.join(',')).join(' ');
+  const last=pts[pts.length-1];
+  const g = goal!=null?`<line x1="0" x2="${W}" y1="${Y(goal)}" y2="${Y(goal)}" stroke="${c}" stroke-opacity=".45" stroke-dasharray="3 3" vector-effect="non-scaling-stroke"/>`:'';
+  return `<svg viewBox="0 0 ${W} ${h}" preserveAspectRatio="none" aria-hidden="true">${g}<polygon points="0,${h} ${line} ${W},${h}" fill="${c}" fill-opacity="${fillO}"/><polyline points="${line}" fill="none" stroke="${c}" stroke-width="${stroke}" vector-effect="non-scaling-stroke"/></svg>`;
+}
+
+/* ───────── sample data (all examples) ───────── */
+const INBOX=[
+ {id:'quiet',when:'now',cat:'사용자',t:'부모님 7분이 3일째 사진이 없어요',s:'가족에게 안부 알림을 보낼 수 있어요',
+  why:'평소 매일 사진을 보내던 분들이에요. 휴대폰이 꺼졌거나 앱이 지워졌을 수 있어요. 가족이 먼저 알게 하는 게 Daylie의 약속이에요.',
+  who:[['이○○ 어머니','평소 하루 9장','72시간'],['최○○ 할머니','평소 하루 6장','75시간'],['한○○ 아버지','평소 하루 4장','80시간'],['외 4분','모두 Android','—']],
+  acts:['가족 7곳에 안부 알림 보내기','내일 다시 보기']},
+ {id:'slow',when:'now',cat:'시스템',t:'메모 쓰는 시간이 느려졌어요 (평균 41초)',s:'오전 9시에 사진이 몰려요',
+  why:'평소엔 18초인데 9시~10시에 사진이 평소의 3배로 몰리면서 대기열이 길어졌어요. 메모는 늦게라도 모두 써지고, 지금 실패는 없어요.',
+  who:[['9시 사진','212장','평균 41초'],['대기열 최대','38장','09:14'],['실패','0장','—']],
+  acts:['시스템 화면 열기','오늘은 지켜보기']},
+ {id:'unpaired',when:'day',cat:'연결',t:'휴대폰 연결을 안 한 가족 12곳',s:'가입 후 하루 넘게 QR 연결이 없어요',
+  why:'가족은 가입했지만 부모님 휴대폰에서 QR을 아직 찍지 않았어요. 성장에서 가장 많이 빠지는 단계예요.',
+  who:[['박○○ 가족','가입 2일 전','iPhone'],['서○○ 가족','가입 1일 전','—'],['외 10곳','','']],
+  acts:['QR 연결 안내 다시 보내기','목록 보기']},
+ {id:'review',when:'day',cat:'스토어',t:'App Store 새 리뷰 ★1',s:'“글씨가 조금 더 컸으면 해요”',
+  why:'부모님 화면 글씨 크기에 대한 리뷰예요. 큰 글자 설정이 있다는 걸 답글로 알려드리면 좋아요.',
+  who:[['★1 · iPhone SE','10월 22일','v1.0.2']],acts:['답글 초안 보기','나중에']},
+ {id:'delete',when:'day',cat:'지원',t:'계정 삭제 요청 1건',s:'30일 안에 처리해야 해요',
+  why:'설정에서 직접 삭제하지 못한 가족이 이메일로 요청했어요. 삭제하면 사진과 메모가 모두 지워져요.',
+  who:[['정○○ (가족)','요청 10월 21일','남은 기간 28일']],acts:['계정 열기','나중에']},
+ {id:'limit',when:'wk',cat:'매출',t:'가족 수 한도에 걸린 가족 9곳',s:'Plus 안내 후보예요',
+  why:'가족 초대를 하려다 한도에서 멈춘 가족이에요. 결제가 켜지면 가장 먼저 Plus를 고를 가능성이 높아요.',
+  who:[['김○○ 가족','가족 4명','초대 시도 3번'],['외 8곳','','']],acts:['매출 화면 열기','나중에']},
+ {id:'budget',when:'wk',cat:'비용',t:'Firebase 비용이 예산 $5를 넘었어요',s:'이번 달 $11.40 · 사진 저장이 대부분',
+  why:'사진 저장(Storage)이 비용의 72%예요. 가족 1곳당 약 $0.06이라 아직 작지만, 예산 알림을 현실에 맞게 올리면 좋아요.',
+  who:[['Storage','$8.21','72%'],['Firestore','$2.64','23%'],['기타','$0.55','5%']],acts:['비용 화면 열기','나중에']},
+ {id:'build',when:'wk',cat:'출시',t:'iOS 빌드 1.0.3 심사 대기 중',s:'App Review 2일째',
+  why:'보통 1~2일 걸려요. 3일이 넘으면 App Store Connect에서 상태를 확인해 보세요.',
+  who:[['1.0.3 (42)','제출 10월 21일','심사 대기']],acts:['나중에']}
+];
+let resolved=new Set(), selected='quiet';
+
+const FAMILIES=[
+ ['이○○ 가족','어머니',3,'Free','iPhone','12분 전','ok'],
+ ['박○○ 가족','아버지',2,'Free','—','—','unpaired'],
+ ['김○○ 가족','어머니 · 아버지',4,'Free','Galaxy','1시간 전','limit'],
+ ['최○○ 가족','할머니',5,'Free','Galaxy','3일 전','quiet'],
+ ['정○○ 가족','어머니',2,'Free','iPhone','어제','ok'],
+ ['한○○ 가족','아버지',3,'Free','Galaxy','3일 전','quiet'],
+ ['서○○ 가족','어머니',1,'Free','—','—','unpaired'],
+ ['윤○○ 가족','할아버지',4,'Free','iPhone','2시간 전','limit'],
+ ['장○○ 가족','어머니',2,'Free','Galaxy','35분 전','ok'],
+ ['조○○ 가족','어머니',3,'Free','iPhone','오늘 아침','ok']
+];
+const STATE={ok:['정상','t-good'],unpaired:['휴대폰 미연결','t-acc'],limit:['가족 한도','t-acc'],quiet:['3일 사진 없음','t-bad']};
+
+const FLAGS=[
+ ['reactions','하트·반응',true],['familyPhotos','가족 사진 보내기',true],['pushFamily','가족 푸시 알림',true],['trailMap','다녀온 곳 지도',true],
+ ['memoV2','메모 v2',true],['memoWeather','메모에 날씨',true],['cloudMemo','클라우드 AI 메모',false],['usageCaps','하루 AI 메모 한도',false],
+ ['retentionJob','보관 기간 정리',false],['planSheet','플랜 안내 화면',false],['digest','하루 요약',false],['emailDigest','이메일 요약',false],
+ ['messengerFree','무료 메신저 요약',false],['voiceReplies','음성 답장',false]
+];
+
+const PRICES={basic:{n:'Basic',p:4900,f:40},plus:{n:'Plus',p:9900,f:18},family:{n:'Family',p:14900,f:6}};
+const COST_MONTH=15960+11550+6000; // Firebase $11.40 + Apple $99/12, ₩1,400/$ + Mac mini 전기 (가정)
+
+/* ───────── views ───────── */
+const VIEWS=[
+ {id:'today',label:'오늘'},
+ {id:'inbox',label:'할 일'},
+ {id:'growth',label:'성장'},
+ {id:'families',label:'가족'},
+ {id:'revenue',label:'매출'},
+ {id:'costs',label:'비용'},
+ {id:'system',label:'시스템'},
+ {id:'flags',label:'기능 스위치'}
+];
+let current='today', range='7';
+
+function openCount(){return INBOX.filter(i=>!resolved.has(i.id)).length}
+function renderNav(){
+  $('#nav').innerHTML=VIEWS.map(v=>{
+    let badge='';
+    if(v.id==='inbox'){const n=openCount(); badge=n?`<span class="badge num">${n}</span>`:'';}
+    if(v.id==='families') badge='<span class="badge soft num">186</span>';
+    return `<button type="button" data-v="${v.id}" ${v.id===current?'aria-current="page"':''}>${v.label}${badge}</button>`;
+  }).join('');
+}
+
+function inboxList(limit){
+  const open=INBOX.filter(i=>!resolved.has(i.id));
+  if(!open.length) return '<div class="empty">처리할 일이 없어요. 오늘은 여기까지!</div>';
+  const groups=[['now','지금','s-now'],['day','오늘','s-day'],['wk','이번 주','s-wk']];
+  let out='',shown=0;
+  for(const [k,label,cls] of groups){
+    const items=open.filter(i=>i.when===k).slice(0, limit? Math.max(0,limit-shown):99);
+    if(!items.length) continue;
+    out+=`<div class="grp">${label}</div>`;
+    out+=items.map(i=>`<button type="button" class="it" data-it="${i.id}" ${limit?'':(i.id===selected?'aria-selected="true"':'aria-selected="false"')}><span class="stripe ${cls}"></span><span class="tx"><b>${i.t}</b><small>${i.s}</small></span><span class="cat">${i.cat}</span></button>`).join('');
+    shown+=items.length;
+    if(limit && shown>=limit) break;
+  }
+  return out;
+}
+
+const V={};
+V.today=()=>{
+  const k=range==='7'?
+   [['함께하는 가족','186','▲ 12 이번 주','up',[150,156,161,166,172,179,186]],
+    ['사진 보낸 부모님','152','214분 중 71%','up',[138,141,140,144,147,150,152]],
+    ['오늘 사진','1,284','▲ 6% 어제보다','up',[1050,1120,980,1190,1240,1210,1284]],
+    ['하트·글 답장','2,031','▲ 9% 어제보다','up',[1610,1700,1690,1820,1880,1960,2031]],
+    ['신규 가입','38','▼ 3 지난주보다','down',[6,5,7,4,6,5,5]]]:
+   [['함께하는 가족','186','▲ 46 30일','up',[140,146,150,153,158,161,166,170,174,179,183,186]],
+    ['사진 보낸 부모님','152','214분 중 71%','up',[118,124,128,131,133,136,139,141,144,147,150,152]],
+    ['하루 평균 사진','1,152','▲ 14% 30일','up',[980,1010,1050,1020,1090,1110,1120,1150,1190,1210,1240,1284]],
+    ['하트·글 답장 /일','1,820','▲ 18% 30일','up',[1400,1450,1500,1560,1610,1590,1700,1760,1820,1880,1960,2031]],
+    ['신규 가입','164','▲ 21 지난 30일보다','up',[30,34,41,39,44,40,42,41,39,40,41,38]]];
+  return `
+  <div class="vhead"><div class="t"><small>10월 23일 목요일 · 아침 브리핑</small><h1>좋은 아침이에요, Shawn</h1></div>
+    <div class="seg" role="group" aria-label="기간"><button type="button" data-range="7" aria-pressed="${range==='7'}">7일</button><button type="button" data-range="30" aria-pressed="${range==='30'}">30일</button></div></div>
+
+  <div class="hero">
+    <div class="story">
+      <p class="big">어제 부모님 <em class="num">152분</em>이 사진 <em class="num">1,284장</em>을 보냈고, 가족이 <em class="num">2,031번</em> 마음을 전했어요.</p>
+      <div class="chips"><span class="tag t-bad">지금 처리할 일 ${INBOX.filter(i=>i.when==='now'&&!resolved.has(i.id)).length}</span><span class="tag t-good"><span class="dot" style="width:7px;height:7px;box-shadow:none"></span>메모 서버 정상</span><span class="tag t-acc">결제 준비 중</span></div>
+    </div>
+    <div class="north">
+      <small>북극성 지표 · 하루를 나눈 가족 (7일)</small>
+      <div class="v num">138 <span>/ 186 가족 · 74%</span></div>
+      ${spark([61,63,66,67,70,72,74],'#FF8A1F',{h:56,fillO:.22,stroke:2.4,goal:80})}
+      <div class="goal"><span>사진 1장 + 가족 반응 1번이 있는 가족</span><span>목표 80%</span></div>
+    </div>
+  </div>
+
+  <section class="kpis" aria-label="핵심 숫자">
+    ${k.map(x=>`<div class="kpi"><span class="k">${x[0]}</span><span class="v num">${x[1]}</span><span class="d ${x[3]}">${x[2]}</span>${spark(x[4], x[3]==='down'?'#D93D42':'#1F9D55')}</div>`).join('')}
+  </section>
+
+  <div class="grid g-2">
+    <section class="card"><h3>처리할 일 <button class="link" type="button" data-go="inbox">모두 보기 ›</button></h3><div class="inbox">${inboxList(4)}</div></section>
+    <div class="stack">
+      <section class="card"><h3>메모 서버 <button class="link" type="button" data-go="system">자세히 ›</button></h3>
+        <div class="rows">
+          <div><span>Mac mini 워커</span><span class="st"><span class="dot"></span>정상 · 22초 전</span></div>
+          <div><span>AI 모델 (Ollama)</span><b>응답 중</b></div>
+          <div><span>대기 중인 사진</span><b class="num">3장 · 평균 18초</b></div>
+        </div></section>
+      <section class="card"><h3>이번 달 돈 <button class="link" type="button" data-go="revenue">자세히 ›</button></h3>
+        <div class="money">
+          <div class="line"><span>예상 매출 <span class="tag t-acc">가정</span></span><b class="num">${won(mrr())}</b></div>
+          <div class="line"><span>운영 비용</span><b class="num">${won(COST_MONTH)}</b></div>
+          <div class="meter" aria-hidden="true"><span style="width:${Math.min(100,COST_MONTH/mrr()*100).toFixed(1)}%;background:var(--danger)"></span><span style="flex:1;background:var(--good)"></span></div>
+          <p class="sample">결제가 켜지기 전이라 매출은 아래 가정으로 계산해요.</p>
+        </div></section>
+    </div>
+  </div>
+
+  <section class="card"><h3>오늘 시간대별 사진 <small>9시에 가장 몰려요</small></h3><div class="bars" data-hours></div></section>`;
+};
+
+V.inbox=()=>{
+  const it=INBOX.find(i=>i.id===selected&&!resolved.has(i.id)) || INBOX.find(i=>!resolved.has(i.id));
+  if(it) selected=it.id;
+  const when={now:['지금','var(--danger)'],day:['오늘','var(--accent)'],wk:['이번 주','var(--muted)']};
+  return `
+  <div class="vhead"><div class="t"><small>숫자가 아니라 할 일로 보여드려요</small><h1>처리할 일 ${openCount()}</h1></div></div>
+  <div class="ibx">
+    <section class="card"><div class="inbox">${inboxList(0)}</div></section>
+    <section class="card detail">${it?`
+      <div class="crumb"><span class="dot" style="background:${when[it.when][1]};box-shadow:none"></span>${when[it.when][0]} · ${it.cat}</div>
+      <h2>${it.t}</h2>
+      <p class="why">${it.why}</p>
+      <div class="who">${it.who.map(w=>`<div><b>${w[0]}</b><span>${w[1]}</span><span class="num">${w[2]}</span></div>`).join('')}</div>
+      <div class="acts">${it.acts.map((a,i)=>`<button type="button" class="btn ${i===0?'pri':''}" data-act="${i}">${a}</button>`).join('')}<button type="button" class="btn" data-done="${it.id}">해결됨</button></div>
+    `:'<div class="empty">모두 처리했어요.</div>'}</section>
+  </div>
+  <section class="card"><h3>할 일은 이렇게 골라요 <small>규칙은 바꿀 수 있어요</small></h3>
+    <div class="rules">
+      <div><b><i style="background:var(--danger)"></i>3일 사진 없음</b>평소 매일 보내던 부모님이 72시간 동안 0장</div>
+      <div><b><i style="background:var(--danger)"></i>메모 느림·서버 멈춤</b>평균 30초 이상 15분 지속, 또는 신호 4분 끊김</div>
+      <div><b><i style="background:var(--accent)"></i>휴대폰 미연결</b>가입 후 24시간 동안 QR 연결 없음</div>
+      <div><b><i style="background:var(--accent)"></i>스토어 리뷰</b>★1–2 새 리뷰, 답글 없음</div>
+      <div><b><i style="background:var(--accent)"></i>삭제 요청</b>이메일·설정 요청, 남은 기간 표시</div>
+      <div><b><i style="background:var(--line)"></i>Plus 후보</b>가족 한도에서 초대가 멈춘 가족</div>
+      <div><b><i style="background:var(--line)"></i>비용 초과</b>Firebase 월 비용이 예산을 넘으면</div>
+      <div><b><i style="background:var(--line)"></i>출시</b>심사 2일 이상, 새 버전 크래시 증가</div>
+    </div></section>`;
+};
+
+V.growth=()=>`
+  <div class="vhead"><div class="t"><small>최근 30일 · 설치한 1,000명을 따라가 봤어요</small><h1>한 가족이 들어와 매일 쓰기까지</h1></div></div>
+  <section class="card"><h3>여정 <small>단계마다 다음으로 넘어간 비율</small></h3>
+    <div class="funnel">${[
+      ['설치',1000,null,'#FFD9A6'],['가입',720,'72%','#FFC27A'],['부모님 휴대폰 연결',410,'57%','#FF8A1F'],
+      ['첫 사진',352,'86%','#9FD8B8'],['가족 첫 반응',298,'85%','#6CC497'],['7일 계속 사용',214,'72%','#1F9D55'],['유료 전환',null,null,'']
+    ].map((s,i)=>`<div class="fr ${i===2?'leak':''} ${s[1]===null?'wait':''}"><span class="lab">${s[0]}</span><div class="track"><div class="fill num" style="width:${s[1]?Math.max(14,s[1]/10):100}%;background:${s[3]}">${s[1]?fmt(s[1]):'결제 준비 중'}</div></div><span class="pct num">${s[2]?'→ '+s[2]:''}</span></div>`).join('')}</div>
+  </section>
+  <div class="callout"><span class="big num">43%</span><p><b>가입 → 부모님 휴대폰 연결</b>에서 가장 많이 빠져요. 가입한 720명 중 310명이 QR 연결을 끝내지 못했어요. 할 일의 “휴대폰 미연결” 알림과 연결 화면 개선이 가장 큰 효과를 낼 곳이에요.</p></div>
+  <div class="grid g-2e">
+    <section class="card"><h3>가입 주별로 계속 쓰는 비율</h3><div class="cohort" data-cohort></div></section>
+    <section class="card"><h3>어디서 들어왔나 <small>가입 720명</small></h3><div class="src">${[
+      ['초대 링크',248],['App Store',196],['Google Play',148],['테스터 페이지',84],['웹 직접',44]
+    ].map(s=>`<div><span>${s[0]}</span><span class="bar" style="width:${(s[1]/248*100).toFixed(0)}%;opacity:${(0.35+s[1]/248*0.65).toFixed(2)}"></span><b class="num">${s[1]} · ${Math.round(s[1]/720*100)}%</b></div>`).join('')}</div></section>
+  </div>
+  <section class="card trend"><h3>가입과 활동 (90일) <span class="legend"><span><i style="background:var(--accent)"></i>활동 부모님</span><span><i style="background:var(--muted)"></i>누적 가족</span></span></h3><div data-trend></div></section>`;
+
+let famFilter='all', famQ='';
+V.families=()=>`
+  <div class="vhead"><div class="t"><small>부모님 214분 · 가족 402명</small><h1>가족 186곳</h1></div></div>
+  <div class="filters" role="group" aria-label="필터">
+    ${[['all','전체'],['quiet','3일 사진 없음'],['unpaired','휴대폰 미연결'],['limit','가족 한도']].map(f=>`<button type="button" data-f="${f[0]}" aria-pressed="${famFilter===f[0]}">${f[1]}</button>`).join('')}
+    <input class="search" id="famq" type="search" placeholder="이름으로 찾기" value="${famQ}" aria-label="가족 이름으로 찾기">
+  </div>
+  <section class="card"><div class="tbl"><table>
+    <thead><tr><th>가족</th><th>부모님</th><th>가족 수</th><th>플랜</th><th>휴대폰</th><th>마지막 사진</th><th>상태</th></tr></thead>
+    <tbody data-rows></tbody></table></div></section>
+  <p class="sample">행을 누르면 지금 관리자 페이지의 사람 상세(기기 연결 해제, 플랜 변경, 차단)로 가요.</p>`;
+function famRows(){
+  const rows=FAMILIES.filter(r=>(famFilter==='all'||r[6]===famFilter)&&(!famQ||r[0].includes(famQ)||r[1].includes(famQ)));
+  return rows.length?rows.map(r=>`<tr><td><b>${r[0]}</b></td><td>${r[1]}</td><td class="num">${r[2]}</td><td><span class="plan">${r[3]}</span></td><td>${r[4]}</td><td class="num">${r[5]}</td><td><span class="tag ${STATE[r[6]][1]}">${STATE[r[6]][0]}</span></td></tr>`).join('')
+   :'<tr><td colspan="7" class="muted" style="text-align:center;padding:28px">맞는 가족이 없어요.</td></tr>';
+}
+
+function mrr(){return Object.values(PRICES).reduce((s,t)=>s+t.p*t.f,0)}
+V.revenue=()=>`
+  <div class="vhead"><div class="t"><small>결제가 켜지면 실제 숫자로 바뀌어요</small><h1>매출</h1></div></div>
+  <div class="banner"><span class="tag t-acc">결제 준비 중</span><p>지금은 모든 가족이 Free예요. 아래 가격과 가족 수를 바꿔보면 한 달에 얼마가 남는지 바로 계산돼요. 앱 안 구독은 Apple·Google 결제를 거치고, 소규모 사업자는 수수료 15%예요.</p></div>
+  <div class="grid g-2">
+    <section class="card"><h3>가정으로 계산해 보기</h3>
+      <div class="calc" data-calc>
+        <div class="row h"><span>플랜</span><span>월 가격 (₩)</span><span>유료 가족 수</span><span style="text-align:right">월 매출</span></div>
+        ${Object.entries(PRICES).map(([k,t])=>`<div class="row"><b>${t.n}</b><input id="p-${k}" inputmode="numeric" value="${t.p}" aria-label="${t.n} 월 가격"><input id="f-${k}" inputmode="numeric" value="${t.f}" aria-label="${t.n} 가족 수"><span class="out num" data-out="${k}">${won(t.p*t.f)}</span></div>`).join('')}
+      </div></section>
+    <section class="card"><h3>한 달에 남는 돈 <small>부가세 포함 가격 기준</small></h3><div class="wf" data-wf></div></section>
+  </div>
+  <div class="grid g-2e">
+    <section class="card"><h3>플랜별 가족 <small>가정</small></h3><div class="mix" data-mix></div><p class="sample" style="margin-top:10px" data-mixnote></p></section>
+    <section class="card"><h3>업그레이드 계기 <small>결제 전에도 지금 셀 수 있어요</small></h3>
+      <div class="trig"><div><span>가족 초대가 한도에서 멈춤</span><b class="num">9</b></div><div><span>“사진이 지워져요” 안내를 봄</span><b class="num">4</b></div><div><span>음성 답장 카드를 누름 <span class="tag t-dim">기능 꺼짐</span></span><b class="num">0</b></div></div></section>
+  </div>`;
+function revCalc(){
+  let total=0;
+  for(const k of Object.keys(PRICES)){
+    const p=+($('#p-'+k).value.replace(/\D/g,''))||0, f=+($('#f-'+k).value.replace(/\D/g,''))||0;
+    PRICES[k].p=p; PRICES[k].f=f; total+=p*f;
+    $(`[data-out="${k}"]`).textContent=won(p*f);
+  }
+  const vat=total/11, fee=(total-vat)*0.15, net=total-vat-fee-COST_MONTH;
+  $('[data-wf]').innerHTML=`<div><span>월 매출</span><b class="num">${won(total)}</b></div><div><span>부가세 10%</span><b class="num neg">− ${won(vat)}</b></div><div><span>Apple·Google 수수료 15%</span><b class="num neg">− ${won(fee)}</b></div><div><span>운영 비용</span><b class="num neg">− ${won(COST_MONTH)}</b></div><div><span>남는 돈</span><span class="num" style="color:${net>=0?'var(--good)':'var(--danger)'}">${won(net)}</span></div>`;
+  const fam=Object.values(PRICES).map(t=>t.f), free=Math.max(0,186-fam.reduce((a,b)=>a+b,0));
+  const parts=[['Free',free,'var(--surface-dim)'],['Basic',fam[0],'var(--accent-line)'],['Plus',fam[1],'var(--accent)'],['Family',fam[2],'var(--ink)']];
+  const all=parts.reduce((s,p)=>s+p[1],0)||1;
+  $('[data-mix]').innerHTML=parts.filter(p=>p[1]>0).map(p=>`<span style="width:${p[1]/all*100}%;background:${p[2]};color:${p[0]==='Family'?'#fff':'var(--ink)'}">${p[1]/all>.08?p[0]:''}</span>`).join('');
+  $('[data-mixnote]').textContent=parts.map(p=>`${p[0]} ${p[1]}`).join(' · ')+` · 유료 전환 ${Math.round((all-free)/all*100)}%`;
+}
+
+V.costs=()=>`
+  <div class="vhead"><div class="t"><small>10월 1일 ~ 오늘</small><h1>비용</h1></div></div>
+  <div class="grid g-3">
+    <section class="card"><h3>Firebase</h3><p style="font-size:30px;font-weight:800" class="num">$11.40</p><div class="meter" style="margin:10px 0 8px"><span style="width:100%;background:var(--danger)"></span></div><p class="sample">예산 $5의 228% · 예산 알림을 현실에 맞게 올리세요</p></section>
+    <section class="card"><h3>AI 메모</h3><p style="font-size:30px;font-weight:800" class="num">$0.00</p><p class="sample" style="margin-top:10px">Mac mini의 Ollama가 모두 써요. 클라우드 AI 메모 스위치는 꺼져 있어요.</p></section>
+    <section class="card"><h3>가족 1곳당</h3><p style="font-size:30px;font-weight:800" class="num">$0.061</p><p class="sample" style="margin-top:10px">한 달 · Firebase만 계산 · 사진 하루 7장 기준</p></section>
+  </div>
+  <div class="grid g-2e">
+    <section class="card"><h3>Firebase 어디에 쓰였나</h3><div class="src">${[['사진 저장',8.21],['Firestore',2.64],['Hosting',0.31],['기타',0.24]].map(s=>`<div><span>${s[0]}</span><span class="bar" style="width:${(s[1]/8.21*100).toFixed(0)}%;background:var(--muted)"></span><b class="num">$${s[1].toFixed(2)}</b></div>`).join('')}</div></section>
+    <section class="card"><h3>고정 비용 <small>한 달로 나눈 값 · 가정</small></h3><div class="rows">
+      <div><span>Apple 개발자 ($99/년)</span><b class="num">₩11,550</b></div>
+      <div><span>Google Play (한 번 $25)</span><b class="num">₩0</b></div>
+      <div><span>Mac mini 전기</span><b class="num">₩6,000</b></div>
+      <div><span>Firebase</span><b class="num">₩15,960</b></div>
+      <div><span><b>합계</b></span><b class="num">${won(COST_MONTH)}</b></div></div><p class="sample" style="margin-top:8px">환율 ₩1,400/$ 가정</p></section>
+  </div>`;
+
+V.system=()=>`
+  <div class="vhead"><div class="t"><small>실시간</small><h1>시스템</h1></div></div>
+  <div class="grid g-3">
+    <section class="card"><h3>메모 서버</h3><span class="st"><span class="dot"></span>정상</span><p class="sample" style="margin-top:8px">Mac mini · com.daylie.worker.simple · 마지막 신호 22초 전</p></section>
+    <section class="card"><h3>메모 시간</h3><p style="font-size:30px;font-weight:800" class="num">18초</p><p class="sample">중간값 · 느린 10%는 46초</p></section>
+    <section class="card"><h3>실패율 (24시간)</h3><p style="font-size:30px;font-weight:800" class="num">0.4%</p><p class="sample">5장 · 모두 다시 써서 성공</p></section>
+  </div>
+  <section class="card"><h3>최근 60분 신호 <small>1분마다 한 칸</small></h3><div class="beats" data-beats></div><div class="scale"><span>60분 전</span><span>지금</span></div></section>
+  <div class="grid g-2e">
+    <section class="card"><h3>오늘 시간대별 사진</h3><div class="bars" data-hours></div></section>
+    <section class="card"><h3>앱 상태</h3><div class="rows">
+      <div><span>푸시 전달률</span><b class="num">98.1%</b></div>
+      <div><span>크래시 없는 사용자</span><span class="tag t-dim">Crashlytics 연결 필요</span></div>
+      <div><span>보관 기간 정리</span><span class="tag t-dim">스위치 꺼짐</span></div></div>
+      <h3 style="margin-top:16px">사용 중인 버전</h3>
+      <div class="vers">${[['iOS 1.0.2',58],['Android 1.0.2',34],['Android 1.0.1',6],['웹',2]].map(v=>`<div><span>${v[0]}</span><span class="bar" style="width:${v[1]}%"></span><b class="num">${v[1]}%</b></div>`).join('')}</div></section>
+  </div>`;
+
+V.flags=()=>`
+  <div class="vhead"><div class="t"><small>admin_config/plans · 1분 안에 앱에 반영돼요</small><h1>기능 스위치</h1></div></div>
+  <section class="card"><div class="flags">${FLAGS.map((f,i)=>`<div class="flag"><div><b>${f[1]}</b><code>${f[0]}</code></div><button type="button" class="sw" role="switch" aria-checked="${f[2]}" aria-label="${f[1]}" data-flag="${i}"></button></div>`).join('')}</div></section>
+  <p class="sample">켜고 끄는 상태는 예시예요. 바꾸면 화면 아래에 누가 언제 바꿨는지 기록(admin_log)이 남아요.</p>`;
+
+/* ───────── render ───────── */
+function hours(){
+  const h=[0,0,0,0,0,6,38,96,170,212,150,120,104,92,80,74,66,52,40,30,22,14,8,0];
+  const max=212;
+  return h.slice(5,23).map((v,i)=>`<div class="${i+5===9?'hi':''}"><em class="num">${i+5===9?v:''}</em><span style="height:${Math.max(3,Math.round(v/max*110))}px"></span><small class="num">${(i+5)%3===0?(i+5)+'시':''}</small></div>`).join('');
+}
+function cohort(){
+  const co=[['9/22 주 · 48명',[100,78,69,64,61]],['9/29 주 · 55명',[100,81,72,66]],['10/6 주 · 61명',[100,76,70]],['10/13 주 · 50명',[100,80]]];
+  let o='<span></span>'+['첫 주','1주 후','2주 후','3주 후','4주 후'].map(h=>`<span class="h">${h}</span>`).join('');
+  co.forEach(([l,vs])=>{o+=`<span class="r">${l}</span>`;for(let k=0;k<5;k++){const v=vs[k];o+=v==null?'<span></span>':`<span class="cell num" style="background:rgba(255,138,31,${(0.12+(v-55)/45*0.7).toFixed(2)})">${v}%</span>`;}});
+  return o;
+}
+function trend(){
+  const n=90, act=[], fam=[];
+  for(let i=0;i<n;i++){ act.push(Math.round(30+i*1.36+Math.sin(i/3)*4)); fam.push(Math.round(20+i*1.85)); }
+  act[n-1]=152; fam[n-1]=186;
+  const W=900,H=200,t=12,b=176,maxY=200,Y=v=>b-(v/maxY)*(b-t),X=i=>40+i/(n-1)*(W-52);
+  let g='';
+  [0,50,100,150,200].forEach(v=>{g+=`<line x1="40" x2="${W-12}" y1="${Y(v)}" y2="${Y(v)}" stroke="#CFE3D8" stroke-width="1"/><text x="32" y="${Y(v)+4}" text-anchor="end" font-size="11" fill="#4F6A5E">${v}</text>`;});
+  ['7월 26일','8월 25일','9월 24일','10월 23일'].forEach((l,i)=>{const xi=X(Math.round(i*(n-1)/3));g+=`<text x="${xi}" y="${H-4}" text-anchor="${i===0?'start':i===3?'end':'middle'}" font-size="11" fill="#4F6A5E">${l}</text>`;});
+  const p=s=>s.map((v,i)=>`${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(' ');
+  g+=`<polygon points="${X(0)},${b} ${p(act)} ${X(n-1)},${b}" fill="#FF8A1F" fill-opacity=".12"/>`;
+  g+=`<polyline points="${p(fam)}" fill="none" stroke="#4F6A5E" stroke-width="2" stroke-dasharray="5 4"/>`;
+  g+=`<polyline points="${p(act)}" fill="none" stroke="#FF8A1F" stroke-width="2.5"/>`;
+  g+=`<circle cx="${X(n-1)}" cy="${Y(152)}" r="5" fill="#FF8A1F"/><text x="${X(n-1)-8}" y="${Y(152)-10}" text-anchor="end" font-size="12" font-weight="800" fill="#2C3A33">152</text>`;
+  g+=`<circle cx="${X(n-1)}" cy="${Y(186)}" r="4" fill="#4F6A5E"/><text x="${X(n-1)-8}" y="${Y(186)-8}" text-anchor="end" font-size="12" font-weight="800" fill="#2C3A33">186</text>`;
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="90일 동안 활동 부모님과 누적 가족 추세 (예시)">${g}</svg>`;
+}
+function beats(){
+  let o='';for(let i=0;i<60;i++){o+=`<i class="${i===23?'miss':(i>=34&&i<=38)?'slow':''}" title="${60-i}분 전"></i>`;}return o;
+}
+
+function render(){
+  renderNav();
+  $('#main').innerHTML=`<div class="view">${V[current]()}</div>`;
+  document.querySelectorAll('[data-hours]').forEach(e=>e.innerHTML=hours());
+  const c=$('[data-cohort]'); if(c) c.innerHTML=cohort();
+  const t=$('[data-trend]'); if(t) t.innerHTML=trend();
+  const bt=$('[data-beats]'); if(bt) bt.innerHTML=beats();
+  if(current==='families') $('[data-rows]').innerHTML=famRows();
+  if(current==='revenue') revCalc();
+}
+function go(v){ if(!V[v]) v='today'; current=v; render(); window.scrollTo({top:0}); try{ if(location.hash!=='#'+v) history.replaceState(null,'','#'+v);}catch(e){} }
+
+document.addEventListener('click',e=>{
+  const n=e.target.closest('[data-v]'); if(n){go(n.dataset.v);return;}
+  const g=e.target.closest('[data-go]'); if(g){go(g.dataset.go);return;}
+  const r=e.target.closest('[data-range]'); if(r){range=r.dataset.range;render();return;}
+  const it=e.target.closest('[data-it]'); if(it){selected=it.dataset.it; if(current!=='inbox') go('inbox'); else render(); return;}
+  const d=e.target.closest('[data-done]'); if(d){resolved.add(d.dataset.done); toast('해결됨으로 옮겼어요'); render(); return;}
+  const a=e.target.closest('[data-act]'); if(a){toast(`“${a.textContent}” — 예시 화면이라 실제로 보내지는 않아요`); return;}
+  const f=e.target.closest('[data-f]'); if(f){famFilter=f.dataset.f; document.querySelectorAll('[data-f]').forEach(b=>b.setAttribute('aria-pressed',b===f)); $('[data-rows]').innerHTML=famRows(); return;}
+  const s=e.target.closest('[data-flag]'); if(s){const i=+s.dataset.flag; FLAGS[i][2]=!FLAGS[i][2]; s.setAttribute('aria-checked',FLAGS[i][2]); toast(`${FLAGS[i][1]} ${FLAGS[i][2]?'켬':'끔'} · 예시라 앱은 그대로예요`); return;}
+});
+document.addEventListener('input',e=>{
+  if(e.target.id==='famq'){famQ=e.target.value.trim(); $('[data-rows]').innerHTML=famRows();}
+  if(e.target.closest('[data-calc]')) revCalc();
+});
+const h=(location.hash||'').slice(1);
+go(VIEWS.some(v=>v.id===h)?h:'today');
+})();
+</script>
+
+</html>

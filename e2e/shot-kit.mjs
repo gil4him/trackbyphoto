@@ -27,6 +27,10 @@ export const DEVICES = {
   'iphone-se': { width: 375, height: 667, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
   // Display Zoom on a small iPhone (and the iPhone SE 1st gen).
   'iphone-zoom': { width: 320, height: 568, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
+  // The 운영실 (/admin) matrix (docs/admin/DAYLIE_ADMIN_DASHBOARD.md §Q.2): two desktops and an iPad.
+  d1440: { width: 1440, height: 900, deviceScaleFactor: 1 },
+  d1280: { width: 1280, height: 800, deviceScaleFactor: 1 },
+  ipad:  { width: 820, height: 1180, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
 }
 /** §Q.2, in order: name → device, text scale, the parent's 큰 글자 setting. */
 export const QA_MATRIX = [
@@ -37,6 +41,15 @@ export const QA_MATRIX = [
   { id: '412', device: 'pixel8' },
   { id: '430', device: 'promax' },
   { id: '393-big', device: 'i15', bigText: true },
+]
+/** §Q.2 of the 운영실 doc, in order. */
+export const ADMIN_QA_MATRIX = [
+  { id: '1440', device: 'd1440' },
+  { id: '1280', device: 'd1280' },
+  { id: '820', device: 'ipad' },
+  { id: '393', device: 'i15' },
+  { id: '360', device: 's24' },
+  { id: '393-L', device: 'i15', textScale: 1.3 },
 ]
 export const UA = {
   iphone: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1',
@@ -49,6 +62,8 @@ export const UA = {
   android916: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1',
 }
 UA['iphone-15'] = UA['iphone-se'] = UA['iphone-zoom'] = UA.iphone
+UA.d1440 = UA.d1280 = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
+UA.ipad = 'Mozilla/5.0 (iPad; CPU OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1'
 
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 

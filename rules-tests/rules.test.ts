@@ -377,6 +377,12 @@ describe('requests', () => {
     await assertSucceeds(setDoc(doc(alice(), 'requests', 'r1'), req({ type: 'searchAddress', payload: { query: '서초대로 1', patientUid: PATIENT } })))
   })
 
+  it('can queue the 운영실 reads and flag switch (the worker lets only the admin through)', async () => {
+    for (const type of ['adminMetrics', 'adminInbox', 'adminGrowth', 'adminSetFlag']) {
+      await assertSucceeds(setDoc(doc(alice(), 'requests', `r-${type}`), req({ type })))
+    }
+  })
+
   it('cannot submit a pre-completed request or an unknown type', async () => {
     await assertFails(setDoc(doc(alice(), 'requests', 'r1'), req({ status: 'done', result: {} })))
     await assertFails(setDoc(doc(alice(), 'requests', 'r1'), req({ type: 'deleteEverything' })))

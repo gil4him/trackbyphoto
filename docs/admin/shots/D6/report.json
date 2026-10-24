@@ -1,0 +1,80 @@
+[
+ {
+  "view": "revenue",
+  "viewport": "1440",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "revenue",
+  "viewport": "1280",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "revenue",
+  "viewport": "820",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "revenue",
+  "viewport": "393",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "revenue",
+  "viewport": "360",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "revenue",
+  "viewport": "393-L",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "costs",
+  "viewport": "1440",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "costs",
+  "viewport": "1280",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "costs",
+  "viewport": "820",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "costs",
+  "viewport": "393",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "costs",
+  "viewport": "360",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "costs",
+  "viewport": "393-L",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "costs-saved",
+  "viewport": "1440",
+  "shell": [],
+  "inside": []
+ }
+]

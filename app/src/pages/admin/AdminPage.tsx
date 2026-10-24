@@ -1,21 +1,45 @@
-// dayliesimple.web.app/admin — the admin dashboard shell.
+// dayliesimple.web.app/admin — Daylie 운영실, the admin dashboard shell.
 //
-// Tabs and the open person live in the query string (?tab=parents&uid=…) so
-// a page is linkable and the back button works. The people list comes from
-// the Mac mini worker (adminListPeople) and is reloaded after every change.
+// A left menu (one scrolling tab row on phones) and one view at a time. The
+// view, the 가족 list's kind and the open person live in the query string
+// (?tab=families&kind=parent&uid=…) so a page is linkable and the back button
+// works; the tab names from before 운영실 still land (routeFromSearch). The
+// people list comes from the Mac mini worker (adminListPeople) and is
+// reloaded after every change. Design: docs/admin/admin-hq-mockup.html.
 
 import { useCallback, useEffect, useState } from 'react'
 import type { User } from 'firebase/auth'
 import {
-  ADMIN_TABS, adminListPeople, routeFromSearch, searchFromRoute,
+  ADMIN_TABS, adminListPeople, beatAgo, refreshedAgo, familyCount, routeFromSearch, searchFromRoute,
   type AdminPerson, type AdminRoute,
 } from '../../lib/admin'
 import { WorkerError } from '../../lib/worker'
-import { useWorkerStatus } from '../../hooks/useWorkerStatus'
-import { OverviewTab } from './OverviewTab'
+import { isSimple } from '../../lib/edition'
+import { useWorkerBeat } from '../../hooks/useWorkerStatus'
+import { TodayView } from './TodayView'
+import { InboxView } from './InboxView'
+import { GrowthView } from './GrowthView'
+import { FamiliesTable } from './FamiliesTable'
+import { RevenueView } from './RevenueView'
+import { CostsView } from './CostsView'
+import { SystemView } from './SystemView'
+import { FlagsView } from './FlagsView'
+import { adminInbox, type Inbox } from '../../lib/adminInbox'
 import { PeopleTab } from './PeopleTab'
 import { PersonDetail } from './PersonDetail'
 import { SuperAdmin } from '../SuperAdmin'
+
+const WORKER_KO = { ok: '메모 서버 정상', down: '메모 서버 멈춤', unknown: '메모 서버 확인 중' } as const
+
+/** 가족별 (one row per family) or 가족 계정 (the family members' accounts). */
+function KindSwitch({ kind, onKind }: { kind: 'parent' | 'child'; onKind: (k: 'parent' | 'child') => void }) {
+  return (
+    <div className="hq-seg" role="group" aria-label="보기">
+      <button type="button" aria-pressed={kind === 'parent'} onClick={() => onKind('parent')}>가족별</button>
+      <button type="button" aria-pressed={kind === 'child'} onClick={() => onKind('child')}>가족 계정</button>
+    </div>
+  )
+}
 
 export function AdminPage({ user, onSignOut }: { user: User; onSignOut: () => Promise<void> }) {
   const [route, setRoute] = useState<AdminRoute>(() => routeFromSearch(typeof window === 'undefined' ? '' : window.location.search))
@@ -24,7 +48,7 @@ export function AdminPage({ user, onSignOut }: { user: User; onSignOut: () => Pr
   const [list, setList] = useState<{ gen: number; people: AdminPerson[]; at: Date | null; error: string | null }>({ gen: 0, people: [], at: null, error: null })
   const { people, at: loadedAt, error } = list
   const loading = list.gen !== gen
-  const worker = useWorkerStatus(true)
+  const worker = useWorkerBeat(true, 5_000)
 
   const go = useCallback((next: Partial<AdminRoute>, push = true) => {
     setRoute((cur) => {
@@ -37,6 +61,9 @@ export function AdminPage({ user, onSignOut }: { user: User; onSignOut: () => Pr
   }, [])
 
   useEffect(() => {
+    // An old ?tab= name is shown under its new address.
+    const want = `/admin${searchFromRoute(routeFromSearch(window.location.search))}`
+    if (window.location.pathname + window.location.search !== want) window.history.replaceState(null, '', want)
     const onPop = () => setRoute(routeFromSearch(window.location.search))
     window.addEventListener('popstate', onPop)
     return () => window.removeEventListener('popstate', onPop)
@@ -60,66 +87,122 @@ export function AdminPage({ user, onSignOut }: { user: User; onSignOut: () => Pr
     return () => { cancelled = true }
   }, [gen])
 
+  // 할 일: loaded with the list, so the menu badge and 오늘 have it too.
+  const [inboxState, setInboxState] = useState<{ gen: number; inbox: Inbox | null; error: string | null }>({ gen: 0, inbox: null, error: null })
+  useEffect(() => {
+    let cancelled = false
+    adminInbox(gen > 1).then(
+      (inbox) => { if (!cancelled) setInboxState({ gen, inbox, error: null }) },
+      (err) => {
+        if (cancelled) return
+        console.error('[admin] inbox', err)
+        setInboxState((cur) => ({ ...cur, gen, error: err instanceof WorkerError && err.code === 'unavailable'
+          ? '서버(Mac mini)가 응답하지 않아요. 할 일은 서버가 돌아오면 불러와져요.'
+          : `할 일을 불러오지 못했어요: ${(err as Error).message}` }))
+      },
+    )
+    return () => { cancelled = true }
+  }, [gen])
+  const inboxDone = (id: string) => setInboxState((cur) => cur.inbox
+    ? { ...cur, inbox: { ...cur.inbox, items: cur.inbox.items.filter((i) => i.id !== id), hidden: cur.inbox.hidden + 1 } }
+    : cur)
+  const inbox = inboxState.inbox
+
   const openPerson = (uid: string) => {
     const p = people.find((x) => x.uid === uid)
-    go({ tab: p ? (p.kind === 'parent' ? 'parents' : 'children') : route.tab === 'overview' || route.tab === 'ai' ? 'parents' : route.tab, uid })
+    go({ tab: 'families', kind: p?.kind ?? route.kind, uid })
   }
+  // No count while loading, or when the list could not be read (not a real 0).
+  const families = loading || (error && !people.length) ? null : familyCount(people)
+  const peopleFailed = !!error && !people.length
 
   return (
-    <div className="admin-shell">
-      <header className="admin-shell-head">
-        <div className="admin-shell-title">
-          <h1>오늘하루 관리자</h1>
-          <span className="muted">dayliesimple.web.app/admin</span>
+    <div className="hq">
+      <aside className="hq-side">
+        <div className="hq-side-in">
+        <div className="hq-brand">
+          <i aria-hidden="true">D</i>
+          <span><b>Daylie 운영실</b><small>{isSimple() ? 'Simple · 베타' : 'Full'}</small></span>
         </div>
-        <div className="admin-shell-meta">
-          <span className={`admin-worker ${worker}`} title="Mac mini worker">
-            ● {worker === 'ok' ? '서버 정상' : worker === 'down' ? '서버 꺼짐' : '서버 확인 중'}
+        <nav className="hq-nav" aria-label="운영실 메뉴">
+          {ADMIN_TABS.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              aria-current={route.tab === t.key ? 'page' : undefined}
+              onClick={() => go({ tab: t.key, uid: null })}
+            >
+              {t.label}
+              {t.key === 'inbox' && !!inbox?.items.length && <span className="hq-badge num" aria-label={`처리할 일 ${inbox.items.length}개`}>{inbox.items.length}</span>}
+              {t.key === 'families' && families !== null && <span className="hq-badge soft num">{families}</span>}
+            </button>
+          ))}
+        </nav>
+        <div className="hq-foot">
+          <div className="hq-live"><span className={`hq-dot ${worker.status}`} aria-hidden="true" />{WORKER_KO[worker.status]}</div>
+          <span className="num">{beatAgo(worker.lastSeenMs, worker.now)}</span>
+        </div>
+        </div>
+      </aside>
+
+      <main className="hq-main">
+        <div className="hq-bar">
+          <span className="hq-bar-status">
+            <span className="hq-bar-live"><span className={`hq-dot ${worker.status}`} aria-hidden="true" />{WORKER_KO[worker.status]}</span>
+            {loadedAt && <span className="muted num" title={loadedAt.toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' })}>{refreshedAgo(loadedAt, worker.now)}</span>}
           </span>
+          <span className="hq-me muted">{user.email}</span>
           <button type="button" className="admin-btn small" onClick={reload} disabled={loading}>
             {loading ? '불러오는 중…' : '새로고침'}
           </button>
-          {loadedAt && <span className="muted admin-loaded">{loadedAt.toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' })} 기준</span>}
-          <span className="muted admin-me">{user.email}</span>
           <button type="button" className="admin-signout" onClick={() => void onSignOut()}>로그아웃</button>
         </div>
-      </header>
 
-      <nav className="admin-tabs" aria-label="관리자 메뉴">
-        {ADMIN_TABS.map((t) => (
-          <button
-            key={t.key}
-            type="button"
-            className={`admin-tab ${route.tab === t.key ? 'active' : ''}`}
-            onClick={() => go({ tab: t.key, uid: null })}
-          >
-            {t.label}
-            {t.key === 'parents' && people.length > 0 && <span className="admin-tab-n">{people.filter((p) => p.kind === 'parent').length}</span>}
-            {t.key === 'children' && people.length > 0 && <span className="admin-tab-n">{people.filter((p) => p.kind === 'child' && !p.isAdmin).length}</span>}
-          </button>
-        ))}
-      </nav>
+        <div className="hq-view">
+          {error && <div className="admin-error">{error}</div>}
 
-      <main className="admin-shell-main">
-        {error && <div className="admin-error">{error}</div>}
-
-        {route.uid ? (
-          <PersonDetail
-            key={route.uid}
-            uid={route.uid}
-            onBack={() => window.history.length > 1 ? window.history.back() : go({ uid: null })}
-            onOpen={openPerson}
-            onChanged={reload}
-          />
-        ) : route.tab === 'overview' ? (
-          <OverviewTab people={people} loading={loading} onOpen={openPerson} onTab={(tab) => go({ tab })} />
-        ) : route.tab === 'parents' ? (
-          <PeopleTab kind="parent" people={people} loading={loading} onOpen={openPerson} />
-        ) : route.tab === 'children' ? (
-          <PeopleTab kind="child" people={people} loading={loading} onOpen={openPerson} />
-        ) : (
-          <SuperAdmin />
-        )}
+          {route.uid ? (
+            <PersonDetail
+              key={route.uid}
+              uid={route.uid}
+              onBack={() => window.history.length > 1 ? window.history.back() : go({ uid: null })}
+              onOpen={openPerson}
+              onChanged={reload}
+            />
+          ) : route.tab === 'today' ? (
+            <TodayView inbox={inbox} inboxError={inboxState.error} worker={worker} refreshKey={gen - 1} onGo={(tab) => go({ tab, uid: null })} />
+          ) : route.tab === 'families' ? (
+            <>
+              {route.kind === 'parent'
+                ? <FamiliesTable people={people} loading={loading} failed={peopleFailed} filter={route.filter} onFilter={(filter) => go({ filter }, false)} onOpen={openPerson}
+                    switcher={<KindSwitch kind={route.kind} onKind={(kind) => go({ kind }, false)} />} />
+                : <div className="hq-people">
+                  <div className="hq-vhead">
+                    <div className="hq-vhead-t"><small>{`가족 계정 ${people.filter((p) => p.kind === 'child').length}개 · 관리자 포함`}</small><h1>가족 계정</h1></div>
+                    <KindSwitch kind={route.kind} onKind={(kind) => go({ kind }, false)} />
+                  </div>
+                  {peopleFailed
+                    ? <section className="hq-card"><div className="hq-empty">목록을 불러오지 못했어요. 서버가 돌아오면 새로고침해 주세요.</div></section>
+                    : <PeopleTab key={route.kind} kind={route.kind} people={people} loading={loading} onOpen={openPerson} />}
+                </div>}
+            </>
+          ) : route.tab === 'flags' ? (
+            <FlagsView refreshKey={gen - 1} />
+          ) : route.tab === 'system' ? (
+            <SystemView worker={worker} people={people} peopleFailed={peopleFailed} refreshKey={gen - 1} />
+          ) : route.tab === 'costs' ? (
+            <CostsView people={people} peopleLoading={loading} peopleFailed={peopleFailed} refreshKey={gen - 1} />
+          ) : route.tab === 'revenue' ? (
+            <RevenueView people={people} peopleLoading={loading} peopleFailed={peopleFailed} refreshKey={gen - 1} />
+          ) : route.tab === 'growth' ? (
+            <GrowthView refreshKey={gen - 1} />
+          ) : route.tab === 'inbox' ? (
+            <InboxView inbox={inbox} error={inboxState.error} onDone={inboxDone} onOpenPerson={openPerson}
+              onGo={(to) => go({ ...to, uid: null })} />
+          ) : (
+            <SuperAdmin />
+          )}
+        </div>
       </main>
     </div>
   )

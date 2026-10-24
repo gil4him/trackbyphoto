@@ -17,6 +17,10 @@
 - A link stays until a family member taps 연결 해제, removes the parent, or deletes the account. Signing out never unlinks.
 - Simple edition: the sign-in note says "로그인은 가족용이에요. 부모님은 위의 ‘부모님 휴대폰이에요’를 눌러 주세요."; a signed-in account with no parent shows "부모님이신가요? 이 계정은 가족용이에요. 가족에게 받은 연결 링크로 들어오세요." with 부모님 휴대폰이에요 (signs out, opens the parent's way in).
 
+### 운영실 (admin dashboard) — docs/admin/DAYLIE_ADMIN_DASHBOARD.md
+- Built one phase at a time (D0, D1, …); stop and report after each.
+- firestore.rules stays untouched except one owner-approved change (2026-10-24): `adminMetrics`, `adminInbox`, `adminGrowth`, `adminSetFlag` added to the `requests` type allow-list. The worker's requireAdmin is still the gate. A rules deploy is needed before these handlers answer in production.
+
 ### Deploying
 - Never deploy uncommitted code. Order: commit → push to main (or merge the PR) → deploy from an up-to-date checkout of main, preferably a worktree from `origin/main`.
 - `worker/scripts/install.sh` and `simple/worker/install-simple.sh` enforce this (`--check` runs the guard alone; `FORCE_DEPLOY=1` only in emergencies, and tell the user).

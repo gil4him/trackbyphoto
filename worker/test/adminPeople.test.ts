@@ -74,12 +74,24 @@ describe('adminListPeople', () => {
     const child = people.find((p) => p.uid === FAMILY.uid)!
     expect(parent).toMatchObject({
       kind: 'parent', name: '엄마', email: null, providers: [],
-      links: { active: 1, guardians: 1 }, devices: { active: 1, total: 1 },
+      links: { active: 1, guardians: 1 }, devices: { active: 1, total: 1, platforms: ['ios'] },
+      linkUids: [FAMILY.uid],
       memos: { count: 2, lastAt: '2026-10-11T09:00:00.000Z' },
       plan: { tier: 'free', explicit: false },
     })
-    expect(child).toMatchObject({ kind: 'child', email: FAMILY.email, links: { active: 1, guardians: 1 }, hasSettings: false })
+    expect(child).toMatchObject({ kind: 'child', email: FAMILY.email, links: { active: 1, guardians: 1 }, linkUids: [patientUid], hasSettings: false })
     expect(child.createdAt).toBeTruthy()
+  })
+
+  it('lists a parent\'s family with the 대표 first', async () => {
+    await seedFamily(FAMILY.uid, FAMILY.email)
+    await seedFamily(SIBLING.uid, SIBLING.email)
+    const patientUid = await registerElder()
+    await seedMembership(patientUid, SIBLING.uid, { role: 'viewer' })
+    // A revoked link is not family any more.
+    await seedMembership(patientUid, STRANGER.uid, { role: 'viewer', status: 'revoked' })
+    const { people } = await adminListPeople(ADMIN)
+    expect(people.find((p) => p.uid === patientUid)!.linkUids).toEqual([FAMILY.uid, SIBLING.uid])
   })
 
   it('treats an Auth user with no email and no provider as a parent even without settings', async () => {
