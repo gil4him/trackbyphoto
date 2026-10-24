@@ -160,8 +160,12 @@ export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn
           </div>
         ) : view === 'records' ? (
           <div className="elder-scroll">
-            <button className="elder-back" onClick={() => setView('home')}>‹ 처음으로</button>
-            <Today memos={memos} onOpen={setOpenId} uid={uid} readOnly rx={rx} received={familyPhotosOn ? familyPhotos : []} onOpenReceived={setPhotosOpen} />
+            <header className="elder-records-head">
+              <button type="button" className="back" onClick={() => setView('home')}>‹ 카메라</button>
+              <h1 className="elder-records-title">내 사진</h1>
+              <span className="head-btn-space" aria-hidden="true" />
+            </header>
+            <Today memos={memos} onOpen={setOpenId} uid={uid} readOnly rx={rx} received={familyPhotosOn ? familyPhotos : []} onOpenReceived={setPhotosOpen} calendar />
             <CameraFab label="카메라로 돌아가기" onClick={backToCamera} />
           </div>
         ) : isSimple() ? (

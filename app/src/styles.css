@@ -1299,8 +1299,8 @@ html:not(.camera-live) .elder-cam { background: #000; }
 }
 .elder-cam-shutter:active:not(:disabled) .elder-cam-ring { transform: scale(.92); }
 .elder-cam-shutter:disabled { opacity: .55; }
-/* 전환: a translucent white circle with a big flip glyph. */
-.elder-cam-flip-circle { width: 76px; height: 76px; background: rgba(255, 255, 255, .22); }
+/* 전환: a translucent circle with a white edge (like 내 사진's) and a big flip glyph. */
+.elder-cam-flip-circle { width: 76px; height: 76px; box-sizing: border-box; border: 2px solid #fff; background: rgba(255, 255, 255, .22); }
 .elder-cam-flip-circle svg { width: 44px; height: 44px; display: block; }
 .elder-cam-flip:disabled { opacity: .5; }
 /* Above 전환: the browser's 아이콘 만들기 (Android, until the icon exists). */
@@ -1510,10 +1510,39 @@ html:not(.camera-live) .elder-cam { background: #000; }
 .sheet-danger-btn.send-go:disabled { opacity: .45; }
 
 
-/* 내 하루 (a family member's own 오늘) and their 지난 기록: a parent's photo
+/* 내 하루 (a family member's own 오늘) and their 과거: a parent's photo
    among one's own, indented and edged in that parent's colour. */
 .parent-memo { flex: 1; min-width: 0; margin-left: 24px; }
 .parent-memo .memo-row { background: var(--accent-tint); background: color-mix(in srgb, var(--pc) 12%, var(--surface)); border-color: transparent; box-shadow: inset 4px 0 0 var(--pc); }
 .parent-memo.sent-in-day .memo-row.received.sent { margin-bottom: 10px; }
 .day-tl .parent-memo .memo-row { margin-bottom: 10px; }
 .my-day-send { display: inline-block; margin-top: 10px; padding: 0; background: none; border: 0; }
+
+/* The floating calendar on 과거 and the parent's 내 사진: bottom-left, on the
+   camera button's line; the date field covers it, invisible (CalendarFab). */
+.cal-fab-wrap {
+  position: fixed; left: 0; right: 0; bottom: calc(80px + var(--safe-bot));
+  max-width: 480px; margin: 0 auto; padding: 0 16px;
+  display: flex; justify-content: flex-start; pointer-events: none; z-index: 55;
+}
+.cal-fab {
+  position: relative; pointer-events: auto; width: 56px; height: 56px; border-radius: 50%; padding: 15px;
+  background: var(--surface); color: var(--ink); box-shadow: var(--shadow); cursor: pointer; overflow: hidden;
+}
+.cal-fab svg { width: 100%; height: 100%; display: block; }
+.cal-fab-input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; border: 0; padding: 0; cursor: pointer; }
+.elder-mode .cal-fab-wrap { bottom: calc(22px + var(--safe-bot)); }
+.elder-mode .cal-fab { width: 68px; height: 68px; padding: 18px; }
+
+/* The parent's 내 사진: a pinned header, ‹ 카메라 and the title, in the
+   tone of the other page headers. */
+.elder-records-head {
+  position: sticky; top: 0; z-index: 40;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  margin: calc(-18px - var(--safe-top)) -22px 10px; padding: calc(var(--safe-top) + 8px) 14px 8px;
+  background: rgba(255,255,255,.92); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--line);
+}
+.elder-records-head .back { margin: 0; font-size: 19px; padding: 10px 16px 10px 13px; }
+.elder-records-title { flex: 1; text-align: center; font-size: 21px; font-weight: 800; color: var(--ink); }
+.elder-records-head .head-btn-space { width: 96px; height: 1px; }

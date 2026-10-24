@@ -32,7 +32,7 @@ export function MyDay({ memos, parents, sent, onOpen, onOpenParentMemo, onOpenSe
   onOpen: (id: string) => void
   onOpenParentMemo: (memo: Memo) => void
   onOpenSent: (id: string) => void
-  /** 어제 보기 ›: 지난 기록 at yesterday. */
+  /** 어제 보기 ›: 과거 at yesterday. */
   onYesterday: () => void
   /** 사진 보내기: a photo from the phone, with a line, to a parent (none when family photos are off). */
   onSendPhoto?: () => void

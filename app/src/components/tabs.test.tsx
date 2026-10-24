@@ -20,10 +20,10 @@ describe('Tabs', () => {
     expect(html).not.toContain('tab-dot')
   })
 
-  it('simple edition: 오늘 · 지난 기록 · 알림 · 설정, unread as a dot', () => {
+  it('simple edition: 오늘 · 과거 · 알림 · 설정, unread as a dot', () => {
     edition.simple = true
     const html = renderToString(<Tabs active="today" onChange={() => {}} showAlerts unreadCount={3} />)
-    expect(labels(html)).toEqual(['주 메뉴', '오늘', '지난 기록', '알림', '설정'])
+    expect(labels(html)).toEqual(['주 메뉴', '오늘', '과거', '알림', '설정'])
     expect(html).not.toContain('물어보기')
     expect(html).toContain('class="tab-dot"')
     expect(html).toContain('aria-label="알림 3건"')

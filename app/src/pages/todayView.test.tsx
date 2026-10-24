@@ -121,23 +121,39 @@ describe('지난 기록 (the family\'s, simple edition): only what came before t
     expect(out).not.toContain('a 산책')
     expect(out).toContain('b 산책')
     expect(out.split('memo-row received sent').length - 1).toBe(1)
-    expect(out).not.toContain('오늘</div>')
+    expect(out).not.toContain('오늘 ·')
   })
 
   it('says where today went when nothing older exists yet', () => {
     const out = render({ before: startOfToday(), memos: [memo('a', 0, 15)] })
-    expect(out).toContain('지난 기록이 아직 없어요.')
+    expect(out).toContain('아직 지난 사진이 없어요.')
     expect(out).toContain('오늘 찍은 사진은 내일 여기로 와요.')
     expect(render({ memos: [] })).toContain('아직 기록이 없어요.')
   })
 })
 
 describe("one's own 지난 기록: the parents' photos woven in", () => {
-  it('indented in the parent\'s colour with their name, by time among one\'s own', () => {
+  it('indented in the parent\'s colour with their name, by time among one\'s own (a past day, morning first)', () => {
     const momMemo = memo('m', 1, 12)
     const out = render({ parents: [{ memo: momMemo, name: '엄마', color: '#3BAA78' }] })
     expect(out).toContain('class="parent-memo" style="--pc:#3BAA78"')
     expect(out).toContain('엄마 · 석촌호수')
-    expect(out.indexOf('m 산책')).toBeLessThan(out.indexOf('b 산책'))
+    expect(out.indexOf('b 산책')).toBeLessThan(out.indexOf('m 산책'))
+  })
+})
+
+
+describe('day headings, order within a day, and the calendar', () => {
+  it('오늘 · date and 어제 · date; a past day runs morning first, today newest first', () => {
+    const out = render({ memos: [memo('t2', 0, 15), memo('t1', 0, 9), memo('y2', 1, 18), memo('y1', 1, 8)] })
+    expect(out).toMatch(/오늘 · \d+월 \d+일 \(.\)/)
+    expect(out).toMatch(/어제 · \d+월 \d+일 \(.\)/)
+    expect(out.indexOf('t2 산책')).toBeLessThan(out.indexOf('t1 산책'))
+    expect(out.indexOf('y1 산책')).toBeLessThan(out.indexOf('y2 산책'))
+  })
+  it('the calendar floats only where asked, and only with photos to jump to', () => {
+    expect(render({ calendar: true })).toContain('aria-label="날짜로 찾기"')
+    expect(render()).not.toContain('날짜로 찾기')
+    expect(render({ calendar: true, memos: [] })).not.toContain('날짜로 찾기')
   })
 })

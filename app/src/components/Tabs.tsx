@@ -45,11 +45,11 @@ const ICONS = {
 }
 
 // The simple edition sorts the family's pages by time: 오늘 (today's
-// exchanges with the parents) and 지난 기록 (everything before today).
+// exchanges with the parents) and 과거 (everything before today).
 // The keys stay home/today everywhere else (links, notices).
 const TABS: { key: TabKey; label: string; simpleLabel?: string }[] = [
   { key: 'home',     label: '홈',   simpleLabel: '오늘' },
-  { key: 'today',    label: '사진', simpleLabel: '지난 기록' },
+  { key: 'today',    label: '사진', simpleLabel: '과거' },
   { key: 'ask',      label: '물어보기' },
   { key: 'alerts',   label: '알림' },
   { key: 'settings', label: '설정' },

@@ -1,4 +1,4 @@
-// A family member's own photo diary (pages/MyDay.tsx, and their 지난 기록):
+// A family member's own photo diary (pages/MyDay.tsx, and their 과거):
 // their photos, their parents' and the ones they sent, on one timeline.
 
 import type { SentEntry } from '../pages/Today'

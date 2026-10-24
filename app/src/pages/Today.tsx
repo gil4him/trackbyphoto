@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from 'react'
-import { fmtTime, relativeDateLabel } from '../util'
+import { dayHeading, fmtTime, landingDay } from '../util'
+import { CalendarFab } from '../components/CalendarFab'
 import { MemoRow } from '../components/MemoRow'
 import { ReceivedRow } from '../components/ReceivedRow'
 import { SentRow } from '../components/SentRow'
@@ -48,11 +49,11 @@ function WaitingPhoto({ item }: { item: OutboxItem }) {
  * included). `readOnly` is accepted for the elder's linked phone (nothing to
  * hide here any more).
  */
-export function Today({ memos, onOpen, uid, rx, onOpenTrail, onOpenVoiceAlbum, focusDay, onFocused, received = [], onOpenReceived, sent = [], onOpenSent, before, parents = [], onOpenParentMemo }: { memos: Memo[]; onOpen: (id: string) => void; uid?: string; readOnly?: boolean; /** The parent's phone: photos the family sent, listed among the day's own (ReceivedRow). */ received?: FamilyPhoto[]; onOpenReceived?: (id: string) => void; /** A family member's own 사진: the photos they sent their parents (SentRow). */ sent?: SentEntry[]; onOpenSent?: (id: string) => void; /** 지난 기록 (the simple edition's family): only what came before this moment (start of today); today lives on 오늘. */ before?: Date; /** A family member's own 지난 기록: their parents' photos, indented in each parent's colour. */ parents?: ParentMemo[]; onOpenParentMemo?: (memo: Memo) => void; /** Hearts and comments per photo (family feed), for the counts. */ rx?: ReactionsContext; /** 다녀온 곳 for one day (shown on days that have a located photo). */ onOpenTrail?: (day: Date) => void; /** 목소리 앨범, on a plan that includes it (family only). */ onOpenVoiceAlbum?: () => void; /** Open scrolled to this day's photos (어제 보기 on the home), once. */ focusDay?: Date | null; onFocused?: () => void }) {
+export function Today({ memos, onOpen, uid, rx, onOpenTrail, onOpenVoiceAlbum, focusDay, onFocused, received = [], onOpenReceived, sent = [], onOpenSent, before, parents = [], onOpenParentMemo, calendar = false }: { memos: Memo[]; onOpen: (id: string) => void; uid?: string; readOnly?: boolean; /** The parent's phone: photos the family sent, listed among the day's own (ReceivedRow). */ received?: FamilyPhoto[]; onOpenReceived?: (id: string) => void; /** A family member's own 사진: the photos they sent their parents (SentRow). */ sent?: SentEntry[]; onOpenSent?: (id: string) => void; /** 과거 (the simple edition's family): only what came before this moment (start of today); today lives on 오늘. */ before?: Date; /** A family member's own 과거: their parents' photos, indented in each parent's colour. */ parents?: ParentMemo[]; onOpenParentMemo?: (memo: Memo) => void; /** A floating calendar to jump to a day (과거, the parent's 내 사진). */ calendar?: boolean; /** Hearts and comments per photo (family feed), for the counts. */ rx?: ReactionsContext; /** 다녀온 곳 for one day (shown on days that have a located photo). */ onOpenTrail?: (day: Date) => void; /** 목소리 앨범, on a plan that includes it (family only). */ onOpenVoiceAlbum?: () => void; /** Open scrolled to this day's photos (어제 보기 on the home), once. */ focusDay?: Date | null; onFocused?: () => void }) {
   // Hide a waiting photo once its memo shows up from the server.
   const memoIds = useMemo(() => new Set(memos.map((m) => m.id)), [memos])
   const outbox = useOutbox(uid).filter((i) => !memoIds.has(i.photoId))
-  // Photos still going out are today's: 오늘 shows them, not 지난 기록.
+  // Photos still going out are today's: 오늘 shows them, not 과거.
   const waiting = before ? [] : outbox
   // While a memo is waiting, check the memo server is actually up.
   const serverDown = useWorkerStatus(memos.some((m) => m.status === 'pending')) === 'down'
@@ -77,7 +78,11 @@ export function Today({ memos, onOpen, uid, rx, onOpenTrail, onOpenVoiceAlbum, f
       g.entries.push(e)
       if (e.kind === 'memo') g.items.push(e.memo)
     }
-    return Array.from(map.values())
+    // A past day reads like a diary, morning first; today keeps the newest on top.
+    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0)
+    const out = Array.from(map.values())
+    for (const g of out) if (g.date.getTime() < todayStart.getTime()) g.entries.reverse()
+    return out
   }, [memos, received, sent, before, parents])
 
   // 어제 보기: land on that day's header, then forget the request.
@@ -106,7 +111,7 @@ export function Today({ memos, onOpen, uid, rx, onOpenTrail, onOpenVoiceAlbum, f
           <div className="big">🌤️</div>
           {before ? (
             <>
-              <div>지난 기록이 아직 없어요.</div>
+              <div>아직 지난 사진이 없어요.</div>
               <div style={{ marginTop: 6, fontSize: 14 }}>오늘 찍은 사진은 내일 여기로 와요.</div>
             </>
           ) : (
@@ -120,7 +125,7 @@ export function Today({ memos, onOpen, uid, rx, onOpenTrail, onOpenVoiceAlbum, f
         groups.map((g) => (
           <div key={g.date.toISOString()} data-day={dayKey(g.date)}>
             <div className="tl-day">
-              {relativeDateLabel(g.date)}
+              {dayHeading(g.date)}
               {onOpenTrail && g.items.some((m) => typeof m.lat === 'number' && typeof m.lng === 'number') && (
                 <button type="button" className="trail-link" onClick={() => onOpenTrail(g.date)}>다녀온 곳 ›</button>
               )}
@@ -146,6 +151,15 @@ export function Today({ memos, onOpen, uid, rx, onOpenTrail, onOpenVoiceAlbum, f
             })}
           </div>
         ))
+      )}
+      {calendar && (
+        <CalendarFab
+          days={groups.map((g) => new Date(g.date.getFullYear(), g.date.getMonth(), g.date.getDate()))}
+          onPick={(picked) => {
+            const day = landingDay(groups.map((g) => new Date(g.date.getFullYear(), g.date.getMonth(), g.date.getDate())), picked)
+            if (day) document.querySelector(`[data-day="${dayKey(day)}"]`)?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+          }}
+        />
       )}
     </section>
   )

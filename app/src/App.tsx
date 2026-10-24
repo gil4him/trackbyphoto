@@ -105,7 +105,7 @@ const Trail = lazy(() => pages.trail().then((m) => ({ default: m.Trail })))
 const VoiceAlbum = lazy(() => pages.voiceAlbum().then((m) => ({ default: m.VoiceAlbum })))
 const PlanSheet = lazy(() => pages.planSheet().then((m) => ({ default: m.PlanSheet })))
 
-/** Local midnight today: where 오늘 ends and 지난 기록 begins. */
+/** Local midnight today: where 오늘 ends and 과거 begins. */
 function startOfDay(): Date {
   const d = new Date()
   d.setHours(0, 0, 0, 0)
@@ -181,7 +181,7 @@ function App() {
   const [activePatientUid, setActivePatientUid] = useState<string | null>(null)
   // 어제 보기 › on the parent's day: the 사진 tab opens scrolled to this day, once.
   const [todayFocus, setTodayFocus] = useState<Date | null>(null)
-  // Simple edition, family: 오늘 is today, 지난 기록 everything before. The
+  // Simple edition, family: 오늘 is today, 과거 everything before. The
   // line moves at local midnight (checked every few minutes).
   const [dayStart, setDayStart] = useState(startOfDay)
   useEffect(() => {
@@ -203,7 +203,7 @@ function App() {
   // The family dashboard (simple edition, one's own home): every parent's
   // latest memos for the cards. Nothing while viewing a parent.
   const dashOn = isSimple() && !!user && activePatientUid === user.uid
-  // 내 하루 and one's own 지난 기록 weave the parents' photos in, so a longer window than the cards needed.
+  // 내 하루 and one's own 과거 weave the parents' photos in, so a longer window than the cards needed.
   const parentsMemos = useParentsMemos(useMemo(() => dashOn ? people.map((p) => p.patientUid) : [], [dashOn, people]), 120)
   // Elder safeguard notices live on the signed-in user's own account (§8).
   const { unread: notifications, dismiss: dismissNotification } = useNotifications(user?.uid)
@@ -951,7 +951,7 @@ function App() {
                   takenNames={people.map((p) => p.name)}
                 />
               )}
-              {tab === 'today'    && <Today memos={memos} onOpen={setSelectedMemoId} sent={ownPage ? sentEntries : undefined} onOpenSent={setOpenSent} before={isSimple() ? dayStart : undefined} parents={ownPage ? parentItems : undefined} onOpenParentMemo={openParentMemo} uid={activePatientUid || user.uid} rx={rx} onOpenTrail={trailOn ? openDayTrail : undefined} onOpenVoiceAlbum={voiceAlbumOn ? () => setVoiceAlbum(true) : undefined} focusDay={todayFocus} onFocused={clearTodayFocus} />}
+              {tab === 'today'    && <Today memos={memos} onOpen={setSelectedMemoId} sent={ownPage ? sentEntries : undefined} onOpenSent={setOpenSent} before={isSimple() ? dayStart : undefined} parents={ownPage ? parentItems : undefined} onOpenParentMemo={openParentMemo} calendar={isSimple()} uid={activePatientUid || user.uid} rx={rx} onOpenTrail={trailOn ? openDayTrail : undefined} onOpenVoiceAlbum={voiceAlbumOn ? () => setVoiceAlbum(true) : undefined} focusDay={todayFocus} onFocused={clearTodayFocus} />}
               {tab === 'ask'      && <Ask memos={memos} onOpen={setSelectedMemoId} />}
               {tab === 'settings' && (
                 <Settings
