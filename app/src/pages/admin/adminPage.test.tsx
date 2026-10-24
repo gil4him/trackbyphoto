@@ -21,6 +21,7 @@ import { InboxView } from './InboxView'
 import { GrowthView } from './GrowthView'
 import { FamiliesTable } from './FamiliesTable'
 import { RevenueView } from './RevenueView'
+import { CostsView } from './CostsView'
 import { ToastProvider } from '../../components/Toast'
 import type { Inbox } from '../../lib/adminInbox'
 import { AdminPage } from './AdminPage'
@@ -242,6 +243,16 @@ describe('RevenueView', () => {
     expect(html).toContain('hq-skel')
     expect(html).not.toContain('₩')
     expect(html).toContain('아직 기록 안 함')
+  })
+})
+
+describe('CostsView', () => {
+  it('waits for the numbers and names where Firebase costs will come from', () => {
+    const html = renderToString(<ToastProvider><CostsView people={people} peopleLoading={false} /></ToastProvider>)
+    expect(html).toContain('비용')
+    expect(html).toContain('hq-skel')
+    expect(html).toContain('BigQuery')
+    expect(html).not.toContain('₩')
   })
 })
 

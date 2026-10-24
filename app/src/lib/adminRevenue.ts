@@ -13,8 +13,6 @@ import type { AdminPerson } from './admin'
 
 /** Apple and Google take 15% from a small business's subscriptions. */
 export const STORE_FEE = 0.15
-/** ₩ per $ when the 비용 page has not set one (D6 lets the owner change it). */
-export const DEFAULT_FX = 1400
 
 /** Parents per plan; a parent never put on one is Free. */
 export function planMix(people: AdminPerson[]): Record<PlanTier, number> {
@@ -68,16 +66,6 @@ export function revenue(a: RevenueAssumptions, costKRW: number | null): Waterfal
   const vat = gross / 11
   const fee = (gross - vat) * STORE_FEE
   return { gross, vat, fee, cost: costKRW, net: gross - vat - fee - (costKRW ?? 0) }
-}
-
-/** This month's costs in ₩ from admin_config/dashboard: the Firebase bill
- *  entered on 비용 at its exchange rate; null until something is entered. */
-export function monthCostKRW(dashboard: Record<string, unknown> | undefined, month: string): number | null {
-  const costs = (dashboard?.costs ?? {}) as Record<string, { firebaseUSD?: unknown }>
-  const usd = costs[month]?.firebaseUSD
-  if (typeof usd !== 'number' || !Number.isFinite(usd)) return null
-  const fx = typeof dashboard?.fx === 'number' && dashboard.fx > 0 ? dashboard.fx : DEFAULT_FX
-  return Math.round(usd * fx)
 }
 
 const RANK: Record<string, number> = { free: 0, basic: 1, plus: 2, family: 3 }

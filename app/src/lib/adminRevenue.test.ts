@@ -1,6 +1,6 @@
 // 운영실 매출: the plan mix, the calculator's arithmetic, and what it starts from.
 import { describe, it, expect } from 'vitest'
-import { monthCostKRW, paidTiers, planMix, priceFromLabel, revenue, startingAssumptions, upgrades, won } from './adminRevenue'
+import { paidTiers, planMix, priceFromLabel, revenue, startingAssumptions, upgrades, won } from './adminRevenue'
 import type { AdminPerson } from './admin'
 import type { Plans } from '../types'
 
@@ -36,13 +36,6 @@ describe('calculator', () => {
     expect(w.net).toBeCloseTo(15_900)
     expect(revenue({ prices: { plus: 4400 }, families: { plus: 0 } }, null)).toEqual({ gross: 0, vat: 0, fee: 0, cost: null, net: 0 })
     expect(revenue({ prices: { plus: 4400 }, families: { plus: 1 } }, 10_000).net).toBeLessThan(0)
-  })
-
-  it('reads the month\'s Firebase bill at the exchange rate, or nothing', () => {
-    expect(monthCostKRW(undefined, '2026-10')).toBeNull()
-    expect(monthCostKRW({ costs: { '2026-10': { firebaseUSD: 11.4 } } }, '2026-10')).toBe(15_960)
-    expect(monthCostKRW({ fx: 1300, costs: { '2026-10': { firebaseUSD: 10 } } }, '2026-10')).toBe(13_000)
-    expect(monthCostKRW({ costs: { '2026-09': { firebaseUSD: 10 } } }, '2026-10')).toBeNull()
   })
 
   it('formats won', () => {

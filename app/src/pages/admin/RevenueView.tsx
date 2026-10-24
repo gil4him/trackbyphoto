@@ -5,11 +5,13 @@
 // is not recorded says so.
 
 import { useEffect, useMemo, useState } from 'react'
-import { collection, doc, getDoc, getDocs, limit, query, serverTimestamp, setDoc, where, Timestamp } from 'firebase/firestore'
+import { collection, doc, getDocs, limit, query, serverTimestamp, setDoc, where, Timestamp } from 'firebase/firestore'
 import { db } from '../../firebase'
 import type { AdminPerson } from '../../lib/admin'
 import { familyRows } from '../../lib/adminFamilies'
-import { DEFAULT_FX, monthCostKRW, paidTiers, planMix, revenue, startingAssumptions, upgrades, won } from '../../lib/adminRevenue'
+import { paidTiers, planMix, revenue, startingAssumptions, upgrades, won } from '../../lib/adminRevenue'
+import { costSummary, seoulMonth } from '../../lib/adminCosts'
+import { loadMonthCosts } from '../../lib/adminCostsData'
 import { fmtN } from '../../lib/adminToday'
 import { TIER_NAME, TIERS } from '../../lib/plan'
 import { loadPlans } from '../../lib/plans'
@@ -17,12 +19,12 @@ import { useToast } from '../../components/Toast'
 import type { Plans, PlanTier } from '../../types'
 
 const MONTH_MS = 30 * 86_400_000
-const thisMonth = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit' }).format(new Date())
 
 export function RevenueView({ people, peopleLoading }: { people: AdminPerson[]; peopleLoading: boolean }) {
   const toast = useToast()
   const [plans, setPlans] = useState<Plans | null | undefined>(undefined)
   const [dashboard, setDashboard] = useState<Record<string, unknown> | null | undefined>(undefined)
+  const [aiUSD, setAiUSD] = useState(0)
   /** Upgrades in the last 30 days, counted when the log is read. */
   const [upgraded, setUpgraded] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -32,9 +34,9 @@ export function RevenueView({ people, peopleLoading }: { people: AdminPerson[]; 
   useEffect(() => {
     let cancelled = false
     loadPlans().then((p) => { if (!cancelled) setPlans(p) })
-    getDoc(doc(db, 'admin_config', 'dashboard')).then(
-      (snap) => { if (!cancelled) setDashboard(snap.exists() ? snap.data() : null) },
-      (err) => { if (!cancelled) { console.error('[admin] dashboard read', err); setDashboard(null); setError('저장된 가정을 읽지 못했어요.') } },
+    loadMonthCosts(seoulMonth()).then(
+      (d) => { if (!cancelled) { setDashboard(d.dashboard); setAiUSD(d.aiUSD) } },
+      (err) => { if (!cancelled) { console.error('[admin] dashboard read', err); setDashboard(null); setError('저장된 가정과 비용을 읽지 못했어요.') } },
     )
     getDocs(query(collection(db, 'auditLogs'), where('action', '==', 'plan.change'), limit(500))).then(
       (snap) => {
@@ -60,7 +62,9 @@ export function RevenueView({ people, peopleLoading }: { people: AdminPerson[]; 
     prices: Object.fromEntries(tiers.map((t) => [t, parse(fields.prices[t])])) as Partial<Record<PlanTier, number>>,
     families: Object.fromEntries(tiers.map((t) => [t, parse(fields.families[t])])) as Partial<Record<PlanTier, number>>,
   }
-  const cost = dashboard ? monthCostKRW(dashboard, thisMonth()) : null
+  // The month's costs as 비용 adds them up (what is not entered is left out, and named).
+  const costs = dashboard !== undefined ? costSummary(dashboard, seoulMonth(), aiUSD) : null
+  const cost = costs ? costs.totalKRW : null
   const w = assumptions && revenue(assumptions, cost)
   const paymentsOn = plans?.flags?.payments === true
   const atLimit = useMemo(() => familyRows(people, plans ?? null).filter((r) => r.flags.has('limit')).length, [people, plans])
@@ -133,7 +137,8 @@ export function RevenueView({ people, peopleLoading }: { people: AdminPerson[]; 
               <div><span>Apple·Google 수수료 15%</span><b className="num neg">{`− ${won(w.fee)}`}</b></div>
               <div><span>운영 비용</span>{w.cost === null ? <span className="hq-tag t-dim">입력 전</span> : <b className="num neg">{`− ${won(w.cost)}`}</b>}</div>
               <div className="total"><span>남는 돈</span><b className={`num ${w.net >= 0 ? 'pos' : 'neg'}`}>{won(w.net)}</b></div>
-              {w.cost === null && <p className="hq-note">{`비용 화면에서 이번 달 Firebase 비용을 넣으면 빼고 계산해요 (₩${DEFAULT_FX.toLocaleString('ko-KR')}/$).`}</p>}
+              {w.cost === null ? <p className="hq-note">비용 화면에서 이번 달 비용을 넣으면 빼고 계산해요.</p>
+                : costs && costs.missing.length > 0 && <p className="hq-note">{`운영 비용은 비용 화면의 합계예요 · ${costs.missing.join(', ')} 입력 전`}</p>}
             </div>
           )}
         </section>

@@ -51,7 +51,18 @@ const VIEWS = [
       await p.reload({ waitUntil: 'load' }); await p.waitForSelector('.hq-revenue:not(:has(.hq-skel))', { timeout: 60_000 })
       console.log('  Plus families after reload:', await p.$eval('input[aria-label="Plus 유료 가족 수"]', (e) => e.value))
     } },
-  { id: 'costs', search: '?tab=costs', ready: '곧 만들어요' },
+  { id: 'costs', search: '?tab=costs', ready: '고정 비용', settled: '.hq-costs:not(:has(.hq-skel))' },
+  // Mac mini 전기 entered, saved, and still there after a reload (one viewport).
+  { id: 'costs-saved', search: '?tab=costs', ready: '고정 비용', settled: '.hq-costs:not(:has(.hq-skel))', only: '1440',
+    act: async (p) => {
+      await p.evaluate(() => [...document.querySelectorAll('.hq-costs .hq-card')].find((c) => c.textContent.includes('고정 비용')).querySelector('.hq-link').click())
+      const input = await p.waitForSelector('.hq-form label:nth-of-type(3) input')
+      await input.click({ clickCount: 3 }); await input.type('6000')
+      await p.evaluate(() => [...document.querySelectorAll('.hq-form .hq-btn.pri')].at(-1).click())
+      await waitText(p, '고정 비용을 저장했어요', 15_000)
+      await p.reload({ waitUntil: 'load' }); await p.waitForSelector('.hq-costs:not(:has(.hq-skel))', { timeout: 60_000 })
+      console.log('  Mac mini line after reload:', await p.evaluate(() => [...document.querySelectorAll('.hq-rows > div')].find((d) => d.textContent.includes('Mac mini'))?.textContent))
+    } },
   { id: 'system', search: '?tab=system', ready: '곧 만들어요' },
   { id: 'flags', search: '?tab=flags', ready: '곧 만들어요' },
   { id: 'ai', search: '?tab=ai', ready: 'AI' },
@@ -96,7 +107,10 @@ const admin = await familyAccount(ADMIN)
   await db.collection('auditLogs').add({ patientUid: 'granQuiet0000000000000000000', actorUid: kid.localId, action: 'plan.change', details: { from: 'free', to: 'plus', provider: 'admin', source: 'admin' }, timestamp: Timestamp.now() })
   await getAuth().createUser({ uid: 'blockedKid00000000000000000', email: 'blocked@example.com', displayName: '민수', disabled: true })
   const month = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit' }).format(new Date())
-  await db.doc('admin_config/dashboard').set({ costs: { [month]: { firebaseUSD: 11.4, budgetUSD: 5 } } }, { merge: true })
+  await db.doc('admin_config/dashboard').set({ costs: { [month]: { firebaseUSD: 11.4, budgetUSD: 5, storageUSD: 8.21, firestoreUSD: 2.64, hostingUSD: 0.31, otherUSD: 0.24 } } }, { merge: true })
+  // 비용: two days of cloud AI memos this month (the worker's counters, by UTC day).
+  const today = new Date().toISOString().slice(0, 10)
+  await db.doc(`admin_daily/${today}`).set({ date: today, memos: 4, geminiCalls: 4, geminiUSD: 0.0123 }, { merge: true })
 }
 
 // The worker answers adminListPeople and beats system/worker.

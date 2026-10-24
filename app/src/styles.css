@@ -1800,3 +1800,22 @@ html:not(.camera-live) .elder-cam { background: #000; }
   .hq-calc-row.h > :first-child, .hq-calc-row.h .out { display: none; }
   .hq-calc-row:not(.h) { padding-top: 8px; border-top: 1px solid var(--line); }
 }
+
+/* 운영실 비용 (D6). */
+.hq-costs { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.hq-g3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; align-items: start; }
+.hq-big-n { margin: 0 0 8px; font-size: 30px; font-weight: 800; letter-spacing: -.01em; }
+.hq-meter { height: 12px; border-radius: 999px; background: var(--surface-dim); overflow: hidden; margin: 6px 0 8px; }
+.hq-meter span { display: block; height: 100%; background: var(--good); border-radius: 999px; }
+.hq-meter span.over { background: var(--danger); }
+.hq-form { display: flex; flex-direction: column; gap: 10px; }
+.hq-form label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 700; color: var(--muted); }
+.hq-form input { min-height: 44px; border: 1px solid var(--line); border-radius: 10px; padding: 0 10px; font: inherit; font-size: 15px; color: var(--ink); background: var(--surface-dim); font-variant-numeric: tabular-nums; }
+.hq-form details { display: flex; flex-direction: column; gap: 10px; }
+.hq-form summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-size: 15px; font-weight: 700; color: var(--ink); }
+.hq-form details[open] label { margin-top: 8px; }
+.hq-src .muted-bar { background: var(--muted); }
+.hq-rows > div.total { font-weight: 800; }
+@media (max-width: 900px) {
+  .hq-g3 { grid-template-columns: minmax(0, 1fr); }
+}
