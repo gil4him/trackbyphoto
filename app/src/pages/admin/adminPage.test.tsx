@@ -27,7 +27,7 @@ import { FlagsView } from './FlagsView'
 import { ToastProvider } from '../../components/Toast'
 import type { Inbox } from '../../lib/adminInbox'
 import { AdminPage } from './AdminPage'
-import { ADMIN_TABS, beatAgo, familyCount, fmtAgo, matchesQuery, personFlags, routeFromSearch, searchFromRoute, sortPeople, type AdminPerson } from '../../lib/admin'
+import { ADMIN_TABS, beatAgo, familyCount, refreshedAgo, fmtAgo, matchesQuery, personFlags, routeFromSearch, searchFromRoute, sortPeople, type AdminPerson } from '../../lib/admin'
 import type { User } from 'firebase/auth'
 
 const base = {
@@ -91,6 +91,14 @@ describe('운영실 routes', () => {
     expect(routeFromSearch('?tab=ai')).toEqual({ tab: 'ai', kind: 'parent', uid: null, filter: 'all' })
     expect(searchFromRoute(routeFromSearch('?tab=parents'))).toBe('?tab=families&kind=parent')
     expect(searchFromRoute(routeFromSearch('?tab=overview'))).toBe('')
+  })
+
+  it('says how old the numbers on screen are', () => {
+    const now = Date.parse('2026-10-24T03:00:00Z')
+    expect(refreshedAgo(null, now)).toBe('')
+    expect(refreshedAgo(new Date(now - 20_000), now)).toBe('방금 기준')
+    expect(refreshedAgo(new Date(now - 5 * 60_000), now)).toBe('5분 전 기준')
+    expect(refreshedAgo(new Date(now - 3 * 3600_000), now)).toBe('3시간 전 기준')
   })
 
   it('says how long ago the worker last beat', () => {
@@ -165,7 +173,7 @@ describe('TodayView', () => {
     expect(html).toContain('응답 중')
     expect(html).toContain('3장')
     expect(html).toContain('22초 전')
-    expect(html).toContain('입력 전')
+    expect(html).toContain('운영 비용')
     expect(view({ ...INBOX, items: [] })).toContain('지금 처리할 일 없음')
   })
 })
@@ -224,6 +232,13 @@ describe('FamiliesTable', () => {
     expect(html).toContain('아빠')
     expect(html).not.toContain('지은 가족')
     expect(table('blocked')).toContain('맞는 가족이 없어요')
+  })
+
+  it('a list that failed to load is not "nobody yet"', () => {
+    const html = renderToString(<FamiliesTable people={[]} loading={false} failed filter="all" onFilter={() => {}} onOpen={() => {}} />)
+    expect(html).toContain('목록을 불러오지 못했어요')
+    expect(html).not.toContain('아직 등록된 부모님이 없어요')
+    expect(html).not.toContain('가족 0곳')
   })
 })
 

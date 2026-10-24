@@ -20,7 +20,7 @@ import type { Plans, PlanTier } from '../../types'
 
 const MONTH_MS = 30 * 86_400_000
 
-export function RevenueView({ people, peopleLoading }: { people: AdminPerson[]; peopleLoading: boolean }) {
+export function RevenueView({ people, peopleLoading, peopleFailed = false, refreshKey = 0 }: { people: AdminPerson[]; peopleLoading: boolean; peopleFailed?: boolean; refreshKey?: number }) {
   const toast = useToast()
   const [plans, setPlans] = useState<Plans | null | undefined>(undefined)
   const [dashboard, setDashboard] = useState<Record<string, unknown> | null | undefined>(undefined)
@@ -47,7 +47,7 @@ export function RevenueView({ people, peopleLoading }: { people: AdminPerson[]; 
       (err) => { if (!cancelled) { console.error('[admin] plan log', err); setUpgraded(0) } },
     )
     return () => { cancelled = true }
-  }, [])
+  }, [refreshKey])
 
   const mix = useMemo(() => planMix(people), [people])
   const ready = plans !== undefined && dashboard !== undefined && !(peopleLoading && !people.length)
@@ -147,7 +147,7 @@ export function RevenueView({ people, peopleLoading }: { people: AdminPerson[]; 
       <div className="hq-g2e">
         <section className="hq-card" aria-busy={!ready}>
           <h3>플랜별 가족 <small>지금 실제</small></h3>
-          {!ready ? <Lines n={2} /> : parents === 0 ? <div className="hq-empty">아직 등록된 부모님이 없어요.</div> : (
+          {!ready ? <Lines n={2} /> : peopleFailed ? <div className="hq-empty">가족 목록을 불러오지 못했어요.</div> : parents === 0 ? <div className="hq-empty">아직 등록된 부모님이 없어요.</div> : (
             <>
               <div className="hq-mix" role="img" aria-label={TIERS.map((t) => `${TIER_NAME[t]} ${mix[t]}`).join(', ')}>
                 {TIERS.filter((t) => mix[t] > 0).map((t) => (
@@ -163,7 +163,7 @@ export function RevenueView({ people, peopleLoading }: { people: AdminPerson[]; 
           <h3>업그레이드 계기 <small>결제 전에도 셀 수 있는 것</small></h3>
           <div className="hq-trig">
             <div><span>더 큰 플랜으로 바꾼 가족 (30일)</span>{upgraded === null ? <span className="hq-tag t-dim">…</span> : <b className="num">{fmtN(upgraded)}</b>}</div>
-            <div><span>가족 수 한도에 걸린 가족</span>{!ready ? <span className="hq-tag t-dim">…</span> : <b className="num">{fmtN(atLimit)}</b>}</div>
+            <div><span>가족 수 한도에 걸린 가족</span>{!ready ? <span className="hq-tag t-dim">…</span> : peopleFailed ? <span className="hq-tag t-dim">불러오지 못함</span> : <b className="num">{fmtN(atLimit)}</b>}</div>
             <div><span>“사진이 지워져요” 안내를 봄</span><span className="hq-tag t-dim">아직 기록 안 함</span></div>
             <div><span>음성 답장 카드를 누름</span><span className="hq-tag t-dim">아직 기록 안 함</span></div>
           </div>

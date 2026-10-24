@@ -323,3 +323,12 @@ export function beatAgo(lastSeenMs: number | null, now = Date.now()): string {
 export function familyCount(people: AdminPerson[]): number {
   return people.filter((p) => p.kind === 'parent' && p.links.active > 0).length
 }
+
+/** The top bar: how old the numbers on screen are ("방금 기준", "3분 전 기준"). */
+export function refreshedAgo(at: Date | null, now = Date.now()): string {
+  if (!at) return ''
+  const s = Math.max(0, Math.floor((now - at.getTime()) / 1000))
+  if (s < 60) return '방금 기준'
+  const m = Math.floor(s / 60)
+  return m < 60 ? `${m}분 전 기준` : `${Math.floor(m / 60)}시간 전 기준`
+}

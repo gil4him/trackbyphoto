@@ -83,6 +83,11 @@ const VIEWS = [
   { id: 'old-parents-link', search: '?tab=parents', ready: '엄마', expectUrl: '/admin?tab=families&kind=parent' },
   // A row opens the person, as before.
   { id: 'families-open', search: '?tab=families&kind=parent', ready: '엄마', settled: '.hq-families .hq-tbl', press: '엄마 열기', pressSel: 'tr[aria-label]', expectUrlStart: '/admin?tab=families&kind=parent&uid=', only: '1440' },
+  // Last: the worker stops. Each view must say the server is not answering.
+  { id: 'today-down', search: '', ready: '북극성 지표', settled: '.hq-today .hq-err', down: true, only: ['1440', '393'] },
+  { id: 'inbox-down', search: '?tab=inbox', ready: '할 일은 이렇게 골라요', settled: '.hq-inbox-view .hq-err', down: true, only: '1440' },
+  { id: 'growth-down', search: '?tab=growth', ready: '한 가족이 들어와', settled: '.hq-growth .hq-err', down: true, only: '1440' },
+  { id: 'system-down', search: '?tab=system', ready: '시스템', settled: '.hq-system .hq-err', down: true, only: '1440' },
 ]
 
 await mkdir(OUT, { recursive: true })
@@ -149,16 +154,18 @@ const site = await serveSite(join(HERE, '.tmp', 'admin-site'), SITE_PORT)
 const browser = await launchBrowser(process.env.UI_HEADFUL === '1')
 const report = []
 let failed = 0
+let workerStopped = false
 try {
   for (const v of VIEWS) {
     if (only && !only.has(v.id)) continue
+    if (v.down && !workerStopped) { worker.kill('SIGTERM'); workerStopped = true; console.log('  (worker stopped)') }
     for (const q of ADMIN_QA_MATRIX.filter((x) => !v.only || [].concat(v.only).includes(x.id))) {
       const p = await openPage(browser, { device: q.device, acct: admin, kid: ADMIN })
       await p.goto(`${SITE}/admin${v.search}`, { waitUntil: 'load' })
       await waitText(p, v.ready, 45_000)
-      if (v.settled) await p.waitForSelector(v.settled, { timeout: 90_000 }).catch(async (err) => {
+      if (v.settled) await p.waitForSelector(v.settled, { timeout: v.down ? 150_000 : 90_000 }).catch(async (err) => {
         console.log('  worker log:', log.split('\n').filter((l) => /adminInbox|error|ERROR|WARN/.test(l)).slice(-12).join('\n'))
-        console.log('  page says:', (await p.evaluate(() => document.body.innerText)).slice(0, 600).replace(/\n+/g, ' | '))
+        console.log('  page says:', (await p.evaluate(() => document.body.innerText)).slice(0, 2000).replace(/\n+/g, ' | '))
         throw err
       })
       if (v.press) { await click(p, v.press, v.pressSel); await sleep(1500) }
@@ -186,6 +193,8 @@ try {
       const shell = findings.filter((f) => /hq|address|horizontal scroll/.test(f))
       if (shell.length) failed++
       report.push({ view: v.id, viewport: q.id, shell, inside: findings.filter((f) => !shell.includes(f)) })
+      // Saved as it goes, so a run that dies midway keeps what it found.
+      await writeFile(join(OUT, process.env.ADMIN_REPORT || 'report.json'), JSON.stringify(report, null, 1))
       console.log(`  ${name}.png  shell:${shell.length ? ' ' + shell.join(' | ') : ' OK'}  inside: ${findings.length - shell.length}`)
       await p.browserContext().close()
     }
@@ -193,7 +202,7 @@ try {
 } finally {
   // How long the worker took for each 운영실 request (and any failure).
   console.log(log.split('\n').filter((l) => /"type":"admin|handler threw|ERROR/.test(l)).map((l) => l.slice(0, 260)).join('\n'))
-  await writeFile(join(OUT, 'report.json'), JSON.stringify(report, null, 1))
+  await writeFile(join(OUT, process.env.ADMIN_REPORT || 'report.json'), JSON.stringify(report, null, 1))
   await browser.close()
   site.close(); model.close(); worker.kill('SIGTERM')
 }

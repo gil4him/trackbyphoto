@@ -13,9 +13,11 @@ import { TIER_NAME } from '../../lib/plan'
 import { loadPlans } from '../../lib/plans'
 import type { Plans } from '../../types'
 
-export function FamiliesTable({ people, loading, filter, onFilter, onOpen, switcher }: {
+export function FamiliesTable({ people, loading, failed = false, filter, onFilter, onOpen, switcher }: {
   people: AdminPerson[]
   loading: boolean
+  /** The people list could not be read: say so, not "nobody yet". */
+  failed?: boolean
   filter: FamilyFilter
   onFilter: (f: FamilyFilter) => void
   onOpen: (uid: string) => void
@@ -41,8 +43,8 @@ export function FamiliesTable({ people, loading, filter, onFilter, onOpen, switc
     <div className="hq-families">
       <div className="hq-vhead">
         <div className="hq-vhead-t">
-          <small>{loading && !people.length ? '불러오는 중' : `부모님 ${fmtN(parents)}분 · 가족 ${fmtN(members)}명`}</small>
-          <h1>{loading && !people.length ? '가족' : `가족 ${fmtN(familyCount(people))}곳`}</h1>
+          <small>{loading && !people.length ? '불러오는 중' : failed ? '목록 없음' : `부모님 ${fmtN(parents)}분 · 가족 ${fmtN(members)}명`}</small>
+          <h1>{(loading && !people.length) || failed ? '가족' : `가족 ${fmtN(familyCount(people))}곳`}</h1>
         </div>
         {switcher}
       </div>
@@ -63,7 +65,8 @@ export function FamiliesTable({ people, loading, filter, onFilter, onOpen, switc
 
       <section className="hq-card" aria-busy={loading && !people.length}>
         {loading && !people.length ? <div className="hq-skel" aria-hidden="true">{Array.from({ length: 6 }, (_, i) => <span key={i} />)}</div>
-          : parents === 0 ? <div className="hq-empty">아직 등록된 부모님이 없어요.</div>
+          : failed ? <div className="hq-empty">목록을 불러오지 못했어요. 서버가 돌아오면 새로고침해 주세요.</div>
+            : parents === 0 ? <div className="hq-empty">아직 등록된 부모님이 없어요.</div>
             : shown.length === 0 ? <div className="hq-empty">맞는 가족이 없어요.</div>
               : (
                 <div className="hq-tbl">

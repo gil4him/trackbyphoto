@@ -11,7 +11,8 @@ import type { AdminLogRow } from '../../lib/admin'
 import { WorkerError } from '../../lib/worker'
 import { useToast } from '../../components/Toast'
 
-export function FlagsView() {
+/** `refreshKey`: bumped by 새로고침; read the switches and the log again. */
+export function FlagsView({ refreshKey = 0 }: { refreshKey?: number }) {
   const toast = useToast()
   const [flags, setFlags] = useState<Record<string, boolean> | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -33,7 +34,7 @@ export function FlagsView() {
     )
     void loadLog()
     return () => { cancelled = true }
-  }, [])
+  }, [refreshKey])
 
   const flip = async (f: FlagInfo, on: boolean) => {
     setBusy(f.key)

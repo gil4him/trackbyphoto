@@ -16,20 +16,19 @@ import { HourBars } from './charts'
 const STATUS_KO = { ok: '정상', down: '멈춤', unknown: '확인 중' } as const
 const CELL_KO = { ok: '정상', slow: '느림', miss: '신호 없음', none: '기록 없음' } as const
 
-export function SystemView({ worker, people, refreshKey }: { worker: WorkerBeatView; people: AdminPerson[]; refreshKey: number }) {
+export function SystemView({ worker, people, peopleFailed = false, refreshKey }: { worker: WorkerBeatView; people: AdminPerson[]; peopleFailed?: boolean; refreshKey: number }) {
   const [m, setM] = useState<AdminMetrics | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [tick, setTick] = useState(0)
   const [retention, setRetention] = useState<boolean | null>(null)
   const [now, setNow] = useState(() => Date.now())
 
-  // The strip and memo times come from the worker's memory: ask again every minute.
-  useEffect(() => {
-    const id = window.setInterval(() => setTick((t) => t + 1), 60_000)
-    return () => window.clearInterval(id)
-  }, [])
+  // The strip and memo times come from the worker's memory: ask again a
+  // minute after each answer (or error) — never while one is still on its
+  // way, or a slow worker's timeout would keep being cancelled.
   useEffect(() => {
     let cancelled = false
+    let timer: number | undefined
     adminMetrics(refreshKey > 0 && tick === 0).then(
       (x) => { if (!cancelled) { setM(x); setError(null); setNow(Date.now()) } },
       (err) => {
@@ -39,8 +38,8 @@ export function SystemView({ worker, people, refreshKey }: { worker: WorkerBeatV
           ? '서버(Mac mini)가 응답하지 않아요. 아래 기록은 서버가 돌아오면 다시 채워져요.'
           : `불러오지 못했어요: ${(err as Error).message}`)
       },
-    )
-    return () => { cancelled = true }
+    ).finally(() => { if (!cancelled) timer = window.setTimeout(() => setTick((t) => t + 1), 60_000) })
+    return () => { cancelled = true; window.clearTimeout(timer) }
   }, [refreshKey, tick])
   useEffect(() => {
     let cancelled = false
@@ -49,6 +48,7 @@ export function SystemView({ worker, people, refreshKey }: { worker: WorkerBeatV
   }, [])
 
   const sys = m?.system
+  const failed = !!error && !m
   const rate = sys ? failRate(sys.fail24h) : null
   const restarted = sys ? restartedMinutesAgo(sys.startedAt, now) : null
   const phones = platformSplit(people)
@@ -72,7 +72,7 @@ export function SystemView({ worker, people, refreshKey }: { worker: WorkerBeatV
           </div>
         </section>
 
-        <section className="hq-card" aria-busy={!sys && !error}>
+        {!failed && <section className="hq-card" aria-busy={!sys}>
           <h3>메모 시간 <small>사진이 올라와서 메모가 될 때까지</small></h3>
           {!sys ? <Lines n={3} /> : sys.memoP50 === null ? (
             <><p className="hq-big-n">—</p><p className="hq-note">서버가 다시 시작한 뒤 아직 쓴 메모가 없어요.</p></>
@@ -82,9 +82,9 @@ export function SystemView({ worker, people, refreshKey }: { worker: WorkerBeatV
               <p className="hq-note num">{`중간값 · 느린 10%는 ${secs(sys.memoP90 ?? sys.memoP50)} · 최근 메모 ${fmtN(sys.memoCount)}장 기준`}</p>
             </>
           )}
-        </section>
+        </section>}
 
-        <section className="hq-card" aria-busy={!sys && !error}>
+        {!failed && <section className="hq-card" aria-busy={!sys}>
           <h3>실패율 <small>24시간</small></h3>
           {!sys ? <Lines n={3} /> : rate === null ? (
             <><p className="hq-big-n">—</p><p className="hq-note">최근 24시간에 올라온 사진이 없어요.</p></>
@@ -94,10 +94,10 @@ export function SystemView({ worker, people, refreshKey }: { worker: WorkerBeatV
               <p className="hq-note num">{`사진 ${fmtN(sys.fail24h.total)}장 중 ${fmtN(sys.fail24h.failed)}장이 메모를 못 받았어요`}</p>
             </>
           )}
-        </section>
+        </section>}
       </div>
 
-      <section className="hq-card" aria-busy={!sys && !error}>
+      {!failed && <section className="hq-card" aria-busy={!sys}>
         <h3>최근 60분 신호 <small>1분마다 한 칸</small></h3>
         {!sys ? <Lines n={2} /> : (
           <>
@@ -114,14 +114,14 @@ export function SystemView({ worker, people, refreshKey }: { worker: WorkerBeatV
             </p>
           </>
         )}
-      </section>
+      </section>}
 
       <div className="hq-g2e">
-        <section className="hq-card" aria-busy={!m && !error}>
+        {!failed && <section className="hq-card" aria-busy={!m}>
           <h3>오늘 시간대별 사진 {busiest !== null && <small>{`${busiest}시에 가장 몰려요`}</small>}</h3>
           {!m ? <Lines n={4} /> : m.photosToday === 0 ? <div className="hq-empty">오늘은 아직 사진이 없어요.</div>
             : <HourBars byHour={m.photosByHourToday} busiest={busiest} />}
-        </section>
+        </section>}
 
         <section className="hq-card">
           <h3>앱 상태</h3>
@@ -131,7 +131,7 @@ export function SystemView({ worker, people, refreshKey }: { worker: WorkerBeatV
             <div><span>보관 기간 정리</span><span className={`hq-tag ${retention ? 't-good' : 't-dim'}`}>{retention === null ? '확인 중' : retention ? '스위치 켜짐' : '스위치 꺼짐'}</span></div>
           </div>
           <h3 className="hq-sub-h">연결된 부모님 휴대폰</h3>
-          {phones.length === 0 ? <div className="hq-empty">연결된 휴대폰이 없어요.</div> : (
+          {peopleFailed ? <div className="hq-empty">가족 목록을 불러오지 못했어요.</div> : phones.length === 0 ? <div className="hq-empty">연결된 휴대폰이 없어요.</div> : (
             <div className="hq-src">
               {phones.map((p) => (
                 <div key={p.label}><span>{p.label}</span><span className="bar muted-bar" style={{ width: `${Math.max(4, p.pct)}%` }} /><b className="num">{`${fmtN(p.count)} · ${p.pct}%`}</b></div>

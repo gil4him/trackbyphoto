@@ -16,7 +16,7 @@ const PERIOD_KO = { year: '/년', month: '/월', once: '(한 번)' } as const
 const PARTS = [['storageUSD', '사진 저장 (Storage)'], ['firestoreUSD', 'Firestore'], ['hostingUSD', 'Hosting'], ['otherUSD', '기타']] as const
 type PartKey = (typeof PARTS)[number][0]
 
-export function CostsView({ people, peopleLoading }: { people: AdminPerson[]; peopleLoading: boolean }) {
+export function CostsView({ people, peopleLoading, peopleFailed = false, refreshKey = 0 }: { people: AdminPerson[]; peopleLoading: boolean; peopleFailed?: boolean; refreshKey?: number }) {
   const toast = useToast()
   const month = seoulMonth()
   const [data, setData] = useState<{ dashboard: Record<string, unknown> | null; aiUSD: number } | null>(null)
@@ -34,7 +34,7 @@ export function CostsView({ people, peopleLoading }: { people: AdminPerson[]; pe
     )
     loadPlans().then((p) => { if (!cancelled) setCloudMemo(p?.flags?.cloudMemo === true) })
     return () => { cancelled = true }
-  }, [month])
+  }, [month, refreshKey])
 
   const s = data && costSummary(data.dashboard, month, data.aiUSD)
   const families = familyCount(people)
@@ -140,7 +140,9 @@ export function CostsView({ people, peopleLoading }: { people: AdminPerson[]; pe
 
         <section className="hq-card" aria-busy={!s || (peopleLoading && !people.length)}>
           <h3>가족 1곳당 <small>한 달</small></h3>
-          {!s || (peopleLoading && !people.length) ? <Lines n={3} /> : each === null ? (
+          {!s || (peopleLoading && !people.length) ? <Lines n={3} /> : peopleFailed ? (
+            <><p className="hq-big-n">—</p><p className="hq-note">가족 목록을 불러오지 못해서 나눌 수 없어요.</p></>
+          ) : each === null ? (
             <>
               <p className="hq-big-n">—</p>
               <p className="hq-note">아직 함께하는 가족이 없어요.</p>

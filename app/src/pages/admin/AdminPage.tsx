@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { User } from 'firebase/auth'
 import {
-  ADMIN_TABS, adminListPeople, beatAgo, familyCount, routeFromSearch, searchFromRoute,
+  ADMIN_TABS, adminListPeople, beatAgo, refreshedAgo, familyCount, routeFromSearch, searchFromRoute,
   type AdminPerson, type AdminRoute,
 } from '../../lib/admin'
 import { WorkerError } from '../../lib/worker'
@@ -112,7 +112,9 @@ export function AdminPage({ user, onSignOut }: { user: User; onSignOut: () => Pr
     const p = people.find((x) => x.uid === uid)
     go({ tab: 'families', kind: p?.kind ?? route.kind, uid })
   }
-  const families = loading ? null : familyCount(people)
+  // No count while loading, or when the list could not be read (not a real 0).
+  const families = loading || (error && !people.length) ? null : familyCount(people)
+  const peopleFailed = !!error && !people.length
 
   return (
     <div className="hq">
@@ -147,7 +149,7 @@ export function AdminPage({ user, onSignOut }: { user: User; onSignOut: () => Pr
         <div className="hq-bar">
           <span className="hq-bar-status">
             <span className="hq-bar-live"><span className={`hq-dot ${worker.status}`} aria-hidden="true" />{WORKER_KO[worker.status]}</span>
-            {loadedAt && <span className="muted num">{loadedAt.toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' })} 기준</span>}
+            {loadedAt && <span className="muted num" title={loadedAt.toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' })}>{refreshedAgo(loadedAt, worker.now)}</span>}
           </span>
           <span className="hq-me muted">{user.email}</span>
           <button type="button" className="admin-btn small" onClick={reload} disabled={loading}>
@@ -172,24 +174,26 @@ export function AdminPage({ user, onSignOut }: { user: User; onSignOut: () => Pr
           ) : route.tab === 'families' ? (
             <>
               {route.kind === 'parent'
-                ? <FamiliesTable people={people} loading={loading} filter={route.filter} onFilter={(filter) => go({ filter }, false)} onOpen={openPerson}
+                ? <FamiliesTable people={people} loading={loading} failed={peopleFailed} filter={route.filter} onFilter={(filter) => go({ filter }, false)} onOpen={openPerson}
                     switcher={<KindSwitch kind={route.kind} onKind={(kind) => go({ kind }, false)} />} />
                 : <div className="hq-people">
                   <div className="hq-vhead">
                     <div className="hq-vhead-t"><small>{`가족 계정 ${people.filter((p) => p.kind === 'child').length}개 · 관리자 포함`}</small><h1>가족 계정</h1></div>
                     <KindSwitch kind={route.kind} onKind={(kind) => go({ kind }, false)} />
                   </div>
-                  <PeopleTab key={route.kind} kind={route.kind} people={people} loading={loading} onOpen={openPerson} />
+                  {peopleFailed
+                    ? <section className="hq-card"><div className="hq-empty">목록을 불러오지 못했어요. 서버가 돌아오면 새로고침해 주세요.</div></section>
+                    : <PeopleTab key={route.kind} kind={route.kind} people={people} loading={loading} onOpen={openPerson} />}
                 </div>}
             </>
           ) : route.tab === 'flags' ? (
-            <FlagsView />
+            <FlagsView refreshKey={gen - 1} />
           ) : route.tab === 'system' ? (
-            <SystemView worker={worker} people={people} refreshKey={gen - 1} />
+            <SystemView worker={worker} people={people} peopleFailed={peopleFailed} refreshKey={gen - 1} />
           ) : route.tab === 'costs' ? (
-            <CostsView people={people} peopleLoading={loading} />
+            <CostsView people={people} peopleLoading={loading} peopleFailed={peopleFailed} refreshKey={gen - 1} />
           ) : route.tab === 'revenue' ? (
-            <RevenueView people={people} peopleLoading={loading} />
+            <RevenueView people={people} peopleLoading={loading} peopleFailed={peopleFailed} refreshKey={gen - 1} />
           ) : route.tab === 'growth' ? (
             <GrowthView refreshKey={gen - 1} />
           ) : route.tab === 'inbox' ? (

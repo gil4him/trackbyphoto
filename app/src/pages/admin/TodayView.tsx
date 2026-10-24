@@ -12,6 +12,9 @@ import { WorkerError } from '../../lib/worker'
 import type { WorkerBeatView } from '../../hooks/useWorkerStatus'
 import { HourBars, Sparkline } from './charts'
 import { topItems, type Inbox } from '../../lib/adminInbox'
+import { costSummary, seoulMonth, type CostSummary } from '../../lib/adminCosts'
+import { loadMonthCosts } from '../../lib/adminCostsData'
+import { won } from '../../lib/adminRevenue'
 
 const WORKER_KO = { ok: '정상', down: '멈춤', unknown: '확인 중' } as const
 
@@ -27,6 +30,7 @@ export function TodayView({ inbox, inboxError, worker, refreshKey, onGo }: {
   const [range, setRange] = useState<Range>(7)
   const [state, setState] = useState<{ key: number; m: AdminMetrics | null; error: string | null }>({ key: -1, m: null, error: null })
   const [paymentsOn, setPaymentsOn] = useState<boolean | null>(null)
+  const [costs, setCosts] = useState<CostSummary | null>(null)
   const loading = state.key !== refreshKey
 
   useEffect(() => {
@@ -47,11 +51,20 @@ export function TodayView({ inbox, inboxError, worker, refreshKey, onGo }: {
   useEffect(() => {
     let cancelled = false
     loadPlans().then((p) => { if (!cancelled) setPaymentsOn(p?.flags?.payments === true) })
+    // The month's costs as 비용 adds them up.
+    const month = seoulMonth()
+    loadMonthCosts(month).then(
+      (d) => { if (!cancelled) setCosts(costSummary(d.dashboard, month, d.aiUSD)) },
+      (err) => console.error('[admin] costs', err),
+    )
     return () => { cancelled = true }
-  }, [])
+  }, [refreshKey])
 
   const { line, greeting } = briefing()
   const m = state.m
+  // The worker did not answer and there is nothing older to show: the error
+  // card says so, and the cards that need its numbers step aside.
+  const failed = !!state.error && !m
   const nowCount = inbox?.items.filter((i) => i.when === 'now').length ?? 0
   const busiest = m ? busiestHour(m.photosByHourToday) : null
 
@@ -72,7 +85,7 @@ export function TodayView({ inbox, inboxError, worker, refreshKey, onGo }: {
       {state.error && !m && <div className="hq-card hq-err" role="alert">{state.error}</div>}
       {state.error && m && <div className="admin-error">{state.error} 아래는 {clock(m.at)} 기준 숫자예요.</div>}
 
-      <div className="hq-hero">
+      {!failed && <div className="hq-hero">
         <section className="hq-card hq-story" aria-busy={!m}>
           {m ? (
             <p className="hq-big">
@@ -108,9 +121,9 @@ export function TodayView({ inbox, inboxError, worker, refreshKey, onGo }: {
             </>
           ) : <Skeleton lines={3} dark />}
         </section>
-      </div>
+      </div>}
 
-      <section className="hq-kpis" aria-label="핵심 숫자" aria-busy={!m}>
+      {!failed && <section className="hq-kpis" aria-label="핵심 숫자" aria-busy={!m}>
         {m ? kpis(m, range).map((k) => (
           <div key={k.key} className="hq-kpi">
             <span className="k">{k.label}</span>
@@ -119,7 +132,7 @@ export function TodayView({ inbox, inboxError, worker, refreshKey, onGo }: {
             <Sparkline values={k.series} tone={k.trend === 'down' ? 'danger' : k.trend === 'up' ? 'good' : 'muted'} />
           </div>
         )) : Array.from({ length: 5 }, (_, i) => <div key={i} className="hq-kpi"><Skeleton lines={3} /></div>)}
-      </section>
+      </section>}
 
       <div className="hq-g2">
         <section className="hq-card">
@@ -151,19 +164,19 @@ export function TodayView({ inbox, inboxError, worker, refreshKey, onGo }: {
             <h3>이번 달 돈 <button type="button" className="hq-link" onClick={() => onGo('revenue')}>자세히 ›</button></h3>
             <div className="hq-rows">
               <div><span>매출</span>{paymentsOn ? <span className="hq-tag t-dim">연결 필요</span> : <span className="hq-tag t-acc">결제 준비 중</span>}</div>
-              <div><span>운영 비용</span><span className="hq-tag t-dim">입력 전</span></div>
+              <div><span>운영 비용</span>{costs ? <b className="num">{won(costs.totalKRW)}</b> : <span className="hq-tag t-dim">…</span>}</div>
             </div>
-            <p className="hq-note">결제가 켜지고 비용을 입력하면 여기서 한 달에 남는 돈을 보여드려요.</p>
+            <p className="hq-note">{costs?.missing.length ? `비용 중 ${costs.missing.join(', ')}은(는) 아직 입력 전이에요. ` : ''}결제가 켜지면 여기서 한 달에 남는 돈을 보여드려요.</p>
           </section>
         </div>
       </div>
 
-      <section className="hq-card" aria-busy={!m}>
+      {!failed && <section className="hq-card" aria-busy={!m}>
         <h3>오늘 시간대별 사진 {busiest !== null && <small>{busiest}시에 가장 몰려요</small>}</h3>
         {!m ? <Skeleton lines={4} />
           : m.photosToday === 0 ? <div className="hq-empty">오늘은 아직 사진이 없어요.</div>
             : <HourBars byHour={m.photosByHourToday} busiest={busiest} />}
-      </section>
+      </section>}
 
       {m && !loading && <p className="hq-note num">{clock(m.at)} 기준 · 서버가 5분 동안 같은 숫자를 보여드리고, 새로고침하면 다시 세요.</p>}
     </div>

@@ -36,6 +36,8 @@ export function GrowthView({ refreshKey }: { refreshKey: number }) {
   }, [])
 
   const g = state.g
+  // No answer and nothing older: the error card says so; the cards step aside.
+  const failed = !!state.error && !g
   const signups = g?.funnel[0]?.count ?? 0
   const leakTo = g?.drop?.to
 
@@ -51,6 +53,7 @@ export function GrowthView({ refreshKey }: { refreshKey: number }) {
       {state.error && !g && <div className="hq-card hq-err" role="alert">{state.error}</div>}
       {state.error && g && <div className="admin-error">{state.error}</div>}
 
+      {!failed && <>
       <section className="hq-card" aria-busy={!g}>
         <h3>여정 <small>단계마다 다음으로 넘어간 비율</small></h3>
         {!g ? <Lines n={6} /> : (
@@ -142,6 +145,7 @@ export function GrowthView({ refreshKey }: { refreshKey: number }) {
         )}
         <p className="hq-note">활동 부모님 = 최근 7일 안에 사진을 보낸 부모님 · 누적 가족 = 그날 함께하는 가족</p>
       </section>
+      </>}
     </div>
   )
 }
