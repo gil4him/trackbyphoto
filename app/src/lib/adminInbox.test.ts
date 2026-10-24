@@ -31,8 +31,8 @@ describe('할 일 on the page', () => {
 
   it('열기 opens one person, the 가족 list for several, or the view a system item is about', () => {
     expect(openTarget(item('a', 'day', { targets: [{ uid: 'mom', kind: 'parent' }] }))).toEqual({ uid: 'mom' })
-    expect(openTarget(item('a', 'day', { targets: [{ uid: 'a', kind: 'parent' }, { uid: 'b', kind: 'parent' }] }))).toEqual({ tab: 'families', kind: 'parent' })
-    expect(openTarget(item('a', 'wk', { targets: [{ uid: 'a', kind: 'child' }, { uid: 'b', kind: 'child' }] }))).toEqual({ tab: 'families', kind: 'child' })
+    expect(openTarget(item('a', 'day', { targets: [{ uid: 'a', kind: 'parent' }, { uid: 'b', kind: 'parent' }] }))).toEqual({ tab: 'families', kind: 'parent', filter: 'all' })
+    expect(openTarget(item('a', 'wk', { targets: [{ uid: 'a', kind: 'child' }, { uid: 'b', kind: 'child' }] }))).toEqual({ tab: 'families', kind: 'child', filter: 'all' })
     expect(openTarget(item('a', 'now', { rule: 'workerDown' }))).toEqual({ tab: 'system' })
     expect(openTarget(item('a', 'wk', { rule: 'costOverBudget' }))).toEqual({ tab: 'costs' })
   })

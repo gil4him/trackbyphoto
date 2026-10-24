@@ -35,7 +35,10 @@ export interface AdminPerson {
   memos: { count: number; lastAt: string | null }
   /** For a parent: who looks after them. For a child: the parents they look after. */
   links: { active: number; guardians: number }
-  devices: { active: number; total: number }
+  /** The other side of the active links (a parent's family, a child's parents), 대표 first. */
+  linkUids: string[]
+  /** `platforms`: the active phones' platforms (ios / android / web). */
+  devices: { active: number; total: number; platforms: string[] }
 }
 
 export interface AdminLink {
@@ -271,8 +274,12 @@ export const ADMIN_TABS: { key: AdminTab; label: string }[] = [
   { key: 'ai', label: 'AI 도구' },
 ]
 
-/** `kind` matters on 가족 only: whose list (부모님 or 가족) is showing. */
-export interface AdminRoute { tab: AdminTab; kind: PersonKind; uid: string | null }
+/** `kind` and `filter` matter on 가족 only: whose list is showing, and which chip. */
+export interface AdminRoute { tab: AdminTab; kind: PersonKind; uid: string | null; filter: FamilyFilter }
+
+/** The 가족 table's chips (pages/admin/FamiliesTable.tsx). */
+export type FamilyFilter = 'all' | 'quiet' | 'unpaired' | 'limit' | 'blocked'
+const FILTERS: FamilyFilter[] = ['all', 'quiet', 'unpaired', 'limit', 'blocked']
 
 /** The tab names before 운영실, so old links and bookmarks still land. */
 const OLD_TABS: Record<string, Pick<AdminRoute, 'tab'> & Partial<Pick<AdminRoute, 'kind'>>> = {
@@ -287,13 +294,15 @@ export function routeFromSearch(search: string): AdminRoute {
   const old = OLD_TABS[raw]
   const tab = old?.tab ?? (ADMIN_TABS.some((t) => t.key === raw) ? raw as AdminTab : 'today')
   const kind = old?.kind ?? (q.get('kind') === 'child' ? 'child' : 'parent')
-  return { tab, kind, uid: q.get('uid') }
+  const f = q.get('f') as FamilyFilter | null
+  return { tab, kind, uid: q.get('uid'), filter: f && FILTERS.includes(f) ? f : 'all' }
 }
 
 export function searchFromRoute(r: AdminRoute): string {
   const q = new URLSearchParams()
   if (r.tab !== 'today') q.set('tab', r.tab)
   if (r.tab === 'families') q.set('kind', r.kind)
+  if (r.tab === 'families' && r.kind === 'parent' && r.filter !== 'all') q.set('f', r.filter)
   if (r.uid) q.set('uid', r.uid)
   const s = q.toString()
   return s ? `?${s}` : ''

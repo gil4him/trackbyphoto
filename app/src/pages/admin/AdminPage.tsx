@@ -19,6 +19,7 @@ import { useWorkerBeat } from '../../hooks/useWorkerStatus'
 import { TodayView } from './TodayView'
 import { InboxView } from './InboxView'
 import { GrowthView } from './GrowthView'
+import { FamiliesTable } from './FamiliesTable'
 import { adminInbox, type Inbox } from '../../lib/adminInbox'
 import { PeopleTab } from './PeopleTab'
 import { PersonDetail } from './PersonDetail'
@@ -32,6 +33,16 @@ const COMING: Partial<Record<AdminTab, string>> = {
   costs: 'AI 메모와 Firebase 비용을 보여드릴 거예요.',
   system: '메모 서버의 신호와 메모 시간을 자세히 보여드릴 거예요.',
   flags: '앱 기능을 켜고 끄고, 누가 언제 바꿨는지 보여드릴 거예요.',
+}
+
+/** 가족별 (one row per family) or 가족 계정 (the family members' accounts). */
+function KindSwitch({ kind, onKind }: { kind: 'parent' | 'child'; onKind: (k: 'parent' | 'child') => void }) {
+  return (
+    <div className="hq-seg" role="group" aria-label="보기">
+      <button type="button" aria-pressed={kind === 'parent'} onClick={() => onKind('parent')}>가족별</button>
+      <button type="button" aria-pressed={kind === 'child'} onClick={() => onKind('child')}>가족 계정</button>
+    </div>
+  )
 }
 
 export function AdminPage({ user, onSignOut }: { user: User; onSignOut: () => Promise<void> }) {
@@ -165,11 +176,16 @@ export function AdminPage({ user, onSignOut }: { user: User; onSignOut: () => Pr
             <TodayView inbox={inbox} inboxError={inboxState.error} worker={worker} refreshKey={gen - 1} onGo={(tab) => go({ tab, uid: null })} />
           ) : route.tab === 'families' ? (
             <>
-              <div className="hq-seg" role="group" aria-label="보기">
-                <button type="button" aria-pressed={route.kind === 'parent'} onClick={() => go({ kind: 'parent' }, false)}>부모님</button>
-                <button type="button" aria-pressed={route.kind === 'child'} onClick={() => go({ kind: 'child' }, false)}>가족</button>
-              </div>
-              <PeopleTab key={route.kind} kind={route.kind} people={people} loading={loading} onOpen={openPerson} />
+              {route.kind === 'parent'
+                ? <FamiliesTable people={people} loading={loading} filter={route.filter} onFilter={(filter) => go({ filter }, false)} onOpen={openPerson}
+                    switcher={<KindSwitch kind={route.kind} onKind={(kind) => go({ kind }, false)} />} />
+                : <div className="hq-people">
+                  <div className="hq-vhead">
+                    <div className="hq-vhead-t"><small>{`가족 계정 ${people.filter((p) => p.kind === 'child').length}개 · 관리자 포함`}</small><h1>가족 계정</h1></div>
+                    <KindSwitch kind={route.kind} onKind={(kind) => go({ kind }, false)} />
+                  </div>
+                  <PeopleTab key={route.kind} kind={route.kind} people={people} loading={loading} onOpen={openPerson} />
+                </div>}
             </>
           ) : route.tab === 'growth' ? (
             <GrowthView refreshKey={gen - 1} />

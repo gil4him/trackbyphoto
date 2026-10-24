@@ -38,7 +38,8 @@ const VIEWS = [
   { id: 'inbox-resolved', search: '?tab=inbox', ready: '할 일은 이렇게 골라요', settled: '.hq-inbox-view .hq-ibx:not(:has(.hq-skel))', press: '해결됨', reload: true, only: '1440' },
   { id: 'inbox', search: '?tab=inbox', ready: '할 일은 이렇게 골라요', settled: '.hq-inbox-view .hq-ibx:not(:has(.hq-skel))' },
   { id: 'growth', search: '?tab=growth', ready: '한 가족이 들어와', settled: '.hq-growth:not(:has(.hq-skel)):not(:has(.hq-err))' },
-  { id: 'families-parent', search: '?tab=families&kind=parent', ready: '엄마' },
+  { id: 'families-parent', search: '?tab=families&kind=parent', ready: '엄마', settled: '.hq-families .hq-tbl' },
+  { id: 'families-unpaired', search: '?tab=families&kind=parent&f=unpaired', ready: '엄마', settled: '.hq-families .hq-tbl' },
   { id: 'families-child', search: '?tab=families&kind=child', ready: KID.email },
   { id: 'revenue', search: '?tab=revenue', ready: '곧 만들어요' },
   { id: 'costs', search: '?tab=costs', ready: '곧 만들어요' },
@@ -47,6 +48,8 @@ const VIEWS = [
   { id: 'ai', search: '?tab=ai', ready: 'AI' },
   // An old link lands on its new view.
   { id: 'old-parents-link', search: '?tab=parents', ready: '엄마', expectUrl: '/admin?tab=families&kind=parent' },
+  // A row opens the person, as before.
+  { id: 'families-open', search: '?tab=families&kind=parent', ready: '엄마', settled: '.hq-families .hq-tbl', press: '엄마 열기', pressSel: 'tr[aria-label]', expectUrlStart: '/admin?tab=families&kind=parent&uid=', only: '1440' },
 ]
 
 await mkdir(OUT, { recursive: true })
@@ -113,7 +116,7 @@ try {
         console.log('  page says:', (await p.evaluate(() => document.body.innerText)).slice(0, 600).replace(/\n+/g, ' | '))
         throw err
       })
-      if (v.press) { await click(p, v.press); await sleep(400) }
+      if (v.press) { await click(p, v.press, v.pressSel); await sleep(1500) }
       if (v.reload) {
         const before = await p.evaluate(() => document.querySelector('.hq-vhead h1')?.textContent)
         await waitText(p, '해결됨으로 옮겼어요', 15_000)
@@ -133,6 +136,7 @@ try {
       const findings = await audit(p, { minFont: 13, minTap: 44, smallOk: '.hq-never' })
       const where = await p.evaluate(() => location.pathname + location.search)
       if (v.expectUrl && where !== v.expectUrl) findings.push(`address ${where}, expected ${v.expectUrl}`)
+      if (v.expectUrlStart && !where.startsWith(v.expectUrlStart)) findings.push(`address ${where}, expected ${v.expectUrlStart}…`)
       const shell = findings.filter((f) => /hq|address|horizontal scroll/.test(f))
       if (shell.length) failed++
       report.push({ view: v.id, viewport: q.id, shell, inside: findings.filter((f) => !shell.includes(f)) })

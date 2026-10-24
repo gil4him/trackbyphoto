@@ -6,6 +6,8 @@
 import { doc, setDoc, serverTimestamp, Timestamp } from 'firebase/firestore'
 import { db } from '../firebase'
 import { callWorker } from './worker'
+import { filterForRule } from './adminFamilies'
+import type { FamilyFilter } from './admin'
 
 export type When = 'now' | 'day' | 'wk'
 export interface InboxItem {
@@ -44,9 +46,12 @@ export async function setItemState(id: string, state: 'snoozed' | 'resolved', no
 }
 
 /** Where 열기 goes: one person, the 가족 list, or the view the item is about. */
-export function openTarget(item: InboxItem): { uid: string } | { tab: 'families'; kind: 'parent' | 'child' } | { tab: 'system' | 'costs' } {
+export function openTarget(item: InboxItem): { uid: string } | { tab: 'families'; kind: 'parent' | 'child'; filter: FamilyFilter } | { tab: 'system' | 'costs' } {
   if (item.targets.length === 1) return { uid: item.targets[0].uid }
-  if (item.targets.length > 1) return { tab: 'families', kind: item.targets.every((t) => t.kind === 'child') ? 'child' : 'parent' }
+  if (item.targets.length > 1) {
+    const kind = item.targets.every((t) => t.kind === 'child') ? 'child' : 'parent'
+    return { tab: 'families', kind, filter: kind === 'parent' ? filterForRule(item.rule) : 'all' }
+  }
   return { tab: item.rule === 'costOverBudget' ? 'costs' : 'system' }
 }
 

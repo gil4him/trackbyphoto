@@ -1,0 +1,170 @@
+[
+ {
+  "view": "families-parent",
+  "viewport": "1440",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "families-parent",
+  "viewport": "1280",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "families-parent",
+  "viewport": "820",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "families-parent",
+  "viewport": "393",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "families-parent",
+  "viewport": "360",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "families-parent",
+  "viewport": "393-L",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "families-unpaired",
+  "viewport": "1440",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "families-unpaired",
+  "viewport": "1280",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "families-unpaired",
+  "viewport": "820",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "families-unpaired",
+  "viewport": "393",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "families-unpaired",
+  "viewport": "360",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "families-unpaired",
+  "viewport": "393-L",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "families-child",
+  "viewport": "1440",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "families-child",
+  "viewport": "1280",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "families-child",
+  "viewport": "820",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "families-child",
+  "viewport": "393",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "families-child",
+  "viewport": "360",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "families-child",
+  "viewport": "393-L",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "old-parents-link",
+  "viewport": "1440",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "old-parents-link",
+  "viewport": "1280",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "old-parents-link",
+  "viewport": "820",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "old-parents-link",
+  "viewport": "393",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "old-parents-link",
+  "viewport": "360",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "old-parents-link",
+  "viewport": "393-L",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "families-open",
+  "viewport": "1440",
+  "shell": [],
+  "inside": [
+   "tap 43×21: button.admin-back “← 목록”",
+   "small text 11px: span.admin-kind.parent “부모님”",
+   "small text 11px: span.admin-badge.warn “휴대폰 미연결”",
+   "small text 12px: code “33D0LC3bEIVUeA9Y9O”",
+   "small text 11px: span.admin-badge.good “정상”",
+   "small text 12px: button.admin-btn.small “로그인 차단”",
+   "tap 82×30: button.admin-btn.small “로그인 차단”",
+   "tap 56×41: button.admin-btn “저장”",
+   "tap 24×20: button.admin-linkbtn “지민”",
+   "small text 12px: div.admin-cell-sub “jimin@example.com”",
+   "small text 11px: span.admin-badge.good “활성”",
+   "small text 12px: button.admin-btn.small “해제”",
+   "tap 45×30: button.admin-btn.small “해제”",
+   "tap 53×20: button.admin-linkbtn “대표 가족”",
+   "tap 53×20: button.admin-linkbtn “대표 가족”",
+   "tap 67×20: button.admin-linkbtn “eztBxP2v…”",
+   "tap 87×41: button.admin-btn.danger “계정 삭제”"
+  ]
+ }
+]

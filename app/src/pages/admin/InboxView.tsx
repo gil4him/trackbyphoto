@@ -15,7 +15,7 @@ export function InboxView({ inbox, error, onDone, onOpenPerson, onGo }: {
   /** An item was snoozed or resolved: take it off the list. */
   onDone: (id: string) => void
   onOpenPerson: (uid: string) => void
-  onGo: (to: { tab: 'families'; kind: 'parent' | 'child' } | { tab: 'system' | 'costs' }) => void
+  onGo: (to: Exclude<ReturnType<typeof openTarget>, { uid: string }>) => void
 }) {
   const toast = useToast()
   const [selected, setSelected] = useState<string | null>(null)

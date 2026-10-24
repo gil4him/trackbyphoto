@@ -19,6 +19,7 @@ import { PeopleTab } from './PeopleTab'
 import { TodayView } from './TodayView'
 import { InboxView } from './InboxView'
 import { GrowthView } from './GrowthView'
+import { FamiliesTable } from './FamiliesTable'
 import { ToastProvider } from '../../components/Toast'
 import type { Inbox } from '../../lib/adminInbox'
 import { AdminPage } from './AdminPage'
@@ -32,15 +33,15 @@ const base = {
 }
 const MOM: AdminPerson = {
   ...base, uid: 'mom1', kind: 'parent', name: '엄마', email: null, lastSignInAt: null,
-  memos: { count: 12, lastAt: '2026-10-10T09:00:00.000Z' }, links: { active: 2, guardians: 1 }, devices: { active: 1, total: 1 },
+  memos: { count: 12, lastAt: '2026-10-10T09:00:00.000Z' }, links: { active: 2, guardians: 1 }, devices: { active: 1, total: 1, platforms: ['ios'] }, linkUids: ['kid1'],
 }
 const DAD: AdminPerson = {
   ...base, uid: 'dad1', kind: 'parent', name: '아빠', email: null, lastSignInAt: null,
-  memos: { count: 0, lastAt: null }, links: { active: 0, guardians: 0 }, devices: { active: 0, total: 0 },
+  memos: { count: 0, lastAt: null }, links: { active: 0, guardians: 0 }, devices: { active: 0, total: 0, platforms: [] }, linkUids: [],
 }
 const KID: AdminPerson = {
   ...base, uid: 'kid1', kind: 'child', name: '지은', email: 'jieun@example.com', providers: ['google.com'],
-  lastSignInAt: '2026-10-11T01:00:00.000Z', memos: { count: 3, lastAt: null }, links: { active: 1, guardians: 1 }, devices: { active: 0, total: 0 },
+  lastSignInAt: '2026-10-11T01:00:00.000Z', memos: { count: 3, lastAt: null }, links: { active: 1, guardians: 1 }, devices: { active: 0, total: 0, platforms: [] }, linkUids: ['mom1'],
   plan: { tier: 'plus', status: 'active', since: '2026-10-02T00:00:00.000Z', explicit: true },
 }
 const people = [MOM, DAD, KID]
@@ -70,20 +71,20 @@ describe('AdminPage', () => {
 
 describe('운영실 routes', () => {
   it('keeps the view, the 가족 kind and the open person in the query string', () => {
-    expect(routeFromSearch('')).toEqual({ tab: 'today', kind: 'parent', uid: null })
-    expect(routeFromSearch('?tab=inbox')).toEqual({ tab: 'inbox', kind: 'parent', uid: null })
-    expect(routeFromSearch('?tab=families&kind=child&uid=kid1')).toEqual({ tab: 'families', kind: 'child', uid: 'kid1' })
-    expect(routeFromSearch('?tab=nope')).toEqual({ tab: 'today', kind: 'parent', uid: null })
-    expect(searchFromRoute({ tab: 'today', kind: 'parent', uid: null })).toBe('')
-    expect(searchFromRoute({ tab: 'flags', kind: 'parent', uid: null })).toBe('?tab=flags')
-    expect(searchFromRoute({ tab: 'families', kind: 'child', uid: 'kid1' })).toBe('?tab=families&kind=child&uid=kid1')
+    expect(routeFromSearch('')).toEqual({ tab: 'today', kind: 'parent', uid: null, filter: 'all' })
+    expect(routeFromSearch('?tab=inbox')).toEqual({ tab: 'inbox', kind: 'parent', uid: null, filter: 'all' })
+    expect(routeFromSearch('?tab=families&kind=child&uid=kid1')).toEqual({ tab: 'families', kind: 'child', uid: 'kid1', filter: 'all' })
+    expect(routeFromSearch('?tab=nope')).toEqual({ tab: 'today', kind: 'parent', uid: null, filter: 'all' })
+    expect(searchFromRoute({ tab: 'today', kind: 'parent', uid: null, filter: 'all' })).toBe('')
+    expect(searchFromRoute({ tab: 'flags', kind: 'parent', uid: null, filter: 'all' })).toBe('?tab=flags')
+    expect(searchFromRoute({ tab: 'families', kind: 'child', uid: 'kid1', filter: 'all' })).toBe('?tab=families&kind=child&uid=kid1')
   })
 
   it('lands the old tab names on their new views', () => {
-    expect(routeFromSearch('?tab=overview')).toEqual({ tab: 'today', kind: 'parent', uid: null })
-    expect(routeFromSearch('?tab=parents')).toEqual({ tab: 'families', kind: 'parent', uid: null })
-    expect(routeFromSearch('?tab=children&uid=kid1')).toEqual({ tab: 'families', kind: 'child', uid: 'kid1' })
-    expect(routeFromSearch('?tab=ai')).toEqual({ tab: 'ai', kind: 'parent', uid: null })
+    expect(routeFromSearch('?tab=overview')).toEqual({ tab: 'today', kind: 'parent', uid: null, filter: 'all' })
+    expect(routeFromSearch('?tab=parents')).toEqual({ tab: 'families', kind: 'parent', uid: null, filter: 'all' })
+    expect(routeFromSearch('?tab=children&uid=kid1')).toEqual({ tab: 'families', kind: 'child', uid: 'kid1', filter: 'all' })
+    expect(routeFromSearch('?tab=ai')).toEqual({ tab: 'ai', kind: 'parent', uid: null, filter: 'all' })
     expect(searchFromRoute(routeFromSearch('?tab=parents'))).toBe('?tab=families&kind=parent')
     expect(searchFromRoute(routeFromSearch('?tab=overview'))).toBe('')
   })
@@ -197,6 +198,38 @@ describe('GrowthView', () => {
     expect(html).toContain('hq-skel')
     expect(html).toContain('아직 기록 안 함')
     expect(html).not.toMatch(/\d+곳을 따라가/)
+  })
+})
+
+describe('FamiliesTable', () => {
+  const table = (filter: 'all' | 'unpaired' | 'blocked' = 'all') => renderToString(<FamiliesTable people={people} loading={false} filter={filter} onFilter={() => {}} onOpen={() => {}} />)
+
+  it('one row per parent, named after the 대표, with the chips and their counts', () => {
+    const html = table()
+    expect(html).toContain('가족 1곳')
+    expect(html).toContain('부모님 2분 · 가족 1명')
+    expect(html).toContain('지은 가족')
+    expect(html).toContain('가족 없음')
+    expect(html).toContain('iPhone')
+    for (const chip of ['전체 2', '3일 사진 없음 1', '휴대폰 미연결 1', '가족 한도 0', '차단 0']) expect(html).toContain(chip)
+    expect(html).toContain('hq-tbl')
+  })
+
+  it('shows only the chip\'s rows', () => {
+    const html = table('unpaired')
+    expect(html).toContain('아빠')
+    expect(html).not.toContain('지은 가족')
+    expect(table('blocked')).toContain('맞는 가족이 없어요')
+  })
+})
+
+describe('가족 address', () => {
+  it('keeps the chip in the address, on the 가족별 list only', () => {
+    expect(routeFromSearch('?tab=families&kind=parent&f=quiet')).toMatchObject({ tab: 'families', kind: 'parent', filter: 'quiet' })
+    expect(routeFromSearch('?tab=families&f=nope').filter).toBe('all')
+    expect(searchFromRoute({ tab: 'families', kind: 'parent', uid: null, filter: 'unpaired' })).toBe('?tab=families&kind=parent&f=unpaired')
+    expect(searchFromRoute({ tab: 'families', kind: 'child', uid: null, filter: 'unpaired' })).toBe('?tab=families&kind=child')
+    expect(searchFromRoute({ tab: 'today', kind: 'parent', uid: null, filter: 'quiet' })).toBe('')
   })
 })
 

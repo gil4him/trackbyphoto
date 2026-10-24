@@ -49,7 +49,10 @@ export interface AdminPerson {
   memos: { count: number; lastAt: string | null }
   /** For a parent: who looks after them. For a child: the parents they look after. */
   links: { active: number; guardians: number }
-  devices: { active: number; total: number }
+  /** The other side of the active links (a parent's family, a child's parents), 대표 first. */
+  linkUids: string[]
+  /** `platforms`: the active phones' platforms (ios / android / web). */
+  devices: { active: number; total: number; platforms: string[] }
 }
 
 export interface AdminLink {
@@ -177,11 +180,15 @@ async function buildPerson(
     ? memberships.filter((m) => m.patientUid === auth.uid)
     : memberships.filter((m) => m.caregiverUid === auth.uid)
   const active = mine.filter((m) => m.status === 'active')
-  let devices = { active: 0, total: 0 }
+  let devices: AdminPerson['devices'] = { active: 0, total: 0, platforms: [] }
   if (kind === 'parent') {
     const snap = await db.collection('users').doc(auth.uid).collection('devices').get()
-    devices = { active: snap.docs.filter((d) => d.get('status') === 'active').length, total: snap.size }
+    const live = snap.docs.filter((d) => d.get('status') === 'active')
+    devices = { active: live.length, total: snap.size, platforms: live.map((d) => String(d.get('platform') ?? '')).filter(Boolean) }
   }
+  const other = (m: DocumentData) => String(kind === 'parent' ? m.caregiverUid : m.patientUid)
+  const linkUids = [...active.filter((m) => m.role === 'guardian'), ...active.filter((m) => m.role !== 'guardian')]
+    .map(other).filter((u, i, all) => u !== auth.uid && all.indexOf(u) === i)
   return {
     uid: auth.uid,
     kind,
@@ -197,6 +204,7 @@ async function buildPerson(
     plan: planOf(settings),
     memos: await memoStats(db, auth.uid),
     links: { active: active.length, guardians: active.filter((m) => m.role === 'guardian').length },
+    linkUids,
     devices,
   }
 }
