@@ -170,7 +170,7 @@ describe("Home in the simple edition: the family dashboard (A10)", () => {
     expect(count(out, 'class="pc-thumb"')).toBe(3)
     expect(out).toContain('보기 ›')
     expect(out).not.toContain('pc-news')
-    const card = out.slice(out.indexOf('<button type="button" class="patient-card"'), out.indexOf('class="mine"'))
+    const card = out.slice(out.indexOf('<button type="button" class="patient-card"'), out.indexOf('</section>'))
     expect(card.match(/<button/g)?.length).toBe(1)
   })
 
@@ -197,17 +197,14 @@ describe("Home in the simple edition: the family dashboard (A10)", () => {
     expect(quiet).not.toContain('어제 사진')
   })
 
-  it('내 오늘: the photos taken today as 52px squares, then the dashed camera square; none → the square and 카메라 버튼으로 남겨요', () => {
-    const mine = [pm('me', 'm2', 12, 0), pm('me', 'm1', 9, 0), pm('me', 'old', 9, 0, -1)]
-    const out = render({ parents: [mom], memos: mine })
-    expect(out).toContain('내 오늘 · 사진 2장')
-    expect(count(out, 'class="mine-thumb"')).toBe(2)
-    expect(out).toContain('class="mine-add"')
-    expect(out).not.toContain('카메라 버튼으로 남겨요')
-    const none = render({ parents: [mom] })
-    expect(none).toContain('내 오늘 · 사진 0장')
-    expect(none).toContain('class="mine-add"')
-    expect(none).toContain('카메라 버튼으로 남겨요')
+  it("오늘 holds today's exchanges: what one sent today, and no strip of one's own photos in the page (it floats by the camera)", () => {
+    const mine = [pm('me', 'm2', 12, 0), pm('me', 'm1', 9, 0)]
+    const out = render({ parents: [mom], memos: mine, sentToday: <div className="sent-today">보낸 사진 · 오늘 1장</div> })
+    expect(out).toContain('보낸 사진 · 오늘 1장')
+    expect(out).not.toContain('내 오늘')
+    expect(out).not.toContain('mine-thumb')
+    expect(out).not.toContain('mine-add')
+    expect(render({ parents: [mom] })).not.toContain('sent-today')
   })
 })
 

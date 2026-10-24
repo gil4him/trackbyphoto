@@ -33,6 +33,9 @@ import { SignIn } from './pages/SignIn'
 import { AcceptInvite, PENDING_INVITE_KEY } from './pages/AcceptInvite'
 import { ConnectParentCard } from './components/ConnectParentCard'
 import { FamilyCamera } from './components/CameraFab'
+import { MineStrip } from './components/MineStrip'
+import { SentRow } from './components/SentRow'
+import { S } from './lib/strings'
 import { appTitle, isSimple } from './lib/edition'
 import { inStore, storeKind } from './lib/storeLinks'
 import { defaultTextReplies } from './lib/textReplies'
@@ -101,6 +104,13 @@ const DigestPage = lazy(() => pages.digestPage().then((m) => ({ default: m.Diges
 const Trail = lazy(() => pages.trail().then((m) => ({ default: m.Trail })))
 const VoiceAlbum = lazy(() => pages.voiceAlbum().then((m) => ({ default: m.VoiceAlbum })))
 const PlanSheet = lazy(() => pages.planSheet().then((m) => ({ default: m.PlanSheet })))
+
+/** Local midnight today: where 오늘 ends and 지난 기록 begins. */
+function startOfDay(): Date {
+  const d = new Date()
+  d.setHours(0, 0, 0, 0)
+  return d
+}
 
 const DEFAULT_SETTINGS: UserSettings = {
   patientName: '엄마',
@@ -171,6 +181,16 @@ function App() {
   const [activePatientUid, setActivePatientUid] = useState<string | null>(null)
   // 어제 보기 › on the parent's day: the 사진 tab opens scrolled to this day, once.
   const [todayFocus, setTodayFocus] = useState<Date | null>(null)
+  // Simple edition, family: 오늘 is today, 지난 기록 everything before. The
+  // line moves at local midnight (checked every few minutes).
+  const [dayStart, setDayStart] = useState(startOfDay)
+  useEffect(() => {
+    const t = setInterval(() => {
+      const d = startOfDay()
+      setDayStart((cur) => (cur.getTime() === d.getTime() ? cur : d))
+    }, 5 * 60_000)
+    return () => clearInterval(t)
+  }, [])
   const clearTodayFocus = useCallback(() => setTodayFocus(null), [])
   // /accept is its own URL: the 가족초대 link sent by KakaoTalk or text message
   // is trackbyphoto.web.app/accept?code=123456.
@@ -882,10 +902,18 @@ function App() {
                   notifications={bannerNotices}
                   onDismissNotification={dismissNotification}
                   topCard={undefined}
-                  sentPhotos={familyPhotosOn ? <SentFamilyPhotos photos={familyPhotos} myUid={user.uid} headed onSend={sendToParent ? () => setSendTarget(sendToParent) : undefined} /> : undefined}
+                  sentPhotos={familyPhotosOn ? <SentFamilyPhotos photos={familyPhotos.filter((p) => p.createdAtMs >= dayStart.getTime())} myUid={user.uid} headed onSend={sendToParent ? () => setSendTarget(sendToParent) : undefined} /> : undefined}
                 />
               ) : (
-                <Home uid={activePatientUid || user.uid} patientName={settings.patientName} greetingName={isSelf ? selfLabel : settings.patientName} memos={memos} onOpenAsk={openAsk} onOpen={setSelectedMemoId} canCapture={isSelf} notifications={bannerNotices} onDismissNotification={dismissNotification} topCard={isSimple() && isSelf && !membershipsLoading && patients.length === 0 ? <ConnectParentCard onOpen={() => setConnectingParent(true)} onImParent={signOutToParent} /> : pushOn && patients.length > 0 && !isSimple() ? <PushNudge /> : undefined} canSendPhoto={!!sendToParent} sentPhotos={familyPhotosOn && !isSelf ? <SentFamilyPhotos photos={familyPhotos} myUid={user.uid} /> : undefined} connectOnly={isSimple() && isSelf && !membershipsLoading && patients.length === 0} simple={isSimple()} parents={dashOn ? people.map((p) => ({ uid: p.patientUid, name: p.name, color: people.length > 1 ? colorOf[p.patientUid] : undefined, memos: parentsMemos[p.patientUid] ?? [], unread: notifications.find((n) => n.patientUid === p.patientUid && isFamilyEvent(n.type)) })) : undefined} onOpenParent={(uid) => { onSwitchPatient(uid); setTab('home') }} />
+                <Home uid={activePatientUid || user.uid} sentToday={ownPage ? (() => {
+                  const today = sentEntries.filter((e) => e.photo.createdAtMs >= dayStart.getTime() && !!e.photo.photoUrl)
+                  return today.length > 0 ? (
+                    <div className="sent-today">
+                      <div className="h-eyebrow">{S.familyPhotoSentList} · 오늘 {today.length}장</div>
+                      {today.map((e) => <SentRow key={e.photo.id} photo={e.photo} to={e.to} color={e.color} onOpen={setOpenSent} />)}
+                    </div>
+                  ) : undefined
+                })() : undefined} patientName={settings.patientName} greetingName={isSelf ? selfLabel : settings.patientName} memos={memos} onOpenAsk={openAsk} onOpen={setSelectedMemoId} canCapture={isSelf} notifications={bannerNotices} onDismissNotification={dismissNotification} topCard={isSimple() && isSelf && !membershipsLoading && patients.length === 0 ? <ConnectParentCard onOpen={() => setConnectingParent(true)} onImParent={signOutToParent} /> : pushOn && patients.length > 0 && !isSimple() ? <PushNudge /> : undefined} canSendPhoto={!!sendToParent} sentPhotos={familyPhotosOn && !isSelf ? <SentFamilyPhotos photos={familyPhotos} myUid={user.uid} /> : undefined} connectOnly={isSimple() && isSelf && !membershipsLoading && patients.length === 0} simple={isSimple()} parents={dashOn ? people.map((p) => ({ uid: p.patientUid, name: p.name, color: people.length > 1 ? colorOf[p.patientUid] : undefined, memos: parentsMemos[p.patientUid] ?? [], unread: notifications.find((n) => n.patientUid === p.patientUid && isFamilyEvent(n.type)) })) : undefined} onOpenParent={(uid) => { onSwitchPatient(uid); setTab('home') }} />
               ))}
               {connectingParent && (
                 <RegisterElder
@@ -894,7 +922,7 @@ function App() {
                   takenNames={people.map((p) => p.name)}
                 />
               )}
-              {tab === 'today'    && <Today memos={memos} onOpen={setSelectedMemoId} sent={ownPage ? sentEntries : undefined} onOpenSent={setOpenSent} uid={activePatientUid || user.uid} rx={rx} onOpenTrail={trailOn ? openDayTrail : undefined} onOpenVoiceAlbum={voiceAlbumOn ? () => setVoiceAlbum(true) : undefined} focusDay={todayFocus} onFocused={clearTodayFocus} />}
+              {tab === 'today'    && <Today memos={memos} onOpen={setSelectedMemoId} sent={ownPage ? sentEntries : undefined} onOpenSent={setOpenSent} before={isSimple() ? dayStart : undefined} uid={activePatientUid || user.uid} rx={rx} onOpenTrail={trailOn ? openDayTrail : undefined} onOpenVoiceAlbum={voiceAlbumOn ? () => setVoiceAlbum(true) : undefined} focusDay={todayFocus} onFocused={clearTodayFocus} />}
               {tab === 'ask'      && <Ask memos={memos} onOpen={setSelectedMemoId} />}
               {tab === 'settings' && (
                 <Settings
@@ -955,6 +983,9 @@ function App() {
           onSend={!isSimple() && sendToParent ? () => setSendTarget(sendToParent) : undefined}
           // Simple edition: one's own camera, on 홈 and 사진 only; never over a
           // parent's view (사진 보내기 is a button on the parent's day) or 설정.
+          strip={ownPage && tab === 'home' && !selectedMemoId
+            ? <MineStrip memos={memos.filter((m) => m.takenAt.toDate().getTime() >= dayStart.getTime())} onOpen={setSelectedMemoId} />
+            : undefined}
           show={(isSimple()
             ? isSelf && (tab === 'home' || tab === 'today') && !trail && !voiceAlbum && !digestId && !openNews
             : (viewingParent ? !!sendToParent : (tab !== 'home' || !!trail || voiceAlbum || !!digestId || !!openNews)))

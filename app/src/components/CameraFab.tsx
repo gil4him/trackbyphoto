@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { useCapture } from '../hooks/useCapture'
 
 /** The camera, as drawn on the floating button and on 내 오늘's add square. */
@@ -15,13 +16,16 @@ export function CameraGlyph() {
  * big 사진 찍기), and on the parent's 내 사진 and memo pages (back to the
  * camera). Bottom-right, above the tab bar; bigger in the parent app.
  */
-export function CameraFab({ onClick, disabled = false, label = '사진 찍기' }: {
+export function CameraFab({ onClick, disabled = false, label = '사진 찍기', strip }: {
   onClick: () => void
   disabled?: boolean
   label?: string
+  /** Floats left of the button on the same line (MineStrip). */
+  strip?: ReactNode
 }) {
   return (
     <div className="cam-fab-wrap">
+      {strip}
       <button type="button" className="cam-fab" aria-label={label} disabled={disabled} onClick={onClick}>
         <CameraGlyph />
       </button>
@@ -35,7 +39,7 @@ export function CameraFab({ onClick, disabled = false, label = '사진 찍기' }
  * — the one thing family does for a parent, right where they're looking at
  * them. Must sit inside ToastProvider (useCapture toasts).
  */
-export function FamilyCamera({ uid, show, onSend }: { uid: string; show: boolean; onSend?: () => void }) {
+export function FamilyCamera({ uid, show, onSend, strip }: { uid: string; show: boolean; onSend?: () => void; strip?: ReactNode }) {
   const capture = useCapture(uid, { savedSub: '가족에게 보내는 중이에요' })
   return (
     <>
@@ -43,7 +47,8 @@ export function FamilyCamera({ uid, show, onSend }: { uid: string; show: boolean
       {capture.processing}
       {show && (onSend
         ? <CameraFab onClick={onSend} label="사진 보내기" />
-        : <CameraFab onClick={capture.takePhoto} disabled={capture.busy} />)}
+        : <CameraFab onClick={capture.takePhoto} disabled={capture.busy} strip={strip} />)}
     </>
   )
 }
+

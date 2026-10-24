@@ -106,3 +106,28 @@ describe('photos the family sent, on the parent\'s 내 사진', () => {
     expect(out).not.toContain('아직 기록이 없어요')
   })
 })
+
+describe('지난 기록 (the family\'s, simple edition): only what came before today', () => {
+  const startOfToday = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d }
+  const mine = (id: string, offset: number, h: number): FamilyPhoto => ({
+    id, patientUid: 'p1', senderUid: 'me', senderName: '지민', photoPath: `familyPhotos/${id}.jpg`, photoUrl: `https://x/${id}.jpg`, caption: '', status: 'ready', createdAtMs: day(offset, h).getTime(),
+  })
+
+  it("leaves today's photos and today's sent photos to 오늘", () => {
+    const out = render({
+      before: startOfToday(),
+      sent: [{ photo: mine('s0', 0, 11), to: '엄마', color: 'red' }, { photo: mine('s1', 1, 8), to: '엄마', color: 'red' }],
+    })
+    expect(out).not.toContain('a 산책')
+    expect(out).toContain('b 산책')
+    expect(out.split('memo-row received sent').length - 1).toBe(1)
+    expect(out).not.toContain('오늘</div>')
+  })
+
+  it('says where today went when nothing older exists yet', () => {
+    const out = render({ before: startOfToday(), memos: [memo('a', 0, 15)] })
+    expect(out).toContain('지난 기록이 아직 없어요.')
+    expect(out).toContain('오늘 찍은 사진은 내일 여기로 와요.')
+    expect(render({ memos: [] })).toContain('아직 기록이 없어요.')
+  })
+})

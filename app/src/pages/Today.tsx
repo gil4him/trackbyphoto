@@ -46,10 +46,12 @@ function WaitingPhoto({ item }: { item: OutboxItem }) {
  * included). `readOnly` is accepted for the elder's linked phone (nothing to
  * hide here any more).
  */
-export function Today({ memos, onOpen, uid, rx, onOpenTrail, onOpenVoiceAlbum, focusDay, onFocused, received = [], onOpenReceived, sent = [], onOpenSent }: { memos: Memo[]; onOpen: (id: string) => void; uid?: string; readOnly?: boolean; /** The parent's phone: photos the family sent, listed among the day's own (ReceivedRow). */ received?: FamilyPhoto[]; onOpenReceived?: (id: string) => void; /** A family member's own 사진: the photos they sent their parents (SentRow). */ sent?: SentEntry[]; onOpenSent?: (id: string) => void; /** Hearts and comments per photo (family feed), for the counts. */ rx?: ReactionsContext; /** 다녀온 곳 for one day (shown on days that have a located photo). */ onOpenTrail?: (day: Date) => void; /** 목소리 앨범, on a plan that includes it (family only). */ onOpenVoiceAlbum?: () => void; /** Open scrolled to this day's photos (어제 보기 on the home), once. */ focusDay?: Date | null; onFocused?: () => void }) {
+export function Today({ memos, onOpen, uid, rx, onOpenTrail, onOpenVoiceAlbum, focusDay, onFocused, received = [], onOpenReceived, sent = [], onOpenSent, before }: { memos: Memo[]; onOpen: (id: string) => void; uid?: string; readOnly?: boolean; /** The parent's phone: photos the family sent, listed among the day's own (ReceivedRow). */ received?: FamilyPhoto[]; onOpenReceived?: (id: string) => void; /** A family member's own 사진: the photos they sent their parents (SentRow). */ sent?: SentEntry[]; onOpenSent?: (id: string) => void; /** 지난 기록 (the simple edition's family): only what came before this moment (start of today); today lives on 오늘. */ before?: Date; /** Hearts and comments per photo (family feed), for the counts. */ rx?: ReactionsContext; /** 다녀온 곳 for one day (shown on days that have a located photo). */ onOpenTrail?: (day: Date) => void; /** 목소리 앨범, on a plan that includes it (family only). */ onOpenVoiceAlbum?: () => void; /** Open scrolled to this day's photos (어제 보기 on the home), once. */ focusDay?: Date | null; onFocused?: () => void }) {
   // Hide a waiting photo once its memo shows up from the server.
   const memoIds = useMemo(() => new Set(memos.map((m) => m.id)), [memos])
-  const waiting = useOutbox(uid).filter((i) => !memoIds.has(i.photoId))
+  const outbox = useOutbox(uid).filter((i) => !memoIds.has(i.photoId))
+  // Photos still going out are today's: 오늘 shows them, not 지난 기록.
+  const waiting = before ? [] : outbox
   // While a memo is waiting, check the memo server is actually up.
   const serverDown = useWorkerStatus(memos.some((m) => m.status === 'pending')) === 'down'
 
@@ -62,7 +64,7 @@ export function Today({ memos, onOpen, uid, rx, onOpenTrail, onOpenVoiceAlbum, f
       ...memos.map((m) => ({ kind: 'memo' as const, at: m.takenAt.toDate().getTime(), memo: m })),
       ...received.filter((f) => f.status === 'ready' && !!f.photoUrl).map((f) => ({ kind: 'received' as const, at: f.createdAtMs, photo: f })),
       ...sent.filter((s) => !!s.photo.photoUrl).map((s) => ({ kind: 'sent' as const, at: s.photo.createdAtMs, ...s })),
-    ].sort((a, b) => b.at - a.at)
+    ].filter((e) => !before || e.at < before.getTime()).sort((a, b) => b.at - a.at)
     const map = new Map<string, { date: Date; items: Memo[]; entries: Entry[] }>()
     for (const e of entries) {
       const d = new Date(e.at)
@@ -73,7 +75,7 @@ export function Today({ memos, onOpen, uid, rx, onOpenTrail, onOpenVoiceAlbum, f
       if (e.kind === 'memo') g.items.push(e.memo)
     }
     return Array.from(map.values())
-  }, [memos, received, sent])
+  }, [memos, received, sent, before])
 
   // 어제 보기: land on that day's header, then forget the request.
   useEffect(() => {
@@ -99,8 +101,17 @@ export function Today({ memos, onOpen, uid, rx, onOpenTrail, onOpenVoiceAlbum, f
       {groups.length === 0 && waiting.length === 0 ? (
         <div className="empty">
           <div className="big">🌤️</div>
-          <div>아직 기록이 없어요.</div>
-          <div style={{ marginTop: 6, fontSize: 14 }}>홈에서 사진을 한 장 찍어보세요.</div>
+          {before ? (
+            <>
+              <div>지난 기록이 아직 없어요.</div>
+              <div style={{ marginTop: 6, fontSize: 14 }}>오늘 찍은 사진은 내일 여기로 와요.</div>
+            </>
+          ) : (
+            <>
+              <div>아직 기록이 없어요.</div>
+              <div style={{ marginTop: 6, fontSize: 14 }}>홈에서 사진을 한 장 찍어보세요.</div>
+            </>
+          )}
         </div>
       ) : (
         groups.map((g) => (

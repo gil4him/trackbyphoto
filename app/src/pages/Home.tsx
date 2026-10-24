@@ -5,7 +5,6 @@ import { useOutbox } from '../hooks/useOutbox'
 import { useCapture } from '../hooks/useCapture'
 import { fmtDate, fmtTime } from '../util'
 import { MemoThumb } from '../components/MemoThumb'
-import { CameraGlyph } from '../components/CameraFab'
 import { MemoRow } from '../components/MemoRow'
 import { PatientCard } from '../components/PatientCard'
 import { latestActivity, type ParentSummary } from '../lib/dashboard'
@@ -180,7 +179,7 @@ export function ParentDayHome({ parentName, memos, byMemo, home, onOpen, onYeste
   )
 }
 
-export function Home({ uid, patientName, greetingName, memos, onOpenAsk, onOpen, canCapture = true, notifications = [], onDismissNotification, recordsLabel, newsCard, topCard, canSendPhoto = false, sentPhotos, connectOnly = false, simple = false, parents = [], onOpenParent, now }: { /** The parent's 가족 소식 card, shown under the buttons. */ newsCard?: React.ReactNode; /** A one-off card above the greeting (family's 알림 켜기). */ topCard?: React.ReactNode; /** Family on a parent's home: the floating camera button sends the parent a photo. */ canSendPhoto?: boolean; /** Family: what has been sent, with the parent's answers. */ sentPhotos?: React.ReactNode; /** Simple edition, no parent yet: only `topCard` (엄마 연결하기), centred. */ connectOnly?: boolean; /** Simple edition: the family dashboard (A10) — one card per parent and one's own photos today; no 사진 찍기 / 지난 기록 buttons and no notice banner (the cards carry 새 소식). */ simple?: boolean; /** Simple edition: the connected parents, for the cards. */ parents?: ParentSummary[]; /** A card tapped: that parent's day. */ onOpenParent?: (uid: string) => void; /** Injected in tests. */ now?: Date; recordsLabel?: boolean; uid: string; patientName: string; greetingName: string; memos: Memo[]; onOpenAsk: () => void; onOpen: (id: string) => void; canCapture?: boolean; notifications?: AppNotification[]; onDismissNotification?: (id: string) => void }) {
+export function Home({ uid, patientName, greetingName, memos, onOpenAsk, onOpen, canCapture = true, notifications = [], onDismissNotification, recordsLabel, newsCard, topCard, canSendPhoto = false, sentPhotos, sentToday, connectOnly = false, simple = false, parents = [], onOpenParent, now }: { /** The parent's 가족 소식 card, shown under the buttons. */ newsCard?: React.ReactNode; /** A one-off card above the greeting (family's 알림 켜기). */ topCard?: React.ReactNode; /** Family on a parent's home: the floating camera button sends the parent a photo. */ canSendPhoto?: boolean; /** Family: what has been sent, with the parent's answers. */ sentPhotos?: React.ReactNode; /** Simple dashboard (오늘): the photos one sent the parents today (SentRow). */ sentToday?: React.ReactNode; /** Simple edition, no parent yet: only `topCard` (엄마 연결하기), centred. */ connectOnly?: boolean; /** Simple edition: the family dashboard (A10) — one card per parent and one's own photos today; no 사진 찍기 / 지난 기록 buttons and no notice banner (the cards carry 새 소식). */ simple?: boolean; /** Simple edition: the connected parents, for the cards. */ parents?: ParentSummary[]; /** A card tapped: that parent's day. */ onOpenParent?: (uid: string) => void; /** Injected in tests. */ now?: Date; recordsLabel?: boolean; uid: string; patientName: string; greetingName: string; memos: Memo[]; onOpenAsk: () => void; onOpen: (id: string) => void; canCapture?: boolean; notifications?: AppNotification[]; onDismissNotification?: (id: string) => void }) {
   const toast = useToast()
   const capture = useCapture(uid)
   const lastReadyId = useRef<string | null>(null)
@@ -232,7 +231,6 @@ export function Home({ uid, patientName, greetingName, memos, onOpenAsk, onOpen,
     // The family dashboard (A10): the parents' cards, newest activity first,
     // then one's own photos today with the dashed + for the camera.
     const cards = [...parents].sort((a, b) => latestActivity(b) - latestActivity(a))
-    const mine = memosOnDay(memos, today)
     return (
       <section className="page home dash" aria-label={`${who}의 홈`}>
         {topCard}
@@ -248,20 +246,10 @@ export function Home({ uid, patientName, greetingName, memos, onOpenAsk, onOpen,
           </div>
         )}
 
-        <div className="mine">
-          <div className="h-eyebrow">내 오늘 · 사진 {mine.length}장</div>
-          <div className="mine-strip" aria-label="내 오늘 사진">
-            {mine.map((m) => (
-              <button type="button" key={m.id} className="mine-thumb" onClick={() => onOpen(m.id)} aria-label="자세히 보기">
-                <MemoThumb memo={m} />
-              </button>
-            ))}
-            {/* The same camera as the floating button, so the square reads as 사진 찍기 too. */}
-            <button type="button" className="mine-add" aria-label="사진 찍기" disabled={capture.busy} onClick={capture.takePhoto}><CameraGlyph /></button>
-            {mine.length === 0 && <span className="mine-hint">카메라 버튼으로 남겨요</span>}
-          </div>
-          {outbox}
-        </div>
+        {/* 오늘 is today's exchanges: what one sent the parents today. One's
+            own photos of today float by the camera button (MineStrip). */}
+        {sentToday}
+        {outbox}
 
         {capture.inputEl}
         {capture.processing}
