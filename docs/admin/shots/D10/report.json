@@ -1,0 +1,20 @@
+[
+ {
+  "view": "inbox-checkin",
+  "viewport": "1440",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "inbox-checkin",
+  "viewport": "393",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "inbox-checkin-sent",
+  "viewport": "1440",
+  "shell": [],
+  "inside": []
+ }
+]

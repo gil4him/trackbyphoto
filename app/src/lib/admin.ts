@@ -157,6 +157,7 @@ export const PROVIDER_KO: Record<string, string> = {
 export const ACTION_KO: Record<string, string> = {
   'elder.create': '부모님 등록',
   'flag.set': '기능 스위치 변경',
+  'checkin.send': '안부 알림 보내기',
   'elder.delete': '부모님 삭제',
   'account.delete': '계정 삭제',
   'account.disable': '로그인 차단',

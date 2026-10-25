@@ -20,6 +20,8 @@
 ### 운영실 (admin dashboard) — docs/admin/DAYLIE_ADMIN_DASHBOARD.md
 - Built one phase at a time (D0, D1, …); stop and report after each.
 - firestore.rules stays untouched except one owner-approved change (2026-10-24): `adminMetrics`, `adminInbox`, `adminGrowth`, `adminSetFlag` added to the `requests` type allow-list. The worker's requireAdmin is still the gate. A rules deploy is needed before these handlers answer in production.
+- `adminSendCheckIn` added to the same allow-list (owner-approved, 2026-10-25) for D10.
+- D10 안부 알림 (owner decision, 2026-10-25): from 할 일's "3일째 사진이 없어요", the admin may send every active family member of that parent, in 알림 and by push: "요즘 {이름} 사진이 뜸해요. 3일째 소식이 없는데, 전화 한 통 드려 보시는 건 어때요?" ({이름} as the app addresses the parent: 엄마, 영희님). At most once per parent every 72 hours, only while no photo came in 72 hours; each send is an admin_log row (checkin.send). Changing this wording needs the owner's approval.
 
 ### Deploying
 - Never deploy uncommitted code. Order: commit → push to main (or merge the PR) → deploy from an up-to-date checkout of main, preferably a worktree from `origin/main`.

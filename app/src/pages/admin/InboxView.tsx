@@ -4,7 +4,7 @@
 // 보기, 해결됨. Nothing here sends anything to a family.
 
 import { useEffect, useRef, useState } from 'react'
-import { RULE_GUIDE, WHEN_KO, groupByWhen, openTarget, setItemState, type Inbox, type InboxItem } from '../../lib/adminInbox'
+import { RULE_GUIDE, SKIP_KO, WHEN_KO, checkInLine, groupByWhen, openTarget, sendCheckIn, setItemState, type Inbox, type InboxItem } from '../../lib/adminInbox'
 import { useToast } from '../../components/Toast'
 
 const STRIPE = { now: 's-now', day: 's-day', wk: 's-wk' } as const
@@ -20,6 +20,7 @@ export function InboxView({ inbox, error, onDone, onOpenPerson, onGo }: {
   const toast = useToast()
   const [selected, setSelected] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [confirmSend, setConfirmSend] = useState<string | null>(null)
   const detailRef = useRef<HTMLElement>(null)
   const items = inbox?.items ?? []
   const item = items.find((i) => i.id === selected) ?? items[0] ?? null
@@ -41,6 +42,29 @@ export function InboxView({ inbox, error, onDone, onOpenPerson, onGo }: {
       toast.show('저장하지 못했어요', (err as Error).message)
     } finally {
       setBusy(false)
+    }
+  }
+
+  const send = async (it: InboxItem) => {
+    setBusy(true)
+    try {
+      const r = await sendCheckIn(it.targets.map((t) => t.uid))
+      const people = r.sent.reduce((n, x) => n + x.recipients, 0)
+      const why = [...new Set(r.skipped.map((x) => SKIP_KO[x.reason]))].join(' · ')
+      if (r.sent.length) {
+        toast.show(`부모님 ${r.sent.length}분의 가족 ${people}명에게 보냈어요`, why ? `보내지 않음: ${why}` : undefined)
+        await setItemState(it.id, 'snoozed')
+        onDone(it.id)
+        setSelected(null)
+      } else {
+        toast.show('보내지 않았어요', why)
+      }
+    } catch (err) {
+      console.error('[admin] check-in', err)
+      toast.show('보내지 못했어요', (err as Error).message)
+    } finally {
+      setBusy(false)
+      setConfirmSend(null)
     }
   }
 
@@ -100,8 +124,22 @@ export function InboxView({ inbox, error, onDone, onOpenPerson, onGo }: {
                       ))}
                     </div>
                   )}
+                  {item.rule === 'quietParent' && confirmSend === item.id && (
+                    <div className="hq-ask" role="alertdialog" aria-labelledby="send-t" aria-describedby="send-d">
+                      <b id="send-t">{`부모님 ${item.targets.length}분의 가족 모두에게 이렇게 보내요`}</b>
+                      <p id="send-d" className="hq-quote">{checkInLine(item.rows[0]?.name ?? '')}</p>
+                      <p className="hq-note">앱 알림 목록과 푸시로 가요. 부모님마다 3일에 한 번만 보낼 수 있어요.</p>
+                      <div className="hq-acts">
+                        <button type="button" className="hq-btn pri" disabled={busy} onClick={() => void send(item)}>{busy ? '보내는 중…' : '보내기'}</button>
+                        <button type="button" className="hq-btn" disabled={busy} onClick={() => setConfirmSend(null)}>취소</button>
+                      </div>
+                    </div>
+                  )}
                   <div className="hq-acts">
-                    <button type="button" className="hq-btn pri" onClick={() => open(item)}>{item.targets.length > 1 ? '목록 열기' : '열기'}</button>
+                    {item.rule === 'quietParent' && confirmSend !== item.id && (
+                      <button type="button" className="hq-btn pri" disabled={busy} onClick={() => setConfirmSend(item.id)}>안부 알림 보내기</button>
+                    )}
+                    <button type="button" className={`hq-btn${item.rule === 'quietParent' ? '' : ' pri'}`} onClick={() => open(item)}>{item.targets.length > 1 ? '목록 열기' : '열기'}</button>
                     <button type="button" className="hq-btn" disabled={busy} onClick={() => void act(item, 'snoozed')}>내일 다시 보기</button>
                     <button type="button" className="hq-btn" disabled={busy} onClick={() => void act(item, 'resolved')}>해결됨</button>
                   </div>

@@ -1909,3 +1909,6 @@ html:not(.camera-live) .elder-cam { background: #000; }
 .elder-records-head .back { margin: 0; font-size: 19px; padding: 10px 16px 10px 13px; }
 .elder-records-title { flex: 1; text-align: center; font-size: 21px; font-weight: 800; color: var(--ink); }
 .elder-records-head .head-btn-space { width: 96px; height: 1px; }
+
+/* 운영실 D10: the check-in line, shown as the family will read it. */
+.hq-quote { margin: 4px 0 8px; padding: 10px 12px; background: var(--surface); border-radius: 10px; font-size: 15px; font-weight: 700; word-break: keep-all; overflow-wrap: anywhere; }
