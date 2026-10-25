@@ -44,12 +44,12 @@ const ICONS = {
   ),
 }
 
-// The simple edition sorts the family's pages by time: 오늘 (today's
-// exchanges with the parents) and 과거 (everything before today).
+// The simple edition sorts the family's pages by time: 오늘하루 (today's
+// exchanges with the parents) and 어제까지 (everything before today).
 // The keys stay home/today everywhere else (links, notices).
 const TABS: { key: TabKey; label: string; simpleLabel?: string }[] = [
-  { key: 'home',     label: '홈',   simpleLabel: '오늘' },
-  { key: 'today',    label: '사진', simpleLabel: '과거' },
+  { key: 'home',     label: '홈',   simpleLabel: '오늘하루' },
+  { key: 'today',    label: '사진', simpleLabel: '어제까지' },
   { key: 'ask',      label: '물어보기' },
   { key: 'alerts',   label: '알림' },
   { key: 'settings', label: '설정' },
