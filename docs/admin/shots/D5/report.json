@@ -1,0 +1,44 @@
+[
+ {
+  "view": "revenue",
+  "viewport": "1440",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "revenue",
+  "viewport": "1280",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "revenue",
+  "viewport": "820",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "revenue",
+  "viewport": "393",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "revenue",
+  "viewport": "360",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "revenue",
+  "viewport": "393-L",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "revenue-saved",
+  "viewport": "1440",
+  "shell": [],
+  "inside": []
+ }
+]

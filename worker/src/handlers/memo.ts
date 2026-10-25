@@ -54,6 +54,7 @@ import { weatherAt } from '../weather.js'
 import type { PromptHints } from '../llm/prompt.js'
 import { openPath, pushToUsers, type PushMessage } from './push.js'
 import { accountPhotoSafely } from './usage.js'
+import { recordMemoTime } from '../systemHistory.js'
 
 /** Failed generations on one photo before falling back to the stub. */
 export const MAX_ATTEMPTS = 5
@@ -439,6 +440,8 @@ export async function processMemo(memoId: string, attempt: number, deps: MemoDep
     }
   }
   await memoRef.update(update)
+  // How long the family waited for this memo (운영실 시스템; memory only).
+  if (firstCompletion) recordMemoTime((data.createdAt as { toMillis?: () => number } | undefined)?.toMillis?.())
 
   // Notify each active caregiver that a new photo is in — once per memo,
   // gated on notifiedAt so a worker restart mid-flight can't double-notify.

@@ -35,7 +35,10 @@ export interface AdminPerson {
   memos: { count: number; lastAt: string | null }
   /** For a parent: who looks after them. For a child: the parents they look after. */
   links: { active: number; guardians: number }
-  devices: { active: number; total: number }
+  /** The other side of the active links (a parent's family, a child's parents), 대표 first. */
+  linkUids: string[]
+  /** `platforms`: the active phones' platforms (ios / android / web). */
+  devices: { active: number; total: number; platforms: string[] }
 }
 
 export interface AdminLink {
@@ -153,6 +156,7 @@ export const PROVIDER_KO: Record<string, string> = {
 /** Korean label for an audit / admin_log action; unknown keys show as-is. */
 export const ACTION_KO: Record<string, string> = {
   'elder.create': '부모님 등록',
+  'flag.set': '기능 스위치 변경',
   'elder.delete': '부모님 삭제',
   'account.delete': '계정 삭제',
   'account.disable': '로그인 차단',
@@ -255,31 +259,76 @@ export function confirmTyped(prompt: string, expected: string): boolean {
   return typed !== null && typed.trim() === expected
 }
 
-// ── /admin?tab=…&uid=… ──────────────────────────────────────────────────────
+// ── /admin?tab=…&kind=…&uid=… ───────────────────────────────────────────────
 
-export type AdminTab = 'overview' | 'parents' | 'children' | 'ai'
+/** The 운영실 views, in menu order. AI 도구 (SuperAdmin) stays last. */
+export type AdminTab = 'today' | 'inbox' | 'growth' | 'families' | 'revenue' | 'costs' | 'system' | 'flags' | 'ai'
 export const ADMIN_TABS: { key: AdminTab; label: string }[] = [
-  { key: 'overview', label: '대시보드' },
-  { key: 'parents', label: '부모님' },
-  { key: 'children', label: '가족' },
-  { key: 'ai', label: 'AI · 통계' },
+  { key: 'today', label: '오늘' },
+  { key: 'inbox', label: '할 일' },
+  { key: 'growth', label: '성장' },
+  { key: 'families', label: '가족' },
+  { key: 'revenue', label: '매출' },
+  { key: 'costs', label: '비용' },
+  { key: 'system', label: '시스템' },
+  { key: 'flags', label: '기능 스위치' },
+  { key: 'ai', label: 'AI 도구' },
 ]
 
-export interface AdminRoute { tab: AdminTab; uid: string | null }
+/** `kind` and `filter` matter on 가족 only: whose list is showing, and which chip. */
+export interface AdminRoute { tab: AdminTab; kind: PersonKind; uid: string | null; filter: FamilyFilter }
+
+/** The 가족 table's chips (pages/admin/FamiliesTable.tsx). */
+export type FamilyFilter = 'all' | 'quiet' | 'unpaired' | 'limit' | 'blocked'
+const FILTERS: FamilyFilter[] = ['all', 'quiet', 'unpaired', 'limit', 'blocked']
+
+/** The tab names before 운영실, so old links and bookmarks still land. */
+const OLD_TABS: Record<string, Pick<AdminRoute, 'tab'> & Partial<Pick<AdminRoute, 'kind'>>> = {
+  overview: { tab: 'today' },
+  parents: { tab: 'families', kind: 'parent' },
+  children: { tab: 'families', kind: 'child' },
+}
 
 export function routeFromSearch(search: string): AdminRoute {
   const q = new URLSearchParams(search)
-  const tab = q.get('tab') as AdminTab | null
-  return {
-    tab: tab && ADMIN_TABS.some((t) => t.key === tab) ? tab : 'overview',
-    uid: q.get('uid'),
-  }
+  const raw = q.get('tab') ?? ''
+  const old = OLD_TABS[raw]
+  const tab = old?.tab ?? (ADMIN_TABS.some((t) => t.key === raw) ? raw as AdminTab : 'today')
+  const kind = old?.kind ?? (q.get('kind') === 'child' ? 'child' : 'parent')
+  const f = q.get('f') as FamilyFilter | null
+  return { tab, kind, uid: q.get('uid'), filter: f && FILTERS.includes(f) ? f : 'all' }
 }
 
 export function searchFromRoute(r: AdminRoute): string {
   const q = new URLSearchParams()
-  if (r.tab !== 'overview') q.set('tab', r.tab)
+  if (r.tab !== 'today') q.set('tab', r.tab)
+  if (r.tab === 'families') q.set('kind', r.kind)
+  if (r.tab === 'families' && r.kind === 'parent' && r.filter !== 'all') q.set('f', r.filter)
   if (r.uid) q.set('uid', r.uid)
   const s = q.toString()
   return s ? `?${s}` : ''
+}
+
+/** The 운영실 footer: how long since the worker's last beat. */
+export function beatAgo(lastSeenMs: number | null, now = Date.now()): string {
+  if (lastSeenMs == null) return '신호 없음'
+  const s = Math.max(0, Math.round((now - lastSeenMs) / 1000))
+  if (s < 60) return `마지막 신호 ${s}초 전`
+  const m = Math.floor(s / 60)
+  if (m < 60) return `마지막 신호 ${m}분 전`
+  return `마지막 신호 ${Math.floor(m / 60)}시간 전`
+}
+
+/** A 가족 = a parent someone actively looks after (an active membership). */
+export function familyCount(people: AdminPerson[]): number {
+  return people.filter((p) => p.kind === 'parent' && p.links.active > 0).length
+}
+
+/** The top bar: how old the numbers on screen are ("방금 기준", "3분 전 기준"). */
+export function refreshedAgo(at: Date | null, now = Date.now()): string {
+  if (!at) return ''
+  const s = Math.max(0, Math.floor((now - at.getTime()) / 1000))
+  if (s < 60) return '방금 기준'
+  const m = Math.floor(s / 60)
+  return m < 60 ? `${m}분 전 기준` : `${Math.floor(m / 60)}시간 전 기준`
 }

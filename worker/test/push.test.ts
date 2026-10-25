@@ -1,6 +1,7 @@
 // Family push: who gets one, token upkeep, and the on/off setting.
 // FCM is an injected fake; Firestore is the emulator.
 
+import { history, resetSystemHistory } from '../src/systemHistory'
 import { describe, it, expect, beforeEach } from 'vitest'
 import { Timestamp } from 'firebase-admin/firestore'
 import { deadTokens, elderBadge, fcmMessage, openPath, pushToElder, pushToUsers, registerFcmToken, setChannels, type PushDeps, type PushMessage } from '../src/handlers/push'
@@ -181,9 +182,12 @@ describe('what gets pushed', () => {
       generate: async () => ({ activity: '산책', memo: '공원 산책', scene: '', model: 'gemma4:e4b', cost: { promptTokens: 1, outputTokens: 1, totalUSD: 0 } }),
       push: async (uids, message) => { pushes.push({ uids, message }) },
     }
+    resetSystemHistory()
     await processMemo('m1', 1, deps)
     await db.doc('memos/m1').update({ status: 'pending' }) // a re-write
     await processMemo('m1', 1, deps)
+    // 운영실 시스템 remembers how long the family waited — the first time only.
+    expect(history().memoTimes).toHaveLength(1)
     expect(pushes).toEqual([{ uids: ['cg1'], message: { title: 'Daylie', body: '어머니님이 새 사진을 올렸어요', data: { type: 'photo.new', patientUid: 'p1', memoId: 'm1' }, path: '?open=memo&p=p1&m=m1' } }])
   })
 
