@@ -40,6 +40,7 @@ import { adminMetrics } from './adminMetrics.js'
 import { adminInbox } from './adminInbox.js'
 import { adminGrowth } from './adminGrowth.js'
 import { adminSetFlag } from './adminFlags.js'
+import { adminSendCheckIn } from './adminCheckIn.js'
 import { deleteMyAccount } from './account.js'
 import {
   approvePairing,
@@ -81,6 +82,7 @@ export const HANDLERS: Record<string, Handler> = {
   adminInbox,
   adminGrowth,
   adminSetFlag,
+  adminSendCheckIn,
   createManagedElder,
   createPairingLink,
   pairDevice,

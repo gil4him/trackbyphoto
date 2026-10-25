@@ -36,6 +36,18 @@ const VIEWS = [
   { id: 'today-30', search: '', ready: '북극성 지표', settled: '.hq-today:not(:has(.hq-skel)):not(:has(.hq-err))', press: '30일' },
   // 해결됨 on the first item: saved, gone from the list, and still gone after a reload (one viewport).
   { id: 'inbox-resolved', search: '?tab=inbox', ready: '할 일은 이렇게 골라요', settled: '.hq-inbox-view .hq-ibx:not(:has(.hq-skel))', press: '해결됨', reload: true, only: '1440' },
+  // D10: 안부 알림 보내기 on the quiet 할머니 — the line as the family reads it, then sent.
+  { id: 'inbox-checkin', search: '?tab=inbox', ready: '할 일은 이렇게 골라요', settled: '.hq-inbox-view .hq-ibx:not(:has(.hq-skel))', only: ['1440', '393'],
+    act: async (p) => { await click(p, '안부 알림 보내기'); await p.waitForSelector('.hq-quote'); await sleep(400) } },
+  { id: 'inbox-checkin-sent', search: '?tab=inbox', ready: '할 일은 이렇게 골라요', settled: '.hq-inbox-view .hq-ibx:not(:has(.hq-skel))', only: '1440',
+    act: async (p) => {
+      await click(p, '안부 알림 보내기'); await p.waitForSelector('.hq-quote')
+      await click(p, '보내기', '.hq-ask button')
+      await waitText(p, '에게 보냈어요', 30_000)
+      const notes = await getFirestore().collection('notifications').where('type', '==', 'checkin.quiet').get()
+      const log = await getFirestore().collection('admin_log').where('action', '==', 'checkin.send').get()
+      console.log('  check-in notices:', notes.docs.map((d) => `${d.get('recipientUid').slice(0, 6)}… “${d.get('message')}”`).join(' | '), '· admin_log rows:', log.size)
+    } },
   { id: 'inbox', search: '?tab=inbox', ready: '할 일은 이렇게 골라요', settled: '.hq-inbox-view .hq-ibx:not(:has(.hq-skel))' },
   { id: 'growth', search: '?tab=growth', ready: '한 가족이 들어와', settled: '.hq-growth:not(:has(.hq-skel)):not(:has(.hq-err))' },
   { id: 'families-parent', search: '?tab=families&kind=parent', ready: '엄마', settled: '.hq-families .hq-tbl' },

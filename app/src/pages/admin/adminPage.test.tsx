@@ -196,6 +196,12 @@ describe('InboxView', () => {
     expect(html).toContain('스토어 리뷰')
   })
 
+  it('offers 안부 알림 보내기 only for a parent gone quiet', () => {
+    const quiet = { id: 'quietParent-1', rule: 'quietParent', when: 'now' as const, category: '사용자', title: '부모님 1분이 3일째 사진이 없어요', sub: '', why: '', rows: [{ name: '엄마', fact: '평소 7일 중 6일', value: '4일' }], targets: [{ uid: 'mom1', kind: 'parent' as const }] }
+    expect(view({ ...INBOX, items: [quiet] })).toContain('안부 알림 보내기')
+    expect(view(INBOX)).not.toContain('안부 알림 보내기')
+  })
+
   it('has empty, loading and error states', () => {
     expect(view({ ...INBOX, items: [], hidden: 0 })).toContain('처리할 일이 없어요. 오늘은 여기까지!')
     expect(view(null)).toContain('hq-skel')

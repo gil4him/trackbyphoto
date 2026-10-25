@@ -505,7 +505,7 @@ service cloud.firestore {
                          'syncCaregiverName', 'regenerateMemo', 'backfillMemoSchema', 'backfillPatientUid',
                          'adminListPeople', 'adminGetPerson', 'adminDeleteAccount', 'adminUnlinkDevice',
                          'adminSetMembership', 'adminSetPlan', 'adminUpdateSettings', 'adminSetDisabled',
-                         'adminMetrics', 'adminInbox', 'adminGrowth', 'adminSetFlag',
+                         'adminMetrics', 'adminInbox', 'adminGrowth', 'adminSetFlag', 'adminSendCheckIn',
                          'createManagedElder', 'createPairingLink', 'approvePairing', 'unlinkDevice', 'deleteManagedElder',
                          'pairDevice', 'completePairing', 'deleteMyAccount',
                          'registerFcmToken', 'setChannels', 'setDigest', 'changePlan', 'searchAddress'

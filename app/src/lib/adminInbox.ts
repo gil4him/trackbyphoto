@@ -7,6 +7,7 @@ import { doc, setDoc, serverTimestamp, Timestamp } from 'firebase/firestore'
 import { db } from '../firebase'
 import { callWorker } from './worker'
 import { filterForRule } from './adminFamilies'
+import { honorific } from './people'
 import type { FamilyFilter } from './admin'
 
 export type When = 'now' | 'day' | 'wk'
@@ -57,7 +58,7 @@ export function openTarget(item: InboxItem): { uid: string } | { tab: 'families'
 
 /** "할 일은 이렇게 골라요": every rule in plain words, and what is not connected yet. */
 export const RULE_GUIDE: { when: When | 'off'; title: string; text: string }[] = [
-  { when: 'now', title: '3일 사진 없음', text: '평소 7일 중 5일 넘게 사진을 보내던 부모님이 72시간 동안 0장' },
+  { when: 'now', title: '3일 사진 없음', text: '평소 7일 중 5일 넘게 사진을 보내던 부모님이 72시간 동안 0장 · 가족에게 안부 알림을 보낼 수 있어요' },
   { when: 'now', title: '메모 서버 멈춤', text: '서버 신호가 4분 넘게 없거나 AI 모델이 응답하지 않을 때' },
   { when: 'now', title: '메모 느림', text: '최근 15분 메모 시간 중간값이 30초 넘을 때 (시스템 화면에서 재기 시작해요)' },
   { when: 'day', title: '휴대폰 미연결', text: '가족이 등록한 지 24시간이 지났는데 부모님 휴대폰 연결이 없을 때' },
@@ -69,3 +70,15 @@ export const RULE_GUIDE: { when: When | 'off'; title: string; text: string }[] =
   { when: 'off', title: '이메일 삭제 요청', text: '설정 밖에서 온 계정 삭제 요청 · 연결 필요' },
   { when: 'off', title: '앱 심사 상태', text: 'App Store·Google Play 심사 · 연결 필요' },
 ]
+
+/** D10: the owner-approved check-in line (2026-10-25), as the family will read it. */
+export const checkInLine = (name: string) => `요즘 ${honorific(name) || '부모님'} 사진이 뜸해요. 3일째 소식이 없는데, 전화 한 통 드려 보시는 건 어때요?`
+
+export type CheckInSkip = 'not-quiet' | 'recent' | 'no-family' | 'not-a-parent'
+export const SKIP_KO: Record<CheckInSkip, string> = {
+  'not-quiet': '그사이 사진이 왔어요', recent: '3일 안에 이미 보냈어요', 'no-family': '연결된 가족이 없어요', 'not-a-parent': '부모님 계정이 아니에요',
+}
+
+/** 안부 알림 보내기: the worker tells every linked family member of each parent. */
+export const sendCheckIn = (patientUids: string[]) =>
+  callWorker<{ sent: { patientUid: string; recipients: number }[]; skipped: { patientUid: string; reason: CheckInSkip }[] }>('adminSendCheckIn', { patientUids }, { timeoutMs: 60_000 })

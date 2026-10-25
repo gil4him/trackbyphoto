@@ -378,7 +378,7 @@ describe('requests', () => {
   })
 
   it('can queue the 운영실 reads and flag switch (the worker lets only the admin through)', async () => {
-    for (const type of ['adminMetrics', 'adminInbox', 'adminGrowth', 'adminSetFlag']) {
+    for (const type of ['adminMetrics', 'adminInbox', 'adminGrowth', 'adminSetFlag', 'adminSendCheckIn']) {
       await assertSucceeds(setDoc(doc(alice(), 'requests', `r-${type}`), req({ type })))
     }
   })

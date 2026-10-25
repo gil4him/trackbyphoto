@@ -12,7 +12,7 @@ vi.mock('firebase/firestore', () => ({
 }))
 vi.mock('./worker', () => ({ callWorker: vi.fn() }))
 
-import { RULE_GUIDE, groupByWhen, openTarget, setItemState, topItems, type InboxItem } from './adminInbox'
+import { RULE_GUIDE, checkInLine, groupByWhen, openTarget, setItemState, topItems, type InboxItem } from './adminInbox'
 
 const item = (id: string, when: InboxItem['when'], over: Partial<InboxItem> = {}): InboxItem => ({
   id, rule: 'noGuardian', when, category: '가족', title: id, sub: '', why: '', rows: [], targets: [], ...over,
@@ -50,5 +50,10 @@ describe('할 일 on the page', () => {
     const off = RULE_GUIDE.filter((r) => r.when === 'off')
     expect(off.map((r) => r.title)).toEqual(['스토어 리뷰', '이메일 삭제 요청', '앱 심사 상태'])
     expect(off.every((r) => r.text.includes('연결 필요'))).toBe(true)
+  })
+
+  it('shows the check-in exactly as the family will read it (owner-approved, kin words without 님)', () => {
+    expect(checkInLine('엄마')).toBe('요즘 엄마 사진이 뜸해요. 3일째 소식이 없는데, 전화 한 통 드려 보시는 건 어때요?')
+    expect(checkInLine('영희')).toBe('요즘 영희님 사진이 뜸해요. 3일째 소식이 없는데, 전화 한 통 드려 보시는 건 어때요?')
   })
 })
