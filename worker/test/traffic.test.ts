@@ -1,7 +1,7 @@
 // 설치 (운영실 D11): the two store report parsers and the 30-day window that
 // keeps what it read and never invents a day.
 import { describe, it, expect, beforeEach } from 'vitest'
-import { parseSalesReport, ascMissing } from '../src/traffic/asc'
+import { parseSalesReport, ascMissing, ascNotFound } from '../src/traffic/asc'
 import { decodePlayCsv, parsePlayInstalls, playMissing } from '../src/traffic/play'
 import { installs, resetTrafficThrottle, windowDates, type TrafficDeps } from '../src/traffic/index'
 
@@ -32,6 +32,13 @@ describe('App Store sales report', () => {
   })
   it('refuses something that is not a sales report', () => {
     expect(() => parseSalesReport('a\tb\n1\t2')).toThrow(/not a sales report/)
+  })
+  it('tells a no-sales 404 (a known 0) from a not-yet 404 (ask again later)', () => {
+    const none = '{"errors":[{"status":"404","code":"NOT_FOUND","title":"The request expected results but none were found","detail":"There were no sales for the date specified."}]}'
+    const later = '{"errors":[{"status":"404","code":"NOT_FOUND","title":"The request expected results but none were found","detail":"Report is not available yet. Daily reports for the Americas are available by 5 am Pacific Time."}]}'
+    expect(ascNotFound(none)).toEqual({ ok: true, units: 0, byCountry: {} })
+    expect(ascNotFound(later)).toEqual({ ok: false, notYet: true })
+    expect(ascNotFound('')).toEqual({ ok: false, notYet: true })
   })
   it('names the env values still missing', () => {
     expect(ascMissing()).toEqual(['ASC_KEY_ID', 'ASC_ISSUER_ID', 'ASC_KEY_PATH', 'ASC_VENDOR_NUMBER'])

@@ -77,6 +77,13 @@ export function ascToken(): string {
 
 export type DayFetch = { ok: true; units: number; byCountry: Record<string, number> } | { ok: false; notYet: true } | { ok: false; notYet: false; error: string }
 
+/** Apple answers 404 both for a day nobody downloaded anything ("There were no
+ *  sales for the date specified.") and for a day it has not reported yet; the
+ *  body tells them apart. A no-sales day is a known 0, not a day to ask again. */
+export function ascNotFound(body: string): DayFetch {
+  return /no sales for the date/i.test(body) ? { ok: true, units: 0, byCountry: {} } : { ok: false, notYet: true }
+}
+
 /** One day's first downloads from Apple, YYYY-MM-DD as Apple dates it. */
 export async function fetchAscDay(date: string, fetchFn: typeof fetch = fetch): Promise<DayFetch> {
   const q = new URLSearchParams({
@@ -91,7 +98,7 @@ export async function fetchAscDay(date: string, fetchFn: typeof fetch = fetch): 
   } catch (err) {
     return { ok: false, notYet: false, error: String((err as Error).message ?? err).slice(0, 120) }
   }
-  if (res.status === 404) return { ok: false, notYet: true }
+  if (res.status === 404) return ascNotFound(await res.text().catch(() => ''))
   if (!res.ok) return { ok: false, notYet: false, error: `App Store Connect ${res.status}` }
   const body = Buffer.from(await res.arrayBuffer())
   const text = body[0] === 0x1f && body[1] === 0x8b ? gunzipSync(body).toString('utf8') : body.toString('utf8')
