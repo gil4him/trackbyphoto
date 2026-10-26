@@ -301,10 +301,10 @@ Run the UI QA pass in docs/DAYLIE_V3_UI_FIX.md §Q for Phase <A1x>.
 
 Testers said the family app's 오늘 (내 하루) and 과거 feel busy, and the parent's 내 사진 is too small to read. Review page "Daylie 사진 목록 정리" compares the T1 screenshots (origin/main, 2026-10-24) with mockups.
 
-## §R.1 Owner decisions (2026-10-25) — write these into CLAUDE.md
+## §R.1 Owner decisions (2026-10-26) — write these into CLAUDE.md
 
 - **Sending photos to parents:** only from the **⋯ menu on one's own photo** (memo detail → ⋯ → `부모님께 보내기`). The `📷 부모님께 사진 보내기 ›` link on 내 하루 is removed, and with it the "pick a photo from the phone's gallery" path. The ⋯ flow gains an optional one-line message (see A14.3). A parent's day page still has no sending.
-- **Parent's 내 사진 buttons:** `OWNER DECISION A14.7: BOTTOM BAR` — a fixed bottom bar with two labelled buttons (`날짜로 찾기`, `카메라`) replaces the two floating icons. *(If this line says `FLOATING` instead, keep the floating buttons, enlarged to 64/72pt, with bottom padding.)*
+- **Parent's 내 사진 (owner decision 2026-10-26):** a **3-column photo grid** (2 columns with 큰 글자), time only under each photo, and a **fixed bottom bar** with two labelled buttons (`날짜로 찾기`, `카메라`) replacing the two floating icons on this screen. Details in A14.7.
 - Everything else in CLAUDE.md stays: parents woven into 내 하루/과거 and indented in the parent's colour; the family calendar FAB bottom-left on 과거; day headings `오늘 · 10월 24일 (토)` / `어제 · …` / date; past days morning first, today newest first; one phone per parent; memo tone.
 
 ## §R.2 Rules for this phase
@@ -346,17 +346,17 @@ Same as Rounds 1–2: same tone and colours, tokens from `styles.css :root` only
 - Give the family member's own photos different scenes and times from the parent's, so review screenshots don't look doubled.
 
 **A14.7 Parent's 내 사진** (`pages/ElderApp.tsx` records view, `styles.css`; parent's phone, this screen only)
-- Today it reuses the family `MemoRow` (17/15pt), below the parent rules. Give it its own large card (`ElderRecordCard`):
-  - Photo full card width, **3:2**, `object-fit: cover`, card radius 22, white card.
-  - Under the photo **one line 22/700**: `오전 8:55 · 석촌호수` (time · place). No 동/구, category or AI title here; tapping the card opens the memo as today.
-  - Family response as a **sentence** in an `--accent-tint` box, 20/800: `지민이 ❤️ 하고 글을 남겼어요` / `지민이 ❤️ 보냈어요` / `지민이 글을 남겼어요` (several people: `지민 외 1명이 …`). Unseen → a `새 소식` pill (accent background, dark text) in front, replacing the orange dot.
-  - Received family photo: keep the owner's layout (indented right 40pt, `--accent-tint`, 5pt accent edge), same card size rules, `지민이 보냈어요` 22/800, then `오후 8:40 · ❤️ 고마워요 보냄` (show the caption line if the family wrote one).
+- Today it reuses the family `MemoRow` (17/15pt), below the parent rules. Replace it with a **3-column photo grid** (`ElderRecordGrid` + `ElderRecordTile`): photos ~112pt on a 393pt phone (about the iPhone Photos app's size), 12 per screen, so a 10-photo day fits in one screen. **With 설정 › 큰 글자 on, the grid is 2 columns** (~170pt tiles, time 22pt).
+  - Tiles: square, `object-fit: cover`, radius 14 (2-col: 18), gap 8pt (2-col: 12). Tap = opens the memo as today; the tile is the touch target (≥112pt).
+  - Under each tile **only the time, 20/700** without 오전/오후 (`8:55`); 2-col: 22/700 with 오전/오후. Place, 동/구, category and the AI title appear only when the tile is tapped.
+  - Family response: a white chip on the tile's bottom-left, 14/800 (2-col: 16/800): `❤️` / `💬` / `❤️ 지민` when there is room (one name max; 3-col shows the icons only when the name would not fit). Unseen → an accent `새 소식` chip (dark text) on the tile's top-left, replacing the orange dot; **and** a line above the day's grid `새 소식 n ›` (22/800, accent-tint box) that scrolls to the first unseen tile, so nothing is missed in a small grid. The tile's `aria-label` is a full sentence: `오전 8:55 사진, 지민이 하트와 글을 남겼어요, 새 소식`.
+  - Received family photos are **not** tiles: they break the grid as one horizontal card, indented right 40pt (owner's layout: `--accent-tint`, 5pt accent edge), photo 120×100pt on the left, `지민이 보냈어요` 22/800 and `오전 6:30 · “{caption}”` or `· ❤️ 고마워요 보냄` 18pt on the right. The grid continues after it in time order.
+  - Day heading row: `오늘 · 10월 24일 (토)` 22/800 muted on the left, photo count `9장` 18/800 muted on the right.
+  - Screens ≥600pt wide (tablets): 4 columns (큰 글자: 3).
 - Day headings 22/800 muted; header title `내 사진` 26/800; `‹ 카메라` button height ≥60pt, 22/800.
-- Buttons per §R.1:
-  - `BOTTOM BAR`: a fixed white bar (top border `var(--line)`, padding 12/16pt + safe area) with two equal 64pt buttons, radius 20, 22/800: `날짜로 찾기` (white, 2pt `var(--line)` border, calendar glyph; opens the same date picker as `CalendarFab` and scrolls to that day) and `카메라` (accent, camera glyph; back to the camera). Remove the floating icons on this screen. The list ends above the bar.
-  - `FLOATING`: keep both floating buttons, calendar 64pt and camera 72pt, list bottom padding = 72pt + 16pt + safe area.
+- Bottom bar (per §R.1): a fixed white bar (top border `var(--line)`, padding 12/16pt + safe area) with two equal 64pt buttons, radius 20, 22/800: `날짜로 찾기` (white, 2pt `var(--line)` border, calendar glyph; opens the same date picker as `CalendarFab` and scrolls to that day) and `카메라` (accent, camera glyph; back to the camera). Remove the floating icons on this screen. The list ends above the bar.
 - Idle return to the camera (`useIdleReturn`) and everything else on the parent's phone stay as they are.
 
-**Tests:** MemoRow (one-line meta, reactions hidden at 0, title fallback, no rail), diary grouping (collapse rule), MyDay without the send link, ⋯ → 부모님께 보내기 with message (one parent, several parents, already sent), trail merge, 과거 bottom padding, ElderRecordCard (sentence for each reaction mix, 새 소식), the bottom bar's date jump.
+**Tests:** MemoRow (one-line meta, reactions hidden at 0, title fallback, no rail), diary grouping (collapse rule), MyDay without the send link, ⋯ → 부모님께 보내기 with message (one parent, several parents, already sent), trail merge, 과거 bottom padding, ElderRecordTile (chip text and aria sentence for each reaction mix, 새 소식), 큰 글자 → 2 columns, 새 소식 n › scrolls to the first unseen tile, received card breaking the grid in time order, the bottom bar's date jump.
 
-**Screenshots for §Q:** `A14-myday`, `A14-myday-empty`, `A14-myday-expanded`, `A14-send-sheet`, `A14-detail-hint`, `A14-past`, `A14-past-bottom` (scrolled to the end), `A14-parent-day`, `A14-trail`, `A14-elder-records`, `A14-elder-records-bottom` × the Q.2 matrix (incl. 130% text, and the parent phone's 큰 글자).
+**Screenshots for §Q:** `A14-myday`, `A14-myday-empty`, `A14-myday-expanded`, `A14-send-sheet`, `A14-detail-hint`, `A14-past`, `A14-past-bottom` (scrolled to the end), `A14-parent-day`, `A14-trail`, `A14-elder-records`, `A14-elder-records-big` (큰 글자, 2 columns), `A14-elder-records-bottom` × the Q.2 matrix (incl. 130% text, and the parent phone's 큰 글자).
