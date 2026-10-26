@@ -111,13 +111,8 @@ main { padding: 18px 22px calc(110px + var(--safe-bot)); }
 /* The timeline: a 56px rail (time, dot on the day's line) and a memo row. */
 .day-tl { list-style: none; margin: 0; padding: 0; }
 .day-item { display: flex; gap: 10px; align-items: stretch; }
-.day-rail { flex: none; width: 56px; position: relative; display: flex; flex-direction: column; align-items: flex-end; padding-right: 16px; }
 .day-time { font-size: 15px; font-weight: 800; color: var(--muted); line-height: 1; padding-top: 12px; }
-.day-rail::before { content: ""; position: absolute; top: 0; bottom: 0; right: 5px; width: 2px; background: var(--line); }
-.day-tl > li:first-child .day-rail::before { top: 18px; }
-.day-tl > li:last-child .day-rail::before { bottom: calc(100% - 18px); }
-.day-dot { position: absolute; top: 12px; right: 0; width: 12px; height: 12px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px var(--ground); }
-.day-empty { min-height: 92px; display: grid; place-items: center; padding: 16px; background: var(--surface-dim); border: 2px solid var(--line); border-radius: 16px; color: var(--muted); font-size: 17px; }
+.day-tl > li:first-child .day-tl > li:last-child .day-empty { min-height: 92px; display: grid; place-items: center; padding: 16px; background: var(--surface-dim); border: 2px solid var(--line); border-radius: 16px; color: var(--muted); font-size: 17px; }
 .day-more { display: block; min-height: 48px; margin: 2px auto 12px; border: 0; background: none; padding: 12px 16px; font: inherit; font-size: 15px; font-weight: 700; color: var(--muted); cursor: pointer; }
 .home-day .fp-sent { margin-top: 8px; }
 /* 보낸 사진 at the end of the parent's day (A10): the header row carries the
@@ -1859,9 +1854,6 @@ html:not(.camera-live) .elder-cam { background: #000; }
 .hq-ask b { display: block; font-size: 16px; margin-bottom: 4px; }
 .hq-ask p { margin: 0 0 12px; font-size: 15px; word-break: keep-all; overflow-wrap: anywhere; }
 .hq-btn.danger { background: var(--danger); border-color: var(--danger); color: var(--surface); }
-/* A photo the family member sent, in their own 사진: the received card, edged in the parent's colour. */
-.memo-row.received.sent { margin-left: 0; width: 100%; background: var(--accent-tint); background: color-mix(in srgb, var(--pc) 12%, var(--surface)); border-color: transparent; box-shadow: inset 4px 0 0 var(--pc); }
-.memo-row.sent .sent-to { color: var(--pc); }
 .sent-view img { display: block; width: 100%; max-height: 60vh; object-fit: contain; border-radius: 14px; background: #000; }
 .sent-view .sent-view-meta { margin: 10px 2px 0; font-size: 16px; color: var(--muted); }
 .send-pick { display: flex; align-items: center; gap: 12px; width: 100%; padding: 14px 4px; font-size: 18px; font-weight: 700; background: none; border: 0; border-bottom: 1px solid var(--line); text-align: left; }
@@ -1873,14 +1865,7 @@ html:not(.camera-live) .elder-cam { background: #000; }
 .sheet-danger-btn.send-go:disabled { opacity: .45; }
 
 
-/* 내 하루 (a family member's own 오늘) and their 과거: a parent's photo
-   among one's own, indented and edged in that parent's colour. */
-.parent-memo { flex: 1; min-width: 0; margin-left: 24px; }
-.parent-memo .memo-row { background: var(--accent-tint); background: color-mix(in srgb, var(--pc) 12%, var(--surface)); border-color: transparent; box-shadow: inset 4px 0 0 var(--pc); }
-.parent-memo.sent-in-day .memo-row.received.sent { margin-bottom: 10px; }
-.day-tl .parent-memo .memo-row { margin-bottom: 10px; }
-.my-day-send { display: inline-block; margin-top: 10px; padding: 0; background: none; border: 0; }
-
+.day-tl 
 /* The floating calendar on 과거 and the parent's 내 사진: bottom-left, on the
    camera button's line; the date field covers it, invisible (CalendarFab). */
 .cal-fab-wrap {
@@ -1912,6 +1897,117 @@ html:not(.camera-live) .elder-cam { background: #000; }
 
 /* 운영실 D10: the check-in line, shown as the family will read it. */
 .hq-quote { margin: 4px 0 8px; padding: 10px 12px; background: var(--surface); border-radius: 10px; font-size: 15px; font-weight: 700; word-break: keep-all; overflow-wrap: anywhere; }
+
+/* ---------- A14: one white card per day, quiet one-line rows ---------- */
+.day-card { background: var(--surface); border-radius: var(--radius-card); overflow: hidden; margin-bottom: 14px; }
+.day-card > * + * { border-top: 1px solid var(--line); }
+.day-card .memo-row, .day-card .day-item .memo-row { margin: 0; border: 0; border-radius: 0; background: none; box-shadow: none; min-height: 76px; padding: 8px 12px; }
+.day-card .memo-row:active { background: var(--accent-tint); }
+.day-item { display: flex; align-items: center; gap: 0; }
+.day-time { flex: none; width: 46px; padding-left: 12px; box-sizing: content-box; font-size: 14px; font-weight: 800; color: var(--muted); font-variant-numeric: tabular-nums; line-height: 1; }
+.day-item .memo-row { flex: 1; min-width: 0; padding-left: 10px; }
+.memo-row-pic, .memo-row-pic .tl-thumb { width: 60px; height: 60px; }
+.memo-row-pic .tl-thumb { border-radius: 14px; }
+.memo-row-title { display: block; -webkit-line-clamp: unset; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.memo-row-line { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.memo-row-line .memo-row-meta { flex: 1; min-width: 0; display: block; -webkit-line-clamp: unset; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.memo-row-rx { flex: none; display: inline-flex; gap: 8px; font-size: 13px; font-weight: 800; color: var(--muted); font-variant-numeric: tabular-nums; }
+.memo-row-rx .memo-rx-heart { color: var(--danger); }
+.memo-row-side { flex: none; width: 12px; display: flex; justify-content: center; }
+.memo-row-side .memo-row-new { position: static; }
+/* A14.3: a parent's photo, a sent one, or a parent's run, in one's own diary:
+   indented with a 3pt edge in the parent's colour, no tint, one line. */
+.diary-row { margin-left: 24px !important; width: calc(100% - 24px); box-shadow: inset 3px 0 0 var(--pc) !important; min-height: 60px !important; }
+.day-item .diary-row { margin-left: 0 !important; width: auto; }
+.day-item:has(.diary-row) { padding-left: 24px; }
+.diary-thumb, .diary-thumb .tl-thumb { flex: none; width: 40px; height: 40px; border-radius: 10px; overflow: hidden; }
+.diary-line { flex: 1; min-width: 0; font-size: 15px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.diary-who { font-weight: 800; color: color-mix(in srgb, var(--pc) 60%, var(--ink)); }
+.diary-status { flex: none; font-size: 13px; font-weight: 800; color: var(--muted); }
+.diary-stack { position: relative; flex: none; width: 50px; height: 44px; }
+.diary-stack-thumb { position: absolute; top: calc(var(--i) * 4px); left: calc(var(--i) * 5px); width: 40px; height: 40px; border-radius: 10px; overflow: hidden; box-shadow: 0 0 0 2px var(--surface); }
+.diary-stack-thumb .tl-thumb { width: 40px; height: 40px; border-radius: 10px; }
+.day-empty-sub { margin-top: 6px; font-size: 15px; font-weight: 600; color: var(--muted); }
+.send-pick.is-sent { color: var(--muted); }
+.send-pick .done { margin-left: auto; }
+.send-message { width: 100%; box-sizing: border-box; min-height: 52px; margin: 12px 0 4px; padding: 0 14px; border: 1.5px solid var(--line); border-radius: 14px; background: var(--surface); font: inherit; font-size: 17px; color: var(--ink); }
+.send-message:focus { outline: none; border-color: var(--accent); }
+/* The first-time hint under ⋯ on one's own photo (A14.3). */
+.menu-hint {
+  position: absolute; right: 10px; top: calc(100% + 6px); z-index: 41; max-width: 240px;
+  padding: 10px 14px; border: 0; border-radius: 14px; background: var(--ink); color: var(--surface);
+  font: inherit; font-size: 15px; font-weight: 700; text-align: left; box-shadow: var(--shadow); cursor: pointer;
+}
+.menu-hint::before { content: ''; position: absolute; top: -6px; right: 18px; border: 6px solid transparent; border-top: 0; border-bottom-color: var(--ink); }
+/* 과거: the last row clears the floating calendar and camera (A14.4). */
+.page-past { padding-bottom: calc(64px + 16px + var(--safe-bot)); }
+.place-stack { width: 70px; height: 64px; }
+.place-stack .diary-stack-thumb, .place-stack .diary-stack-thumb .tl-thumb { width: 56px; height: 56px; border-radius: 14px; }
+/* A pin per place carries its visit numbers (`1·5·9`, A14.5): the chip grows to fit. */
+.trail-pin span { padding: 0 5px; white-space: nowrap; }
+.day-map .trail-pin { width: auto; min-width: 26px; padding: 0 6px; border-radius: 13px; }
+.day-map .trail-pin span { padding: 0; }
+
+/* ---------- A14.7: the parent's 내 사진 — a photo grid, a bottom bar ----------
+   Sizes in rem (22px = 1.375rem at the usual 16px) so 큰 글자 (17px root) enlarges them. */
+.elder-records-head .back { min-height: 60px; font-size: 1.375rem; font-weight: 800; padding: 0 18px 0 14px; }
+.elder-records-title { font-size: 1.625rem; }
+.elder-records { padding-bottom: calc(64px + 24px + var(--safe-bot)); }
+.elder-day { scroll-margin-top: calc(var(--safe-top) + 96px); }
+.elder-day-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin: 18px 2px 10px; }
+.elder-day-head { margin: 0; font-size: 1.375rem; font-weight: 800; color: var(--muted); }
+.elder-day-count { flex: none; font-size: 1.125rem; font-weight: 800; color: var(--muted); }
+.elder-day-news { display: block; width: 100%; min-height: 60px; margin: 0 0 10px; padding: 0 18px; border: 0; border-radius: 16px; background: var(--accent-tint); color: var(--ink); font: inherit; font-size: 1.375rem; font-weight: 800; text-align: left; cursor: pointer; }
+/* The grid: 3 columns (2 with 큰 글자); a tablet gets one more. ~112pt tiles on a 393pt phone. */
+.elder-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 0 0 14px; }
+.elder-records.big .elder-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+@media (min-width: 600px) {
+  .elder-grid { grid-template-columns: repeat(4, 1fr); }
+  .elder-records.big .elder-grid { grid-template-columns: repeat(3, 1fr); }
+}
+.elder-tile { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 0; border: 0; background: none; font: inherit; color: var(--ink); text-align: left; cursor: pointer; }
+.elder-tile-photo { position: relative; display: block; width: 100%; aspect-ratio: 1; border-radius: 14px; overflow: hidden; background: var(--surface-dim); }
+.elder-records.big .elder-tile-photo { border-radius: 18px; }
+.elder-tile-photo .tl-thumb { width: 100%; height: 100%; border-radius: 0; }
+.elder-tile-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.elder-tile-time { font-size: 1.25rem; font-weight: 700; line-height: 1.2; padding: 0 2px; font-variant-numeric: tabular-nums; }
+.elder-records.big .elder-tile-time { font-size: 1.375rem; }
+.elder-tile-chip { position: absolute; left: 6px; bottom: 6px; max-width: calc(100% - 12px); padding: 3px 8px; border-radius: 999px; background: var(--surface); color: var(--ink); font-size: .875rem; font-weight: 800; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-shadow: var(--shadow); }
+.elder-records.big .elder-tile-chip { font-size: 1rem; }
+.elder-tile-new { position: absolute; left: 6px; top: 6px; padding: 3px 8px; border-radius: 999px; background: var(--accent); color: var(--ink); font-size: .875rem; font-weight: 800; line-height: 1.3; }
+.elder-records.big .elder-tile-new { font-size: 1rem; }
+.elder-tile-new.static { position: static; margin-right: 8px; }
+/* A photo from the family: one horizontal card between the tiles, in the owner's layout. */
+.elder-received { display: flex; align-items: center; gap: 14px; width: calc(100% - 40px); min-height: 100px; margin: 0 0 14px 40px; padding: 0 14px 0 0; border: 0; border-radius: 18px; background: var(--accent-tint); box-shadow: inset 5px 0 0 var(--accent); font: inherit; color: var(--ink); text-align: left; cursor: pointer; overflow: hidden; }
+.elder-received-photo { flex: none; width: 120px; height: 100px; margin-left: 5px; overflow: hidden; }
+.elder-received-photo .tl-thumb { width: 100%; height: 100%; border-radius: 0; }
+.elder-received-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.elder-received-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; padding: 10px 0; }
+.elder-received-title { font-size: 1.375rem; font-weight: 800; display: flex; align-items: center; flex-wrap: wrap; }
+.elder-received-line { font-size: 1.125rem; font-weight: 700; color: var(--ink); word-break: keep-all; overflow-wrap: anywhere; }
+.elder-records-empty { padding: 48px 8px; text-align: center; font-size: 1.625rem; font-weight: 700; color: var(--muted); line-height: 1.5; }
+.elder-bar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 55; max-width: 480px; margin: 0 auto;
+  display: flex; gap: 12px; padding: 12px 16px calc(12px + var(--safe-bot));
+  background: var(--surface); border-top: 1px solid var(--line);
+}
+.elder-bar-btn {
+  position: relative; flex: 1; min-height: 64px; display: flex; align-items: center; justify-content: center; gap: 10px;
+  border-radius: 20px; font: inherit; font-size: 1.375rem; font-weight: 800; color: var(--ink); cursor: pointer; overflow: hidden;
+}
+.elder-bar-btn svg { width: 30px; height: 30px; flex: none; }
+.elder-bar-date { background: var(--surface); border: 2px solid var(--line); }
+.elder-bar-date.is-off { opacity: .5; cursor: default; }
+.elder-bar-camera { background: var(--accent); border: 0; }
+.elder-bar-camera:active { background: var(--accent-pressed); }
+/* §Q on the photo page (A14): the source badge at 15, and 48pt targets for 수정 and the hint. */
+.src-badge { font-size: 15px; }
+.d-edit-link { min-height: 48px; min-width: 48px; display: inline-flex; align-items: center; justify-content: center; }
+.menu-hint { min-height: 48px; }
+/* A folded run's title may take two lines (올림픽공원 · 사진 2장). */
+.place-group .memo-row-title { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+/* 다녀온 곳 rows keep their longer line (time · area · km · 사진 n장) on two lines. */
+.trail-list .memo-row-line .memo-row-meta { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 
 /* 성장 · 설치 under the funnel (D11): one line per store, wrapping on phones. */
 .hq-stores { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; margin-top: 4px; }

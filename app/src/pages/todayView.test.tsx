@@ -37,12 +37,15 @@ describe('rowCounts', () => {
 })
 
 describe('Today', () => {
-  it('one memo row per photo: title, then time · place · category · who left what; no badge, no rail, no delete button, no thread', () => {
+  it('one memo row per photo in the day\'s card: time on the left, the place\'s name, hearts and words counted at the end; no badge, no rail, no delete button, no thread', () => {
     const out = render({ rx: rx({ a: [{ kind: 'heart', actorName: '지민' }, { kind: 'comment', actorName: '지민', text: '좋아요' }] }) })
     expect(out.split('class="memo-row"').length - 1).toBe(2)
     expect(out).toContain('a 산책')
-    expect(out).toContain('<span class="memo-row-meta">오후 3:05 · 석촌호수 · 산책 · ♥ 지민 · 💬 1</span>')
-    expect(out).toContain('<span class="memo-row-meta">오전 9:05 · 석촌호수 · 산책</span>')
+    expect(out).toContain('<span class="memo-row-meta">석촌호수</span>')
+    expect(out).toContain('<span class="memo-rx-heart">♥ 1</span><span>💬 1</span>')
+    expect(out.match(/memo-row-rx/g)?.length).toBe(1)
+    expect(out).toContain('class="day-time">15:05')
+    expect(out).toContain('class="day-card"')
     expect(out).not.toContain('memo-row-badge')
     expect(out).not.toContain('day-rail')
     expect(out).not.toContain('tl-item')
@@ -57,7 +60,7 @@ describe('Today', () => {
     const fresh = render({ rx: own({ a: [{ kind: 'heart', actorName: '지민', actorUid: 'me', status: 'ready' }] }) })
     expect(fresh).toContain('<span class="memo-row-new" aria-label="새 소식"></span>')
     const seen = render({ rx: own({ a: [{ kind: 'heart', actorName: '지민', actorUid: 'me', status: 'ready', readByElderAt: {} as never }] }) })
-    expect(seen).toContain('♥ 지민')
+    expect(seen).toContain('♥ 1')
     expect(seen).not.toContain('새 소식')
     // The family's own list never carries the mark.
     expect(render({ rx: rx({ a: [{ kind: 'heart', actorName: '지민', actorUid: 'me', status: 'ready' }] }) })).not.toContain('memo-row-new')
@@ -120,7 +123,7 @@ describe('지난 기록 (the family\'s, simple edition): only what came before t
     })
     expect(out).not.toContain('a 산책')
     expect(out).toContain('b 산책')
-    expect(out.split('memo-row received sent').length - 1).toBe(1)
+    expect(out.split('에게 보냄').length - 1).toBe(1)
     expect(out).not.toContain('오늘 ·')
   })
 
@@ -135,10 +138,10 @@ describe('지난 기록 (the family\'s, simple edition): only what came before t
 describe("one's own 지난 기록: the parents' photos woven in", () => {
   it('indented in the parent\'s colour with their name, by time among one\'s own (a past day, morning first)', () => {
     const momMemo = memo('m', 1, 12)
-    const out = render({ parents: [{ memo: momMemo, name: '엄마', color: '#3BAA78' }] })
-    expect(out).toContain('class="parent-memo" style="--pc:#3BAA78"')
-    expect(out).toContain('엄마 · 석촌호수')
-    expect(out.indexOf('b 산책')).toBeLessThan(out.indexOf('m 산책'))
+    const out = render({ parents: [{ memo: momMemo, name: '엄마', color: 'seagreen' }] })
+    expect(out).toContain('style="--pc:seagreen"')
+    expect(out).toContain('엄마</b> 석촌호수')
+    expect(out.indexOf('b 산책')).toBeLessThan(out.indexOf('엄마</b> 석촌호수'))
   })
 })
 
@@ -155,5 +158,12 @@ describe('day headings, order within a day, and the calendar', () => {
     expect(render({ calendar: true })).toContain('aria-label="날짜로 찾기"')
     expect(render()).not.toContain('날짜로 찾기')
     expect(render({ calendar: true, memos: [] })).not.toContain('날짜로 찾기')
+  })
+})
+
+describe('과거 bottom room (A14.4)', () => {
+  it('a list with the floating calendar keeps the last row clear of the buttons', () => {
+    expect(render({ calendar: true })).toContain('class="page page-past"')
+    expect(render()).toContain('<section class="page">')
   })
 })
