@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { hasUnseen, reactionSentence, receivedLine } from './elderRecords'
+import { hasUnseen, reactionSentence, receivedLine, tileChip } from './elderRecords'
 import type { FamilyPhoto, Reaction } from '../types'
 
 const r = (kind: Reaction['kind'], actorName: string, o: Partial<Reaction> = {}) => ({ id: `${kind}-${actorName}`, kind, actorName, actorUid: `u-${actorName}`, status: 'ready', ...o }) as Reaction
@@ -25,5 +25,10 @@ describe('the parent\'s 내 사진 sentences', () => {
     const p = { createdAtMs: new Date(2026, 9, 24, 20, 40).getTime(), reply: { kind: 'heart', atMs: 1 } } as FamilyPhoto
     expect(receivedLine(p)).toBe('오후 8:40 · ❤️ 고마워요 보냄')
     expect(receivedLine({ ...p, reply: undefined })).toBe('오후 8:40')
+  })
+  it('the tile chip: icons, and the first name only where there is room', () => {
+    expect(tileChip([r('heart', '지민'), r('comment', '민수')], 'mom', false)).toBe('❤️💬')
+    expect(tileChip([r('heart', '지민'), r('comment', '민수')], 'mom', true)).toBe('❤️💬 지민')
+    expect(tileChip(undefined, 'mom', true)).toBe('')
   })
 })

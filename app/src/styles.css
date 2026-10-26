@@ -1948,28 +1948,43 @@ html:not(.camera-live) .elder-cam { background: #000; }
 .day-map .trail-pin { width: auto; min-width: 26px; padding: 0 6px; border-radius: 13px; }
 .day-map .trail-pin span { padding: 0; }
 
-/* ---------- A14.7: the parent's 내 사진 — big cards, a bottom bar ----------
+/* ---------- A14.7: the parent's 내 사진 — a photo grid, a bottom bar ----------
    Sizes in rem (22px = 1.375rem at the usual 16px) so 큰 글자 (17px root) enlarges them. */
 .elder-records-head .back { min-height: 60px; font-size: 1.375rem; font-weight: 800; padding: 0 18px 0 14px; }
 .elder-records-title { font-size: 1.625rem; }
 .elder-records { padding-bottom: calc(64px + 24px + var(--safe-bot)); }
 .elder-day { scroll-margin-top: calc(var(--safe-top) + 96px); }
-.elder-day-head { margin: 18px 2px 10px; font-size: 1.375rem; font-weight: 800; color: var(--muted); }
-.elder-card {
-  display: flex; flex-direction: column; gap: 10px; width: 100%; margin: 0 0 14px; padding: 0 0 16px;
-  border: 0; border-radius: 22px; background: var(--surface); overflow: hidden; text-align: left; font: inherit; color: var(--ink); cursor: pointer;
+.elder-day-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin: 18px 2px 10px; }
+.elder-day-head { margin: 0; font-size: 1.375rem; font-weight: 800; color: var(--muted); }
+.elder-day-count { flex: none; font-size: 1.125rem; font-weight: 800; color: var(--muted); }
+.elder-day-news { display: block; width: 100%; min-height: 60px; margin: 0 0 10px; padding: 0 18px; border: 0; border-radius: 16px; background: var(--accent-tint); color: var(--ink); font: inherit; font-size: 1.375rem; font-weight: 800; text-align: left; cursor: pointer; }
+/* The grid: 3 columns (2 with 큰 글자); a tablet gets one more. ~112pt tiles on a 393pt phone. */
+.elder-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 0 0 14px; }
+.elder-records.big .elder-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+@media (min-width: 600px) {
+  .elder-grid { grid-template-columns: repeat(4, 1fr); }
+  .elder-records.big .elder-grid { grid-template-columns: repeat(3, 1fr); }
 }
-.elder-card:active { background: var(--accent-tint); }
-.elder-card-photo { display: block; width: 100%; aspect-ratio: 3 / 2; overflow: hidden; }
-.elder-card-photo .tl-thumb { width: 100%; height: 100%; border-radius: 0; }
-.elder-card-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.elder-card-line { padding: 0 18px; font-size: 1.375rem; font-weight: 700; color: var(--ink); }
-.elder-card-title { padding: 0 18px; font-size: 1.375rem; font-weight: 800; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.elder-card-caption { padding: 0 18px; font-size: 1.25rem; font-weight: 700; color: var(--ink); word-break: keep-all; overflow-wrap: anywhere; }
-.elder-card-news { margin: 0 14px; padding: 12px 14px; border-radius: 14px; background: var(--accent-tint); font-size: 1.25rem; font-weight: 800; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; word-break: keep-all; }
-.elder-new-pill { flex: none; padding: 4px 10px; border-radius: 999px; background: var(--accent); color: var(--ink); font-size: 1.25rem; font-weight: 800; }
-.elder-card-received { margin-left: 40px; width: calc(100% - 40px); background: var(--accent-tint); box-shadow: inset 5px 0 0 var(--accent); }
-.elder-card-received .elder-card-photo { margin-left: 5px; width: calc(100% - 5px); }
+.elder-tile { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 0; border: 0; background: none; font: inherit; color: var(--ink); text-align: left; cursor: pointer; }
+.elder-tile-photo { position: relative; display: block; width: 100%; aspect-ratio: 1; border-radius: 14px; overflow: hidden; background: var(--surface-dim); }
+.elder-records.big .elder-tile-photo { border-radius: 18px; }
+.elder-tile-photo .tl-thumb { width: 100%; height: 100%; border-radius: 0; }
+.elder-tile-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.elder-tile-time { font-size: 1.25rem; font-weight: 700; line-height: 1.2; padding: 0 2px; font-variant-numeric: tabular-nums; }
+.elder-records.big .elder-tile-time { font-size: 1.375rem; }
+.elder-tile-chip { position: absolute; left: 6px; bottom: 6px; max-width: calc(100% - 12px); padding: 3px 8px; border-radius: 999px; background: var(--surface); color: var(--ink); font-size: .875rem; font-weight: 800; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-shadow: var(--shadow); }
+.elder-records.big .elder-tile-chip { font-size: 1rem; }
+.elder-tile-new { position: absolute; left: 6px; top: 6px; padding: 3px 8px; border-radius: 999px; background: var(--accent); color: var(--ink); font-size: .875rem; font-weight: 800; line-height: 1.3; }
+.elder-records.big .elder-tile-new { font-size: 1rem; }
+.elder-tile-new.static { position: static; margin-right: 8px; }
+/* A photo from the family: one horizontal card between the tiles, in the owner's layout. */
+.elder-received { display: flex; align-items: center; gap: 14px; width: calc(100% - 40px); min-height: 100px; margin: 0 0 14px 40px; padding: 0 14px 0 0; border: 0; border-radius: 18px; background: var(--accent-tint); box-shadow: inset 5px 0 0 var(--accent); font: inherit; color: var(--ink); text-align: left; cursor: pointer; overflow: hidden; }
+.elder-received-photo { flex: none; width: 120px; height: 100px; margin-left: 5px; overflow: hidden; }
+.elder-received-photo .tl-thumb { width: 100%; height: 100%; border-radius: 0; }
+.elder-received-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.elder-received-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; padding: 10px 0; }
+.elder-received-title { font-size: 1.375rem; font-weight: 800; display: flex; align-items: center; flex-wrap: wrap; }
+.elder-received-line { font-size: 1.125rem; font-weight: 700; color: var(--ink); word-break: keep-all; overflow-wrap: anywhere; }
 .elder-records-empty { padding: 48px 8px; text-align: center; font-size: 1.625rem; font-weight: 700; color: var(--muted); line-height: 1.5; }
 .elder-bar {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 55; max-width: 480px; margin: 0 auto;

@@ -38,7 +38,7 @@ import { S } from '../lib/strings'
  * deleted the parent altogether, the phone starts over at the first screen.
  * In the simple edition the first screen is the camera itself (ElderCamera).
  */
-export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn, textMode, familyPhotosOn = false, onRelink }: {
+export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn, textMode, familyPhotosOn = false, bigText = false, onRelink }: {
   uid: string
   deviceId: string
   patientName: string
@@ -51,6 +51,8 @@ export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn
   textMode?: TextReplies
   /** Photos from family are switched on, and received for this parent. */
   familyPhotosOn?: boolean
+  /** 설정 › 큰 글자 (App also sets the root size): 내 사진 shows 2 columns. */
+  bigText?: boolean
   onRelink: () => void
 }) {
   const [view, setView] = useState<'home' | 'records'>('home')
@@ -170,6 +172,7 @@ export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn
               received={familyPhotosOn ? familyPhotos : []}
               byMemo={rx?.byMemo}
               patientUid={uid}
+              bigText={bigText}
               onOpen={setOpenId}
               onOpenReceived={setPhotosOpen}
               onCamera={backToCamera}

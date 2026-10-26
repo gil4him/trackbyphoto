@@ -641,6 +641,7 @@ function App() {
           voiceOn={flagOn(plans, 'voiceReplies') && settings.voiceEnabled === true}
           textMode={settings.textReplies ?? defaultTextReplies()}
           familyPhotosOn={familyPhotosOn}
+          bigText={settings.bigText}
           onRelink={async () => {
             await signOut().catch(() => {})
             setPairCode('')

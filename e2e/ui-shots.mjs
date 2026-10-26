@@ -75,7 +75,8 @@ const nineToday = () => (nine ??= seedTodayMemos({ momUid, kidUid: self, kidName
 // open?: (device) → page, for screens that are not the family's (a parent's phone) }.
 // §Q.1 audit rules for A14 (see the phase).
 const A14_FAMILY = { smallOk: 'nav.tabbar, .memo-row-rx, .diary-status, .day-time' }
-const A14_PARENT = { minFont: 20, minTap: 60, smallOk: 'nav.tabbar' }
+// The grid's 20pt time is the agreed exception; the spec's own 18pt (count, received line) and 14–16pt chips are allowed with it.
+const A14_PARENT = { minFont: 20, minTap: 60, smallOk: 'nav.tabbar, .elder-tile-chip, .elder-tile-new, .elder-day-count, .elder-received-line' }
 let momSession = null
 let dad = null
 let dadPhone = null
@@ -110,10 +111,22 @@ const PHASES = {
     'past-bottom': { as: self, rules: A14_FAMILY, go: async (p) => { await home(p, '내 하루'); await tab(p, '어제까지'); await p.waitForSelector('.day-card'); await p.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight)); await sleep(400) } },
     'parent-day': { as: momUid, rules: A14_FAMILY, prepare: () => seedTodayMemos({ momUid, kidUid: self, kidName: KID.name, count: 9 }), go: (p) => home(p, '다녀온 곳') },
     trail: { as: momUid, rules: A14_FAMILY, go: async (p) => { await home(p, '다녀온 곳'); await click(p, '다녀온 곳', '.day-map-open'); await waitText(p, '들름'); await sleep(1500) } },
-    'elder-records': { open: momPhone, rules: A14_PARENT, go: async (p) => { await viewfinder(p); await p.click('.elder-cam-records'); await p.waitForSelector('.elder-card'); await sleep(600) } },
+    // 내 사진 is a 3-column grid, 2 with 큰 글자: the setting is flipped per screen (the matrix's
+    // 393-big row only enlarges the root font; the columns follow the parent's setting).
+    'elder-records': {
+      open: momPhone, rules: A14_PARENT,
+      prepare: () => getFirestore().doc(`users/${momUid}`).set({ bigText: false }, { merge: true }),
+      go: async (p) => { await viewfinder(p); await p.click('.elder-cam-records'); await p.waitForSelector('.elder-tile'); await sleep(600) },
+    },
+    'elder-records-big': {
+      open: momPhone, rules: A14_PARENT,
+      prepare: () => getFirestore().doc(`users/${momUid}`).set({ bigText: true }, { merge: true }),
+      go: async (p) => { await viewfinder(p); await p.click('.elder-cam-records'); await p.waitForSelector('.elder-records.big .elder-tile'); await sleep(600) },
+    },
     'elder-records-bottom': {
       open: momPhone, rules: A14_PARENT,
-      go: async (p) => { await viewfinder(p); await p.click('.elder-cam-records'); await p.waitForSelector('.elder-card'); await p.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight)); await sleep(600) },
+      prepare: () => getFirestore().doc(`users/${momUid}`).set({ bigText: false }, { merge: true }),
+      go: async (p) => { await viewfinder(p); await p.click('.elder-cam-records'); await p.waitForSelector('.elder-tile'); await p.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight)); await sleep(600) },
     },
   },
   // T1: the family's tabs by time. 오늘 (own page) is 내 하루: one's own
