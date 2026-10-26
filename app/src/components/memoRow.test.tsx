@@ -20,8 +20,8 @@ describe('MemoRow', () => {
   it('hearts and words counted at the end of the line, hidden at 0', () => {
     expect(out()).not.toContain('memo-row-rx')
     const rx = [{ kind: 'heart', actorName: '지민' }, { kind: 'heart', actorName: '지민' }, { kind: 'comment', actorName: '민수' }] as Reaction[]
-    expect(out({ reactions: rx })).toContain('<span class="rx-heart">♥ 1</span><span>💬 1</span>')
-    expect(out({ reactions: [{ kind: 'comment', actorName: '민수' }] as Reaction[] })).not.toContain('rx-heart')
+    expect(out({ reactions: rx })).toContain('<span class="memo-rx-heart">♥ 1</span><span>💬 1</span>')
+    expect(out({ reactions: [{ kind: 'comment', actorName: '민수' }] as Reaction[] })).not.toContain('memo-rx-heart')
   })
   it('a generic 사진을 남겼어요 reads {place}에서', () => {
     expect(out({ memo: memo({ memo: '사진을 남겼어요' }) })).toContain('>석촌호수에서<')

@@ -7,7 +7,7 @@ import type { ReactNode } from 'react'
 vi.mock('./BottomSheet', () => ({ BottomSheet: ({ title, children }: { title?: string; children: ReactNode }) => <div><h2>{title}</h2>{children}</div> }))
 import { SendSheet, type SendTarget } from './SendSheet'
 
-const t = (uid: string, name: string, sent = false): SendTarget => ({ uid, name, color: '#4A90D9', sent })
+const t = (uid: string, name: string, sent = false): SendTarget => ({ uid, name, color: 'steelblue', sent })
 const html = (targets: SendTarget[]) => renderToString(<SendSheet targets={targets} onSend={() => {}} onClose={() => {}} />).replace(/<!-- -->/g, '')
 
 describe('SendSheet', () => {

@@ -80,7 +80,7 @@ describe("ParentDayHome (simple edition: the parent's day)", () => {
     expect(out).toContain('class="day-time">15:30')
     expect(out).not.toContain('day-rail')
     expect(out).not.toContain('memo-row-badge')
-    expect(out).toContain('<span class="rx-heart">♥ 1</span><span>💬 1</span>')
+    expect(out).toContain('<span class="memo-rx-heart">♥ 1</span><span>💬 1</span>')
     expect(out).toContain('어제 보기 ›')
     expect(out).not.toContain('class="capbtn"')
     expect(out).not.toContain('지난 기록')

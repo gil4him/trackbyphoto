@@ -41,7 +41,7 @@ export function MemoRow({ memo, onOpen, reactions, meta, badge, time, fresh = fa
             <span className="memo-row-meta">{line}</span>
             {(hearts > 0 || words > 0) && (
               <span className="memo-row-rx" aria-label={[hearts ? `하트 ${hearts}` : '', words ? `글 ${words}` : ''].filter(Boolean).join(', ')}>
-                {hearts > 0 && <span className="rx-heart">♥ {hearts}</span>}
+                {hearts > 0 && <span className="memo-rx-heart">♥ {hearts}</span>}
                 {words > 0 && <span>💬 {words}</span>}
               </span>
             )}

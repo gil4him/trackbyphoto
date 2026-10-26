@@ -42,7 +42,7 @@ describe('Today', () => {
     expect(out.split('class="memo-row"').length - 1).toBe(2)
     expect(out).toContain('a 산책')
     expect(out).toContain('<span class="memo-row-meta">석촌호수</span>')
-    expect(out).toContain('<span class="rx-heart">♥ 1</span><span>💬 1</span>')
+    expect(out).toContain('<span class="memo-rx-heart">♥ 1</span><span>💬 1</span>')
     expect(out.match(/memo-row-rx/g)?.length).toBe(1)
     expect(out).toContain('class="day-time">15:05')
     expect(out).toContain('class="day-card"')
@@ -138,8 +138,8 @@ describe('지난 기록 (the family\'s, simple edition): only what came before t
 describe("one's own 지난 기록: the parents' photos woven in", () => {
   it('indented in the parent\'s colour with their name, by time among one\'s own (a past day, morning first)', () => {
     const momMemo = memo('m', 1, 12)
-    const out = render({ parents: [{ memo: momMemo, name: '엄마', color: '#3BAA78' }] })
-    expect(out).toContain('style="--pc:#3BAA78"')
+    const out = render({ parents: [{ memo: momMemo, name: '엄마', color: 'seagreen' }] })
+    expect(out).toContain('style="--pc:seagreen"')
     expect(out).toContain('엄마</b> 석촌호수')
     expect(out.indexOf('b 산책')).toBeLessThan(out.indexOf('엄마</b> 석촌호수'))
   })

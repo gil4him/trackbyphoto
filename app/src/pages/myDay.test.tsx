@@ -30,8 +30,8 @@ describe('내 하루', () => {
   it("one card, newest first: one's own photos, a parent's (indented, their name), and what one sent; one line each", () => {
     const out = render({
       memos: [memo('mine2', at(15)), memo('mine1', at(9)), memo('yday', at(9, 0, 1))],
-      parents: [{ memo: memo('mom1', at(12), { patientUid: 'mom' }), name: '엄마', color: '#4A90D9' }],
-      sent: [{ photo: sentPhoto('s1', at(10)), to: '엄마', color: '#4A90D9' }],
+      parents: [{ memo: memo('mom1', at(12), { patientUid: 'mom' }), name: '엄마', color: 'steelblue' }],
+      sent: [{ photo: sentPhoto('s1', at(10)), to: '엄마', color: 'steelblue' }],
     })
     expect(out).toContain('내 하루')
     expect(out).toContain('내 사진 2장 · 엄마 1장')
@@ -40,7 +40,7 @@ describe('내 하루', () => {
     expect(order.every((i) => i > 0)).toBe(true)
     expect([...order].sort((a, b) => a - b)).toEqual(order)
     expect(out.match(/class="day-card"/g)?.length).toBe(1)
-    expect(out).toContain('style="--pc:#4A90D9"')
+    expect(out).toContain('style="--pc:steelblue"')
     expect(out.match(/class="day-time"/g)?.length).toBe(4)
     expect(out).not.toContain('day-rail')
     expect(out).not.toContain('day-dot')

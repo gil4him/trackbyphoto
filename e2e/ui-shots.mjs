@@ -14,7 +14,7 @@ import { fileURLToPath } from 'node:url'
 import { initializeApp } from 'firebase-admin/app'
 import { FieldValue, getFirestore, Timestamp } from 'firebase-admin/firestore'
 import { serveSite } from './servers.mjs'
-import { seedDemoFamily, seedFamilyPhotos, seedSecondParent, seedTodayMemos } from './demo-seed.mjs'
+import { seedDemoFamily, seedFamilyPhotos, seedOwnMemos, seedSecondParent, seedTodayMemos } from './demo-seed.mjs'
 import { spawn } from 'node:child_process'
 import { audit, click, elderSession, FAKE_CAMERA_ARGS, familyAccount, launchBrowser, openPage, QA_MATRIX, settle, sleep, tab, textScale, waitText } from './shot-kit.mjs'
 import { serveFakeModel } from './servers.mjs'
@@ -73,11 +73,49 @@ const nineToday = () => (nine ??= seedTodayMemos({ momUid, kidUid: self, kidName
 // Each phase: screen name → { as: whose records are open, go: how to get
 // there, prepare?: data to write first, account?: who is signed in,
 // open?: (device) → page, for screens that are not the family's (a parent's phone) }.
+// §Q.1 audit rules for A14 (see the phase).
+const A14_FAMILY = { smallOk: 'nav.tabbar, .memo-row-rx, .diary-status, .day-time' }
+const A14_PARENT = { minFont: 20, minTap: 60, smallOk: 'nav.tabbar' }
 let momSession = null
 let dad = null
 let dadPhone = null
 const momPhone = async (device) => { const k = await elderKit(); momSession ??= await k.phone(); return openPage(k.camera, { device, session: momSession }) }
 const PHASES = {
+  // A14: calmer family lists and the parent's 내 사진 (docs/DAYLIE_V3_UI_FIX.md
+  // Round 3). The empty day comes first, before anything is seeded for today.
+  // The family's 13pt counts (♥ n 💬 n, 보냈어요) and the 14pt time column
+  // are set by the spec, as the tab labels are; the parent's 내 사진 is held to the parent's 60pt buttons
+  // and its own type sizes (20pt at the smallest).
+  A14: {
+    'myday-empty': { as: self, rules: A14_FAMILY, go: async (p) => { await home(p, '내 하루'); await waitText(p, '찍은 사진은') } },
+    myday: {
+      as: self, rules: A14_FAMILY,
+      prepare: async () => {
+        await seedOwnMemos({ kidUid: self, days: [0, 1, 2] })
+        await seedTodayMemos({ momUid, kidUid: self, kidName: KID.name, count: 4 })
+        await seedFamilyPhotos({ momUid, kidUid: self, kidName: KID.name, count: 1 })
+      },
+      go: async (p) => { await home(p, '내 하루'); await p.waitForSelector('.day-card') },
+    },
+    'myday-expanded': { as: self, rules: A14_FAMILY, go: async (p) => { await home(p, '내 하루'); await p.waitForSelector('.diary-group'); await p.click('.diary-group'); await sleep(300) } },
+    'detail-hint': { as: self, rules: A14_FAMILY, go: async (p) => { await home(p, '내 하루'); await p.click('.day-card > .day-item > .memo-row:not(.diary-row)'); await p.waitForSelector('.menu-hint') } },
+    'send-sheet': {
+      as: self, rules: A14_FAMILY,
+      go: async (p) => {
+        await home(p, '내 하루'); await p.click('.day-card > .day-item > .memo-row:not(.diary-row)')
+        await click(p, '더보기'); await sleep(300); await click(p, '부모님께 보내기', '.sheet-item'); await p.waitForSelector('.send-message'); await sleep(400)
+      },
+    },
+    past: { as: self, rules: A14_FAMILY, go: async (p) => { await home(p, '내 하루'); await tab(p, '어제까지'); await p.waitForSelector('.day-card') } },
+    'past-bottom': { as: self, rules: A14_FAMILY, go: async (p) => { await home(p, '내 하루'); await tab(p, '어제까지'); await p.waitForSelector('.day-card'); await p.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight)); await sleep(400) } },
+    'parent-day': { as: momUid, rules: A14_FAMILY, prepare: () => seedTodayMemos({ momUid, kidUid: self, kidName: KID.name, count: 9 }), go: (p) => home(p, '다녀온 곳') },
+    trail: { as: momUid, rules: A14_FAMILY, go: async (p) => { await home(p, '다녀온 곳'); await click(p, '다녀온 곳', '.day-map-open'); await waitText(p, '들름'); await sleep(1500) } },
+    'elder-records': { open: momPhone, rules: A14_PARENT, go: async (p) => { await viewfinder(p); await p.click('.elder-cam-records'); await p.waitForSelector('.elder-card'); await sleep(600) } },
+    'elder-records-bottom': {
+      open: momPhone, rules: A14_PARENT,
+      go: async (p) => { await viewfinder(p); await p.click('.elder-cam-records'); await p.waitForSelector('.elder-card'); await p.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight)); await sleep(600) },
+    },
+  },
   // T1: the family's tabs by time. 오늘 (own page) is 내 하루: one's own
   // photos by time with 엄마's and what one sent her woven in, indented;
   // 지난 기록: everything before today. The same two on 엄마's page.
@@ -409,7 +447,7 @@ if (!screens) throw new Error(`no screens defined for phase ${PHASE}`)
 const rows = process.env.UI_MATRIX === '1' ? QA_MATRIX : [{ id: null, device: DEVICE }]
 const findings = {}
 try {
-  for (const [name, { as, go, prepare, account, open }] of Object.entries(screens)) {
+  for (const [name, { as, go, prepare, account, open, rules }] of Object.entries(screens)) {
     if (only && !only.has(name)) continue
     if (prepare) await prepare()
     const who = account ? await account() : acct
@@ -424,7 +462,7 @@ try {
         if (row.bigText) await p.evaluate(() => { document.documentElement.style.fontSize = '17px' })
         if (row.textScale) { await textScale(p, row.textScale); await sleep(300) }
         if (row.id) {
-          const found = await audit(p)
+          const found = await audit(p, rules)
           findings[file] = found
           for (const f of found) console.log(`      ! ${f}`)
         }
