@@ -49,6 +49,7 @@ import { homeFor } from './lib/trail'
 import { deviceGeoLang, relativeDateLabel } from './util'
 import { disablePush, onPushOpened, refreshPush, type PushOpened } from './lib/push'
 import { configurePayments } from './lib/payments'
+import { arrivalNow, noteArrivalRef } from './lib/arrival'
 import { PushNudge } from './components/PushNudge'
 import type { AppNotification } from './types'
 import { openFromUrl, parseOpen, type OpenTarget } from './lib/openFromUrl'
@@ -327,6 +328,24 @@ function App() {
 
   // Stamp our real name onto any memberships where we're the caregiver, so the
   // patient sees a name (not a UID) in 가족 관리. Backfills older rows too.
+  // 어디서 들어왔나 (운영실 D11): where this visit came from (?from=, the
+  // referring site) is kept before sign-in sends the page away, and stamped
+  // once on a family member's own doc — on the server's answer, after the
+  // settings seed below has made the doc. Never on a parent's phone.
+  useEffect(() => { noteArrivalRef() }, [])
+  useEffect(() => {
+    if (!user || elder) return
+    const ref = doc(db, 'users', user.uid)
+    const unsub = onSnapshot(ref, { includeMetadataChanges: true }, (snap) => {
+      if (snap.metadata.fromCache || !snap.exists()) return
+      unsub()
+      if ((snap.data() as Partial<UserSettings>).arrival) return
+      updateDoc(ref, { arrival: arrivalNow(), lastModifiedBy: user.uid, lastModifiedAt: serverTimestamp() })
+        .catch((e) => console.warn('[arrival] not stamped', e))
+    }, (err) => console.warn('[arrival] subscription', err))
+    return () => unsub()
+  }, [user, elder])
+
   useEffect(() => {
     if (user && !elder) {
       syncCaregiverName().catch((e) => console.warn('[caregiver] name sync failed', e))

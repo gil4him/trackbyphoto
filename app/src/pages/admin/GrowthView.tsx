@@ -4,7 +4,7 @@
 // number comes from the worker (adminGrowth); what is not recorded says so.
 
 import { useEffect, useState } from 'react'
-import { adminGrowth, barWidth, dayLabel, weekLabel, yTicks, type AdminGrowth } from '../../lib/adminGrowth'
+import { adminGrowth, barWidth, dayLabel, installRate, installTotal, storeState, weekLabel, yTicks, type AdminGrowth, type StoreInstalls } from '../../lib/adminGrowth'
 import { fmtN } from '../../lib/adminToday'
 import { loadPlans } from '../../lib/plans'
 import { WorkerError } from '../../lib/worker'
@@ -40,6 +40,7 @@ export function GrowthView({ refreshKey }: { refreshKey: number }) {
   const failed = !!state.error && !g
   const signups = g?.funnel[0]?.count ?? 0
   const leakTo = g?.drop?.to
+  const installs = installTotal(g?.installs)
 
   return (
     <div className="hq-growth">
@@ -58,16 +59,20 @@ export function GrowthView({ refreshKey }: { refreshKey: number }) {
         <h3>여정 <small>단계마다 다음으로 넘어간 비율</small></h3>
         {!g ? <Lines n={6} /> : (
           <div className="hq-funnel">
-            <div className="hq-fr off">
+            <div className={`hq-fr${installs === null ? ' off' : ''}`}>
               <span className="lab">설치</span>
-              <div className="track"><div className="fill" style={{ width: '100%' }}>연결 필요</div></div>
+              <div className="track">
+                {installs === null ? <div className="fill" style={{ width: '100%' }}>연결 필요</div>
+                  : installs ? <div className="fill f0 num" style={{ width: '100%' }}>{fmtN(installs)}</div>
+                  : <span className="zero num">0</span>}
+              </div>
               <span className="pct" />
             </div>
             {g.funnel.map((s, i) => (
               <div key={s.key} className={`hq-fr${s.label === leakTo ? ' leak' : ''}`}>
                 <span className="lab">{s.label}</span>
-                <div className="track">{s.count ? <div className={`fill f${i} num`} style={{ width: `${barWidth(s.count, signups)}%` }}>{fmtN(s.count)}</div> : <span className="zero num">0</span>}</div>
-                <span className="pct num">{s.rate === null ? '' : `→ ${Math.round(s.rate * 100)}%`}</span>
+                <div className="track">{s.count ? <div className={`fill f${i} num`} style={{ width: `${barWidth(s.count, installs ?? signups)}%` }}>{fmtN(s.count)}</div> : <span className="zero num">0</span>}</div>
+                <span className="pct num">{i === 0 ? installRate(s.count, installs) : s.rate === null ? '' : `→ ${Math.round(s.rate * 100)}%`}</span>
               </div>
             ))}
             <div className={`hq-fr ${paymentsOn ? 'off' : 'wait'}`}>
@@ -76,6 +81,13 @@ export function GrowthView({ refreshKey }: { refreshKey: number }) {
               <span className="pct" />
             </div>
             {signups === 0 && <p className="hq-note">최근 30일에 가입한 가족이 없어요.</p>}
+            {g.installs && (
+              <p className="hq-note hq-stores">
+                <span className="hq-stores-t">설치 · 스토어 기준 어제까지 30일</span>
+                <StoreLine name="App Store" s={g.installs.ios} />
+                <StoreLine name="Google Play" s={g.installs.android} />
+              </p>
+            )}
           </div>
         )}
       </section>
@@ -112,19 +124,19 @@ export function GrowthView({ refreshKey }: { refreshKey: number }) {
         </section>
 
         <section className="hq-card" aria-busy={!g}>
-          <h3>어디서 들어왔나 <small>{g ? `가입 ${fmtN(g.sources.total)}곳` : ''}</small></h3>
-          {!g ? <Lines n={4} /> : g.sources.total === 0 ? <div className="hq-empty">최근 30일에 가입한 가족이 없어요.</div> : (
+          <h3>어디서 들어왔나 <small>{g ? `가입 ${fmtN(g.origins.total)}곳` : ''}</small></h3>
+          {!g ? <Lines n={6} /> : g.origins.total === 0 ? <div className="hq-empty">최근 30일에 가입한 가족이 없어요.</div> : (
             <div className="hq-src">
-              {([['가족 초대 링크', g.sources.invite], ['직접 가입', g.sources.direct], ['아직 부모님 없음', g.sources.none]] as const).map(([name, n]) => (
-                <div key={name}>
-                  <span>{name}</span>
-                  <span className="bar" style={{ width: `${Math.max(n ? 4 : 0, Math.round((n / g.sources.total) * 100))}%` }} />
-                  <b className="num">{`${fmtN(n)} · ${Math.round((n / g.sources.total) * 100)}%`}</b>
+              {g.origins.rows.map((r) => (
+                <div key={r.key} className={r.count ? '' : 'none'}>
+                  <span>{r.label}</span>
+                  <span className="bar" style={{ width: `${Math.max(r.count ? 4 : 0, Math.round((r.count / g.origins.total) * 100))}%` }} />
+                  <b className="num">{`${fmtN(r.count)} · ${Math.round((r.count / g.origins.total) * 100)}%`}</b>
                 </div>
               ))}
             </div>
           )}
-          <p className="hq-note">App Store · Google Play · 테스터 페이지 · 웹 중 어디서 왔는지는 <span className="hq-tag t-dim">아직 기록 안 함</span></p>
+          <p className="hq-note">초대 링크로 온 가족은 그대로, 나머지는 처음 로그인한 앱(App Store · Google Play · 웹, 테스터 링크는 <span className="hq-nowrap">?from=tester</span>)으로 세요. 그 전에 가입한 가족은 <span className="hq-tag t-dim">기록 전</span></p>
         </section>
       </div>
 
@@ -152,4 +164,18 @@ export function GrowthView({ refreshKey }: { refreshKey: number }) {
 
 function Lines({ n }: { n: number }) {
   return <div className="hq-skel" aria-hidden="true">{Array.from({ length: n }, (_, i) => <span key={i} />)}</div>
+}
+
+/** One store under the funnel: its 30-day installs, or why there is no number. */
+function StoreLine({ name, s }: { name: string; s: StoreInstalls }) {
+  const st = storeState(s)
+  return (
+    <span className="hq-store">
+      <b>{name}</b>
+      {st.kind === 'num' && <span className="num">{fmtN(s.total)}{st.detail ? <i>{` · ${st.detail}`}</i> : null}</span>}
+      {st.kind === 'none' && <span className="hq-tag t-dim">아직 보고서 없음</span>}
+      {st.kind === 'need' && <><span className="hq-tag t-dim">연결 필요</span><i>{st.detail}</i></>}
+      {st.kind === 'bad' && <><span className="hq-tag t-bad">연결 오류</span><i>{st.detail}</i></>}
+    </span>
+  )
 }

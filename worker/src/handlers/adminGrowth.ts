@@ -12,9 +12,11 @@ import { ADMIN_EMAIL, requireAdmin } from './admin.js'
 import { allAuthUsers, kindOf } from './adminPeople.js'
 import { computeMetrics, type MembershipSpan } from '../adminMetrics.js'
 import {
-  arrivalOf, biggestDrop, cohorts, firstWeekDays, funnel, sources,
+  arrivalOf, biggestDrop, cohorts, firstWeekDays, funnel, origins, sources,
   type CohortRow, type FunnelStage, type GrowthFamily, type GrowthParent,
 } from '../adminGrowth.js'
+import { installs, trafficDeps, type Installs } from '../traffic/index.js'
+import { logger } from '../log.js'
 
 const D = 86_400_000
 const CACHE_MS = 5 * 60_000
@@ -25,6 +27,10 @@ export interface AdminGrowth {
   drop: ReturnType<typeof biggestDrop>
   cohorts: CohortRow[]
   sources: ReturnType<typeof sources>
+  /** 어디서 들어왔나 by the invite link and the platform the app stamped (D11). */
+  origins: ReturnType<typeof origins>
+  /** 설치 from the stores' reports (D11); a store without its env says `unconfigured`. */
+  installs: Installs
   trend: { dates: string[]; activeParents: number[]; families: number[] }
   at: string
 }
@@ -41,9 +47,16 @@ export async function adminGrowth(caller: Caller, data: { refresh?: unknown } = 
 
   const db = getFirestore()
   const since = Timestamp.fromMillis(now - (TREND_DAYS + 7) * D)
+  // The stores' reports are read alongside; a store that fails never costs
+  // the rest of the answer (it says `error` in its own card).
+  const storeInstalls = installs(trafficDeps(now)).catch((err): Installs => {
+    logger.warn('[adminGrowth] installs failed', { err: String(err) })
+    const bad = { state: 'error' as const, missing: [], error: String((err as Error).message ?? err).slice(0, 120), days: [], total: 0, known: 0 }
+    return { ios: bad, android: bad }
+  })
   const [users, settingsSnap, membershipSnap, memoSnap] = await Promise.all([
     allAuthUsers(),
-    db.collection('users').select('accountType').get(),
+    db.collection('users').select('accountType', 'arrival').get(),
     db.collection('memberships').get(),
     db.collection('memos').where('takenAt', '>=', since).select('patientUid', 'takenAt').get(),
   ])
@@ -66,7 +79,9 @@ export async function adminGrowth(caller: Caller, data: { refresh?: unknown } = 
     const mine = memberships
       .filter((m) => m.caregiverUid === c.uid && m.patientUid !== c.uid && (m.status === 'active' || m.status === 'revoked'))
       .map((m) => ({ caregiverUid: c.uid, patientUid: String(m.patientUid), invitedBy: m.invitedBy as string | undefined, startMs: ms(m.acceptedAt) ?? ms(m.createdAt) ?? 0 }))
-    return { uid: c.uid, createdAtMs: c.createdAtMs!, parents: [...new Set(mine.map((m) => m.patientUid))].filter((u) => parentSet.has(u)), arrived: arrivalOf(mine) }
+    const a = settings.get(c.uid)?.arrival as { platform?: unknown; ref?: unknown } | undefined
+    const arrival = a && typeof a.platform === 'string' ? { platform: a.platform, ref: typeof a.ref === 'string' ? a.ref : null } : null
+    return { uid: c.uid, createdAtMs: c.createdAtMs!, parents: [...new Set(mine.map((m) => m.patientUid))].filter((u) => parentSet.has(u)), arrived: arrivalOf(mine), arrival }
   })
   const involved = [...new Set(families.flatMap((f) => f.parents))]
   const parents = new Map<string, GrowthParent>()
@@ -109,6 +124,8 @@ export async function adminGrowth(caller: Caller, data: { refresh?: unknown } = 
     drop: biggestDrop(stages),
     cohorts: cohorts(parentList, memos, now),
     sources: sources(families),
+    origins: origins(families),
+    installs: await storeInstalls,
     trend: { dates: series.map((d) => d.date), activeParents: series.map((d) => d.activeParents7d), families: series.map((d) => d.families) },
     at: new Date(now).toISOString(),
   }

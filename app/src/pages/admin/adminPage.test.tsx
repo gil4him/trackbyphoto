@@ -214,7 +214,7 @@ describe('GrowthView', () => {
     const html = renderToString(<GrowthView refreshKey={0} />)
     expect(html).toContain('한 가족이 들어와 매일 쓰기까지')
     expect(html).toContain('hq-skel')
-    expect(html).toContain('아직 기록 안 함')
+    expect(html).toContain('기록 전')
     expect(html).not.toMatch(/\d+곳을 따라가/)
   })
 })

@@ -2008,3 +2008,13 @@ html:not(.camera-live) .elder-cam { background: #000; }
 .place-group .memo-row-title { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 /* 다녀온 곳 rows keep their longer line (time · area · km · 사진 n장) on two lines. */
 .trail-list .memo-row-line .memo-row-meta { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+
+/* 성장 · 설치 under the funnel (D11): one line per store, wrapping on phones. */
+.hq-stores { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; margin-top: 4px; }
+.hq-stores-t { font-weight: 800; color: var(--ink); }
+.hq-store { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.hq-store b { font-weight: 800; color: var(--ink); }
+.hq-store .num { font-weight: 800; color: var(--ink); font-size: 14px; }
+.hq-store i { font-style: normal; color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+.hq-src div.none span:first-child, .hq-src div.none b { color: var(--muted); }
+.hq-nowrap { white-space: nowrap; }
