@@ -1,28 +1,19 @@
-import type { CSSProperties } from 'react'
 import { MemoRow } from '../components/MemoRow'
-import { SentRow } from '../components/SentRow'
+import { DayCard } from '../components/DayCard'
+import { ParentGroupRow, ParentRow, SentDiaryRow } from '../components/DiaryRows'
 import { useWorkerStatus } from '../hooks/useWorkerStatus'
-import { cardMeta, clock, dayEyebrow, memosOnDay } from '../lib/memoViews'
-import { diaryEntries, type ParentMemo } from '../lib/diary'
+import { clock, dayEyebrow, memosOnDay } from '../lib/memoViews'
+import { collapseParents, diaryEntries, myDayCaption, type ParentMemo } from '../lib/diary'
 import type { SentEntry } from './Today'
 import type { Memo } from '../types'
 
-/** A parent's photo among one's own: indented, edged in that parent's colour, their name first. */
-export function ParentMemoRow({ item, onOpen }: { item: ParentMemo; onOpen: (memo: Memo) => void }) {
-  const meta = [item.name, cardMeta(item.memo, undefined)].filter(Boolean).join(' · ')
-  return (
-    <div className="parent-memo" style={{ '--pc': item.color } as CSSProperties}>
-      <MemoRow memo={item.memo} onOpen={() => onOpen(item.memo)} meta={meta} />
-    </div>
-  )
-}
-
 /**
  * A family member's own 오늘 (simple edition): their photo diary of the day,
- * like the parent's day page — the photos they took, by time — with their
- * parents' photos of today and what they sent them woven in, indented.
+ * in one white card (A14) — the photos they took, by time — with their
+ * parents' photos of today (a run of one parent folds into one row) and what
+ * they sent them woven in, indented. Sending lives in ⋯ on one's own photo.
  */
-export function MyDay({ memos, parents, sent, onOpen, onOpenParentMemo, onOpenSent, onYesterday, onSendPhoto, now = new Date() }: {
+export function MyDay({ memos, parents, sent, onOpen, onOpenParentMemo, onOpenSent, onYesterday, now = new Date() }: {
   /** One's own memos (any days; today's are picked here). */
   memos: Memo[]
   /** The parents' memos of today. */
@@ -34,43 +25,35 @@ export function MyDay({ memos, parents, sent, onOpen, onOpenParentMemo, onOpenSe
   onOpenSent: (id: string) => void
   /** 어제 보기 ›: 과거 at yesterday. */
   onYesterday: () => void
-  /** 사진 보내기: a photo from the phone, with a line, to a parent (none when family photos are off). */
-  onSendPhoto?: () => void
   now?: Date
 }) {
   const mine = memosOnDay(memos, now)
-  const entries = diaryEntries(mine, parents, sent)
+  const rows = collapseParents(diaryEntries(mine, parents, sent))
   const serverDown = useWorkerStatus(mine.some((m) => m.status === 'pending')) === 'down'
+  const timeOf = (m: Memo) => clock(m.takenAt.toDate())
   return (
     <section className="page home-day my-day" aria-label="내 하루">
       <header className="day-head">
         <div className="h-eyebrow">{dayEyebrow(now)}</div>
         <h1 className="day-title">내 하루</h1>
-        <div className="day-caption">사진 {mine.length}장</div>
-        {onSendPhoto && <button type="button" className="fp-send-link my-day-send" onClick={onSendPhoto}>📷 부모님께 사진 보내기 ›</button>}
+        <div className="day-caption">{myDayCaption(mine.length, parents)}</div>
       </header>
 
-      {entries.length === 0 ? (
-        <div className="day-empty" role="status">오늘 아직 사진이 없어요</div>
+      {rows.length === 0 ? (
+        <div className="day-empty" role="status">
+          오늘 아직 사진이 없어요
+          <div className="day-empty-sub">찍은 사진은 ⋯ 에서 부모님께 보낼 수 있어요</div>
+        </div>
       ) : (
-        <ol className="day-tl" aria-label="오늘의 사진">
-          {entries.map((e) => {
-            const time = clock(new Date(e.at))
-            if (e.kind === 'mine') {
-              return <li key={`m-${e.memo.id}`}><MemoRow memo={e.memo} onOpen={onOpen} time={time} serverDown={serverDown} /></li>
-            }
-            return (
-              <li key={`${e.kind}-${e.kind === 'parent' ? e.item.memo.id : e.item.photo.id}`}>
-                <div className="day-item">
-                  <div className="day-rail"><span className="day-time">{time}</span><span className="day-dot" aria-hidden="true" /></div>
-                  {e.kind === 'parent'
-                    ? <ParentMemoRow item={e.item} onOpen={onOpenParentMemo} />
-                    : <div className="parent-memo sent-in-day"><SentRow photo={e.item.photo} to={e.item.to} color={e.item.color} onOpen={onOpenSent} /></div>}
-                </div>
-              </li>
-            )
+        <DayCard label="오늘의 사진">
+          {rows.map((r) => {
+            const time = clock(new Date(r.at))
+            if (r.kind === 'mine') return <MemoRow key={`m-${r.memo.id}`} memo={r.memo} onOpen={onOpen} time={time} serverDown={serverDown} />
+            if (r.kind === 'parent') return <ParentRow key={`p-${r.item.memo.id}`} item={r.item} onOpen={onOpenParentMemo} time={time} />
+            if (r.kind === 'parentGroup') return <ParentGroupRow key={`g-${r.items[0].memo.id}`} items={r.items} onOpen={onOpenParentMemo} time={time} timeOf={timeOf} />
+            return <SentDiaryRow key={`s-${r.item.photo.id}`} photo={r.item.photo} to={r.item.to} color={r.item.color} onOpen={onOpenSent} time={time} />
           })}
-        </ol>
+        </DayCard>
       )}
 
       <button type="button" className="day-more" onClick={onYesterday}>어제 보기 ›</button>

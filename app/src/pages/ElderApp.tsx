@@ -3,7 +3,7 @@ import { doc, onSnapshot } from 'firebase/firestore'
 import { db } from '../firebase'
 import { Home } from './Home'
 import { ElderCamera } from './ElderCamera'
-import { Today } from './Today'
+import { ElderRecords } from '../components/ElderRecords'
 import { MemoDetail } from './MemoDetail'
 import { FamilyNews } from './FamilyNews'
 import { FamilyNewsCard } from '../components/FamilyNewsCard'
@@ -165,8 +165,15 @@ export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn
               <h1 className="elder-records-title">내 사진</h1>
               <span className="head-btn-space" aria-hidden="true" />
             </header>
-            <Today memos={memos} onOpen={setOpenId} uid={uid} readOnly rx={rx} received={familyPhotosOn ? familyPhotos : []} onOpenReceived={setPhotosOpen} calendar />
-            <CameraFab label="카메라로 돌아가기" onClick={backToCamera} />
+            <ElderRecords
+              memos={memos}
+              received={familyPhotosOn ? familyPhotos : []}
+              byMemo={rx?.byMemo}
+              patientUid={uid}
+              onOpen={setOpenId}
+              onOpenReceived={setPhotosOpen}
+              onCamera={backToCamera}
+            />
           </div>
         ) : isSimple() ? (
           <ElderCamera

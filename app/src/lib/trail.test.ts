@@ -1,5 +1,6 @@
 // 다녀온 곳: stops, distance from home, which map draws it.
 import { describe, it, expect } from 'vitest'
+import * as trail from './trail'
 import { AWAY_KM, distanceKm, fmtKm, homeFor, inferHome, project, trailStops, trailSummary } from './trail'
 import { inKorea, pickProvider } from './map'
 import { staticMapUrl } from './map/googleStatic'
@@ -131,5 +132,44 @@ describe('map provider', () => {
       'color:0xFF6B2C|label:1|37.49000,127.03000', 'color:0xFF6B2C|label:2|37.50000,127.05000', 'color:0xFF6B2C|label:3|35.17000,136.88000',
     ])
     expect(new URL(staticMapUrl(NAGOYA, 'KEY')).searchParams.get('path')).toBeNull()
+  })
+})
+
+describe('one pin per place (A14.5)', () => {
+  // 1° of latitude is ~111.2 km: 0.0009° ≈ 100 m.
+  const M = 1 / 111_195
+  const visit = (id: string, hour: number, metresNorth: number) => memo(id, hour, 37.5 + metresNorth * M, 127.0, `${id} · 잠실동, 송파구`)
+  it('merges visits within 100 m into one place, numbered by visit, in order', () => {
+    const { placeVisits } = trail
+    const stops = trailStops([visit('lake', 9, 0), visit('park', 10, 500), visit('lake2', 11, 60), visit('mart', 12, 1500), visit('lake3', 13, 30)], null)
+    expect(stops).toHaveLength(5)
+    const places = placeVisits(stops)
+    expect(places.map((p) => p.label)).toEqual(['1·3·5', '2', '4'])
+    expect(places[0].memos.map((m) => m.id)).toEqual(['lake', 'lake2', 'lake3'])
+  })
+  it('the 100 m boundary: 99 m joins, 101 m does not', () => {
+    const { placeVisits } = trail
+    const at99 = placeVisits(trailStops([visit('a', 9, 0), visit('x', 10, 900), visit('b', 11, 99)], null))
+    expect(at99.map((p) => p.label)).toEqual(['1·3', '2'])
+    const at101 = placeVisits(trailStops([visit('a', 9, 0), visit('x', 10, 900), visit('b', 11, 101)], null))
+    expect(at101.map((p) => p.label)).toEqual(['1', '2', '3'])
+  })
+  it('the trail line counts places, then visits when a place came twice', () => {
+    const { trailCaption } = trail
+    expect(trailCaption(trailStops([visit('a', 9, 0), visit('x', 10, 900), visit('b', 11, 20)], null))).toBe('2곳 · 3번 들름')
+    expect(trailCaption(trailStops([visit('a', 9, 0), visit('x', 10, 900)], null))).toBe('2곳')
+  })
+  it('photos in a row at one place make one run; a located photo elsewhere or one without a place stands alone', () => {
+    const { samePlaceRuns } = trail
+    const runs = samePlaceRuns([visit('c', 13, 10), visit('b', 12, 0), visit('x', 11, 900), memo('n', 10, null, null), visit('a', 9, 0)])
+    expect(runs.map((r) => r.map((m) => m.id))).toEqual([['c', 'b'], ['x'], ['n'], ['a']])
+  })
+  it('the Google picture puts one marker per place, labelled with its first visit', () => {
+    const { placeVisits } = trail
+    const stops = trailStops([visit('a', 9, 0), visit('x', 10, 900), visit('b', 11, 20)], null)
+    const url = decodeURIComponent(staticMapUrl(stops, 'k', undefined, true, placeVisits(stops)))
+    expect(url.match(/markers=/g)?.length).toBe(2)
+    expect(url).toContain('label:1|')
+    expect(url).toContain('label:2|')
   })
 })
