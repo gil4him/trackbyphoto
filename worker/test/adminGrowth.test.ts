@@ -4,7 +4,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { getAuth } from 'firebase-admin/auth'
 import { Timestamp } from 'firebase-admin/firestore'
-import { arrivalOf, biggestDrop, cohorts, firstWeekDays, funnel, seoulWeekStart, sources, type GrowthFamily, type GrowthParent } from '../src/adminGrowth'
+import { arrivalOf, biggestDrop, cohorts, firstWeekDays, funnel, originOf, origins, seoulWeekStart, sources, type GrowthFamily, type GrowthParent } from '../src/adminGrowth'
 import { seoulDate } from '../src/adminMetrics'
 import { adminGrowth, resetGrowthCache } from '../src/handlers/adminGrowth'
 import { db, clearFirestore } from './setup'
@@ -92,6 +92,24 @@ describe('sources and the first week', () => {
     expect(arrivalOf([{ caregiverUid: 'k', invitedBy: 'mom', startMs: 1 }, { caregiverUid: 'k', invitedBy: 'k', startMs: 2 }])).toBe('invite')
     expect(sources([fam('a', [], 'invite'), fam('b', [], 'direct'), fam('c', [], 'none'), fam('d', [], 'invite')])).toEqual({ invite: 2, direct: 1, none: 1, total: 4 })
   })
+
+  it('tells where a family came from: the invite link first, then the stamped platform', () => {
+    expect(originOf({ arrived: 'invite', arrival: { platform: 'ios', ref: null } })).toBe('invite')
+    expect(originOf({ arrived: 'direct', arrival: { platform: 'ios', ref: null } })).toBe('ios')
+    expect(originOf({ arrived: 'none', arrival: { platform: 'android', ref: null } })).toBe('android')
+    expect(originOf({ arrived: 'direct', arrival: { platform: 'web', ref: 'tester' } })).toBe('tester')
+    expect(originOf({ arrived: 'direct', arrival: { platform: 'web', ref: 'naver.com' } })).toBe('web')
+    expect(originOf({ arrived: 'direct', arrival: null })).toBe('unknown')
+    expect(originOf({ arrived: 'direct' })).toBe('unknown')
+    const o = origins([
+      { arrived: 'invite', arrival: null }, { arrived: 'direct', arrival: { platform: 'android', ref: null } },
+      { arrived: 'direct', arrival: { platform: 'web', ref: 'tester' } }, { arrived: 'none' },
+    ])
+    expect(o.total).toBe(4)
+    expect(o.rows.map((r) => [r.label, r.count])).toEqual([
+      ['가족 초대 링크', 1], ['App Store', 0], ['Google Play', 1], ['테스터 페이지', 1], ['웹 직접', 0], ['기록 전', 1],
+    ])
+  })
   it('counts distinct Seoul days in the 7 days from the first photo', () => {
     const first = Date.parse('2026-10-01T00:00:00Z')
     expect(firstWeekDays(null, [])).toBe(0)
@@ -116,6 +134,7 @@ describe('adminGrowth handler', () => {
   it('follows a new family through its parent, and the answer can be stored', async () => {
     await getAuth().createUser({ uid: 'kid', email: 'kid@example.com' })
     await getAuth().createUser({ uid: 'mom' })
+    await db.doc('users/kid').set({ arrival: { platform: 'android', ref: null, at: Timestamp.now() }, lastModifiedBy: 'kid' })
     await db.doc('users/mom').set({ accountType: 'managed', patientName: '엄마' })
     await db.doc('memberships/mom_kid').set({ patientUid: 'mom', caregiverUid: 'kid', role: 'guardian', status: 'active', invitedBy: 'kid', createdAt: Timestamp.now() })
     await db.doc('users/mom/devices/d1').set({ status: 'active', platform: 'ios' })
@@ -125,6 +144,12 @@ describe('adminGrowth handler', () => {
     const g = await adminGrowth(ADMIN)
     expect(g.funnel.map((s) => s.count)).toEqual([1, 1, 1, 1, 0])
     expect(g.sources).toEqual({ invite: 0, direct: 1, none: 0, total: 1 })
+    expect(g.origins.rows.find((r) => r.key === 'android')?.count).toBe(1)
+    expect(g.origins.total).toBe(1)
+    // No store env in tests: both stores say what is missing and invent nothing.
+    expect(g.installs.ios).toMatchObject({ state: 'unconfigured', missing: ['ASC_KEY_ID', 'ASC_ISSUER_ID', 'ASC_KEY_PATH', 'ASC_VENDOR_NUMBER'], total: 0 })
+    expect(g.installs.android.state).toBe('unconfigured')
+    expect(g.installs.ios.days).toHaveLength(30)
     expect(g.trend.dates).toHaveLength(90)
     expect(g.trend.families.at(-1)).toBe(1)
     expect(g.cohorts.at(-1)!.size).toBe(1)

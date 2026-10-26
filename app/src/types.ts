@@ -106,6 +106,10 @@ export interface UserSettings {
    *  the elder's phone is linked by a pairing code instead of a Google
    *  sign-in, and family owns the settings. Absent for self-managed users. */
   accountType?: 'managed'
+  /** Where a family member came in (lib/arrival.ts, 운영실 D11): stamped once
+   *  by the account itself at its first sign-in; absent on parents and on
+   *  accounts from before this shipped. */
+  arrival?: { platform: 'ios' | 'android' | 'web'; ref: string | null; at: Timestamp }
 }
 
 /** users/{patientUid}/devices/{deviceId} — a phone linked to a family-managed

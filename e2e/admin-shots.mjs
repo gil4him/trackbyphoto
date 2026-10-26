@@ -136,6 +136,17 @@ const admin = await familyAccount(ADMIN)
   await db.doc('users/granQuiet0000000000000000000').set({ plan: { tier: 'plus', status: 'active', since: Timestamp.now() } }, { merge: true })
   await db.collection('auditLogs').add({ patientUid: 'granQuiet0000000000000000000', actorUid: kid.localId, action: 'plan.change', details: { from: 'free', to: 'plus', provider: 'admin', source: 'admin' }, timestamp: Timestamp.now() })
   await getAuth().createUser({ uid: 'blockedKid00000000000000000', email: 'blocked@example.com', displayName: '민수', disabled: true })
+  // 어디서 들어왔나 (D11): the demo family came in on Android; three more recent
+  // family accounts from the App Store, the tester link and a web search. 민수
+  // above has no stamp (기록 전).
+  await db.doc(`users/${kid.localId}`).set({ arrival: { platform: 'android', ref: null, at: Timestamp.now() } }, { merge: true })
+  const arrived = async (uid, email, name, platform, ref) => {
+    await getAuth().createUser({ uid, email, displayName: name })
+    await db.doc(`users/${uid}`).set({ patientName: name, arrival: { platform, ref, at: Timestamp.now() }, lastModifiedBy: uid })
+  }
+  await arrived('arrivedIos000000000000000000', 'ios@example.com', '지우', 'ios', null)
+  await arrived('arrivedTester000000000000000', 'tester@example.com', '하늘', 'web', 'tester')
+  await arrived('arrivedWeb000000000000000000', 'web@example.com', '서준', 'web', 'naver.com')
   const month = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit' }).format(new Date())
   await db.doc('admin_config/dashboard').set({ costs: { [month]: { firebaseUSD: 11.4, budgetUSD: 5, storageUSD: 8.21, firestoreUSD: 2.64, hostingUSD: 0.31, otherUSD: 0.24 } } }, { merge: true })
   // 시스템: one photo today whose memo failed.

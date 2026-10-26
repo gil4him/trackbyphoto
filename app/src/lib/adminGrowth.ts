@@ -5,13 +5,45 @@ import { callWorker } from './worker'
 
 export interface FunnelStage { key: string; label: string; count: number; rate: number | null }
 export interface CohortRow { week: string; size: number; pct: (number | null)[] }
+/** One store's installs over the last 30 days (worker/src/traffic). */
+export interface StoreInstalls {
+  state: 'ok' | 'unconfigured' | 'error'
+  missing: string[]
+  error: string | null
+  days: { date: string; n: number | null }[]
+  total: number
+  known: number
+}
+export interface OriginRow { key: string; label: string; count: number }
 export interface AdminGrowth {
   funnel: FunnelStage[]
   drop: { from: string; to: string; lost: number; of: number; dropPct: number; text: string } | null
   cohorts: CohortRow[]
   sources: { invite: number; direct: number; none: number; total: number }
+  origins: { rows: OriginRow[]; total: number }
+  installs: { ios: StoreInstalls; android: StoreInstalls }
   trend: { dates: string[]; activeParents: number[]; families: number[] }
   at: string
+}
+
+/** The 설치 row: installs over the stores that are connected, null while none is. */
+export function installTotal(i: AdminGrowth['installs'] | undefined): number | null {
+  if (!i) return null
+  const on = [i.ios, i.android].filter((s) => s.state === 'ok' && s.known > 0)
+  return on.length ? on.reduce((sum, s) => sum + s.total, 0) : null
+}
+
+/** How one store reads on the screen: a number, 연결 필요 (with what is missing), an error, or no report yet. */
+export function storeState(s: StoreInstalls): { kind: 'num' | 'need' | 'bad' | 'none'; detail: string } {
+  if (s.state === 'unconfigured') return { kind: 'need', detail: s.missing.join(', ') }
+  if (s.state === 'error') return { kind: 'bad', detail: s.error ?? '' }
+  if (s.known === 0) return { kind: 'none', detail: '' }
+  return { kind: 'num', detail: s.known === s.days.length ? '' : `${s.known}일치` }
+}
+
+/** 가입 ÷ 설치 as "→ 72%", or '' when the stores are not connected. */
+export function installRate(signups: number, total: number | null): string {
+  return total ? `→ ${Math.round((signups / total) * 100)}%` : ''
 }
 
 export const adminGrowth = (refresh = false) =>

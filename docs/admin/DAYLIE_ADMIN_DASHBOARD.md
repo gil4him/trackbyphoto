@@ -128,7 +128,7 @@ Uses data that exists today.
 ## Later (do NOT start; listed so the code leaves room)
 
 - D10 — 안부 알림 보내기 from the inbox (exact message approved by the owner first).
-- D11 — Traffic: App Store Connect Analytics API, Google Play Console reports, Firebase Analytics for `dayliesimple.web.app` and the tester page → fills 설치 and 어디서 들어왔나.
+- D11 — Traffic (built 2026-10-26): 설치 from App Store Connect Sales Reports and the Play Console installs bucket (`worker/src/traffic/`, read inside `adminGrowth`, kept in `admin_config/traffic`; env in `~/daylie-secrets/simple/worker.env`: `ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_PATH ASC_VENDOR_NUMBER [ASC_APP_ID]`, `PLAY_REPORTS_BUCKET PLAY_PACKAGE_NAME` + the worker's service account invited in Play Console; check with `npm run traffic-probe`). 어디서 들어왔나 from the app's own `users.arrival` stamp (platform + `?from=` / referrer, `app/src/lib/arrival.ts`), not Firebase Analytics (owner decision: no third-party analytics). A store without its env shows 연결 필요 with the names missing.
 - D12 — Payments: Apple/Google in-app subscriptions (e.g. RevenueCat) → real MRR, conversion, refunds.
 - D13 — Crashlytics, store reviews, CEO morning push summary at 08:00.
 

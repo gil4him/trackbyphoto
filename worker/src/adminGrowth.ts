@@ -24,6 +24,32 @@ export interface GrowthFamily {
   parents: string[]
   /** How it came in: a family invite link, or registering a parent itself. */
   arrived: 'invite' | 'direct' | 'none'
+  /** What the app stamped at the first sign-in (users.arrival, D11); null before that shipped. */
+  arrival?: { platform: string; ref: string | null } | null
+}
+
+export type OriginKey = 'invite' | 'ios' | 'android' | 'tester' | 'web' | 'unknown'
+export interface OriginRow { key: OriginKey; label: string; count: number }
+
+/** One family account's origin: the invite link first, then the stamped platform. */
+export function originOf(f: Pick<GrowthFamily, 'arrived' | 'arrival'>): OriginKey {
+  if (f.arrived === 'invite') return 'invite'
+  const a = f.arrival
+  if (!a) return 'unknown'
+  if (a.platform === 'ios') return 'ios'
+  if (a.platform === 'android') return 'android'
+  if (a.platform === 'web') return a.ref === 'tester' ? 'tester' : 'web'
+  return 'unknown'
+}
+
+/** 어디서 들어왔나: every row, in the order the screen shows them, zero rows included. */
+export function origins(families: Pick<GrowthFamily, 'arrived' | 'arrival'>[]): { rows: OriginRow[]; total: number } {
+  const labels: [OriginKey, string][] = [
+    ['invite', '가족 초대 링크'], ['ios', 'App Store'], ['android', 'Google Play'], ['tester', '테스터 페이지'], ['web', '웹 직접'], ['unknown', '기록 전'],
+  ]
+  const counts = new Map<OriginKey, number>()
+  for (const f of families) counts.set(originOf(f), (counts.get(originOf(f)) ?? 0) + 1)
+  return { rows: labels.map(([key, label]) => ({ key, label, count: counts.get(key) ?? 0 })), total: families.length }
 }
 export interface GrowthParent {
   uid: string

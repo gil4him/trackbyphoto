@@ -1912,3 +1912,13 @@ html:not(.camera-live) .elder-cam { background: #000; }
 
 /* 운영실 D10: the check-in line, shown as the family will read it. */
 .hq-quote { margin: 4px 0 8px; padding: 10px 12px; background: var(--surface); border-radius: 10px; font-size: 15px; font-weight: 700; word-break: keep-all; overflow-wrap: anywhere; }
+
+/* 성장 · 설치 under the funnel (D11): one line per store, wrapping on phones. */
+.hq-stores { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; margin-top: 4px; }
+.hq-stores-t { font-weight: 800; color: var(--ink); }
+.hq-store { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.hq-store b { font-weight: 800; color: var(--ink); }
+.hq-store .num { font-weight: 800; color: var(--ink); font-size: 14px; }
+.hq-store i { font-style: normal; color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+.hq-src div.none span:first-child, .hq-src div.none b { color: var(--muted); }
+.hq-nowrap { white-space: nowrap; }
