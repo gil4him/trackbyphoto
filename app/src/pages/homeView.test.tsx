@@ -70,25 +70,31 @@ describe("ParentDayHome (simple edition: the parent's day)", () => {
     expect(render({ memos })).toContain('사진 2장<')
   })
 
-  it("today's photos newest first on the rail, numbered from the day's first, and nothing of the old home", () => {
-    const memos = [dayMemo('b', 15, 30), dayMemo('a', 9, 5)]
+  it("today's photos newest first in one card, the time on the left, no numbers, and nothing of the old home", () => {
+    const memos = [dayMemo('b', 15, 30, { lat: 37.518 }), dayMemo('a', 9, 5)]
     const byMemo = new Map<string, Reaction[]>([['b', [{ kind: 'heart', actorName: '지민' }, { kind: 'comment', actorName: '지민' }] as Reaction[]]])
     const out = render({ memos, byMemo })
     expect(count(out, 'class="memo-row"')).toBe(2)
+    expect(count(out, 'class="day-card"')).toBe(1)
     expect(out.indexOf('b 메모')).toBeLessThan(out.indexOf('a 메모'))
-    expect(out).toContain('15:30')
-    expect(out).toContain('class="day-rail"')
-    // The badge counts from the first photo of the day: b (newest) is 2.
-    const b = out.slice(out.indexOf('<li>'), out.indexOf('b 메모'))
-    expect(b).toContain('<span class="memo-row-badge" aria-hidden="true">2</span>')
-    expect(out.slice(out.indexOf('b 메모'))).toContain('<span class="memo-row-badge" aria-hidden="true">1</span>')
-    expect(out).toContain('석촌호수 · 산책 · ♥ 지민 · 💬 1')
+    expect(out).toContain('class="day-time">15:30')
+    expect(out).not.toContain('day-rail')
+    expect(out).not.toContain('memo-row-badge')
+    expect(out).toContain('<span class="memo-rx-heart">♥ 1</span><span>💬 1</span>')
     expect(out).toContain('어제 보기 ›')
-    expect(out).not.toContain('day-card')
     expect(out).not.toContain('class="capbtn"')
     expect(out).not.toContain('지난 기록')
     expect(out).not.toContain('안녕하세요')
     expect(out).not.toContain('recent-strip')
+  })
+
+  it('photos in a row at one place fold into one line; tapping opens them', () => {
+    const memos = [dayMemo('c', 16, 0), dayMemo('b', 15, 30), dayMemo('a', 9, 5, { lat: 37.518 })]
+    const out = render({ memos })
+    expect(out).toContain('석촌호수 · 사진 2장')
+    expect(out).toContain('펼치기 ›')
+    expect(out).toContain('a 메모')
+    expect(out).not.toContain('c 메모')
   })
 
   it('다녀온 곳: the small map between the caption and the timeline once a photo today has a location', () => {
@@ -103,8 +109,8 @@ describe("ParentDayHome (simple edition: the parent's day)", () => {
     expect(out).not.toMatch(/dapi\.kakao\.com|maps\.googleapis\.com/)
     expect(out).not.toContain('여행 중')
     expect(out.indexOf('day-map')).toBeGreaterThan(out.indexOf('day-caption'))
-    expect(out.indexOf('day-map')).toBeLessThan(out.indexOf('day-tl'))
-    expect(out).toContain('사진 2장 · 집에서 최대 2.0km')
+    expect(out.indexOf('day-map')).toBeLessThan(out.indexOf('day-card'))
+    expect(out).toContain('사진 2장 · 2곳 · 집에서 최대 2.0km')
     expect(out).not.toContain('day-trail')
   })
 

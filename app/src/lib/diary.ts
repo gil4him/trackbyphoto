@@ -22,3 +22,46 @@ export function diaryEntries(own: Memo[], parents: ParentMemo[], sent: SentEntry
   ].sort((a, b) => b.at - a.at)
 }
 
+
+/** Two or more photos of one parent with nothing between them, as one row (A14.3). */
+export interface ParentGroup { kind: 'parentGroup'; at: number; uid: string; items: ParentMemo[] }
+
+/** A diary line after collapsing: one of the entries above, or a parent's run of photos. */
+export type DiaryRow<E extends { kind: string; at: number }> = E | ParentGroup
+
+/**
+ * Collapse runs of the same parent's photos: 2+ `parent` entries of one parent
+ * with no other row between them become one `parentGroup` (at = the first's
+ * time). Anything else in between — one's own photo, a sent one, the other
+ * parent — ends the run. Order is kept.
+ */
+export function collapseParents<E extends { kind: string; at: number; item?: unknown }>(entries: E[]): DiaryRow<E>[] {
+  const out: DiaryRow<E>[] = []
+  let run: { uid: string; at: number; items: ParentMemo[]; first: E } | null = null
+  const flush = () => {
+    if (!run) return
+    out.push(run.items.length >= 2 ? { kind: 'parentGroup', at: run.at, uid: run.uid, items: run.items } : run.first)
+    run = null
+  }
+  for (const e of entries) {
+    if (e.kind === 'parent') {
+      const item = e.item as ParentMemo
+      const uid = item.memo.patientUid
+      if (run && run.uid === uid) { run.items.push(item); continue }
+      flush()
+      run = { uid, at: e.at, items: [item], first: e }
+      continue
+    }
+    flush()
+    out.push(e)
+  }
+  flush()
+  return out
+}
+
+/** `내 사진 3장 · 엄마 2장 · 아빠 1장`: one's own count, then each parent with photos today. */
+export function myDayCaption(mine: number, parents: ParentMemo[]): string {
+  const byName = new Map<string, number>()
+  for (const p of parents) byName.set(p.name, (byName.get(p.name) ?? 0) + 1)
+  return [`내 사진 ${mine}장`, ...[...byName].map(([name, n]) => `${name} ${n}장`)].join(' · ')
+}

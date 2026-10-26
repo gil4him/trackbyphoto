@@ -183,6 +183,38 @@ export async function seedTodayMemos({ momUid, kidUid, kidName, count = 9, now =
   return ids.map((m) => m.id)
 }
 
+// The family member's own photos (A14.6): their own scenes, places and times,
+// so a review picture of 내 하루 never looks like 엄마's day twice.
+const OWN_MEMOS = [
+  { at: '08:20', file: 'own-cafe.jpg', lat: 37.5446, lng: 127.0557, place: '성수 카페 · 성수동, 성동구', address: '서울 성동구 아차산로 7', activity: '식사', memo: '출근 전 카페에서 커피 한 잔', scene: '창가 자리에서 따뜻한 커피를 마셨어요.' },
+  { at: '12:40', file: 'own-city.jpg', lat: 37.5660, lng: 126.9910, place: '을지로 · 을지로동, 중구', address: '서울 중구 을지로 100', activity: '이동', memo: '점심 먹고 회사 앞 산책', scene: '빌딩 사이 길을 따라 잠깐 걸었어요.' },
+  { at: '19:10', file: 'own-dinner.jpg', lat: 37.5559, lng: 126.9019, place: '우리 집 · 망원동, 마포구', address: '서울 마포구 망원로 50', activity: '식사', memo: '집에서 저녁 한 끼', scene: '따뜻한 조명 아래 저녁을 차렸어요.' },
+]
+
+/** One's own photos on `days` (0 = today, 1 = yesterday …), the OWN_MEMOS slots each day. */
+export async function seedOwnMemos({ kidUid, days = [0, 1], now = Date.now() }) {
+  const db = getFirestore()
+  const bucket = getStorage().bucket()
+  const emulatorHost = process.env.FIREBASE_STORAGE_EMULATOR_HOST
+  const ts = (ms) => Timestamp.fromMillis(Math.round(ms))
+  const ids = []
+  for (const day of days) {
+    for (const src of OWN_MEMOS) {
+      const t = kst(now, day, src.at)
+      const id = `${t}_${rand()}`
+      const photoPath = `photos/${kidUid}/${id}.jpg`
+      const photoUrl = await upload(bucket, photoPath, src.file, emulatorHost)
+      await db.doc(`memos/${id}`).set({
+        patientUid: kidUid, photoPath, photoUrl, takenAt: ts(t), createdAt: ts(t + 5000), tzOffsetMin: 540,
+        lat: src.lat, lng: src.lng, place: src.place, address: src.address, activity: src.activity,
+        memo: src.memo, scene: src.scene, status: 'ready', memoSource: 'local-llm', model: 'gemma4:e4b', notifiedAt: ts(t + 30000),
+      })
+      ids.push(id)
+    }
+  }
+  return ids
+}
+
 /**
  * A second parent for the family's home with two cards (A10): registered and
  * linked like seedDemoFamily's 엄마, with `yesterday` photos yesterday and

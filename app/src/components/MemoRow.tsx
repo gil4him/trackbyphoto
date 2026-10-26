@@ -1,31 +1,33 @@
 import { MemoThumb } from './MemoThumb'
-import { cardMeta, cardTitle } from '../lib/memoViews'
+import { cardTitle, reactionCounts, rowMeta } from '../lib/memoViews'
 import type { Memo, Reaction } from '../types'
 
 /**
- * One photo as a row, the same everywhere (docs/DAYLIE_V3_UI_FIX.md A13):
- * the parent's day on the home, the 사진 list and 다녀온 곳. A 52px
- * thumbnail, the memo's line as the title (two lines at most) and one muted
- * meta line `장소 · 카테고리 · ♥ 이름 · 💬 n`. The whole card opens the photo.
+ * One photo as a row (docs/DAYLIE_V3_UI_FIX.md A14.1–A14.2): a 60pt
+ * thumbnail, the memo's line as the title (one line), and one muted line with
+ * the place's name, the hearts and words counted at its right end. Rows sit
+ * in the day's white card (DayCard) with dividers between them.
  *
- * `badge` numbers the photo (1 = the day's first) on the thumbnail's corner;
- * `time` puts the row on the day's rail — the time, a dot on the line.
+ * `time` puts the time in a left column; `badge` numbers the photo on the
+ * thumbnail (only 다녀온 곳 does); `fresh` is an unread dot in its own
+ * column on the right.
  */
 export function MemoRow({ memo, onOpen, reactions, meta, badge, time, fresh = false, serverDown = false }: {
   memo: Memo
   onOpen: (id: string) => void
-  /** Hearts and words left on the photo, for the meta line. */
+  /** Hearts and words left on the photo, counted at the end of the meta line. */
   reactions?: Reaction[]
-  /** Replaces the usual meta line. */
+  /** Replaces the place name on the meta line. */
   meta?: string
   badge?: number
   time?: string
-  /** The parent's own phone: family left something not looked at yet. */
+  /** Something not looked at yet. */
   fresh?: boolean
   /** The memo server is down, so a pending memo says so. */
   serverDown?: boolean
 }) {
-  const line = meta ?? cardMeta(memo, reactions)
+  const line = meta ?? rowMeta(memo)
+  const { hearts, words } = reactionCounts(reactions)
   const card = (
     <button type="button" className="memo-row" onClick={() => onOpen(memo.id)} aria-label="자세히 보기">
       <span className="memo-row-pic">
@@ -34,18 +36,25 @@ export function MemoRow({ memo, onOpen, reactions, meta, badge, time, fresh = fa
       </span>
       <span className="memo-row-body">
         <span className="memo-row-title">{cardTitle(memo, serverDown)}</span>
-        {line && <span className="memo-row-meta">{line}</span>}
+        {(line || hearts > 0 || words > 0) && (
+          <span className="memo-row-line">
+            <span className="memo-row-meta">{line}</span>
+            {(hearts > 0 || words > 0) && (
+              <span className="memo-row-rx" aria-label={[hearts ? `하트 ${hearts}` : '', words ? `글 ${words}` : ''].filter(Boolean).join(', ')}>
+                {hearts > 0 && <span className="memo-rx-heart">♥ {hearts}</span>}
+                {words > 0 && <span>💬 {words}</span>}
+              </span>
+            )}
+          </span>
+        )}
       </span>
-      {fresh && <span className="memo-row-new" aria-label="새 소식" />}
+      <span className="memo-row-side">{fresh && <span className="memo-row-new" aria-label="새 소식" />}</span>
     </button>
   )
   if (time === undefined) return card
   return (
     <div className="day-item">
-      <div className="day-rail">
-        <span className="day-time">{time}</span>
-        <span className="day-dot" aria-hidden="true" />
-      </div>
+      <span className="day-time">{time}</span>
       {card}
     </div>
   )

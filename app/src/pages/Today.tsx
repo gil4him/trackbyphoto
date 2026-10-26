@@ -3,14 +3,14 @@ import { dayHeading, fmtTime, landingDay } from '../util'
 import { CalendarFab } from '../components/CalendarFab'
 import { MemoRow } from '../components/MemoRow'
 import { ReceivedRow } from '../components/ReceivedRow'
-import { SentRow } from '../components/SentRow'
-import { ParentMemoRow } from './MyDay'
-import type { ParentMemo } from '../lib/diary'
+import { DayCard } from '../components/DayCard'
+import { ParentGroupRow, ParentRow, SentDiaryRow } from '../components/DiaryRows'
+import { collapseParents, type ParentMemo } from '../lib/diary'
 import { useOutbox } from '../hooks/useOutbox'
 import { useWorkerStatus } from '../hooks/useWorkerStatus'
 import type { OutboxItem } from '../lib/outbox'
 import type { ReactionsContext } from '../components/Reactions'
-import { cardMeta } from '../lib/memoViews'
+import { clock } from '../lib/memoViews'
 import { S } from '../lib/strings'
 import type { FamilyPhoto, Memo } from '../types'
 
@@ -94,7 +94,7 @@ export function Today({ memos, onOpen, uid, rx, onOpenTrail, onOpenVoiceAlbum, f
   }, [focusDay, onFocused, groups])
 
   return (
-    <section className="page">
+    <section className={`page${calendar ? ' page-past' : ''}`}>
       {onOpenVoiceAlbum && (
         <button type="button" className="va-link" onClick={onOpenVoiceAlbum}>🎙️ {S.voiceAlbum} ›</button>
       )}
@@ -126,29 +126,25 @@ export function Today({ memos, onOpen, uid, rx, onOpenTrail, onOpenVoiceAlbum, f
           <div key={g.date.toISOString()} data-day={dayKey(g.date)}>
             <div className="tl-day">
               {dayHeading(g.date)}
-              {onOpenTrail && g.items.some((m) => typeof m.lat === 'number' && typeof m.lng === 'number') && (
+              {/* 다녀온 곳 is a parent's day out: on a parent's 과거, days with a located photo. */}
+              {onOpenTrail && parents.length === 0 && g.items.some((m) => typeof m.lat === 'number' && typeof m.lng === 'number') && (
                 <button type="button" className="trail-link" onClick={() => onOpenTrail(g.date)}>다녀온 곳 ›</button>
               )}
             </div>
-            {g.entries.map((e) => {
-              if (e.kind === 'received') return <ReceivedRow key={`f-${e.photo.id}`} photo={e.photo} onOpen={(id) => onOpenReceived?.(id)} />
-              if (e.kind === 'parent') return <ParentMemoRow key={`p-${e.item.memo.id}`} item={e.item} onOpen={(m) => onOpenParentMemo?.(m)} />
-              if (e.kind === 'sent') return <div key={`s-${e.photo.id}`} className="parent-memo sent-in-day"><SentRow photo={e.photo} to={e.to} color={e.color} onOpen={(id) => onOpenSent?.(id)} /></div>
-              const m = e.memo
-              const items = rx?.byMemo.get(m.id)
-              // On the parent's own phone: family left something they have not seen yet.
-              const fresh = !!rx && !rx.canReact && (items ?? []).some((r) => r.actorUid !== rx.patientUid && r.status === 'ready' && !r.readByElderAt)
-              return (
-                <MemoRow
-                  key={m.id}
-                  memo={m}
-                  onOpen={onOpen}
-                  meta={[fmtTime(m.takenAt.toDate()), cardMeta(m, items)].filter(Boolean).join(' · ')}
-                  fresh={fresh}
-                  serverDown={serverDown}
-                />
-              )
-            })}
+            <DayCard label={dayHeading(g.date)}>
+              {collapseParents(g.entries).map((e) => {
+                const time = clock(new Date(e.at))
+                if (e.kind === 'received') return <ReceivedRow key={`f-${e.photo.id}`} photo={e.photo} onOpen={(id) => onOpenReceived?.(id)} />
+                if (e.kind === 'parent') return <ParentRow key={`p-${e.item.memo.id}`} item={e.item} onOpen={(m) => onOpenParentMemo?.(m)} time={time} />
+                if (e.kind === 'parentGroup') return <ParentGroupRow key={`g-${e.items[0].memo.id}`} items={e.items} onOpen={(m) => onOpenParentMemo?.(m)} time={time} timeOf={(m) => clock(m.takenAt.toDate())} />
+                if (e.kind === 'sent') return <SentDiaryRow key={`s-${e.photo.id}`} photo={e.photo} to={e.to} color={e.color} onOpen={(id) => onOpenSent?.(id)} time={time} />
+                const m = e.memo
+                const items = rx?.byMemo.get(m.id)
+                // On the parent's own phone: family left something they have not seen yet.
+                const fresh = !!rx && !rx.canReact && (items ?? []).some((r) => r.actorUid !== rx.patientUid && r.status === 'ready' && !r.readByElderAt)
+                return <MemoRow key={m.id} memo={m} onOpen={onOpen} reactions={items} time={time} fresh={fresh} serverDown={serverDown} />
+              })}
+            </DayCard>
           </div>
         ))
       )}

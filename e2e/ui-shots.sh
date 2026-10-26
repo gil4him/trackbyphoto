@@ -21,7 +21,7 @@ echo "[ui-shots] building the simple site for the emulators…"
   npx vite build --mode simple --outDir ../e2e/.tmp/ui-site --emptyOutDir >/dev/null)
 
 # The parent's screens (A6, A9, A11, A12) link a phone, which needs the worker.
-case "$UI_PHASE" in A6|A9|A11|A12)
+case "$UI_PHASE" in A6|A9|A11|A12|A14)
   echo "[ui-shots] building the worker…"
   (cd worker && npm run build >/dev/null) ;;
 esac

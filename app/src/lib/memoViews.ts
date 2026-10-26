@@ -35,10 +35,11 @@ export function farthestKm(memos: Memo[], home: LatLng | null): number | null {
 }
 
 /** `사진 9장 · 집에서 최대 2.0km`; just the count when the distance is unknown. */
-export function dayCaption(count: number, maxKm: number | null): string {
+export function dayCaption(count: number, maxKm: number | null, places = 0): string {
   const photos = `사진 ${count}장`
-  if (maxKm == null) return photos
-  return `${photos} · 집에서 최대 ${maxKm < 10 ? maxKm.toFixed(1) : Math.round(maxKm)}km`
+  const at = places ? `${places}곳` : ''
+  if (maxKm == null) return [photos, at].filter(Boolean).join(' · ')
+  return [photos, at, `집에서 최대 ${maxKm < 10 ? maxKm.toFixed(1) : Math.round(maxKm)}km`].filter(Boolean).join(' · ')
 }
 
 /** Who sent hearts (each once) and how many words came back, for one card. */
@@ -52,9 +53,17 @@ export function reactionSummary(items: Reaction[] | undefined): { hearts: string
   return { hearts, words }
 }
 
-/** The card's title: the memo's line, or what is happening to it. */
-export function cardTitle(m: Pick<Memo, 'status' | 'memo' | 'activity'>, serverDown = false): string {
-  if (m.status !== 'pending') return m.memo || m.activity || '기록'
+/** The memo's own words when the model wrote nothing particular. */
+const GENERIC_TITLE = '사진을 남겼어요'
+
+/** The card's title: the memo's line, or what is happening to it. A generic
+ *  `사진을 남겼어요` reads `{place}에서` when the place is known. */
+export function cardTitle(m: Pick<Memo, 'status' | 'memo' | 'activity'> & { place?: string }, serverDown = false): string {
+  if (m.status !== 'pending') {
+    const name = placeName(m.place)
+    if ((m.memo || '').trim() === GENERIC_TITLE && name) return `${name}에서`
+    return m.memo || m.activity || '기록'
+  }
   return serverDown ? '메모 서버가 쉬는 중이에요. 켜지면 써 드려요.' : '메모 작성 중…'
 }
 
@@ -85,4 +94,27 @@ export function detailActions(o: { simple: boolean; readOnly: boolean; hasPhoto:
   if (o.hasMemo && !o.rewriting) out.push('edit', 'rewrite')
   out.push('delete')
   return out
+}
+
+/**
+ * A place's own name, without 동/구: `석촌호수 · 잠실동, 송파구` → `석촌호수`,
+ * `잠실동, 송파구` → `잠실동`. '' when unknown. The full place stays on the
+ * photo's page.
+ */
+export function placeName(place: string | undefined): string {
+  const p = (place || '').trim()
+  if (!p) return ''
+  if (p.includes(' · ')) return p.split(' · ')[0].trim()
+  return p.split(',')[0].trim()
+}
+
+/** A row's meta line (A14.2): the place's name only. */
+export function rowMeta(m: Pick<Memo, 'place'>): string {
+  return placeName(m.place)
+}
+
+/** How many hearts (each person once) and words came back on a photo. */
+export function reactionCounts(items: Reaction[] | undefined): { hearts: number; words: number } {
+  const { hearts, words } = reactionSummary(items)
+  return { hearts: hearts.length, words }
 }

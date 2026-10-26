@@ -6,7 +6,7 @@ import { MAP_KEYS, KAKAO_IN_FRAME, pickProvider, type MapKeys } from '../lib/map
 import { staticMapUrl } from '../lib/map/googleStatic'
 import { renderKakaoMap } from '../lib/map/kakao'
 import { KakaoFrame } from '../components/KakaoFrame'
-import { AWAY_KM, fmtKm, trailStops, trailSummary, type LatLng, type TrailStop } from '../lib/trail'
+import { AWAY_KM, fmtKm, placeVisits, trailCaption, trailStops, trailSummary, type LatLng, type TrailStop } from '../lib/trail'
 import type { Memo } from '../types'
 import { listPhoto } from '../lib/listPhoto'
 
@@ -45,6 +45,7 @@ export function Trail({ title, memos, home, onBack, onOpenMemo, keys = MAP_KEYS 
 }) {
   const stops = useMemo(() => trailStops(memos, home), [memos, home])
   const summary = trailSummary(stops)
+  const places = useMemo(() => placeVisits(stops), [stops])
   const mapRef = useRef<HTMLDivElement>(null)
   const [kakaoFailed, setKakaoFailed] = useState(false)
   // A Kakao map that fails to load gives way to the Google picture.
@@ -59,7 +60,7 @@ export function Trail({ title, memos, home, onBack, onOpenMemo, keys = MAP_KEYS 
     renderKakaoMap(
       mapRef.current,
       keys.kakao,
-      stops.map((s, i) => ({ lat: s.lat, lng: s.lng, label: String(i + 1), photoUrl: listPhoto(s.memos[0]), onClick: () => onOpenMemo(s.memos[0].id) })),
+      places.map((p) => ({ lat: p.lat, lng: p.lng, label: p.label, photoUrl: listPhoto(p.memos[0]), onClick: () => onOpenMemo(p.memos[0].id) })),
       nearHome,
     ).catch((err) => {
       console.warn('[trail] kakao map unavailable; trying the Google picture', err)
@@ -71,6 +72,7 @@ export function Trail({ title, memos, home, onBack, onOpenMemo, keys = MAP_KEYS 
   }, [provider, kakaoFailed, stops])
 
   const located = stops.reduce((n, s) => n + s.memos.length, 0)
+  // One pin per place (A14.5); the list below keeps one numbered row per visit.
   return (
     <section className="page trail">
       {/* The same frosted header as the photo page: back, the title, a spacer. */}
@@ -80,7 +82,7 @@ export function Trail({ title, memos, home, onBack, onOpenMemo, keys = MAP_KEYS 
         <span className="head-btn-space" aria-hidden="true" />
       </div>
       <div className="h-eyebrow trail-summary">
-        {stops.length > 0 ? `${stops.length}곳${summary.text ? ` · ${summary.text}` : ''}` : '위치가 있는 사진이 없어요'}
+        {stops.length > 0 ? trailCaption(stops) : '위치가 있는 사진이 없어요'}
         {summary.away && <span className="trail-badge">여행 중</span>}
       </div>
 
@@ -93,13 +95,13 @@ export function Trail({ title, memos, home, onBack, onOpenMemo, keys = MAP_KEYS 
               ? (KAKAO_IN_FRAME
                 ? <KakaoFrame
                     className="trail-kakao"
-                    map={{ key: keys.kakao!, pins: stops.map((s, i) => ({ lat: s.lat, lng: s.lng, label: String(i + 1), photoUrl: listPhoto(s.memos[0]) })), home: nearHome, big: true }}
+                    map={{ key: keys.kakao!, pins: places.map((p) => ({ lat: p.lat, lng: p.lng, label: p.label, photoUrl: listPhoto(p.memos[0]) })), home: nearHome, big: true }}
                     onFail={() => setKakaoFailed(true)}
-                    onPick={(i) => { const s = stops[i]; if (s) onOpenMemo(s.memos[0].id) }}
+                    onPick={(i) => { const p = places[i]; if (p) onOpenMemo(p.memos[0].id) }}
                   />
                 : <div ref={mapRef} className="trail-kakao" />)
               : provider === 'googleStatic' && keys.google && !staticFailed
-                ? <img className="trail-static" src={staticMapUrl(stops, keys.google)} alt="다녀온 곳 지도" onError={() => setStaticFailed(true)} />
+                ? <img className="trail-static" src={staticMapUrl(stops, keys.google, undefined, true, places)} alt="다녀온 곳 지도" onError={() => setStaticFailed(true)} />
                 : <TrailSketch stops={stops} home={nearHome} thumbs onPick={(s) => onOpenMemo(s.memos[0].id)} />}
           </div>
           <TrailList stops={stops} onOpenMemo={onOpenMemo} />

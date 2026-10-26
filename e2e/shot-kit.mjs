@@ -204,11 +204,12 @@ export const audit = (p, { minFont = 15, minTap = 48, smallOk = 'nav.tabbar' } =
     if (e.matches('button, a[href], [role=button]') && (r.width < o.minTap - 0.5 || r.height < o.minTap - 0.5)) out.push(`tap ${Math.round(r.width)}×${Math.round(r.height)}: ${name(e)} ${label(e)}`)
     if (r.right > W + 1 && !inScroller(e) && !fixed(e)) out.push(`past the right edge (${Math.round(r.right)} > ${W}): ${name(e)}`)
   }
-  const bar = document.querySelector('nav.tabbar')
+  // The family's tab bar, or the parent's 내 사진 bar (A14.7): nothing may sit under it.
+  const bar = document.querySelector('nav.tabbar') || document.querySelector('nav.elder-bar')
   if (bar) {
     const pageEnd = Math.max(de.scrollHeight, lowest)
     const barTop = pageEnd - (window.innerHeight - bar.getBoundingClientRect().top)
-    if (lowest > barTop + 1) out.push(`content under the tab bar by ${Math.round(lowest - barTop)}px`)
+    if (lowest > barTop + 1) out.push(`content under the bottom bar by ${Math.round(lowest - barTop)}px`)
   }
   return out
 }, { minFont, minTap, smallOk })

@@ -27,28 +27,39 @@ const render = (o: Partial<Parameters<typeof MyDay>[0]> = {}) => renderToString(
 ).replace(/<!-- -->/g, '')
 
 describe('내 하루', () => {
-  it("one timeline, newest first: one's own photos, a parent's (indented, their name), and what one sent", () => {
+  it("one card, newest first: one's own photos, a parent's (indented, their name), and what one sent; one line each", () => {
     const out = render({
       memos: [memo('mine2', at(15)), memo('mine1', at(9)), memo('yday', at(9, 0, 1))],
-      parents: [{ memo: memo('mom1', at(12), { patientUid: 'mom' }), name: '엄마', color: '#4A90D9' }],
-      sent: [{ photo: sentPhoto('s1', at(10)), to: '엄마', color: '#4A90D9' }],
+      parents: [{ memo: memo('mom1', at(12), { patientUid: 'mom' }), name: '엄마', color: 'steelblue' }],
+      sent: [{ photo: sentPhoto('s1', at(10)), to: '엄마', color: 'steelblue' }],
     })
     expect(out).toContain('내 하루')
-    expect(out).toContain('사진 2장')
+    expect(out).toContain('내 사진 2장 · 엄마 1장')
     expect(out).not.toContain('yday 제목')
-    const order = ['mine2 제목', 'mom1 제목', '엄마</span>에게 보냄', 'mine1 제목'].map((t) => out.indexOf(t))
+    const order = ['mine2 제목', '엄마</b> 석촌호수', '엄마</b>에게 보냄', 'mine1 제목'].map((t) => out.indexOf(t))
     expect(order.every((i) => i > 0)).toBe(true)
     expect([...order].sort((a, b) => a - b)).toEqual(order)
-    expect(out).toContain('class="parent-memo" style="--pc:#4A90D9"')
-    expect(out).toContain('엄마 · 석촌호수')
+    expect(out.match(/class="day-card"/g)?.length).toBe(1)
+    expect(out).toContain('style="--pc:steelblue"')
     expect(out.match(/class="day-time"/g)?.length).toBe(4)
+    expect(out).not.toContain('day-rail')
+    expect(out).not.toContain('day-dot')
+  })
+
+  it("two of a parent's photos in a row fold into one row; anything between them keeps them apart", () => {
+    const mom = (id: string, h: number) => ({ memo: memo(id, at(h), { patientUid: 'mom' }), name: '엄마', color: 'red' })
+    const folded = render({ parents: [mom('a', 12), mom('b', 11)] })
+    expect(folded).toContain('엄마</b> · 사진 2장')
+    const apart = render({ memos: [memo('mine', at(11, 30))], parents: [mom('a', 12), mom('b', 11)] })
+    expect(apart).not.toContain('사진 2장')
   })
 
   it('an empty day says so, with 어제 보기', () => {
     const out = render()
     expect(out).toContain('오늘 아직 사진이 없어요')
     expect(out).toContain('어제 보기')
-    expect(out).toContain('사진 0장')
+    expect(out).toContain('내 사진 0장')
+    expect(out).toContain('찍은 사진은 ⋯ 에서 부모님께 보낼 수 있어요')
   })
 
   it('diaryEntries leaves out a sent photo that is not ready yet', () => {
@@ -56,8 +67,7 @@ describe('내 하루', () => {
     expect(diaryEntries([], [], [{ photo: pending, to: '엄마', color: 'x' }])).toEqual([])
   })
 
-  it('사진 보내기 sits on one\'s own day, only while family photos are on', () => {
-    expect(render({ onSendPhoto: () => {} })).toContain('📷 부모님께 사진 보내기')
-    expect(render()).not.toContain('사진 보내기')
+  it('sending lives in ⋯ only: no 사진 보내기 link on the day', () => {
+    expect(render({ memos: [memo('mine', at(9))] })).not.toContain('사진 보내기')
   })
 })

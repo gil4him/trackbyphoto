@@ -6,12 +6,14 @@ import { useCapture } from '../hooks/useCapture'
 import { fmtDate, fmtTime } from '../util'
 import { MemoThumb } from '../components/MemoThumb'
 import { MemoRow } from '../components/MemoRow'
+import { DayCard } from '../components/DayCard'
+import { PlaceGroupRow } from '../components/DiaryRows'
 import { PatientCard } from '../components/PatientCard'
 import { latestActivity, type ParentSummary } from '../lib/dashboard'
 import { useWorkerStatus } from '../hooks/useWorkerStatus'
 import { clock, dayCaption, dayEyebrow, farthestKm, memosOnDay } from '../lib/memoViews'
 import { addressed, honorific } from '../lib/people'
-import { AWAY_KM, trailStops, trailSummary, type LatLng, type TrailStop } from '../lib/trail'
+import { AWAY_KM, placeVisits, samePlaceRuns, trailStops, trailSummary, type LatLng, type TrailStop } from '../lib/trail'
 import { MAP_KEYS, KAKAO_IN_FRAME, pickProvider, type MapKeys } from '../lib/map'
 import { staticMapUrl } from '../lib/map/googleStatic'
 import { renderKakaoMap } from '../lib/map/kakao'
@@ -79,7 +81,7 @@ function DayMap({ stops, home, away, onOpen, keys }: { stops: TrailStop[]; home:
     renderKakaoMap(
       mapRef.current,
       keys.kakao!,
-      stops.map((s, i) => ({ lat: s.lat, lng: s.lng, label: String(i + 1) })),
+      placeVisits(stops).map((p) => ({ lat: p.lat, lng: p.lng, label: p.label })),
       home,
       { pad: 28 },
     ).catch((err) => {
@@ -95,13 +97,13 @@ function DayMap({ stops, home, away, onOpen, keys }: { stops: TrailStop[]; home:
     <div ref={boxRef} className="day-map">
       <TrailSketch stops={stops} home={home} wide />
       {kakao && (KAKAO_IN_FRAME
-        ? <KakaoFrame className="day-map-kakao" map={{ key: keys.kakao!, pins: stops.map((s, i) => ({ lat: s.lat, lng: s.lng, label: String(i + 1) })), home, pad: 28 }} onFail={() => setKakaoFailed(true)} />
+        ? <KakaoFrame className="day-map-kakao" map={{ key: keys.kakao!, pins: placeVisits(stops).map((p) => ({ lat: p.lat, lng: p.lng, label: p.label })), home, pad: 28 }} onFail={() => setKakaoFailed(true)} />
         : <div ref={mapRef} className="day-map-kakao" aria-hidden="true" />)}
-      {picture && <img className="day-map-static" src={staticMapUrl(stops, keys.google!, { width: 640, height: 300 })} alt="" onError={() => setFailed(true)} />}
-      <button type="button" className="day-map-open" onClick={onOpen} aria-label={`다녀온 곳 ${stops.length}곳 보기`}>
+      {picture && <img className="day-map-static" src={staticMapUrl(stops, keys.google!, { width: 640, height: 300 }, true, placeVisits(stops))} alt="" onError={() => setFailed(true)} />}
+      <button type="button" className="day-map-open" onClick={onOpen} aria-label={`다녀온 곳 ${placeVisits(stops).length}곳 보기`}>
         <span className="day-map-pill">
           {away && <span className="trail-badge">여행 중</span>}
-          다녀온 곳 {stops.length} ›
+          다녀온 곳 {placeVisits(stops).length} ›
         </span>
       </button>
     </div>
@@ -154,7 +156,7 @@ export function ParentDayHome({ parentName, memos, byMemo, home, onOpen, onYeste
       <header className="day-head">
         <div className="h-eyebrow">{dayEyebrow(now)}</div>
         <h1 className="day-title">{who}의 하루</h1>
-        <div className="day-caption">{dayCaption(todays.length, farthestKm(todays, home))}</div>
+        <div className="day-caption">{dayCaption(todays.length, farthestKm(todays, home), placeVisits(stops).length)}</div>
       </header>
 
       {stops.length > 0 && <DayMap stops={stops} home={nearHome} away={summary.away} onOpen={() => onOpenTrail?.(now)} keys={keys} />}
@@ -162,14 +164,13 @@ export function ParentDayHome({ parentName, memos, byMemo, home, onOpen, onYeste
       {todays.length === 0 ? (
         <div className="day-empty" role="status">오늘 아직 사진이 없어요</div>
       ) : (
-        <ol className="day-tl" aria-label="오늘의 사진">
-          {/* Newest at the top; the badge counts from the day's first photo. */}
-          {todays.map((m, i) => (
-            <li key={m.id}>
-              <MemoRow memo={m} onOpen={onOpen} reactions={byMemo?.get(m.id)} badge={todays.length - i} time={clock(m.takenAt.toDate())} serverDown={serverDown} />
-            </li>
-          ))}
-        </ol>
+        <DayCard label="오늘의 사진">
+          {/* Newest at the top, no numbers (only 다녀온 곳 numbers); photos in a
+              row at one place fold into one line (A14.5). */}
+          {samePlaceRuns(todays).map((run) => run.length > 1
+            ? <PlaceGroupRow key={`g-${run[0].id}`} memos={run} time={clock(run[0].takenAt.toDate())} renderRow={(m) => <MemoRow key={m.id} memo={m} onOpen={onOpen} reactions={byMemo?.get(m.id)} time={clock(m.takenAt.toDate())} serverDown={serverDown} />} />
+            : <MemoRow key={run[0].id} memo={run[0]} onOpen={onOpen} reactions={byMemo?.get(run[0].id)} time={clock(run[0].takenAt.toDate())} serverDown={serverDown} />)}
+        </DayCard>
       )}
 
       <button type="button" className="day-more" onClick={onYesterday}>어제 보기 ›</button>

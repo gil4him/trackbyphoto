@@ -132,3 +132,54 @@ export function project(points: LatLng[], width: number, height: number, pad: nu
     y: spanX === 0 && spanY === 0 ? height / 2 : height - (offY + (ys[i] - minY) * scale),
   }))
 }
+
+/** Two photos this close are at the same place (A14.5). */
+export const SAME_PLACE_M = 100
+
+/** One place on the map: where one or more stops were, and which visits they were (1-based, in order). */
+export interface TrailPlace extends LatLng {
+  /** Visit numbers, in order: [1, 5, 9]. */
+  visits: number[]
+  /** `1·5·9`, for the pin's chip. */
+  label: string
+  /** Every photo taken there, oldest first. */
+  memos: Memo[]
+}
+
+/** Stops within SAME_PLACE_M of a place already seen join it: one pin per place, numbered by its visits. */
+export function placeVisits(stops: TrailStop[]): TrailPlace[] {
+  const places: TrailPlace[] = []
+  stops.forEach((s, i) => {
+    const at = places.find((p) => distanceKm(p, s) * 1000 <= SAME_PLACE_M)
+    if (at) {
+      at.visits.push(i + 1)
+      at.memos.push(...s.memos)
+      at.label = at.visits.join('·')
+    } else {
+      places.push({ lat: s.lat, lng: s.lng, visits: [i + 1], label: String(i + 1), memos: [...s.memos] })
+    }
+  })
+  return places
+}
+
+/** `3곳 · 5번 들름 · 집에서 최대 2.0km`: the trail page's line. */
+export function trailCaption(stops: TrailStop[]): string {
+  const places = placeVisits(stops).length
+  return [`${places}곳`, stops.length > places ? `${stops.length}번 들름` : '', trailSummary(stops).text].filter(Boolean).join(' · ')
+}
+
+/**
+ * The day's photos (in the order given) in runs at the same place: neighbours
+ * both located within SAME_PLACE_M of the run's first photo join it. A photo
+ * without a location stands alone.
+ */
+export function samePlaceRuns(memos: Memo[]): Memo[][] {
+  const runs: Memo[][] = []
+  for (const m of memos) {
+    const run = runs[runs.length - 1]
+    const head = run?.[0]
+    if (head && located(head) && located(m) && distanceKm(head, m) * 1000 <= SAME_PLACE_M) run.push(m)
+    else runs.push([m])
+  }
+  return runs
+}

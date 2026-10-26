@@ -67,3 +67,8 @@ export function landingDay(days: Date[], picked: Date): Date | null {
   return days.find((d) => d.getTime() < end) ?? days[days.length - 1]
 }
 
+
+/** `2026-10-24`: a day as a date field's value. */
+export function isoDay(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
