@@ -25,6 +25,13 @@ const CHROME = process.env.CHROME_PATH || '/Applications/Google Chrome.app/Conte
 const REAL_LLM = process.env.E2E_REAL_LLM === '1'
 const MEMO_WAIT = REAL_LLM ? 180_000 : 60_000
 const PARENT = '할머니'
+// How the app addresses a parent (app/src/lib/people.ts): a kin word is a
+// name in its own right (할머니, never 할머니님); any other name gets 님. The
+// particle after it follows the last syllable (할머니를 · 영희님을).
+const KIN = ['엄마', '아빠', '어머니', '아버지', '할머니', '할아버지']
+const who = (name) => (KIN.includes(name) ? name : `${name}님`)
+const hasBatchim = (s) => { const c = s.codePointAt(s.length - 1); return c >= 0xac00 && c <= 0xd7a3 && (c - 0xac00) % 28 !== 0 }
+const whoObj = (name) => who(name) + (hasBatchim(who(name)) ? '을' : '를')
 const KID = { name: '민수', email: 'minsu@example.com' }
 /** ":9199"-style suffixes of the emulators this run uses (run.sh may move them). */
 const STORAGE_AT = `:${(process.env.FIREBASE_STORAGE_EMULATOR_HOST || '').split(':').pop()}`
@@ -498,7 +505,7 @@ await step('family 설정: reply and summary settings are there; voice and plans
   await family.waitForSelector('nav.tabbar', { timeout: 30_000 })
   await tab(family, '설정')
   // The parent's settings, once the app has settled on whose records these are.
-  await waitText(family, `${PARENT}님 휴대폰`, 30_000)
+  await waitText(family, `${who(PARENT)} 휴대폰`, 30_000)
   await waitText(family, '글로 답장')
   const t = await text(family)
   expect(t.includes('하루 요약'), 'no 하루 요약 section')
@@ -712,10 +719,10 @@ await step('a deleted parent\'s phone starts over at the first screen, keeping n
   if (await family.$('.acct-return')) await family.click('.acct-return')
   await tab(family, '설정')
   await waitText(family, '함께 보는 가족')
-  await click(family, `${PARENT}님 삭제`)
-  await waitText(family, `${PARENT}님을 삭제할까요?`)
+  await click(family, `${who(PARENT)} 삭제`)
+  await waitText(family, `${whoObj(PARENT)} 삭제할까요?`)
   await click(family, '삭제하기', { selector: '.modal button' })
-  await waitText(family, `${PARENT}님을 삭제했어요`, 70_000)
+  await waitText(family, `${whoObj(PARENT)} 삭제했어요`, 70_000)
   const end = Date.now() + 20_000
   while ((await db.doc(`users/${patientUid}`).get()).exists && Date.now() < end) await sleep(500)
   expect(!(await db.doc(`users/${patientUid}`).get()).exists, 'the account still exists')
