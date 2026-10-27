@@ -49,7 +49,7 @@ export function appStatus(device: ElderDevice | undefined, latest: StoreVersions
   if (!device || (device.platform !== 'ios' && device.platform !== 'android')) return { kind: 'none' }
   const platform = device.platform
   const version = device.app?.version
-  // Phones from before 1.0.3 never report a version.
+  // Phones from before 1.0.4 never report a version.
   if (!version) return { kind: 'unknown', platform }
   return isBehind(version, latest[platform]) ? { kind: 'behind', platform, version } : { kind: 'current', platform, version }
 }

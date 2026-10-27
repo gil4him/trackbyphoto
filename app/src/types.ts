@@ -120,7 +120,7 @@ export interface ElderDevice {
   platform: string
   pairedAt: Timestamp | null
   status: 'active' | 'revoked'
-  /** The store app's version, reported by the phone (1.0.3 and later). */
+  /** The store app's version, reported by the phone (1.0.4 and later). */
   app?: { version: string; build?: string; platform: 'ios' | 'android'; reportedAt?: Timestamp | null }
 }
 

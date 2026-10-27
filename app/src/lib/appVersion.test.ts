@@ -55,7 +55,7 @@ describe('what family see', () => {
     expect(appStatus(device({ platform: 'web' }), latest)).toEqual({ kind: 'none' })
   })
 
-  it('a phone from before 1.0.3 has no version', () => {
+  it('a phone from before 1.0.4 has no version', () => {
     expect(appStatus(device({}), latest)).toEqual({ kind: 'unknown', platform: 'ios' })
   })
 

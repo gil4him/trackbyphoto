@@ -6,7 +6,7 @@
  *   sendUpdateNudge  a guardian/admin family member asks that phone, by push, to
  *                    update the app. At most once a day per parent; only when the
  *                    phone is behind the store or its version is unknown (a phone
- *                    from before 1.0.3 never reports one). system/app holds the
+ *                    from before 1.0.4 never reports one). system/app holds the
  *                    stores' latest versions (storeVersions.ts).
  */
 
@@ -26,7 +26,7 @@ type Platform = (typeof PLATFORMS)[number]
 
 /**
  * The update notice's words (owner-approved, 2026-10-27). Changing them needs
- * the owner's approval. A phone that reported its version (1.0.3 or later)
+ * the owner's approval. A phone that reported its version (1.0.4 or later)
  * opens the store when the notice is tapped; an older one only opens the
  * camera, so it is told where to go.
  */
