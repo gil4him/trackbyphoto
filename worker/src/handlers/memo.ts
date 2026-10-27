@@ -339,7 +339,7 @@ export async function processMemo(memoId: string, attempt: number, deps: MemoDep
   const lat = typeof data.lat === 'number' ? data.lat : null
   const lng = typeof data.lng === 'number' ? data.lng : null
   const tags = (data.tags as VisionTags | undefined) ?? null
-  const humanEdited = data.humanEdited === true
+  let humanEdited = data.humanEdited === true
 
   // Rules already pin photoPath to the creator's folder; re-check so a
   // malformed doc can't point the worker at someone else's photo.
@@ -429,6 +429,13 @@ export async function processMemo(memoId: string, attempt: number, deps: MemoDep
     scene = stub.scene
     memoSource = 'local-stub'
   }
+
+  // The memo may have changed while the model wrote (behind other memos on
+  // the model lock, that can be minutes): a guardian's correction made
+  // meanwhile wins, and a deleted memo is simply done.
+  const latest = await memoRef.get()
+  if (!latest.exists) return 'done'
+  humanEdited = humanEdited || latest.get('humanEdited') === true
 
   // Skip the interpretive fields when a guardian has already corrected the
   // memo. photoUrl + place/address are still safe to refresh (they're factual).
@@ -521,32 +528,54 @@ export async function processMemo(memoId: string, attempt: number, deps: MemoDep
   return 'done'
 }
 
+/** Memos written at once when MEMO_CONCURRENCY doesn't say. */
+export const DEFAULT_MEMO_CONCURRENCY = 3
+
+/** MEMO_CONCURRENCY as a whole number from 1 to 8; anything else is the default. */
+export function memoConcurrency(env: NodeJS.ProcessEnv = process.env): number {
+  const n = Number(env.MEMO_CONCURRENCY)
+  if (!env.MEMO_CONCURRENCY || !Number.isInteger(n)) return DEFAULT_MEMO_CONCURRENCY
+  return Math.min(8, Math.max(1, n))
+}
+
 /**
- * Queue over pending memos. The model runs one generation at a time (Ollama
- * would serialize anyway, and Teleios shares the model RAM), new photos
- * before memos that are being re-written. The quick photo + place step runs
- * for every memo as it arrives, ahead of the line for the model. Failed memos
- * are re-queued with backoff instead of blocking the line, so one bad photo
- * never holds up the others.
+ * Queue over pending memos. Up to MEMO_CONCURRENCY memos are written at once
+ * (default 3), but only one per parent: a parent's photos see each other's
+ * memos (today's moments, borrowed places, titles not to repeat) and take the
+ * day's allowance in the order they came. Gemini calls run side by side; the
+ * local model still takes one at a time behind llm/lock.ts (Teleios shares
+ * the model RAM), so for it the extra slots only overlap the worker's own
+ * reads and writes. New photos go before memos that are being re-written.
+ * The quick photo + place step runs for every memo as it arrives, ahead of
+ * the line for the model. Failed memos are re-queued with backoff instead of
+ * blocking the line, so one bad photo never holds up the others.
  */
 export class MemoScheduler {
+  readonly concurrency: number
   private fresh: string[] = []
   private rewrites: string[] = []
   private queued = new Set<string>()
   /** Memos that already had text: they wait behind new photos. */
   private low = new Set<string>()
-  private running: string | null = null
+  private running = new Set<string>()
+  /** Whose photo each memo is, and the parents with a memo being written. */
+  private patientOf = new Map<string, string>()
+  private busyPatients = new Set<string>()
   private attempts = new Map<string, number>()
   private timers = new Map<string, NodeJS.Timeout>()
   private preparing = new Map<string, Promise<void>>()
   private prepChain: Promise<void> = Promise.resolve()
   private stopped = false
 
-  constructor(private deps: MemoDeps = defaultMemoDeps) {}
+  constructor(private deps: MemoDeps = defaultMemoDeps, opts: { concurrency?: number } = {}) {
+    this.concurrency = opts.concurrency ?? memoConcurrency()
+  }
 
-  /** `rewrite`: the memo was written before and is being written again. */
-  enqueue(memoId: string, rewrite = false) {
-    if (this.stopped || this.queued.has(memoId) || this.running === memoId || this.timers.has(memoId)) return
+  /** `rewrite`: the memo was written before and is being written again.
+   *  `patientUid`: whose photo it is (one memo per parent at a time). */
+  enqueue(memoId: string, rewrite = false, patientUid?: string) {
+    if (patientUid) this.patientOf.set(memoId, patientUid)
+    if (this.stopped || this.queued.has(memoId) || this.running.has(memoId) || this.timers.has(memoId)) return
     this.queued.add(memoId)
     if (rewrite) {
       this.low.add(memoId)
@@ -555,7 +584,7 @@ export class MemoScheduler {
       this.fresh.push(memoId)
       this.prepare(memoId)
     }
-    void this.pump()
+    this.pump()
   }
 
   /** The memo left the pending set (ready, deleted) — drop any retry state. */
@@ -565,6 +594,8 @@ export class MemoScheduler {
     this.timers.delete(memoId)
     this.attempts.delete(memoId)
     this.low.delete(memoId)
+    // A running memo still needs its parent to free the slot when it ends.
+    if (!this.running.has(memoId)) this.patientOf.delete(memoId)
     if (this.queued.delete(memoId)) {
       this.fresh = this.fresh.filter((id) => id !== memoId)
       this.rewrites = this.rewrites.filter((id) => id !== memoId)
@@ -577,14 +608,14 @@ export class MemoScheduler {
     this.timers.clear()
   }
 
-  /** Memos waiting for the model, including the one being written. */
+  /** Memos waiting for the model, including the ones being written. */
   get waiting(): number {
-    return this.fresh.length + this.rewrites.length + this.timers.size + (this.running ? 1 : 0)
+    return this.fresh.length + this.rewrites.length + this.timers.size + this.running.size
   }
 
   /** Resolves once nothing is queued or running (timers excluded). */
   async idle(): Promise<void> {
-    while (this.running || this.fresh.length || this.rewrites.length || this.preparing.size) {
+    while (this.running.size || this.fresh.length || this.rewrites.length || this.preparing.size) {
       await new Promise((r) => setTimeout(r, 50))
     }
   }
@@ -613,12 +644,36 @@ export class MemoScheduler {
     }, delayMs))
   }
 
-  private async pump() {
-    if (this.running || this.stopped) return
-    const memoId = this.fresh.shift() ?? this.rewrites.shift()
-    if (!memoId) return
-    this.queued.delete(memoId)
-    this.running = memoId
+  /** Fill the free slots. */
+  private pump() {
+    while (!this.stopped && this.running.size < this.concurrency) {
+      const memoId = this.next()
+      if (!memoId) return
+      void this.run(memoId)
+    }
+  }
+
+  /** The first new photo, else the first re-write, whose parent has no memo
+   *  being written. One that is skipped keeps its place in line. */
+  private next(): string | undefined {
+    for (const line of [this.fresh, this.rewrites]) {
+      const i = line.findIndex((id) => {
+        const patient = this.patientOf.get(id)
+        return !patient || !this.busyPatients.has(patient)
+      })
+      if (i >= 0) {
+        const [memoId] = line.splice(i, 1)
+        this.queued.delete(memoId)
+        return memoId
+      }
+    }
+    return undefined
+  }
+
+  private async run(memoId: string) {
+    const patient = this.patientOf.get(memoId)
+    this.running.add(memoId)
+    if (patient) this.busyPatients.add(patient)
     const attempt = (this.attempts.get(memoId) ?? 0) + 1
     try {
       // Let the quick step finish so the place isn't looked up twice.
@@ -627,6 +682,7 @@ export class MemoScheduler {
       if (outcome === 'done') {
         this.attempts.delete(memoId)
         this.low.delete(memoId)
+        this.patientOf.delete(memoId)
       } else if (outcome === 'unavailable') {
         this.retryLater(memoId, UNAVAILABLE_RETRY_MS)
       } else {
@@ -641,13 +697,15 @@ export class MemoScheduler {
         await getFirestore().collection('memos').doc(memoId).update({ status: 'error' }).catch(() => {})
         this.attempts.delete(memoId)
         this.low.delete(memoId)
+        this.patientOf.delete(memoId)
       } else {
         this.attempts.set(memoId, attempt)
         this.retryLater(memoId, RETRY_DELAYS_MS[Math.min(attempt - 1, RETRY_DELAYS_MS.length - 1)])
       }
     } finally {
-      this.running = null
-      void this.pump()
+      this.running.delete(memoId)
+      if (patient) this.busyPatients.delete(patient)
+      this.pump()
     }
   }
 }
@@ -664,7 +722,7 @@ export function watchPendingMemos(scheduler: MemoScheduler): () => void {
           if (change.type === 'removed') scheduler.forget(change.doc.id)
           // notifiedAt is stamped the first time a memo is finished, so a
           // pending memo that has it is being written again.
-          else scheduler.enqueue(change.doc.id, !!change.doc.get('notifiedAt'))
+          else scheduler.enqueue(change.doc.id, !!change.doc.get('notifiedAt'), change.doc.get('patientUid'))
         }
       },
       (err) => {
