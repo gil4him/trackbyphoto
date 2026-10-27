@@ -286,7 +286,7 @@ describe('SystemView', () => {
     expect(html).toContain('정상')
     expect(html).toContain('22초 전')
     expect(html).toContain('hq-skel')
-    expect(html).toContain('Crashlytics 연결 필요')
+    expect(html).toContain('Crashlytics 미설치')
     expect(html).toContain('iPhone')
   })
 })

@@ -108,7 +108,7 @@ initializeApp({ projectId: PROJECT, storageBucket: `${PROJECT}.appspot.com` })
 // The plans table as the owner set it (CLAUDE.md, 2026-10-22): Free, Plus, Family.
 await getFirestore().doc('admin_config/plans').set({
   // payments on (D12): 매출 shows the store purchases on file.
-  flags: { reactions: true, familyPhotos: true, payments: true },
+  flags: { reactions: true, familyPhotos: true, payments: true, ceoMorningPush: true },
   free: { familyMembers: 3 }, plus: { familyMembers: 6, priceLabel: '₩4,400/월' }, family: { familyMembers: 10, priceLabel: '₩7,700/월' },
 })
 
