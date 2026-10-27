@@ -17,6 +17,7 @@ import {
 import { sendInviteSMS, shareInviteToKakao } from '../lib/share'
 import { RegisterElder } from './RegisterElder'
 import { ElderDevices } from '../components/ElderDevices'
+import { ParentAppStatus } from '../components/ParentAppStatus'
 import { BottomSheet } from '../components/BottomSheet'
 import { deleteManagedElder } from '../lib/pairing'
 import { deleteMyAccount } from '../lib/account'
@@ -538,6 +539,7 @@ export function Settings({ settings, onChange, user, onSignOut, activePatientUid
                     <div className="who">
                       <b>{p.name}</b>
                       <span> · {mine ? tr('내가 등록한 부모님', 'The parent I registered') : p.membership.role === 'viewer' ? tr('뷰어', 'Viewer') : tr('관리자', 'Manager')}</span>
+                      <ParentAppStatus patientUid={p.patientUid} patientName={p.name} canManage={p.membership.role !== 'viewer'} />
                     </div>
                     <button type="button" className="more-btn" aria-label={tr(`${honorific(p.name)} 더보기`, `More for ${honorific(p.name)}`)} aria-haspopup="dialog" onClick={() => setRowMenu({ kind: 'person', patientUid: p.patientUid, name: p.name, mine })}>⋯</button>
                   </div>

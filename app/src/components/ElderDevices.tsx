@@ -9,6 +9,7 @@ import type { ElderDevice, Pairing } from '../types'
 import { SectLab } from './SectLab'
 import { honorific } from '../lib/people'
 import { tr } from '../lib/lang'
+import { ParentAppStatus } from './ParentAppStatus'
 
 /**
  * 기기 관리 for a family-managed elder (Settings, family view): linked phones
@@ -98,6 +99,7 @@ export function ElderDevices({ patientUid, patientName }: { patientUid: string; 
           <button className="signout-btn" onClick={() => setConfirmUnlink(d)}>{tr('연결 해제', 'Unlink')}</button>
         </div>
       ))}
+      {devices.length > 0 && <ParentAppStatus patientUid={patientUid} patientName={patientName} canManage />}
 
       <button className="linkbtn" onClick={() => setSending(true)} style={{ marginTop: 8 }}>
         <span>{devices.length === 0 ? tr('휴대폰 연결 링크 보내기', 'Send a link to the phone') : tr('새 휴대폰 연결', 'Link a new phone')}</span>

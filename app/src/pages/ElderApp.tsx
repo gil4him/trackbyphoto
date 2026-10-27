@@ -26,6 +26,8 @@ const newPhotosLine = (photos: Parameters<typeof cardLine>[0]) => { const line =
 import { CameraFab } from '../components/CameraFab'
 import { useToast } from '../components/Toast'
 import { useIdleReturn } from '../hooks/useIdleReturn'
+import { useElderAppUpdate } from '../hooks/useElderAppUpdate'
+import { openStore } from '../lib/appVersion'
 import { S } from '../lib/strings'
 import { tr } from '../lib/lang'
 
@@ -116,6 +118,8 @@ export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn
   // Simple edition: any screen but the camera goes back to it after a minute
   // without a touch (A9), so the phone is always ready for the next photo.
   useIdleReturn(isSimple() && !revoked && (openNews !== null || photosOpen !== false || openId !== null || view === 'records'), backToCamera)
+  // The store has a newer app: a banner on every screen until the phone is updated.
+  const updateUrl = useElderAppUpdate(deviceId, !revoked)
 
   const open = openId ? memos.find((m) => m.id === openId) ?? null : null
 
@@ -136,7 +140,12 @@ export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn
 
 
   return (
-    <div className="app elder-mode">
+    <div className={updateUrl ? 'app elder-mode has-update' : 'app elder-mode'}>
+      {updateUrl && (
+        <button type="button" className="elder-update-prompt" onClick={() => openStore(updateUrl)}>
+          {tr('새 버전이 나왔어요', 'A new version is out')} <span className="update-go">{tr('눌러서 업데이트', 'Tap to update')}</span>
+        </button>
+      )}
       <main>
         {openNews ? (
           <FamilyNews
