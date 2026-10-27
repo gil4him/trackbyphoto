@@ -1,3 +1,4 @@
+import { lang } from './lang'
 // Map a memo's one-word activity category to a CSS class that paints the
 // thumbnail / photo header with a category-tinted gradient. The classes are
 // defined in styles.css. We keep this in one place so Today, Ask, and the
@@ -24,4 +25,16 @@ export function categoryThumbClass(activity?: string): string {
     case '기타': return 'p-other'
     default:    return 'p-other'
   }
+}
+
+/** The category as the screens name it: the Korean key itself, or its English word. */
+export function categoryLabel(activity?: string): string {
+  if (!activity) return ''
+  if (lang !== 'en') return activity
+  const EN: Record<string, string> = {
+    '식사': 'Meal', '카페': 'Café', '산책': 'Walk', '여행': 'Trip', '출장': 'Work trip', '이동': 'On the move',
+    '쇼핑': 'Shopping', '휴식': 'Rest', '모임': 'Gathering', '가족': 'Family', '운동': 'Exercise', '자연': 'Nature',
+    '꽃': 'Flowers', '병원': 'Hospital', '외출': 'Outing', '기타': 'Other',
+  }
+  return EN[activity] ?? activity
 }

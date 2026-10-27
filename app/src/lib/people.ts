@@ -5,9 +5,14 @@
 // that is gone, or whose settings the server says aren't there, is not a
 // person anyone can open, so it is not listed.
 
+import { lang, tr } from './lang'
+
 /** A person's name; null when the server says there is no such account
  *  (or won't let us see it); undefined while we don't know yet. */
 export type NameState = string | null | undefined
+
+/** Who a parent's photos go to when no family member has a name yet. */
+export const FAMILY = tr('가족', 'your family')
 
 export interface Person<M> {
   membership: M
@@ -40,14 +45,14 @@ export function nameTaken(name: string, existing: string[]): string | null {
  */
 export function sentToName(caregivers: { status: string; caregiverName?: string }[]): string {
   const named = caregivers.find((c) => c.status === 'active' && c.caregiverName?.trim())
-  return named?.caregiverName?.trim() || '가족'
+  return named?.caregiverName?.trim() || FAMILY
 }
 
 /** The simple edition's consent button once a phone is linked: says who
  *  will see the photos (PairDevice). */
 export function consentButtonLabel(caregivers: { status: string; caregiverName?: string }[]): string {
   const name = sentToName(caregivers)
-  return name === '가족' ? '네, 보여줄게요' : `네, ${name}에게 보여줄게요`
+  return name === FAMILY ? tr('네, 보여줄게요', 'Yes, show them') : tr(`네, ${name}에게 보여줄게요`, `Yes, show ${name}`)
 }
 
 /**
@@ -86,6 +91,8 @@ export function honorific(name: string): string {
   const n = name.trim()
   if (!n) return ''
   const bare = n.replace(/\s*님$/, '')
+  // English screens: the name as given, no honorific suffix.
+  if (lang === 'en') return bare
   if (KIN.includes(bare)) return bare
   return n.endsWith('님') ? n : `${n}님`
 }
@@ -104,6 +111,8 @@ const PARTICLES = { 가: '이', 는: '은', 를: '을', 와: '과' } as const
 export function honorificWith(name: string, particle: keyof typeof PARTICLES): string {
   const who = honorific(name)
   if (!who) return ''
+  // English screens: no particles.
+  if (lang === 'en') return who
   return who + (hasBatchim(who) ? PARTICLES[particle] : particle)
 }
 

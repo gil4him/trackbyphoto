@@ -1,33 +1,34 @@
 import { useEffect, useState } from 'react'
 import { currentInstallPath, onInstallChange, promptInstall, type InstallPath } from '../lib/install'
 import { isSimple } from '../lib/edition'
+import { tr } from '../lib/lang'
 
 const DISMISS_KEY = 'tbp.installHint.dismissed'
 
 const STEPS: Record<Exclude<InstallPath, 'none' | 'desktop' | 'prompt'>, { title: string; steps: string[] }> = {
   'in-app': {
-    title: '먼저 Safari나 Chrome으로 열어 주세요',
+    title: tr('먼저 Safari나 Chrome으로 열어 주세요', 'Please open this in Safari or Chrome first'),
     steps: [
-      '화면 아래(또는 위)의 ⋯ 또는 공유 버튼을 눌러요.',
-      '“다른 브라우저로 열기” 또는 “Safari로 열기”를 눌러요.',
-      '열린 화면에서 이 안내를 다시 눌러 홈 화면에 추가해요.',
+      tr('화면 아래(또는 위)의 ⋯ 또는 공유 버튼을 눌러요.', 'Tap the ⋯ or share button at the bottom (or top) of the screen.'),
+      tr('“다른 브라우저로 열기” 또는 “Safari로 열기”를 눌러요.', 'Tap “Open in browser” or “Open in Safari”.'),
+      tr('열린 화면에서 이 안내를 다시 눌러 홈 화면에 추가해요.', 'On the page that opens, tap this note again to add it to the home screen.'),
     ],
   },
   ios: {
-    title: 'iPhone 홈 화면에 추가하기',
+    title: tr('iPhone 홈 화면에 추가하기', 'Add it to your iPhone home screen'),
     steps: [
-      'Safari 아래쪽의 공유 버튼(네모에서 화살표가 올라가는 모양)을 눌러요.',
-      '목록을 내려 “홈 화면에 추가”를 눌러요.',
-      '오른쪽 위 “추가”를 누르면 홈 화면에 Daylie 아이콘이 생겨요.',
-      '앞으로는 그 아이콘으로 열어 주세요. 알림도 거기서 켤 수 있어요.',
+      tr('Safari 아래쪽의 공유 버튼(네모에서 화살표가 올라가는 모양)을 눌러요.', 'Tap the share button at the bottom of Safari (a square with an arrow going up).'),
+      tr('목록을 내려 “홈 화면에 추가”를 눌러요.', 'Scroll down and tap “Add to Home Screen”.'),
+      tr('오른쪽 위 “추가”를 누르면 홈 화면에 Daylie 아이콘이 생겨요.', 'Tap “Add” at the top right and the Daylie icon appears on your home screen.'),
+      tr('앞으로는 그 아이콘으로 열어 주세요. 알림도 거기서 켤 수 있어요.', 'Open it with that icon from now on. You can turn notifications on there too.'),
     ],
   },
   android: {
-    title: '홈 화면에 추가하기',
+    title: tr('홈 화면에 추가하기', 'Add it to your home screen'),
     steps: [
-      '브라우저 오른쪽 위의 ⋮ 메뉴를 눌러요.',
-      '“홈 화면에 추가” 또는 “앱 설치”를 눌러요.',
-      '홈 화면에 생긴 Daylie 아이콘으로 열어 주세요.',
+      tr('브라우저 오른쪽 위의 ⋮ 메뉴를 눌러요.', 'Tap the ⋮ menu at the top right of the browser.'),
+      tr('“홈 화면에 추가” 또는 “앱 설치”를 눌러요.', 'Tap “Add to Home screen” or “Install app”.'),
+      tr('홈 화면에 생긴 Daylie 아이콘으로 열어 주세요.', 'Open it with the Daylie icon on your home screen.'),
     ],
   },
 }
@@ -60,11 +61,11 @@ export function InstallHint({ path: forced }: { /** For tests; otherwise detecte
   return (
     <>
       <div className="install-hint" role="note">
-        <span className="install-msg">홈 화면에 추가하면 알림을 바로 받아요</span>
+        <span className="install-msg">{tr('홈 화면에 추가하면 알림을 바로 받아요', 'Add it to your home screen to get notifications right away')}</span>
         {path === 'prompt'
-          ? <button className="install-go" onClick={() => { void promptInstall() }}>추가하기</button>
-          : <button className="install-go" onClick={() => setOpen(true)}>방법 보기</button>}
-        <button className="notice-x" onClick={dismiss} aria-label="안내 닫기">✕</button>
+          ? <button className="install-go" onClick={() => { void promptInstall() }}>{tr('추가하기', 'Add it')}</button>
+          : <button className="install-go" onClick={() => setOpen(true)}>{tr('방법 보기', 'Show me how')}</button>}
+        <button className="notice-x" onClick={dismiss} aria-label={tr('안내 닫기', 'Close this note')}>✕</button>
       </div>
 
       {open && guide && (
@@ -77,7 +78,7 @@ export function InstallHint({ path: forced }: { /** For tests; otherwise detecte
               </ol>
             </div>
             <div className="modal-actions">
-              <button className="linkbtn" onClick={() => setOpen(false)}><span>알겠어요</span></button>
+              <button className="linkbtn" onClick={() => setOpen(false)}><span>{tr('알겠어요', 'Got it')}</span></button>
             </div>
           </div>
         </div>

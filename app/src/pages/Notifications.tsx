@@ -8,6 +8,7 @@ import { PushToggle } from '../components/PushToggle'
 import { useToast } from '../components/Toast'
 import { useNotificationFeed } from '../hooks/useNotificationFeed'
 import { isSimple } from '../lib/edition'
+import { tr } from '../lib/lang'
 import { callWorker, isWorkerOffline, WORKER_OFFLINE_MESSAGE } from '../lib/worker'
 import type { AppNotification, Channels } from '../types'
 
@@ -56,7 +57,12 @@ export function Notifications({ uid, onOpen, digestOn = false, emailOffered = fa
     } catch (err) {
       console.error('[channels] change failed', err)
       const badNumber = err instanceof Error && err.message.includes('phone number not recognised')
-      toast.show('바꾸지 못했어요', badNumber ? '전화번호를 다시 확인해 주세요' : isWorkerOffline(err) ? WORKER_OFFLINE_MESSAGE : '잠시 후 다시 시도해 주세요')
+      toast.show(
+        tr('바꾸지 못했어요', "Couldn't change it"),
+        badNumber ? tr('전화번호를 다시 확인해 주세요', 'Please check the phone number')
+          : isWorkerOffline(err) ? WORKER_OFFLINE_MESSAGE
+          : tr('잠시 후 다시 시도해 주세요', 'Please try again in a moment'),
+      )
       return false
     } finally {
       setBusy(false)
@@ -87,8 +93,8 @@ export function Notifications({ uid, onOpen, digestOn = false, emailOffered = fa
         {pushRollout && <PushNudge />}
         <div className="sect">
           <div className="sect-lab ntf-head">
-            <span>받은 알림</span>
-            {unread.length > 0 && <button className="ntf-readall" onClick={readAll}>모두 읽음</button>}
+            <span>{tr('받은 알림', 'Alerts')}</span>
+            {unread.length > 0 && <button className="ntf-readall" onClick={readAll}>{tr('모두 읽음', 'Mark all read')}</button>}
           </div>
           <NotificationList items={items} onOpen={open} grouped />
         </div>
@@ -101,27 +107,29 @@ export function Notifications({ uid, onOpen, digestOn = false, emailOffered = fa
       <InstallHint />
 
       <div className="sect">
-        <div className="sect-lab">알림 받는 방법</div>
+        <div className="sect-lab">{tr('알림 받는 방법', 'How you hear from us')}</div>
         <PushToggle uid={uid} />
         {emailOffered && <div className="row">
-          <div className="who"><b>이메일 요약</b><br /><span>{digestOn ? '하루 요약을 로그인한 이메일로 받아요.' : '하루 요약을 이메일로 받아요. 곧 제공돼요.'}</span></div>
+          <div className="who"><b>{tr('이메일 요약', 'Daily e-mail')}</b><br /><span>{digestOn
+            ? tr('하루 요약을 로그인한 이메일로 받아요.', "The day's summary comes to the e-mail you signed in with.")
+            : tr('하루 요약을 이메일로 받아요. 곧 제공돼요.', "The day's summary by e-mail. Coming soon.")}</span></div>
           <button
             className={`switch ${digestOn && emailOn ? 'on' : ''}`}
             role="switch"
             aria-checked={digestOn && emailOn}
             disabled={!digestOn || busy}
             onClick={() => void change({ email: !emailOn })}
-            aria-label="이메일 요약 전환"
+            aria-label={tr('이메일 요약 전환', 'Daily e-mail switch')}
           ><span className="knob" /></button>
         </div>}
         {(messengerIncluded || messengerFrom) && <div className="row">
           <div className="who">
-            <b>카카오톡 요약</b>{!messengerIncluded && <> <span className="plan-chip">{messengerFrom} 이상</span></>}<br />
+            <b>{tr('카카오톡 요약', 'Daily message')}</b>{!messengerIncluded && <> <span className="plan-chip">{tr(`${messengerFrom} 이상`, `${messengerFrom} and up`)}</span></>}<br />
             <span>
-              {!digestOn ? '매일 저녁 카카오톡으로 요약을 받아요. 곧 제공돼요.'
-                : messengerOn ? `매일 저녁 ${channels.messengerTo ?? ''} 번호로 요약 링크를 보내요.`
-                : '매일 저녁 카카오톡(또는 문자)으로 요약 링크를 받아요.'}
-              {digestOn && messengerIncluded && channels.messengerTo && !phoneOpen && <> <button type="button" className="linklike" onClick={() => setPhoneOpen(true)}>번호 바꾸기</button></>}
+              {!digestOn ? tr('매일 저녁 카카오톡으로 요약을 받아요. 곧 제공돼요.', 'A summary every evening by message. Coming soon.')
+                : messengerOn ? tr(`매일 저녁 ${channels.messengerTo ?? ''} 번호로 요약 링크를 보내요.`, `Every evening we text the summary link to ${channels.messengerTo ?? ''}.`)
+                : tr('매일 저녁 카카오톡(또는 문자)으로 요약 링크를 받아요.', 'Get the summary link by message every evening.')}
+              {digestOn && messengerIncluded && channels.messengerTo && !phoneOpen && <> <button type="button" className="linklike" onClick={() => setPhoneOpen(true)}>{tr('번호 바꾸기', 'Change the number')}</button></>}
             </span>
           </div>
           <button
@@ -130,7 +138,7 @@ export function Notifications({ uid, onOpen, digestOn = false, emailOffered = fa
             aria-checked={digestOn && messengerOn}
             disabled={!digestOn || !messengerIncluded || busy}
             onClick={toggleMessenger}
-            aria-label="카카오톡 요약 전환"
+            aria-label={tr('카카오톡 요약 전환', 'Daily message switch')}
           ><span className="knob" /></button>
         </div>}
         {digestOn && messengerIncluded && phoneOpen && (
@@ -139,20 +147,20 @@ export function Notifications({ uid, onOpen, digestOn = false, emailOffered = fa
               type="tel"
               inputMode="tel"
               autoComplete="tel"
-              placeholder="받을 휴대폰 번호 (010-1234-5678)"
+              placeholder={tr('받을 휴대폰 번호 (010-1234-5678)', 'Phone number for the summary')}
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              aria-label="요약을 받을 휴대폰 번호"
+              aria-label={tr('요약을 받을 휴대폰 번호', 'Phone number for the summary')}
             />
-            <button type="submit" disabled={busy || phone.trim().length < 8}>저장</button>
+            <button type="submit" disabled={busy || phone.trim().length < 8}>{tr('저장', 'Save')}</button>
           </form>
         )}
       </div>
 
       <div className="sect">
         <div className="sect-lab ntf-head">
-          <span>받은 알림</span>
-          {unread.length > 0 && <button className="ntf-readall" onClick={readAll}>모두 읽음</button>}
+          <span>{tr('받은 알림', 'Alerts')}</span>
+          {unread.length > 0 && <button className="ntf-readall" onClick={readAll}>{tr('모두 읽음', 'Mark all read')}</button>}
         </div>
         <NotificationList items={items} onOpen={open} />
       </div>

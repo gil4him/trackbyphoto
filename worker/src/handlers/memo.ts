@@ -174,6 +174,23 @@ async function nearbyPlace(memoId: string, patientUid: string, takenAt: Date | u
 }
 
 const WEEKDAYS = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일']
+const WEEKDAYS_EN = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+/** The public holidays in KOREAN_DAYS worth remembering, in English. The
+ *  solar terms (소한, 처서 …) mean nothing to an English-speaking family and
+ *  are simply left out of the English day hint. */
+const HOLIDAYS_EN: Record<string, string> = {
+  '신정': "New Year's Day", '설날': 'Lunar New Year', '설날 연후': 'the Lunar New Year holiday', '설날 대체공후일': 'the Lunar New Year holiday',
+  '삼일절': 'Independence Movement Day', '삼일절 대체공후일': 'Independence Movement Day (observed)',
+  '노동절': 'Labor Day', '노동절 대체공후일': 'Labor Day (observed)',
+  '어린이날': "Children's Day", '어버이날': "Parents' Day",
+  '부처님오십날': "Buddha's Birthday", '부처님오십날 대체공후일': "Buddha's Birthday (observed)",
+  '현출일': 'Memorial Day', '제헌절': 'Constitution Day', '제헌절 대체공후일': 'Constitution Day (observed)',
+  '광박절': 'Liberation Day', '광박절 대체공후일': 'Liberation Day (observed)',
+  '추석': 'Chuseok', '추석 연후': 'the Chuseok holiday',
+  '개천절': 'National Foundation Day', '개천절 대체공후일': 'National Foundation Day (observed)',
+  '한글날': 'Hangul Day', '한글날 대체공후일': 'Hangul Day (observed)',
+  '성탄절': 'Christmas', '성탄절 대체공후일': 'Christmas (observed)',
+}
 /** How far back "earlier today" looks, and how many photos it lists. */
 const TODAY_WINDOW_MS = 10 * 60 * 60_000
 const TODAY_MAX = 4
@@ -192,6 +209,8 @@ export async function momentHintsFor(args: {
   lat: number | null
   lng: number | null
   tzOffsetMin?: number | null
+  /** The parent's language; 'en' writes the day hint in English. */
+  lang?: GeoLang
 }): Promise<Pick<PromptHints, 'dayHint' | 'sunHint' | 'todayHint' | 'weather'>> {
   const { memoId, patientUid, takenAt, lat, lng } = args
   if (!takenAt) return {}
@@ -202,7 +221,12 @@ export async function momentHintsFor(args: {
   const local = new Date(takenAt.getTime() + offset * 60_000)
   const dayKey = local.toISOString().slice(0, 10)
   const holiday = KOREAN_DAYS[dayKey]
-  out.dayHint = holiday ? `${holiday} ${WEEKDAYS[local.getUTCDay()]}` : WEEKDAYS[local.getUTCDay()]
+  if (args.lang === 'en') {
+    const named = holiday ? HOLIDAYS_EN[holiday] : ''
+    out.dayHint = named ? `${WEEKDAYS_EN[local.getUTCDay()]}, ${named}` : WEEKDAYS_EN[local.getUTCDay()]
+  } else {
+    out.dayHint = holiday ? `${holiday} ${WEEKDAYS[local.getUTCDay()]}` : WEEKDAYS[local.getUTCDay()]
+  }
 
   const spot = lat != null && lng != null ? { lat, lng } : await resolveHome(patientUid)
   if (spot) {
@@ -260,11 +284,15 @@ export async function memoArgsFor(
   // No location of its own: the place of a photo taken within minutes, as a
   // hint only. Nothing of it is written onto this memo.
   const near = !hasCoords ? await nearbyPlace(memoId, patientUid, takenAt) : ''
-  const moment = await momentHintsFor({ memoId, patientUid, takenAt, lat, lng, tzOffsetMin })
+  // The parent's language (users/{patientUid}.geoLang), read once: it picks
+  // the prompt, the day hint and the post-processing all the way down.
+  const lang = await resolveGeoLang(patientUid)
+  const moment = await momentHintsFor({ memoId, patientUid, takenAt, lat, lng, tzOffsetMin, lang })
   return {
     ...moment,
     imageBase64: ctx.imageBase64,
     patientUid,
+    lang,
     mimeType: mimeFromPath(photoPath),
     timeHint: await localTimeHint(patientUid, takenAt, lat, lng, tzOffsetMin),
     placeHint: (near ? areaOf(near) : areaOf(ctx.place)) || undefined,

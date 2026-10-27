@@ -9,6 +9,7 @@ import { KakaoFrame } from '../components/KakaoFrame'
 import { AWAY_KM, fmtKm, placeVisits, trailCaption, trailStops, trailSummary, type LatLng, type TrailStop } from '../lib/trail'
 import type { Memo } from '../types'
 import { listPhoto } from '../lib/listPhoto'
+import { tr } from '../lib/lang'
 
 /** Under the map: each stop in order as a memo row (A13), numbered like its
  *  pin — the stop's first photo, with the time, the neighbourhood and how far
@@ -17,8 +18,9 @@ export function TrailList({ stops, onOpenMemo }: { stops: TrailStop[]; onOpenMem
   return (
     <ol className="trail-list">
       {stops.map((s, i) => {
-        const km = s.kmFromHome !== null ? (fmtKm(s.kmFromHome) === '집 근처' ? '집 근처' : `집에서 ${fmtKm(s.kmFromHome)}`) : ''
-        const meta = [fmtTime(s.firstAt), s.area, km, s.memos.length > 1 ? `사진 ${s.memos.length}장` : ''].filter(Boolean).join(' · ')
+        const near = tr('집 근처', 'near home')
+        const km = s.kmFromHome !== null ? (fmtKm(s.kmFromHome) === near ? near : tr(`집에서 ${fmtKm(s.kmFromHome)}`, `${fmtKm(s.kmFromHome)} from home`)) : ''
+        const meta = [fmtTime(s.firstAt), s.area, km, s.memos.length > 1 ? tr(`사진 ${s.memos.length}장`, `${s.memos.length} photos`) : ''].filter(Boolean).join(' · ')
         return (
           <li key={i}>
             <MemoRow memo={s.memos[0]} onOpen={onOpenMemo} badge={i + 1} meta={meta} />
@@ -77,17 +79,17 @@ export function Trail({ title, memos, home, onBack, onOpenMemo, keys = MAP_KEYS 
     <section className="page trail">
       {/* The same frosted header as the photo page: back, the title, a spacer. */}
       <div className="detail-head">
-        <button type="button" className="head-btn" onClick={onBack} aria-label="뒤로가기">‹</button>
+        <button type="button" className="head-btn" onClick={onBack} aria-label={tr('뒤로가기', 'Back')}>‹</button>
         <div className="detail-head-when">{title}</div>
         <span className="head-btn-space" aria-hidden="true" />
       </div>
       <div className="h-eyebrow trail-summary">
-        {stops.length > 0 ? trailCaption(stops) : '위치가 있는 사진이 없어요'}
-        {summary.away && <span className="trail-badge">여행 중</span>}
+        {stops.length > 0 ? trailCaption(stops) : tr('위치가 있는 사진이 없어요', 'No photos with a location')}
+        {summary.away && <span className="trail-badge">{tr('여행 중', 'On a trip')}</span>}
       </div>
 
       {stops.length === 0 ? (
-        <div className="empty"><div>이 날은 위치가 기록된 사진이 없어요.</div></div>
+        <div className="empty"><div>{tr('이 날은 위치가 기록된 사진이 없어요.', 'No photo from this day has a location.')}</div></div>
       ) : (
         <>
           <div className="trail-map">
@@ -101,11 +103,11 @@ export function Trail({ title, memos, home, onBack, onOpenMemo, keys = MAP_KEYS 
                   />
                 : <div ref={mapRef} className="trail-kakao" />)
               : provider === 'googleStatic' && keys.google && !staticFailed
-                ? <img className="trail-static" src={staticMapUrl(stops, keys.google, undefined, true, places)} alt="다녀온 곳 지도" onError={() => setStaticFailed(true)} />
+                ? <img className="trail-static" src={staticMapUrl(stops, keys.google, undefined, true, places)} alt={tr('다녀온 곳 지도', 'Map of the places visited')} onError={() => setStaticFailed(true)} />
                 : <TrailSketch stops={stops} home={nearHome} thumbs onPick={(s) => onOpenMemo(s.memos[0].id)} />}
           </div>
           <TrailList stops={stops} onOpenMemo={onOpenMemo} />
-          {located < memos.length && <div className="help">위치가 없는 사진 {memos.length - located}장은 여기에 나오지 않아요.</div>}
+          {located < memos.length && <div className="help">{tr(`위치가 없는 사진 ${memos.length - located}장은 여기에 나오지 않아요.`, `${memos.length - located} photo${memos.length - located === 1 ? '' : 's'} without a location ${memos.length - located === 1 ? "isn't" : "aren't"} shown here.`)}</div>}
         </>
       )}
     </section>

@@ -5,8 +5,13 @@ import { trailStops } from '../lib/trail'
 import type { Digest, Memo } from '../types'
 import { honorific } from '../lib/people'
 import { listPhoto } from '../lib/listPhoto'
+import { tr } from '../lib/lang'
 
-const TITLE: Record<Digest['kind'], string> = { daily: '오늘 하루', weekly: '이번 주 하이라이트', monthly: '지난달 앨범' }
+const TITLE: Record<Digest['kind'], string> = {
+  daily: tr('오늘 하루', 'day'),
+  weekly: tr('이번 주 하이라이트', 'week in photos'),
+  monthly: tr('지난달 앨범', 'album from last month'),
+}
 
 /** What the page shows once the digest is loaded (kept apart so it can be rendered in tests). */
 export function DigestView({ digest, memos, onOpenMemo, onMore, onOpenTrail }: {
@@ -24,8 +29,8 @@ export function DigestView({ digest, memos, onOpenMemo, onMore, onOpenTrail }: {
   const stops = onOpenTrail ? trailStops(memos, null) : []
   return (
     <>
-      <div className="h-eyebrow">{digest.label} · 사진 {digest.photoCount}장</div>
-      <h2 className="h-title">{honorific(digest.patientName)}의 {TITLE[digest.kind]}</h2>
+      <div className="h-eyebrow">{digest.label} · {tr(`사진 ${digest.photoCount}장`, `${digest.photoCount} photos`)}</div>
+      <h2 className="h-title">{tr(`${honorific(digest.patientName)}의 ${TITLE[digest.kind]}`, `${honorific(digest.patientName)}'s ${TITLE[digest.kind]}`)}</h2>
 
       {digest.title && <h3 className="dg-title">{digest.title}</h3>}
       <p className="dg-summary">{digest.summary}</p>
@@ -33,17 +38,17 @@ export function DigestView({ digest, memos, onOpenMemo, onMore, onOpenTrail }: {
       {memos.length > 0 && (
         <div className="dg-grid">
           {memos.map((m) => (
-            <button key={m.id} type="button" className="dg-tile" onClick={() => onOpenMemo(m.id)} aria-label={m.memo || '사진'}>
+            <button key={m.id} type="button" className="dg-tile" onClick={() => onOpenMemo(m.id)} aria-label={m.memo || tr('사진', 'Photo')}>
               {m.photoUrl ? <img src={listPhoto(m)} alt="" loading="lazy" /> : <span className="dg-tile-empty" />}
             </button>
           ))}
         </div>
       )}
-      {more > 0 && <button type="button" className="dg-more" onClick={onMore}>+ {more}장 더 보기</button>}
+      {more > 0 && <button type="button" className="dg-more" onClick={onMore}>{tr(`+ ${more}장 더 보기`, `+ ${more} more`)}</button>}
 
       {replies && (
         <div className="sect">
-          <div className="sect-lab">{honorific(digest.patientName)}의 답장</div>
+          <div className="sect-lab">{tr(`${honorific(digest.patientName)}의 답장`, `${honorific(digest.patientName)}'s replies`)}</div>
           <div className="dg-replies">
             <div><b>{replies}</b></div>
             {[...(digest.replies.texts ?? []), ...digest.replies.transcripts].map((t, i) => <div key={i} className="dg-quote">“{t}”</div>)}
@@ -53,9 +58,9 @@ export function DigestView({ digest, memos, onOpenMemo, onMore, onOpenTrail }: {
 
       {(places.length > 0 || stops.length > 0) && (
         <div className="sect">
-          <div className="sect-lab">다녀온 곳</div>
+          <div className="sect-lab">{tr('다녀온 곳', 'Places visited')}</div>
           {onOpenTrail && stops.length > 0 ? (
-            <button type="button" className="dg-trail" onClick={onOpenTrail} aria-label="다녀온 곳 지도 보기">
+            <button type="button" className="dg-trail" onClick={onOpenTrail} aria-label={tr('다녀온 곳 지도 보기', 'See the places on a map')}>
               <TrailSketch stops={stops} />
               {places.length > 0 && <div className="dg-places">{places.join(' → ')}</div>}
             </button>
@@ -99,13 +104,13 @@ export function DigestPage({ digestId, knownMemos, onBack, onOpenMemo, onMore, o
   const loaded = state && state.id === digestId ? state : null
   return (
     <section className="page dg">
-      <button className="back" onClick={onBack} aria-label="뒤로가기">‹ 뒤로</button>
+      <button className="back" onClick={onBack} aria-label={tr('뒤로가기', 'Back')}>{tr('‹ 뒤로', '‹ Back')}</button>
       {!loaded ? (
-        <div className="empty"><div>요약을 불러오는 중…</div></div>
+        <div className="empty"><div>{tr('요약을 불러오는 중…', 'Loading the summary…')}</div></div>
       ) : !loaded.digest ? (
         <div className="empty">
-          <div>요약을 열 수 없어요.</div>
-          <div className="help">가족으로 연결된 계정으로 로그인했는지 확인해 주세요.</div>
+          <div>{tr('요약을 열 수 없어요.', "This summary can't be opened.")}</div>
+          <div className="help">{tr('가족으로 연결된 계정으로 로그인했는지 확인해 주세요.', 'Please check that you signed in with the account linked to this family.')}</div>
         </div>
       ) : (
         <DigestView

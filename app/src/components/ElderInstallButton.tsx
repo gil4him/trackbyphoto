@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { currentInstallPath, onInstallChange, promptInstall, type InstallPath } from '../lib/install'
+import { tr } from '../lib/lang'
 
 /**
  * On a parent's phone that is connected in a browser tab: one button that
@@ -19,7 +20,7 @@ export function ElderInstallButton({ path: forced, compact = false }: {
   if ((forced ?? currentInstallPath()) !== 'prompt') return null
   return (
     <button type="button" className={compact ? 'elder-cam-install' : 'elder-install'} onClick={() => { void promptInstall() }}>
-      {compact ? '아이콘 만들기' : '홈 화면에 아이콘 만들기'}
+      {compact ? tr('아이콘 만들기', 'Add icon') : tr('홈 화면에 아이콘 만들기', 'Add an icon to the home screen')}
     </button>
   )
 }

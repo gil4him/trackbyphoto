@@ -1,0 +1,5 @@
+/* Permission strings in English (InfoPlist.strings is picked by the phone's language; Info.plist holds the Korean base). */
+"NSCameraUsageDescription" = "Daylie needs the camera to capture moments of your day.";
+"NSLocationWhenInUseUsageDescription" = "Daylie uses your location when you take a photo, to tell your family where you were.";
+"NSPhotoLibraryAddUsageDescription" = "Daylie saves the photos you take to your Photos app too.";
+"NSPhotoLibraryUsageDescription" = "Daylie accesses your photos to send them to your family.";

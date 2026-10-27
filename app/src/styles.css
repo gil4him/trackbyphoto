@@ -1907,6 +1907,7 @@ html:not(.camera-live) .elder-cam { background: #000; }
 .day-card .memo-row:active { background: var(--accent-tint); }
 .day-item { display: flex; align-items: center; gap: 0; }
 .day-time { flex: none; width: 46px; padding-left: 12px; box-sizing: content-box; font-size: 14px; font-weight: 800; color: var(--muted); font-variant-numeric: tabular-nums; line-height: 1; }
+html[lang="en"] .day-time { width: 60px; font-size: 13px; } /* 12:40 PM */
 .day-item .memo-row { flex: 1; min-width: 0; padding-left: 10px; }
 .memo-row-pic, .memo-row-pic .tl-thumb { width: 60px; height: 60px; }
 .memo-row-pic .tl-thumb { border-radius: 14px; }

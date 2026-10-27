@@ -2,10 +2,16 @@
 # Design-review screenshots of the simple edition on the emulators
 # (docs/DAYLIE_V3_UI_FIX.md): cd e2e && bash ui-shots.sh [A0]  → docs/v3-ui/<phase>-*.png
 #   UI_MATRIX=1  the §Q device matrix instead: <phase>-<screen>-<width>[-L].png
+# The store listing's eight pictures instead, into launch/store-screenshots/<lang>/:
+#   UI_PHASE=STORE bash ui-shots.sh                     (Korean)
+#   UI_LANG=en DEMO_LANG=en UI_PHASE=STORE bash ui-shots.sh   (English)
 # Nothing touches a real project (project "demo-…").
 set -euo pipefail
 cd "$(dirname "$0")/.."
 export UI_PHASE="${1:-${UI_PHASE:-A0}}"
+# The screens' language, and the demo family's own (e2e/demo-seed.mjs).
+export UI_LANG="${UI_LANG:-ko}"
+export DEMO_LANG="${DEMO_LANG:-ko}"
 [ -d /opt/homebrew/opt/openjdk@21/bin ] && export PATH="/opt/homebrew/opt/openjdk@21/bin:$PATH"
 [ -d e2e/node_modules ] || (cd e2e && npm install --no-audit --no-fund >/dev/null)
 
@@ -21,7 +27,7 @@ echo "[ui-shots] building the simple site for the emulators…"
   npx vite build --mode simple --outDir ../e2e/.tmp/ui-site --emptyOutDir >/dev/null)
 
 # The parent's screens (A6, A9, A11, A12) link a phone, which needs the worker.
-case "$UI_PHASE" in A6|A9|A11|A12|A14)
+case "$UI_PHASE" in A6|A9|A11|A12|A14|STORE)
   echo "[ui-shots] building the worker…"
   (cd worker && npm run build >/dev/null) ;;
 esac

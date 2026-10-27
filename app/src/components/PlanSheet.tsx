@@ -9,6 +9,7 @@ import {
 import { changePlan, countPhotosBefore, loadMemory, restorePlan } from '../lib/planApi'
 import { S } from '../lib/strings'
 import { planFailureLine } from '../lib/planErrors'
+import { lang, tr } from '../lib/lang'
 import type { Plans, PlanTier } from '../types'
 
 const TIER_TO: Record<PlanTier, string> = { free: 'Free로', basic: 'Basic으로', plus: 'Plus로', family: 'Family로' }
@@ -45,12 +46,16 @@ export function PlanCards({ plans, current, patientName, suggested, canChange, b
             <div className="plan-head">
               <b className="plan-name">{TIER_NAME[t]}</b>
               {price && <span className="plan-price">{price}</span>}
-              {isCurrent ? <span className="plan-chip">{S.planCurrent}</span> : t === suggested ? <span className="plan-chip rec">추천</span> : null}
+              {isCurrent ? <span className="plan-chip">{S.planCurrent}</span> : t === suggested ? <span className="plan-chip rec">{tr('추천', 'Suggested')}</span> : null}
             </div>
             <div className="plan-lines">{planLines(ent, patientName, plans.flags).join(' · ')}</div>
             {canChange && !isCurrent && (
               <button type="button" className="plan-go" disabled={busy != null} onClick={() => onChoose(t)}>
-                {busy === t ? '바꾸는 중…' : up ? `${TIER_NAME[t]} 시작하기${price ? ` ${price}` : ''}` : `${TIER_TO[t]} 바꾸기`}
+                {busy === t
+                  ? tr('바꾸는 중…', 'Switching…')
+                  : up
+                    ? tr(`${TIER_NAME[t]} 시작하기${price ? ` ${price}` : ''}`, `Start ${TIER_NAME[t]}${price ? ` ${price}` : ''}`)
+                    : tr(`${TIER_TO[t]} 바꾸기`, `Switch to ${TIER_NAME[t]}`)}
               </button>
             )}
           </div>
@@ -111,21 +116,23 @@ export function PlanSheetView({ plans, patientName, current, hasPlanSinceMs, rea
       <div className="modal plan-sheet">
         <div className="modal-title plan-title">
           <span>{S.planTitle}</span>
-          <button type="button" className="plan-close" onClick={onClose}>닫기</button>
+          <button type="button" className="plan-close" onClick={onClose}>{tr('닫기', 'Close')}</button>
         </div>
         {confirm ? (
           <>
             <div className="modal-body">
               <p>
-                {TIER_TOPIC[confirm.tier]} 사진을 {keptFor(plans[confirm.tier]?.retentionDays ?? null)} 동안 보관해요.{' '}
-                {confirm.count != null ? `그보다 오래된 사진 ${confirm.count}장은` : '그보다 오래된 사진은'} 일주일 뒤부터 지워져요.
+                {tr(
+                  `${TIER_TOPIC[confirm.tier]} 사진을 ${keptFor(plans[confirm.tier]?.retentionDays ?? null)} 동안 보관해요. ${confirm.count != null ? `그보다 오래된 사진 ${confirm.count}장은` : '그보다 오래된 사진은'} 일주일 뒤부터 지워져요.`,
+                  `${TIER_NAME[confirm.tier]} keeps photos for ${keptFor(plans[confirm.tier]?.retentionDays ?? null)}. ${confirm.count != null ? `${confirm.count} photo${confirm.count === 1 ? '' : 's'}` : 'Photos'} older than that will be deleted a week from now.`,
+                )}
               </p>
-              <div className="help">지워진 사진은 되돌릴 수 없어요. 하트와 답장은 그대로 남아요.</div>
+              <div className="help">{tr('지워진 사진은 되돌릴 수 없어요. 하트와 답장은 그대로 남아요.', "A deleted photo can't be brought back. Hearts and replies stay.")}</div>
             </div>
             <div className="modal-actions">
-              <button type="button" className="signin-secondary" disabled={busy != null} onClick={onCancelConfirm}>취소</button>
+              <button type="button" className="signin-secondary" disabled={busy != null} onClick={onCancelConfirm}>{tr('취소', 'Cancel')}</button>
               <button type="button" className="linkbtn" disabled={busy != null} onClick={onConfirm}>
-                <span>{busy ? '바꾸는 중…' : `${TIER_TO[confirm.tier]} 바꾸기`}</span>
+                <span>{busy ? tr('바꾸는 중…', 'Switching…') : tr(`${TIER_TO[confirm.tier]} 바꾸기`, `Switch to ${TIER_NAME[confirm.tier]}`)}</span>
               </button>
             </div>
           </>
@@ -180,7 +187,7 @@ export function PlanSheet({ plans, patientUid, patientName, plan, reason, canCha
   const [manageUrl, setManageUrl] = useState<string | null>(null)
   const [restoring, setRestoring] = useState(false)
   const expiresMs = plan?.payment?.expiresAt?.toMillis?.()
-  const until = expiresMs ? new Date(expiresMs).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' }) : null
+  const until = expiresMs ? new Date(expiresMs).toLocaleDateString(lang === 'en' ? 'en-US' : 'ko-KR', { month: 'long', day: 'numeric' }) : null
 
   // Live: the store's prices and its subscription page, when they come.
   useEffect(() => {
@@ -203,12 +210,17 @@ export function PlanSheet({ plans, patientUid, patientName, plan, reason, canCha
     setBusy(tier)
     try {
       const res = await changePlan(patientUid, tier, reason.kind, live)
-      toast.show(`${TIER_TO[tier]} 바꿨어요`, res.unlockedVoices > 0 ? `지난 음성 답장 ${res.unlockedVoices}개가 열렸어요` : undefined)
+      toast.show(
+        tr(`${TIER_TO[tier]} 바꿨어요`, `Switched to ${TIER_NAME[tier]}`),
+        res.unlockedVoices > 0
+          ? tr(`지난 음성 답장 ${res.unlockedVoices}개가 열렸어요`, `${res.unlockedVoices} past voice ${res.unlockedVoices === 1 ? 'reply is' : 'replies are'} now open`)
+          : undefined,
+      )
       onClose()
     } catch (err) {
       if (err instanceof PurchaseCancelled) { toast.show(S.planCancelled); setBusy(null); return }
       console.error('[plan] change failed', err)
-      toast.show('바꾸지 못했어요', planFailureLine(err))
+      toast.show(tr('바꾸지 못했어요', "Couldn't change it"), planFailureLine(err))
       setBusy(null)
     }
   }
@@ -222,7 +234,7 @@ export function PlanSheet({ plans, patientUid, patientName, plan, reason, canCha
       else { toast.show(S.planRestored(TIER_NAME[got.tier])); onClose() }
     } catch (err) {
       console.error('[plan] restore failed', err)
-      toast.show('되찾지 못했어요', planFailureLine(err))
+      toast.show(tr('되찾지 못했어요', "Couldn't restore it"), planFailureLine(err))
     } finally {
       setRestoring(false)
     }

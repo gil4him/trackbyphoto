@@ -2,6 +2,7 @@ import { Capacitor } from '@capacitor/core'
 import { Share } from '@capacitor/share'
 import { Directory, Filesystem } from '@capacitor/filesystem'
 import { fmtDate, fmtTime } from '../util'
+import { tr } from './lang'
 import type { Memo } from '../types'
 
 /**
@@ -66,7 +67,7 @@ export async function sharePhoto(memo: Memo): Promise<'shared' | 'downloaded' | 
       recursive: true,
     })
     try {
-      await Share.share({ files: [uri], text, dialogTitle: '사진 보내기' })
+      await Share.share({ files: [uri], text, dialogTitle: tr('사진 보내기', 'Send photo') })
     } catch {
       return 'cancelled' // the sheet reports closing as an error
     }

@@ -7,6 +7,7 @@
 // unlimited on every plan and no screen counts them against anything.
 
 import { S } from './strings'
+import { lang, tr } from './lang'
 import type { Plans, PlanEntitlements, PlanTier, Reaction } from '../types'
 
 /** Every plan the app knows by name, lowest first. */
@@ -43,6 +44,14 @@ export type PlanReason =
 
 /** "7일", "30일", "1년", "평생". */
 export function keptFor(days: number | null): string {
+  if (lang === 'en') {
+    if (days == null) return 'forever'
+    if (days >= 365 && days % 365 === 0) {
+      const years = days / 365
+      return `${years} year${years === 1 ? '' : 's'}`
+    }
+    return `${days} day${days === 1 ? '' : 's'}`
+  }
   if (days == null) return '평생'
   return days >= 365 && days % 365 === 0 ? `${days / 365}년` : `${days}일`
 }
@@ -54,6 +63,19 @@ export function keptFor(days: number | null): string {
 export function planLines(ent: PlanEntitlements, patientName: string, flags: Plans['flags'] = {}): string[] {
   const digest = flags.digest === true
   const voice = flags.voiceReplies === true
+  if (lang === 'en') {
+    return [
+      !digest ? 'App notifications' : ent.messenger ? 'Daily KakaoTalk summary' : flags.emailDigest === true ? 'App notifications + email summary' : 'A summary of each day',
+      voice && ent.voiceReplies ? `Hear ${patientName}'s voice replies` : '',
+      digest && ent.weekly ? 'Weekly highlight' : '',
+      digest && ent.checkin ? '“No photos today” check-in' : '',
+      digest && ent.recap ? 'Monthly AI album' : '',
+      voice && ent.voiceAlbum ? 'Voice album' : '',
+      ent.seniors > 1 ? `${ent.seniors} parents` : '',
+      `${ent.familyMembers} family member${ent.familyMembers === 1 ? '' : 's'}`,
+      `kept ${keptFor(ent.retentionDays)}`,
+    ].filter(Boolean)
+  }
   return [
     !digest ? '앱 알림' : ent.messenger ? '매일 카카오톡 요약' : flags.emailDigest === true ? '앱 알림 + 이메일 요약' : '매일 하루 요약',
     voice && ent.voiceReplies ? `${patientName} 음성 답장 듣기` : '',
@@ -85,8 +107,8 @@ export function suggestedTier(plans: Plans, current: PlanTier, reason: PlanReaso
 
 /** The line under the title that says why the sheet opened. */
 export function reasonLine(reason: PlanReason, patientName: string, suggested: PlanTier | null): string {
-  if (reason.kind === 'family') return S.planLimitFamily(reason.limit, suggested ? TIER_SUBJECT[suggested] : '')
-  if (reason.kind === 'voice') return reason.count > 0 ? S.planVoiceWaiting(patientName, reason.count) : `${patientName} 목소리로 답장을 받아보세요`
+  if (reason.kind === 'family') return S.planLimitFamily(reason.limit, suggested ? (lang === 'en' ? TIER_NAME[suggested] : TIER_SUBJECT[suggested]) : '')
+  if (reason.kind === 'voice') return reason.count > 0 ? S.planVoiceWaiting(patientName, reason.count) : tr(`${patientName} 목소리로 답장을 받아보세요`, `Get replies in ${patientName}'s voice`)
   if (reason.kind === 'retention') return reason.message
   return ''
 }
@@ -129,6 +151,8 @@ export function shortensKeeping(plans: Plans, hasPlan: boolean, current: PlanTie
   return now == null || next < now
 }
 
+const EN_MONTH_YEAR = new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' })
+
 /** The parent's playable voice replies, newest month first: "2026년 10월". */
 export function albumMonths(voices: Reaction[], patientUid: string): Array<{ label: string; items: Reaction[] }> {
   const out: Array<{ label: string; items: Reaction[] }> = []
@@ -137,7 +161,7 @@ export function albumMonths(voices: Reaction[], patientUid: string): Array<{ lab
     .sort((a, b) => b.createdAtMs - a.createdAtMs)
   for (const r of mine) {
     const d = new Date(r.createdAtMs)
-    const label = `${d.getFullYear()}년 ${d.getMonth() + 1}월`
+    const label = lang === 'en' ? EN_MONTH_YEAR.format(d) : `${d.getFullYear()}년 ${d.getMonth() + 1}월`
     if (out[out.length - 1]?.label !== label) out.push({ label, items: [] })
     out[out.length - 1].items.push(r)
   }

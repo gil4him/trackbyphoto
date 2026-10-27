@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { fmtTime, relativeDateLabel } from '../util'
 import { isFamilyEvent } from '../lib/noticeKinds'
+import { tr } from '../lib/lang'
 import type { AppNotification } from '../types'
 
 const ICONS: Array<[prefix: string, icon: string]> = [
@@ -32,7 +33,7 @@ function Row({ n, onOpen }: { n: AppNotification; onOpen: (n: AppNotification) =
           <span className="ntf-msg">{n.message}</span>
           {when && <span className="ntf-when">{relativeDateLabel(when)} {fmtTime(when)}</span>}
         </span>
-        {!n.read && <span className="ntf-dot" aria-label="읽지 않음" />}
+        {!n.read && <span className="ntf-dot" aria-label={tr('읽지 않음', 'Unread')} />}
       </button>
     </li>
   )
@@ -45,7 +46,7 @@ function Row({ n, onOpen }: { n: AppNotification; onOpen: (n: AppNotification) =
  */
 export function NotificationList({ items, onOpen, grouped = false }: { items: AppNotification[]; onOpen: (n: AppNotification) => void; grouped?: boolean }) {
   const [systemOpen, setSystemOpen] = useState(false)
-  if (items.length === 0) return <div className="empty"><div>아직 알림이 없어요.</div></div>
+  if (items.length === 0) return <div className="empty"><div>{tr('아직 알림이 없어요.', 'No alerts yet.')}</div></div>
   const shown = grouped ? items.filter((n) => isFamilyEvent(n.type)) : items
   const system = grouped ? items.filter((n) => !isFamilyEvent(n.type)) : []
   const systemUnread = system.filter((n) => !n.read).length
@@ -56,8 +57,8 @@ export function NotificationList({ items, onOpen, grouped = false }: { items: Ap
         <li className="ntf-group">
           <button type="button" className={`ntf-row ntf-group-row ${systemUnread ? 'unread' : ''}`} onClick={() => setSystemOpen((v) => !v)} aria-expanded={systemOpen}>
             <span className="ntf-icon system" aria-hidden="true">📱</span>
-            <span className="ntf-body"><span className="ntf-msg">연결 기록 {systemOpen ? '⌃' : '›'}</span></span>
-            {systemUnread > 0 && <span className="ntf-dot" aria-label="읽지 않음" />}
+            <span className="ntf-body"><span className="ntf-msg">{tr('연결 기록', 'Account history')} {systemOpen ? '⌃' : '›'}</span></span>
+            {systemUnread > 0 && <span className="ntf-dot" aria-label={tr('읽지 않음', 'Unread')} />}
           </button>
           {systemOpen && <ul className="ntf-list ntf-sub">{system.map((n) => <Row key={n.id} n={n} onOpen={onOpen} />)}</ul>}
         </li>

@@ -11,6 +11,7 @@ import { useWorkerStatus } from '../hooks/useWorkerStatus'
 import type { OutboxItem } from '../lib/outbox'
 import type { ReactionsContext } from '../components/Reactions'
 import { clock } from '../lib/memoViews'
+import { tr } from '../lib/lang'
 import { S } from '../lib/strings'
 import type { FamilyPhoto, Memo } from '../types'
 
@@ -30,9 +31,9 @@ function WaitingPhoto({ item }: { item: OutboxItem }) {
     <div className="memo-row waiting">
       <span className="memo-row-pic"><span className="tl-thumb"><img src={url} alt="" /></span></span>
       <span className="memo-row-body">
-        <span className="memo-row-title">보내는 중…</span>
+        <span className="memo-row-title">{tr('보내는 중…', 'Sending…')}</span>
         <span className="memo-row-meta">
-          {fmtTime(new Date(item.takenAtMs))} · {item.attempts > 0 ? '인터넷이 약해요. 연결되면 자동으로 보내요.' : '곧 기록돼요.'}
+          {fmtTime(new Date(item.takenAtMs))} · {item.attempts > 0 ? tr('인터넷이 약해요. 연결되면 자동으로 보내요.', "Your connection is weak. We'll send it once you're back online.") : tr('곧 기록돼요.', 'It will be saved soon.')}
         </span>
         {/* After several failed tries, say why, so it can be reported. */}
         {item.attempts >= 5 && item.lastError && <span className="memo-row-meta">({item.lastError})</span>}
@@ -101,7 +102,7 @@ export function Today({ memos, onOpen, uid, rx, onOpenTrail, onOpenVoiceAlbum, f
 
       {waiting.length > 0 && (
         <div>
-          <div className="tl-day">보내는 중</div>
+          <div className="tl-day">{tr('보내는 중', 'Sending')}</div>
           {waiting.map((i) => <WaitingPhoto key={i.photoId} item={i} />)}
         </div>
       )}
@@ -111,13 +112,13 @@ export function Today({ memos, onOpen, uid, rx, onOpenTrail, onOpenVoiceAlbum, f
           <div className="big">🌤️</div>
           {before ? (
             <>
-              <div>아직 지난 사진이 없어요.</div>
-              <div style={{ marginTop: 6, fontSize: 14 }}>오늘 찍은 사진은 내일 여기로 와요.</div>
+              <div>{tr('아직 지난 사진이 없어요.', 'No photos from earlier days yet.')}</div>
+              <div style={{ marginTop: 6, fontSize: 14 }}>{tr('오늘 찍은 사진은 내일 여기로 와요.', "Today's photos come here tomorrow.")}</div>
             </>
           ) : (
             <>
-              <div>아직 기록이 없어요.</div>
-              <div style={{ marginTop: 6, fontSize: 14 }}>홈에서 사진을 한 장 찍어보세요.</div>
+              <div>{tr('아직 기록이 없어요.', 'No photos yet.')}</div>
+              <div style={{ marginTop: 6, fontSize: 14 }}>{tr('홈에서 사진을 한 장 찍어보세요.', 'Take a photo from the home screen.')}</div>
             </>
           )}
         </div>
@@ -128,7 +129,7 @@ export function Today({ memos, onOpen, uid, rx, onOpenTrail, onOpenVoiceAlbum, f
               {dayHeading(g.date)}
               {/* 다녀온 곳 is a parent's day out: on a parent's 과거, days with a located photo. */}
               {onOpenTrail && parents.length === 0 && g.items.some((m) => typeof m.lat === 'number' && typeof m.lng === 'number') && (
-                <button type="button" className="trail-link" onClick={() => onOpenTrail(g.date)}>다녀온 곳 ›</button>
+                <button type="button" className="trail-link" onClick={() => onOpenTrail(g.date)}>{tr('다녀온 곳 ›', 'Places visited ›')}</button>
               )}
             </div>
             <DayCard label={dayHeading(g.date)}>

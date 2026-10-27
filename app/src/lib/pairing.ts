@@ -13,6 +13,7 @@ import { callWorker } from './worker'
 import { PUBLIC_ORIGIN } from './publicUrl'
 import { isSimple } from './edition'
 import { SIMPLE_CONSENT_VERSION } from './consent'
+import { tr } from './lang'
 import type { UserSettings } from '../types'
 
 // The Mac mini can take a moment; an elder shouldn't see "offline" too early.
@@ -87,9 +88,9 @@ export function describeThisDevice(): { name: string; platform: string } {
   const platform = Capacitor.getPlatform()
   const name = /iPhone/.test(ua) ? 'iPhone'
     : /iPad/.test(ua) ? 'iPad'
-    : /SM-|Galaxy/i.test(ua) ? '갤럭시'
-    : /Android/.test(ua) ? 'Android 휴대폰'
-    : '컴퓨터'
+    : /SM-|Galaxy/i.test(ua) ? tr('갤럭시', 'Galaxy')
+    : /Android/.test(ua) ? tr('Android 휴대폰', 'Android phone')
+    : tr('컴퓨터', 'Computer')
   return { name, platform }
 }
 

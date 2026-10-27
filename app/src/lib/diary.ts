@@ -3,6 +3,7 @@
 
 import type { SentEntry } from '../pages/Today'
 import type { Memo } from '../types'
+import { lang } from './lang'
 
 /** A parent's photo shown in a family member's own diary. */
 export interface ParentMemo { memo: Memo; name: string; color: string }
@@ -63,5 +64,8 @@ export function collapseParents<E extends { kind: string; at: number; item?: unk
 export function myDayCaption(mine: number, parents: ParentMemo[]): string {
   const byName = new Map<string, number>()
   for (const p of parents) byName.set(p.name, (byName.get(p.name) ?? 0) + 1)
+  if (lang === 'en') {
+    return [`${mine} photo${mine === 1 ? '' : 's'} of mine`, ...[...byName].map(([name, n]) => `${name} ${n}`)].join(' · ')
+  }
   return [`내 사진 ${mine}장`, ...[...byName].map(([name, n]) => `${name} ${n}장`)].join(' · ')
 }

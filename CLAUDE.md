@@ -41,6 +41,13 @@
 - The operator is Digioptics, LLC in every legal text and in copyright.txt. terms 제9조 (plans, monthly auto-renewal, cancel in the store, 청약철회/refunds via Apple/Google) is the recorded subscription policy; the plan sheet keeps its price, period, auto-renew line, 구독 관리, 구매 복원 and legal links.
 - Store screenshots: iOS from `app/fastlane/screenshots/ko/` (gitignored, 1320×2868, regenerated from `launch/store-screenshots/`), Android in `app/fastlane/metadata/android/ko-KR/images/phoneScreenshots/` (8 shots, tracked). Never run `release_ios`/`release_android` with an empty screenshots folder (deliver would wipe the listing).
 
+### English (US 1.1) — owner decisions, 2026-10-27
+- The screens' language is decided once at start (`app/src/lib/lang.ts`: this phone's last choice, else the phone's language; after sign-in the account's `geoLang`). `tr(ko, en)` for inline strings; `strings.en.ts` is typed as the Korean table so a missing key fails the build. Korean strings stay byte-identical (tests run in Korean).
+- English tab names: 오늘하루 → **Today**, 어제까지 → **Before today**, 알림 → **Alerts**, 설정 → **Settings**. 내 사진 → My photos, 내 하루 → My day, 다녀온 곳 → Places visited, 부모님께 보내기 → Send to parent, 새 소식 → New.
+- English memos (worker `buildPrompt` with `lang: 'en'`): the same memory-diary rules in English; `activity` stays a Korean category key. The CEO's approved example scene was "A clear, warm Sunday. You had lunch and stepped out for a photo with the group."; the prompt carries it without a subject ("A clear, warm Sunday, stepping out after lunch for a photo with the group.") because the reader is the family, not the parent, and the rule forbids I/we/you — pending the CEO's word on that. Context lines are miles and °F first. Changing the English prompt needs the CEO's approval like the Korean one.
+- Pairing message for English accounts goes through the phone's share sheet (SMS / iMessage), never KakaoTalk; the Korean path is unchanged. Distances in English are miles. Names in English drop 님 and particles.
+- iOS permission strings: `App/en.lproj/InfoPlist.strings` and `App/ko.lproj/InfoPlist.strings` (Info.plist keeps the Korean base); the phone's language picks one.
+
 ### Subscription prices (CEO decision, 2026-10-22)
 - Plans sold: Free, Plus, Family (Basic is not offered). Monthly auto-renewing store subscriptions, ids `daylie_plus_monthly` / `daylie_family_monthly` (Play base plan `monthly`), in App Store group "Daylie".
 - Plus: ₩4,400 in Korea, $4.99 in the US. Family: ₩7,700 in Korea, $7.99 in the US. Same on both stores (Apple has no ₩4,900/₩7,900 price points). Other countries: the stores' automatic conversion.

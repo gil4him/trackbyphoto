@@ -4,6 +4,7 @@ import { Processing } from '../components/Processing'
 import { savePhoto, captureNativePhoto, isNativeApp } from '../lib/capture'
 import { warmUpLocation } from '../lib/location'
 import { noteCaptureStarted } from './useAppUpdate'
+import { tr } from '../lib/lang'
 
 /**
  * Taking a photo for `uid`'s own record: the phone's camera in the app, the
@@ -11,7 +12,7 @@ import { noteCaptureStarted } from './useAppUpdate'
  * 사진 찍기 and the floating camera button (CameraFab) share it. Render
  * `inputEl` and `processing` once where the hook is used.
  */
-export function useCapture(uid: string, { savedSub = '가족에게 보내는 중이에요' }: { savedSub?: string } = {}): {
+export function useCapture(uid: string, { savedSub = tr('가족에게 보내는 중이에요', 'Sending it to your family') }: { savedSub?: string } = {}): {
   takePhoto: () => void
   busy: boolean
   inputEl: ReactNode
@@ -26,10 +27,10 @@ export function useCapture(uid: string, { savedSub = '가족에게 보내는 중
     try {
       await savePhoto({ uid, file, nativePath })
       // The outbox sends it and the worker writes the memo.
-      toast.show('사진을 저장했어요', savedSub)
+      toast.show(tr('사진을 저장했어요', 'Photo saved'), savedSub)
     } catch (err) {
       console.error(err)
-      toast.show('사진을 저장하지 못했어요', '다시 한 번 찍어 주세요')
+      toast.show(tr('사진을 저장하지 못했어요', "Couldn't save the photo"), tr('다시 한 번 찍어 주세요', 'Please take it once more'))
     } finally {
       setBusy(false)
     }
@@ -61,7 +62,7 @@ export function useCapture(uid: string, { savedSub = '가족에게 보내는 중
       }}
     />
   )
-  const processing = <Processing show={busy} message="사진을 저장하고 있어요…" sub="시간 · 장소 · 활동을 자동으로 적어요" />
+  const processing = <Processing show={busy} message={tr('사진을 저장하고 있어요…', 'Saving the photo…')} sub={tr('시간 · 장소 · 활동을 자동으로 적어요', 'Noting the time, place and activity')} />
 
   return { takePhoto, busy, inputEl, processing }
 }

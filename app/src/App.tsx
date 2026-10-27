@@ -47,6 +47,7 @@ import { digestIdFromPath } from './lib/digest'
 import { TIER_NAME, fromTier, type PlanReason } from './lib/plan'
 import { homeFor } from './lib/trail'
 import { deviceGeoLang, relativeDateLabel } from './util'
+import { applyAccountLang, tr } from './lib/lang'
 import { disablePush, onPushOpened, refreshPush, type PushOpened } from './lib/push'
 import { configurePayments } from './lib/payments'
 import { arrivalNow, noteArrivalRef } from './lib/arrival'
@@ -113,7 +114,7 @@ function startOfDay(): Date {
 }
 
 const DEFAULT_SETTINGS: UserSettings = {
-  patientName: '엄마',
+  patientName: tr('엄마', 'Mom'),
   recipients: [],
   cadence: 'daily',
   autoMode: true,
@@ -261,7 +262,7 @@ function App() {
   const sentByMe = useSentByMe(ownPage && familyPhotosFlag ? people.map((p) => p.patientUid) : [], user?.uid)
   const sentEntries = useMemo(() => sentByMe.map((photo) => ({
     photo,
-    to: honorific(people.find((p) => p.patientUid === photo.patientUid)?.name ?? '부모님'),
+    to: honorific(people.find((p) => p.patientUid === photo.patientUid)?.name ?? tr('부모님', 'Parent')),
     color: colorOf[photo.patientUid] ?? 'var(--accent)',
   })), [sentByMe, people, colorOf])
   const [openSent, setOpenSent] = useState<string | null>(null)
@@ -375,6 +376,17 @@ function App() {
     if (selectedMemo) shownMemoId.current = selectedMemo.id
     else if (selectedMemoId && shownMemoId.current === selectedMemoId) setSelectedMemoId(null)
   }, [selectedMemoId, selectedMemo])
+
+  // The screens follow the signed-in account's language (lib/lang.ts): on a
+  // parent's phone that is the language the family set for them, on a
+  // family phone the one chosen in 설정 → 언어. Only the server's answer
+  // counts, so a stale cache never flips the screens.
+  useEffect(() => {
+    if (!user) return
+    return onSnapshot(doc(db, 'users', user.uid), { includeMetadataChanges: true }, (snap) => {
+      if (snap.exists() && !snap.metadata.fromCache) applyAccountLang((snap.data() as Partial<UserSettings>).geoLang)
+    }, (err) => console.error('[lang] subscription', err))
+  }, [user])
 
   // Settings subscription follows the ACTIVE patient, not the signed-in user.
   // For self this is the same; for caregiver mode it's the patient's doc.
@@ -532,7 +544,7 @@ function App() {
     return (
       <div className="app">
         <main style={{ display: 'grid', placeItems: 'center', minHeight: '60vh' }}>
-          <div style={{ color: 'var(--ink-2)' }}>준비 중이에요…</div>
+          <div style={{ color: 'var(--ink-2)' }}>{tr('준비 중이에요…', 'Getting ready…')}</div>
         </main>
       </div>
     )
@@ -631,15 +643,15 @@ function App() {
         <div className="app">
           <main>
               <div style={{ padding: 32, textAlign: 'center', color: 'var(--ink-2)' }}>
-                <h2 style={{ marginBottom: 8 }}>접근 권한이 없습니다</h2>
-                <p>이 페이지는 관리자만 사용할 수 있어요.</p>
+                <h2 style={{ marginBottom: 8 }}>{tr('접근 권한이 없습니다', 'No access')}</h2>
+                <p>{tr('이 페이지는 관리자만 사용할 수 있어요.', 'Only an administrator can open this page.')}</p>
                 <p style={{ marginTop: 16, fontSize: 13 }}>
-                  로그인 계정: {user.email}
+                  {tr('로그인 계정:', 'Signed in as:')} {user.email}
                 </p>
                 <button
                   onClick={() => { window.location.href = '/' }}
                   style={{ marginTop: 24, padding: '10px 20px', border: '1px solid var(--line)', borderRadius: 12, background: '#fff' }}
-                >홈으로 이동</button>
+                >{tr('홈으로 이동', 'Go home')}</button>
               </div>
           </main>
         </div>
@@ -694,7 +706,7 @@ function App() {
   }
 
   const isSelf = activePatientUid === user.uid
-  const selfLabel = user.displayName?.split(' ')[0] || user.email?.split('@')[0] || '나'
+  const selfLabel = user.displayName?.split(' ')[0] || user.email?.split('@')[0] || tr('나', 'Me')
 
   // Switching to ask/today from elsewhere also drops the detail view so the
   // tab feels like the canonical owner of its screen.
@@ -730,7 +742,7 @@ function App() {
   const openDayTrail = (day: Date) => {
     const start = new Date(day.getFullYear(), day.getMonth(), day.getDate())
     const end = new Date(day.getFullYear(), day.getMonth(), day.getDate() + 1)
-    setTrail({ start: start.getTime(), end: end.getTime(), title: `${relativeDateLabel(day)} 다녀온 곳` })
+    setTrail({ start: start.getTime(), end: end.getTime(), title: tr(`${relativeDateLabel(day)} 다녀온 곳`, `Places visited · ${relativeDateLabel(day)}`) })
   }
   const closeDigest = () => {
     setDigestId(null)
@@ -830,7 +842,7 @@ function App() {
       <div className="app">
         {updateReady && (
           <button className="update-prompt" onClick={() => { void reloadToLatest() }}>
-            새 버전이 있어요 <span className="update-go">새로고침</span>
+            {tr('새 버전이 있어요', 'A new version is ready')} <span className="update-go">{tr('새로고침', 'Refresh')}</span>
           </button>
         )}
         <main>
@@ -852,7 +864,7 @@ function App() {
               memo={memos.find((m) => m.id === openNews.item.memoId)}
               voiceOn={flagOn(plans, 'voiceReplies') && settings.voiceEnabled === true}
               textMode={settings.textReplies ?? defaultTextReplies()}
-              backLabel="‹ 뒤로"
+              backLabel={tr('‹ 뒤로', '‹ Back')}
               onDone={() => setOpenNews(null)}
             />
           ) : selectedMemo ? (
@@ -922,7 +934,7 @@ function App() {
               onOpenTrail={trailOn ? (d) => {
                 // Opens over the digest; 뒤로 comes back to it.
                 if (d.patientUid !== (activePatientUid || user.uid)) onSwitchPatient(d.patientUid)
-                setTrail({ start: d.periodStart?.toMillis() ?? 0, end: d.periodEnd?.toMillis() ?? Date.now(), title: `${d.label} 다녀온 곳` })
+                setTrail({ start: d.periodStart?.toMillis() ?? 0, end: d.periodEnd?.toMillis() ?? Date.now(), title: tr(`${d.label} 다녀온 곳`, `Places visited · ${d.label}`) })
               } : undefined}
             />
           ) : (
@@ -1059,7 +1071,7 @@ function AppRoot() {
     <Suspense fallback={(
       <div className="app">
         <main style={{ display: 'grid', placeItems: 'center', minHeight: '60vh' }}>
-          <div style={{ color: 'var(--ink-2)' }}>준비 중이에요…</div>
+          <div style={{ color: 'var(--ink-2)' }}>{tr('준비 중이에요…', 'Getting ready…')}</div>
         </main>
       </div>
     )}>

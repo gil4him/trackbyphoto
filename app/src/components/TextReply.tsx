@@ -4,6 +4,7 @@ import { COMMENT_MAX } from '../lib/reactions'
 import { QUICK_REPLIES, S } from '../lib/strings'
 import type { TextReplies } from '../types'
 import { isSimple } from '../lib/edition'
+import { tr } from '../lib/lang'
 
 /**
  * The parent's written reply, shared by 가족 소식 and the family-photo viewer.
@@ -37,8 +38,8 @@ export function TextReply({ to, textMode = 'full', inputRef, onBack, onSend }: {
 
   return (
     <section className="page news">
-      <button className="elder-back" onClick={onBack}>‹ 뒤로</button>
-      <div className="news-from">{to}에게</div>
+      <button className="elder-back" onClick={onBack}>{tr('‹ 뒤로', '‹ Back')}</button>
+      <div className="news-from">{tr(`${to}에게`, `To ${to}`)}</div>
       <div className="news-text small">{S.elderReplyTextTitle}</div>
       {typing && (
         <form className="news-type" onSubmit={(e) => { e.preventDefault(); if (draft.trim()) onSend(draft) }}>
@@ -48,11 +49,11 @@ export function TextReply({ to, textMode = 'full', inputRef, onBack, onSend }: {
             onChange={(e) => setDraft(e.target.value)}
             maxLength={COMMENT_MAX}
             placeholder={S.elderReplyTextPlaceholder}
-            aria-label="답장 직접 쓰기"
+            aria-label={tr('답장 직접 쓰기', 'Write your own reply')}
             enterKeyHint="send"
             autoFocus
           />
-          <button type="submit" disabled={!draft.trim()}>보내기</button>
+          <button type="submit" disabled={!draft.trim()}>{tr('보내기', 'Send')}</button>
         </form>
       )}
       <div className={textMode === 'full' ? 'news-quick' : 'news-actions'}>

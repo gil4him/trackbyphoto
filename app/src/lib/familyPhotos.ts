@@ -7,6 +7,7 @@ import {
 import { deleteObject, ref, uploadBytes } from 'firebase/storage'
 import { db, storage } from '../firebase'
 import { shrinkPhoto } from './image'
+import { tr } from './lang'
 import type { FamilyPhoto } from '../types'
 
 const ms = (t: unknown) => (t && typeof (t as Timestamp).toMillis === 'function' ? (t as Timestamp).toMillis() : 0)
@@ -17,7 +18,7 @@ function fromDoc(id: string, d: Record<string, unknown>): FamilyPhoto {
     id,
     patientUid: d.patientUid as string,
     senderUid: d.senderUid as string,
-    senderName: (d.senderName as string) || '가족',
+    senderName: (d.senderName as string) || tr('가족', 'Family'),
     photoPath: d.photoPath as string,
     photoUrl: d.photoUrl as string | undefined,
     thumbUrl: d.thumbUrl as string | undefined,

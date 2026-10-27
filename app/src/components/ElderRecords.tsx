@@ -3,6 +3,7 @@ import { DateJumpInput } from './CalendarFab'
 import { CameraGlyph } from './CameraFab'
 import { listPhoto } from '../lib/listPhoto'
 import { subject } from '../lib/strings'
+import { tr } from '../lib/lang'
 import { hasUnseen, receivedLine, recordDays, tileAria, tileChip, tileTime, type RecordItem } from '../lib/elderRecords'
 import { dayHeading, landingDay } from '../util'
 import type { FamilyPhoto, Memo, Reaction } from '../types'
@@ -22,7 +23,7 @@ export function ElderRecordTile({ memo, reactions, patientUid, wide, onOpen }: {
     <button type="button" className="elder-tile" data-unseen={unseen ? '' : undefined} onClick={() => onOpen(memo.id)} aria-label={tileAria(memo, reactions, patientUid)}>
       <span className="elder-tile-photo">
         <MemoThumb memo={memo} />
-        {unseen && <span className="elder-tile-new" aria-hidden="true">새 소식</span>}
+        {unseen && <span className="elder-tile-new" aria-hidden="true">{tr('새 소식', 'New')}</span>}
         {chip && <span className="elder-tile-chip" aria-hidden="true">{chip}</span>}
       </span>
       <span className="elder-tile-time">{tileTime(memo, wide)}</span>
@@ -34,10 +35,10 @@ export function ElderRecordTile({ memo, reactions, patientUid, wide, onOpen }: {
 export function ElderReceivedCard({ photo, onOpen }: { photo: FamilyPhoto; onOpen: (id: string) => void }) {
   const second = [receivedLine(photo), photo.caption ? `“${photo.caption}”` : ''].filter(Boolean)
   return (
-    <button type="button" className="elder-received" onClick={() => onOpen(photo.id)} aria-label={`${subject(photo.senderName)} 보낸 사진${photo.seenAtMs ? '' : ', 새 소식'}`}>
+    <button type="button" className="elder-received" onClick={() => onOpen(photo.id)} aria-label={tr(`${subject(photo.senderName)} 보낸 사진${photo.seenAtMs ? '' : ', 새 소식'}`, `Photo from ${photo.senderName}${photo.seenAtMs ? '' : ', new'}`)}>
       <span className="elder-received-photo"><span className="tl-thumb">{photo.photoUrl && <img src={listPhoto(photo)} alt="" loading="lazy" />}</span></span>
       <span className="elder-received-body">
-        <span className="elder-received-title">{!photo.seenAtMs && <span className="elder-tile-new static">새 소식</span>}{subject(photo.senderName)} 보냈어요</span>
+        <span className="elder-received-title">{!photo.seenAtMs && <span className="elder-tile-new static">{tr('새 소식', 'New')}</span>}{tr(`${subject(photo.senderName)} 보냈어요`, `${photo.senderName} sent a photo`)}</span>
         <span className="elder-received-line">{photo.caption && !photo.reply ? `${receivedLine(photo)} · “${photo.caption}”` : second.join(' · ')}</span>
       </span>
     </button>
@@ -82,9 +83,9 @@ export function ElderRecords({ memos, received, byMemo, patientUid, bigText = fa
   const firstUnseen = (key: string) => document.querySelector(`[data-day="${key}"] [data-unseen], [data-day="${key}"] .elder-received .elder-tile-new`)?.closest('button')?.scrollIntoView({ block: 'center', behavior: 'smooth' })
   return (
     <>
-      <section className={`page elder-records${bigText ? ' big' : ''}`} aria-label="내 사진">
+      <section className={`page elder-records${bigText ? ' big' : ''}`} aria-label={tr('내 사진', 'My photos')}>
         {days.length === 0 ? (
-          <div className="elder-records-empty" role="status">아직 사진이 없어요.<br />카메라로 한 장 찍어 보세요.</div>
+          <div className="elder-records-empty" role="status">{tr('아직 사진이 없어요.', 'No photos yet.')}<br />{tr('카메라로 한 장 찍어 보세요.', 'Take one with the camera.')}</div>
         ) : days.map((g) => {
           const key = dayKey(g.day)
           const photos = g.items.filter((it) => it.kind === 'memo').length
@@ -93,10 +94,10 @@ export function ElderRecords({ memos, received, byMemo, patientUid, bigText = fa
             <div key={key} data-day={key} className="elder-day">
               <div className="elder-day-row">
                 <h2 className="elder-day-head">{dayHeading(g.day)}</h2>
-                <span className="elder-day-count">{photos}장</span>
+                <span className="elder-day-count">{tr(`${photos}장`, `${photos} photo${photos === 1 ? '' : 's'}`)}</span>
               </div>
               {unseen > 0 && (
-                <button type="button" className="elder-day-news" onClick={() => firstUnseen(key)}>새 소식 {unseen} ›</button>
+                <button type="button" className="elder-day-news" onClick={() => firstUnseen(key)}>{tr(`새 소식 ${unseen} ›`, `New ${unseen} ›`)}</button>
               )}
               {runsOf(g.items).map((run, i) => Array.isArray(run)
                 ? (
@@ -109,18 +110,18 @@ export function ElderRecords({ memos, received, byMemo, patientUid, bigText = fa
           )
         })}
       </section>
-      <nav className="elder-bar" aria-label="내 사진 메뉴">
+      <nav className="elder-bar" aria-label={tr('내 사진 메뉴', 'My photos menu')}>
         <label className={`elder-bar-btn elder-bar-date${days.length === 0 ? ' is-off' : ''}`}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <rect x="3.5" y="5" width="17" height="15.5" rx="2.5" />
             <path d="M3.5 10h17M8 3v4M16 3v4" />
           </svg>
-          날짜로 찾기
+          {tr('날짜로 찾기', 'Find a date')}
           {days.length > 0 && <DateJumpInput days={days.map((d) => d.day)} onPick={jump} />}
         </label>
         <button type="button" className="elder-bar-btn elder-bar-camera" onClick={onCamera}>
           <CameraGlyph />
-          카메라
+          {tr('카메라', 'Camera')}
         </button>
       </nav>
     </>

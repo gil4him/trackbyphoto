@@ -15,6 +15,7 @@ import type { LiveMembership } from '../hooks/useMemberships'
 import { honorific } from '../lib/people'
 import type { Person } from '../lib/people'
 import { BottomSheet } from './BottomSheet'
+import { tr } from '../lib/lang'
 
 interface Props {
   /** Signed-in user's uid — the "self" entry. */
@@ -42,7 +43,7 @@ export function PatientSwitcher({ selfUid, selfLabel, people, activePatientUid, 
   const isSelf = activePatientUid === selfUid
   const activeLabel = isSelf
     ? selfLabel
-    : people.find((p) => p.patientUid === activePatientUid)?.name || '사용자'
+    : people.find((p) => p.patientUid === activePatientUid)?.name || tr('사용자', 'User')
   const pick = (uid: string) => { onChange(uid); setOpen(false) }
 
   const row = (uid: string, name: string, sub: string, parent: boolean) => {
@@ -63,18 +64,18 @@ export function PatientSwitcher({ selfUid, selfLabel, people, activePatientUid, 
   // avatar say whose records these are.
   return (
     <div className={`acct-bar${isSelf ? '' : ' caregiver'}`}>
-      <button type="button" className="acct-chip" onClick={() => setOpen(true)} aria-haspopup="dialog" aria-label={`보기 전환: ${activeLabel}`}>
+      <button type="button" className="acct-chip" onClick={() => setOpen(true)} aria-haspopup="dialog" aria-label={tr(`보기 전환: ${activeLabel}`, `Switch view: ${activeLabel}`)}>
         <Avatar name={activeLabel} parent={!isSelf} />
         <span className="acct-name">{isSelf ? activeLabel : honorific(activeLabel)}</span>
         <span className="ps-caret" aria-hidden="true">⌄</span>
       </button>
       {!isSelf && (
-        <button type="button" className="acct-return" onClick={() => pick(selfUid)}>내 계정으로</button>
+        <button type="button" className="acct-return" onClick={() => pick(selfUid)}>{tr('내 계정으로', 'My account')}</button>
       )}
       {open && (
-        <BottomSheet title="보기 전환" onClose={() => setOpen(false)}>
-          {row(selfUid, selfLabel, '내 계정', false)}
-          {people.map((p) => row(p.patientUid, p.name, `가족 · ${p.membership.role === 'viewer' ? '뷰어' : '관리자'}`, true))}
+        <BottomSheet title={tr('보기 전환', 'Switch view')} onClose={() => setOpen(false)}>
+          {row(selfUid, selfLabel, tr('내 계정', 'My account'), false)}
+          {people.map((p) => row(p.patientUid, p.name, tr(`가족 · ${p.membership.role === 'viewer' ? '뷰어' : '관리자'}`, `Family · ${p.membership.role === 'viewer' ? 'Viewer' : 'Manager'}`), true))}
         </BottomSheet>
       )}
     </div>
