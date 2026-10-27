@@ -33,7 +33,7 @@
 - Production deploys (workers, Firebase, store submissions) are run by the user unless they say otherwise.
 
 ### Store readiness (owner decisions, 2026-10-27)
-- Launch Korea first on both stores; the US (English UI `i18n-b`, English legal pages and Play listing `listing-play-en`, en.lproj permission strings) is a 1.1 item. The en-US metadata on main is not submitted.
+- Launch Korea first on both stores; the US is a 1.1 item. US-1 (2026-10-27): the English legal pages (`simple/app/legal/en/`, served at `/en/privacy`, `/en/terms`, `/en/delete-account`, level with the Korean pages) and the en-US App Store / Play listings are on main; the Korean pages are the originals and the two must change together. Still to do for the US: the English UI (old branch `i18n-b`: `lib/lang.ts`, `tr()`, `strings.en.ts`), English memos in the worker prompt (needs the CEO's wording approval), en.lproj permission strings, English screenshots.
 - The legal pages (`simple/app/legal/`) tell the truth about what runs: Gemini writes memos, RevenueCat checks subscriptions, a parent's phone registers push, `users/{uid}.arrival` is stored. Changing what the app sends to a third party means changing privacy §4–§6 and the consent text in the same PR, with the 시행일.
 - Consent (simple-v2): the parent's consent screen and the family's registration consent say "사진 설명은 Google의 AI가 써요. 사진이 Google에 전달되지만, AI 학습에는 쓰이지 않아요." (Apple 5.1.2(i)). Changing this wording needs the owner's approval.
 - The microphone permission (iOS NSMicrophoneUsageDescription, Android RECORD_AUDIO/MODIFY_AUDIO_SETTINGS) is removed: `voiceReplies` is OFF on simple and the store app has no voice feature. Turning voice replies on in the store app means adding the permission back first.

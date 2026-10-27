@@ -11,6 +11,12 @@
         { "source": "/terms/", "destination": "/terms.html" },
         { "source": "/delete-account", "destination": "/delete-account.html" },
         { "source": "/delete-account/", "destination": "/delete-account.html" },
+        { "source": "/en/privacy", "destination": "/en/privacy.html" },
+        { "source": "/en/privacy/", "destination": "/en/privacy.html" },
+        { "source": "/en/terms", "destination": "/en/terms.html" },
+        { "source": "/en/terms/", "destination": "/en/terms.html" },
+        { "source": "/en/delete-account", "destination": "/en/delete-account.html" },
+        { "source": "/en/delete-account/", "destination": "/en/delete-account.html" },
         { "source": "**", "destination": "/index.html" }
       ],
       "headers": [

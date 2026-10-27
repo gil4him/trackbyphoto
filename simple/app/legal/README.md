@@ -15,6 +15,12 @@ How they reach the web:
 - The same `app/vite.config.ts` lists them in the service worker's
   `navigateFallbackDenylist`, so the cached app shell never answers for them.
 
+English translations live in `en/` (`en/privacy.html`, `en/terms.html`,
+`en/delete-account.html`) and are served at `/en/privacy`, `/en/terms` and
+`/en/delete-account`. Each page links to its other-language version. The Korean
+pages are the originals: change a Korean page and its English page together
+(the English pages were brought level with the Korean ones on 2026-10-27).
+
 `app/src/lib/legal.test.ts` checks the wiring and that each page still carries its
 required sections.
 
@@ -44,6 +50,12 @@ What the pages say as of 2026-10-27 (store readiness review, blockers 1–3):
   from family only); both pages say so.
 - `users/{uid}.arrival` (platform + ref, once at first sign-in) is listed as
   설치 경로. No analytics SDK, no ad id.
+- Address lookups: photo coordinates and the typed home-address search both go
+  to Nominatim only (`worker/src/geocode.ts`). Photon / komoot, named on the
+  old `listing-play-en` branch, is not used and is not named.
+- The family's own heart button was dropped 2026-10-12; the family writes
+  words and the parent answers with words or a ‘고마워요’ heart, so the
+  collected item is 한마디와 답장.
 
 Still open (ask a lawyer when there is one):
 

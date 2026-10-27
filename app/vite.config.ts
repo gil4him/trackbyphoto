@@ -30,7 +30,8 @@ function wellKnown(mode: string): Plugin {
 }
 
 // 개인정보처리방침 and 이용약관 (simple/app/legal/README.md). Plain static HTML, no JS,
-// served at /privacy and /terms by the rewrites in firebase.json. They
+// served at /privacy and /terms (English at /en/privacy, /en/terms) by the
+// rewrites in firebase.json. They
 // describe the simple edition only, so the full build never ships them.
 const LEGAL_PAGES = ['privacy', 'terms', 'delete-account'] as const
 
@@ -40,12 +41,15 @@ function legalPages(mode: string): Plugin {
     apply: 'build',
     generateBundle() {
       if (mode !== 'simple') return
-      for (const name of LEGAL_PAGES) {
-        this.emitFile({
-          type: 'asset',
-          fileName: `${name}.html`,
-          source: readFileSync(`${SIMPLE_DIR}legal/${name}.html`),
-        })
+      // Korean at /privacy etc., the English translations at /en/privacy etc.
+      for (const dir of ['', 'en/']) {
+        for (const name of LEGAL_PAGES) {
+          this.emitFile({
+            type: 'asset',
+            fileName: `${dir}${name}.html`,
+            source: readFileSync(`${SIMPLE_DIR}legal/${dir}${name}.html`),
+          })
+        }
       }
     },
   }
@@ -96,7 +100,7 @@ export default defineConfig(({ mode }) => ({
         // With or without a trailing slash or a query (?utm…, ?v=2): never the app shell.
         // /pair (the parent's invite link) always comes from the server, so a
         // phone that visited before never opens the link in an older build.
-        navigateFallbackDenylist: [/^\/__\//, /^\/(privacy|terms|delete-account)\/?(\?.*)?$/, /^\/pair(\/.*)?(\?.*)?$/, /^\/kakao-map\.html/],
+        navigateFallbackDenylist: [/^\/__\//, /^\/(en\/)?(privacy|terms|delete-account)\/?(\?.*)?$/, /^\/pair(\/.*)?(\?.*)?$/, /^\/kakao-map\.html/],
         cleanupOutdatedCaches: true,
         // A new version takes over as soon as it has arrived instead of
         // waiting for every tab to close; reloadToLatest (src/lib/sw.ts)

@@ -1,28 +1,31 @@
 Daylie lets parents share their day with the family, one photo at a time.
 
 ■ On your parent's phone: just a camera
-Opening the app opens the camera. No menus, no lists, no sign-in. One tap on the big round button sends the photo to the family with a friendly "Sent to your family." The photo also stays in the phone's own Photos app.
+Opening the app opens the camera. No menus, no lists, no sign-in. One tap on the big round button sends the photo to the family with a friendly "Sent to your family." The photo also stays in the phone's own Photos app. "My photos" at the bottom-left shows everything they took, in a large grid.
 
 ■ The family sees the day, photo by photo
-On the family's phones, every photo lands in that day's timeline with the time and the name of the place. Daylie writes a short diary entry for each moment from what's in the photo, so you get a sense of the day even before you call. You can also see the places they went that day on a single map.
+On the family's phones, every photo lands in that day's timeline with the time and the name of the place. Daylie writes a short diary entry for each moment from what's in the photo, so you get a sense of the day even before you call. You can also see the places they went that day on a single map. "Today" shows your own photos and your parent's together, in the order of the day.
 
 ■ Leave a few words
 Write a short message under any photo and it pops up right on your parent's camera screen. One tap opens their reply screen, where they can answer with a ready-made phrase or write their own words.
 
 ■ Send photos to your parent
-Pick a photo, add a line, and it appears large on your parent's screen. They can answer with one "Thank you" or a short reply.
+Send one of your own photos with a line of your own, and it appears large on your parent's screen. They can answer with one "Thank you" or a short reply.
 
 ■ Set up with one link or QR code
 Register your parent, then show the QR code on your phone and let their phone's camera see it. If they live far away, send the link by message and they tap it once. Your parent never makes an ID or a password.
 
 ■ Made with care
-· Text size: normal, large, or extra large.
+· Text size: normal or large.
 · No connection for a moment? Photos wait on the phone and go by themselves when it's back.
 · Photos and notes are seen only by connected family, and you can disconnect a phone from yours at any time.
 · Set your parent's home, so trips are written up as trips.
 · Get a notification for each new photo and reply, and an evening count of the day's photos.
 
-Location is used only to name the place a photo was taken. If it's not allowed, photos are still sent.
+■ Plans
+The basics are free. To keep photos longer and let more family members see them, you can subscribe to the Plus or Family plan in the app. They are monthly auto-renewing subscriptions and can be cancelled at any time in your store's subscription settings.
 
-Privacy policy: https://dayliesimple.web.app/privacy
-Terms of use: https://dayliesimple.web.app/terms
+Location is used only to name the place a photo was taken. If it's not allowed, photos are still sent. Each photo's short note is written by Google's AI (Gemini). Photos are sent only to write the note and are not used for AI training.
+
+Privacy policy: https://dayliesimple.web.app/en/privacy
+Terms of use: https://dayliesimple.web.app/en/terms
