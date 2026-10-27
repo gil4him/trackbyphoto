@@ -6,13 +6,11 @@
 import { useEffect, useState } from 'react'
 import { adminGrowth, barWidth, dayLabel, installRate, installTotal, storeState, weekLabel, yTicks, type AdminGrowth, type StoreInstalls } from '../../lib/adminGrowth'
 import { fmtN } from '../../lib/adminToday'
-import { loadPlans } from '../../lib/plans'
 import { WorkerError } from '../../lib/worker'
 import { TrendChart } from './charts'
 
 export function GrowthView({ refreshKey }: { refreshKey: number }) {
   const [state, setState] = useState<{ key: number; g: AdminGrowth | null; error: string | null }>({ key: -1, g: null, error: null })
-  const [paymentsOn, setPaymentsOn] = useState<boolean | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -28,12 +26,6 @@ export function GrowthView({ refreshKey }: { refreshKey: number }) {
     )
     return () => { cancelled = true }
   }, [refreshKey])
-
-  useEffect(() => {
-    let cancelled = false
-    loadPlans().then((p) => { if (!cancelled) setPaymentsOn(p?.flags?.payments === true) })
-    return () => { cancelled = true }
-  }, [])
 
   const g = state.g
   // No answer and nothing older: the error card says so; the cards step aside.
@@ -75,11 +67,19 @@ export function GrowthView({ refreshKey }: { refreshKey: number }) {
                 <span className="pct num">{i === 0 ? installRate(s.count, installs) : s.rate === null ? '' : `→ ${Math.round(s.rate * 100)}%`}</span>
               </div>
             ))}
-            <div className={`hq-fr ${paymentsOn ? 'off' : 'wait'}`}>
-              <span className="lab">유료 전환</span>
-              <div className="track"><div className="fill" style={{ width: '100%' }}>{paymentsOn ? '연결 필요' : '결제 준비 중'}</div></div>
-              <span className="pct" />
-            </div>
+            {g.paid.live ? (
+              <div className="hq-fr">
+                <span className="lab">유료 전환</span>
+                <div className="track">{g.paid.count ? <div className="fill f5 num" style={{ width: `${barWidth(g.paid.count, installs ?? signups)}%` }}>{fmtN(g.paid.count)}</div> : <span className="zero num">0</span>}</div>
+                <span className="pct num">{signups ? `→ ${Math.round((g.paid.count / signups) * 100)}%` : ''}</span>
+              </div>
+            ) : (
+              <div className="hq-fr wait">
+                <span className="lab">유료 전환</span>
+                <div className="track"><div className="fill" style={{ width: '100%' }}>결제 준비 중</div></div>
+                <span className="pct" />
+              </div>
+            )}
             {signups === 0 && <p className="hq-note">최근 30일에 가입한 가족이 없어요.</p>}
             {g.installs && (
               <p className="hq-note hq-stores">

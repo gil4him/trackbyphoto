@@ -22,6 +22,8 @@ export interface AdminGrowth {
   sources: { invite: number; direct: number; none: number; total: number }
   origins: { rows: OriginRow[]; total: number }
   installs: { ios: StoreInstalls; android: StoreInstalls }
+  /** 유료 전환 (D12): families of the window a store subscription pays for; `live` is the payments flag. */
+  paid: { count: number; live: boolean }
   trend: { dates: string[]; activeParents: number[]; families: number[] }
   at: string
 }

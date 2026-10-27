@@ -16,6 +16,7 @@ import {
   type CohortRow, type FunnelStage, type GrowthFamily, type GrowthParent,
 } from '../adminGrowth.js'
 import { installs, trafficDeps, type Installs } from '../traffic/index.js'
+import { getPlans } from '../plans.js'
 import { logger } from '../log.js'
 
 const D = 86_400_000
@@ -31,6 +32,8 @@ export interface AdminGrowth {
   origins: ReturnType<typeof origins>
   /** 설치 from the stores' reports (D11); a store without its env says `unconfigured`. */
   installs: Installs
+  /** 유료 전환 (D12): families of the window paying through a store; `live` is the payments flag. */
+  paid: { count: number; live: boolean }
   trend: { dates: string[]; activeParents: number[]; families: number[] }
   at: string
 }
@@ -54,11 +57,12 @@ export async function adminGrowth(caller: Caller, data: { refresh?: unknown } = 
     const bad = { state: 'error' as const, missing: [], error: String((err as Error).message ?? err).slice(0, 120), days: [], total: 0, known: 0 }
     return { ios: bad, android: bad }
   })
-  const [users, settingsSnap, membershipSnap, memoSnap] = await Promise.all([
+  const [users, settingsSnap, membershipSnap, memoSnap, plans] = await Promise.all([
     allAuthUsers(),
-    db.collection('users').select('accountType', 'arrival').get(),
+    db.collection('users').select('accountType', 'arrival', 'plan').get(),
     db.collection('memberships').get(),
     db.collection('memos').where('takenAt', '>=', since).select('patientUid', 'takenAt').get(),
+    getPlans(),
   ])
   const settings = new Map(settingsSnap.docs.map((d) => [d.id, d.data()]))
   const memberships = membershipSnap.docs.map((d) => d.data())
@@ -108,6 +112,12 @@ export async function adminGrowth(caller: Caller, data: { refresh?: unknown } = 
     for (const r of rows) parents.set(r.uid, r)
   }
   const stages = funnel(families, parents)
+  // 유료 전환 (D12): a family of the window whose parent a store subscription pays for.
+  const paidParents = new Set([...settings].filter(([, s]) => {
+    const plan = s.plan as { tier?: unknown; payment?: { provider?: unknown } } | undefined
+    return plan?.tier && plan.tier !== 'free' && plan.payment?.provider === 'revenuecat'
+  }).map(([uid]) => uid))
+  const paid = { count: families.filter((f) => f.parents.some((p) => paidParents.has(p))).length, live: plans?.flags?.payments === true }
 
   // 90 days of active parents and families (the 오늘 arithmetic, longer).
   const spans: MembershipSpan[] = []
@@ -126,6 +136,7 @@ export async function adminGrowth(caller: Caller, data: { refresh?: unknown } = 
     sources: sources(families),
     origins: origins(families),
     installs: await storeInstalls,
+    paid,
     trend: { dates: series.map((d) => d.date), activeParents: series.map((d) => d.activeParents7d), families: series.map((d) => d.families) },
     at: new Date(now).toISOString(),
   }

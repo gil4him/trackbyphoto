@@ -93,7 +93,7 @@ Uses data that exists today.
 
 ## Phase D5 — 매출
 
-- Banner: `결제 준비 중` while `PAYMENTS_LIVE === false`.
+- Banner: `결제 준비 중` while the `payments` flag is off; with it on, D12's real cards sit above the calculator.
 - **Real now:** plan mix from people (`plan.tier`), shown as a stacked bar.
 - **Calculator** (assumptions, saved in `admin_config/dashboard.revenue`): price per Basic/Plus/Family (₩, VAT included) × paying families → monthly revenue − VAT (÷11) − store fee 15% − monthly costs (from D6) = 남는 돈 (green/red). Unit test the math.
 - **업그레이드 계기:** count what is already logged (e.g. `plan.change`, and `familyLimit` from D2). Anything not logged (retention notice seen, voice card tap) shows `아직 기록 안 함`. Adding new event logging is out of scope here.
@@ -129,7 +129,7 @@ Uses data that exists today.
 
 - D10 — 안부 알림 보내기 from the inbox (exact message approved by the owner first).
 - D11 — Traffic (built 2026-10-26): 설치 from App Store Connect Sales Reports and the Play Console installs bucket (`worker/src/traffic/`, read inside `adminGrowth`, kept in `admin_config/traffic`; env in `~/daylie-secrets/simple/worker.env`: `ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_PATH ASC_VENDOR_NUMBER [ASC_APP_ID]`, `PLAY_REPORTS_BUCKET PLAY_PACKAGE_NAME` + the worker's service account invited in Play Console; check with `npm run traffic-probe`). 어디서 들어왔나 from the app's own `users.arrival` stamp (platform + `?from=` / referrer, `app/src/lib/arrival.ts`), not Firebase Analytics (owner decision: no third-party analytics). A store without its env shows 연결 필요 with the names missing.
-- D12 — Payments: Apple/Google in-app subscriptions (e.g. RevenueCat) → real MRR, conversion, refunds.
+- D12 — Payments (built 2026-10-27): worker handler `adminRevenue` (request type added to the `requests` allow-list, owner-approved) reads every store purchase on file (`planPayments/{payerUid}` + the parent's `users.plan`), asks RevenueCat's v1 subscriber API about each (store, sandbox, trial, cancellation, card trouble, refund; `REVENUECAT_SECRET_KEY`), and RevenueCat's v2 project overview (`REVENUECAT_V2_KEY` + `REVENUECAT_PROJECT_ID`, optional) for MRR / active subscriptions / 28-day revenue in the stores' settled prices. 매출 with payments on: five figures (유료 가족, 정가 MRR, 새 결제 30일, 해지·환불 30일, 결제 문제), the real waterfall (list price × paying families − VAT − 15% − 비용), the RevenueCat 기준 card, and the 구독 현황 table; the calculator stays underneath as a what-if. Arithmetic in `worker/src/revenue.ts`. Sandbox purchases are listed but never counted as revenue; a row RevenueCat has not confirmed says 확인 전. 성장's 유료 전환 row counts the window's families a store subscription pays for.
 - D13 — Crashlytics, store reviews, CEO morning push summary at 08:00.
 
 ---
