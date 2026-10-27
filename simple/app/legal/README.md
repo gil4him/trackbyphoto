@@ -20,30 +20,47 @@ required sections.
 
 Editing: they are both hand-written Korean with the styling inlined (the
 colours mirror `app/src/styles.css`). Change the 시행일 at the top of both pages
-together. The privacy page is what store reviewers read, so it carries no
-`[확인 필요]` markers (2026-10-16; legal.test.ts checks); open questions
-about it live in this list instead. terms.html still marks its open clauses.
-The open items as of 2026-10-16:
+together (legal.test.ts checks the date). Neither page carries `[확인 필요]`
+markers any more (2026-10-27): store reviewers and customers read them, so
+open questions live in this list instead.
 
-1. Settled 2026-10-16: operator is Digioptics, LLC (the Play/App Store
-   developer) on both pages. Still to confirm with a lawyer: whether a
-   Korean 국내대리인 (보호법 제31조의2) is required.
-2. The 국외 이전 clause now names Google LLC and OSMF with address, items,
-   timing and purpose, citing 제28조의8 ① (necessary for the contract,
-   disclosed in the policy). Worth a legal read.
-3. Settled 2026-10-10: the simple worker has no Kakao key and no Gemini key,
-   so the pages name neither. If either is turned on
-   (`~/daylie-secrets/simple/worker.env`), update §4–§6 first.
-4. Photo retention. The 30일/90일/계속 picker in 설정 is **stored but not yet
+What the pages say as of 2026-10-27 (store readiness review, blockers 1–3):
+
+- Operator is Digioptics, LLC everywhere (both pages, 제1조, copyright.txt).
+  The App Store developer name shown to customers is still whatever App Store
+  Connect holds ("Zymer" in the sales reports) — align it there if it matters.
+- Memos are written by Google's Gemini API (`cloudMemo` ON on simple since
+  2026-10-22): privacy §2/§4/§5/§6 name Google LLC (Gemini API) with what is
+  sent (photo, time, coarse location, the prompt), the paid-tier no-training
+  terms, and a 국외 이전 block. The consent screens say so too
+  (`app/src/lib/consent.ts`, simple-v2). If the cloud model is turned off or
+  changed, update §4–§6 and the consent text first.
+- Payments: RevenueCat, Inc. is a 수탁자 and a 국외 이전 recipient (uid, device
+  type, store subscription state); card data never reaches us. 구독 정보 is a
+  collected item; subscription records are kept 5 years (전자상거래법). terms
+  제9조 covers plans, monthly auto-renewal, cancelling in the store, 청약철회 /
+  refunds through Apple/Google, what happens when a plan ends, price changes.
+- A parent's linked phone registers for push since 1.0.1 (photos and words
+  from family only); both pages say so.
+- `users/{uid}.arrival` (platform + ref, once at first sign-in) is listed as
+  설치 경로. No analytics SDK, no ad id.
+
+Still open (ask a lawyer when there is one):
+
+1. Whether a Korean 국내대리인 (보호법 제31조의2) is required for a US LLC.
+2. The 국외 이전 blocks cite 제28조의8 ① (necessary for the contract, disclosed
+   in the policy). Worth a legal read, Gemini and RevenueCat included.
+3. Photo retention. The 30일/90일/계속 picker in 설정 is **stored but not yet
    enforced**: `worker/src/handlers/retention.ts` deletes on the plan's
    `retentionDays` and only while the `retentionJob` flag is on. The policy
-   says so plainly; tighten it once the picker actually drives deletion.
-   The store description still promises the picker as if it deletes.
-5. 위치정보법: whether Daylie must register as a 위치기반서비스 사업자.
-6. The liability limits (제9조) and the governing-law/venue clause (제11조)
-   under 약관의 규제에 관한 법률.
-7. Statutory retention duties, if any, and whether a cloud AI provider's own
-   training/retention terms need naming.
+   says so plainly; tighten it once deletion actually runs. The plan sheet
+   already promises per-plan retention ("Free는 7일 보관").
+4. 위치정보법: whether Daylie must register as a 위치기반서비스 사업자.
+5. 제10조 (liability, incl. the 3-month-fees cap for paid plans), 제9조's
+   청약철회 wording for digital subscriptions, and 제12조 (venue) under 약관의
+   규제에 관한 법률 / 전자상거래법.
+6. Consent on behalf of a parent who cannot consent (제5조): the requirements
+   for a legal representative.
 
 In-app 계정 삭제 is described as living in 설정 with an email fallback, because
 the self-serve flow was still being built when these pages were written. If it
