@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { SIMPLE_CONSENT_DETAILS, SIMPLE_CONSENT_TITLE, simpleConsentText } from '../lib/consent'
+import { SIMPLE_CONSENT_AI, SIMPLE_CONSENT_DETAILS, SIMPLE_CONSENT_TITLE, simpleConsentText } from '../lib/consent'
 import { consentButtonLabel, sentToName } from '../lib/people'
 
 /**
@@ -20,6 +20,7 @@ export function SimpleConsent({ caregivers, busy = false, initialOpen = false, o
     <div className="simple-consent">
       <h1 className="simple-consent-title">{SIMPLE_CONSENT_TITLE}</h1>
       <p className="simple-consent-text">{simpleConsentText(name)}</p>
+      <p className="simple-consent-ai">{SIMPLE_CONSENT_AI}</p>
       <button className="pair-btn" disabled={busy} onClick={onAccept}>{consentButtonLabel(caregivers)}</button>
       {open ? (
         <ul className="simple-consent-details">
