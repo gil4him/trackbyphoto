@@ -15,6 +15,11 @@ export function dayEyebrow(d: Date): string {
 
 /** `15:30` — the timeline's rail. */
 export function clock(d: Date): string {
+  if (lang === 'en') {
+    // 12-hour, compact enough for the 46pt time column: 7:10 PM.
+    const h = d.getHours() % 12 || 12
+    return `${h}:${String(d.getMinutes()).padStart(2, '0')} ${d.getHours() < 12 ? 'AM' : 'PM'}`
+  }
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 

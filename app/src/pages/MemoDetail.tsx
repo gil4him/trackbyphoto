@@ -4,7 +4,7 @@ import { db } from '../firebase'
 import { useToast } from '../components/Toast'
 import { deleteMemo } from '../lib/capture'
 import { fmtDate, fmtTime } from '../util'
-import { categoryThumbClass } from '../lib/categoryStyle'
+import { categoryLabel, categoryThumbClass } from '../lib/categoryStyle'
 import { useWorkerStatus } from '../hooks/useWorkerStatus'
 import { Reactions, type ReactionsContext } from '../components/Reactions'
 import { markRead } from '../lib/reactions'
@@ -266,7 +266,7 @@ export function MemoDetail({ memo, onBack, readOnly = false, rx, sendTo }: { mem
       </div>
 
       <div className="detail-meta">
-        {memo.activity && <span className="pill">{memo.activity}</span>}
+        {memo.activity && <span className="pill">{categoryLabel(memo.activity)}</span>}
         {memo.place && <span className="pill p">{memo.place}</span>}
       </div>
 

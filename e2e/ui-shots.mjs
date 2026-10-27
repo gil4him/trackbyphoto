@@ -7,6 +7,11 @@
 //   UI_ONLY=<name,...>      only those screens
 //   UI_MATRIX=1             every screen on the §Q.2 device matrix instead
 //                           (<phase>-<screen>-<width>[-L].png) with the §Q.1 audit
+//
+// UI_PHASE=STORE is the store listing's eight pictures instead, on both
+// store devices at once, into launch/store-screenshots/<lang>/<device>/.
+//   UI_LANG=en              English screens (the seed needs DEMO_LANG=en too)
+//   UI_STORE_DEVICES=…      default iphone69,android916
 
 import { mkdir } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
@@ -24,8 +29,22 @@ const OUT = join(HERE, '..', 'docs', 'v3-ui')
 const SITE_PORT = 5222
 const SITE = `http://localhost:${SITE_PORT}`
 const PROJECT = 'demo-trackbyphoto'
-const KID = { name: '지민', email: 'jimin@example.com' }
+// The screens' language (lib/lang.ts) and, with DEMO_LANG=en, the demo
+// family's own: 지민 looks after 엄마 in Korean, Mia after Mom in English.
+const LANG = process.env.UI_LANG === 'en' ? 'en' : 'ko'
+/** The right word for the language this run is in: t('내 하루', 'My day'). */
+const t = (ko, en) => (LANG === 'en' ? en : ko)
+// Every page starts in the run's language, so nothing is photographed
+// mid-reload while App.tsx applies the account's geoLang.
+const LANG_STORAGE = [['daylie.lang', LANG]]
+const KID = process.env.DEMO_LANG === 'en' ? { name: 'Mia', email: 'mia@example.com' } : { name: '지민', email: 'jimin@example.com' }
 const PHASE = process.env.UI_PHASE || 'A0'
+const STORE = PHASE === 'STORE'
+// The store listing's pictures: both store devices in one run, into one
+// folder per language and device (launch/store-screenshots/en/ios-6.9-…).
+const STORE_DEVICES = (process.env.UI_STORE_DEVICES || 'iphone69,android916').split(',')
+const STORE_FOLDER = { iphone69: 'ios-6.9-1320x2868', android916: 'android-1080x1920' }
+const STORE_OUT = join(HERE, '..', 'launch', 'store-screenshots', LANG)
 const only = process.env.UI_ONLY ? new Set(process.env.UI_ONLY.split(',')) : null
 
 await mkdir(OUT, { recursive: true })
@@ -37,7 +56,8 @@ await getFirestore().doc('admin_config/plans').set({
 const acct = await familyAccount(KID)
 // UI_DEVICE=play takes Play-ratio shots (shot-kit VIEWPORTS); default iPhone 6.7".
 const DEVICE = process.env.UI_DEVICE || 'iphone'
-const { momUid } = await seedDemoFamily({ kidUid: acct.localId, kidName: KID.name })
+const demo = await seedDemoFamily({ kidUid: acct.localId, kidName: KID.name })
+const momUid = demo.momUid
 const site = await serveSite(join(HERE, '.tmp', 'ui-site'), SITE_PORT)
 const browser = await launchBrowser(process.env.UI_HEADFUL === '1')
 const self = acct.localId
@@ -80,8 +100,144 @@ const A14_PARENT = { minFont: 20, minTap: 60, smallOk: 'nav.tabbar, .elder-tile-
 let momSession = null
 let dad = null
 let dadPhone = null
-const momPhone = async (device) => { const k = await elderKit(); momSession ??= await k.phone(); return openPage(k.camera, { device, session: momSession }) }
+const momPhone = async (device) => { const k = await elderKit(); momSession ??= await k.phone(); return openPage(k.camera, { device, session: momSession, extraStorage: LANG_STORAGE }) }
+// ── STORE's bookkeeping ──────────────────────────────────────────────
+// Which of the parent's photos the seeds wrote: the picture of the shutter
+// (2-sent) leaves a real one behind, which the grid and the day would show
+// with no place and no words.
+const seeded = new Set(demo.memoIds)
+const remember = (ids) => { for (const id of ids) seeded.add(id); return ids }
+const dropStrayMemos = async () => {
+  const snap = await getFirestore().collection('memos').where('patientUid', '==', momUid).get()
+  await Promise.all(snap.docs.filter((d) => !seeded.has(d.id)).map((d) => d.ref.delete()))
+}
+/** The family's words on the newest photo, unread again (the bubble on the
+ *  camera, the 새 소식 chip in 내 사진): answering them on one device stamps
+ *  them read, and the next screen wants them new. */
+const unreadAgain = async () => {
+  const newest = [...seeded].sort().pop() // ids start with the time in ms
+  const snap = await getFirestore().collection('reactions').where('memoId', '==', newest).get()
+  await Promise.all(snap.docs.map((d) => d.ref.update({ readByElderAt: FieldValue.delete() })))
+}
+/** The family's bookkeeping notices (a phone linked, a setting changed): the
+ *  banner they put on the family's home is not what the listing shows. */
+const dropHousekeepingNotices = async () => {
+  const snap = await getFirestore().collection('notifications').where('recipientUid', '==', self).get()
+  await Promise.all(snap.docs.filter((d) => /^(device|settings)\./.test(d.data().type ?? '')).map((d) => d.ref.delete()))
+}
+/** Like click(), but any one of several words (a button not translated yet). */
+const clickOne = async (p, selector, ...words) => {
+  const h = await p.waitForFunction((sel, ws) => [...document.querySelectorAll(sel)].find((e) =>
+    ws.some((w) => (e.getAttribute('aria-label') || '').includes(w) || e.textContent.replace(/\s+/g, ' ').includes(w))), { timeout: 20_000 }, selector, words)
+  await h.asElement().click()
+}
+
 const PHASES = {
+  // STORE: the eight pictures of the store listing, in listing order, on
+  // both store devices. Taken in Korean (UI_PHASE=STORE) or in English
+  // (UI_LANG=en DEMO_LANG=en), so every wait here is either a CSS selector
+  // or t(Korean, English).
+  STORE: {
+    // The parent's camera with a word from family floating over it.
+    '1-camera': {
+      open: momPhone,
+      prepare: async () => { remember(await seedTodayMemos({ momUid, kidUid: self, kidName: KID.name, count: 9 })) },
+      go: async (p) => {
+        await viewfinder(p)
+        await p.waitForSelector('.elder-cam-bubble', { timeout: 30_000 })
+        await waitText(p, t('글을 남겼어요', 'left a message'))
+        await sleep(400)
+      },
+    },
+    // The same camera a moment after the shutter. The card goes after 1.5 s,
+    // less than the picture takes to set up: keep that one timer.
+    '2-sent': {
+      open: momPhone,
+      go: async (p) => {
+        await viewfinder(p)
+        await p.evaluate(() => { const st = window.setTimeout; window.setTimeout = (fn, ms, ...a) => st(fn, ms === 1500 ? 600_000 : ms, ...a) })
+        await p.click('.elder-cam-shutter')
+        await p.waitForSelector('.elder-cam-overlay.ok', { timeout: 30_000 })
+        await sleep(600)
+      },
+    },
+    // The word tapped: the screen where the parent answers it.
+    '3-message': {
+      open: momPhone,
+      go: async (p) => {
+        await unreadAgain()
+        await viewfinder(p)
+        await p.waitForSelector('.elder-cam-bubble', { timeout: 30_000 })
+        await waitText(p, t('글을 남겼어요', 'left a message'))
+        await p.click('.elder-cam-bubble')
+        await p.waitForSelector('.page.news .news-actions', { timeout: 30_000 })
+        await sleep(400)
+      },
+    },
+    // 내 사진: the day's grid with a 새 소식 chip and the photo family sent.
+    '4-records': {
+      open: momPhone,
+      prepare: async () => {
+        await dropStrayMemos()
+        await seedFamilyPhotos({ momUid, kidUid: self, kidName: KID.name, count: 1 })
+        // The 3-column grid (A14.7); 큰 글자 would make it two.
+        await getFirestore().doc(`users/${momUid}`).set({ bigText: false }, { merge: true })
+      },
+      go: async (p) => {
+        await unreadAgain()
+        await viewfinder(p)
+        await p.click('.elder-cam-records')
+        await p.waitForSelector('.elder-tile', { timeout: 30_000 })
+        await p.waitForSelector('.elder-tile-new', { timeout: 30_000 })
+        await sleep(600)
+      },
+    },
+    // The family phone: the parent's newest photo, with the heart and the word.
+    '5-detail': {
+      as: momUid,
+      prepare: dropHousekeepingNotices,
+      go: async (p) => {
+        await p.goto(SITE, { waitUntil: 'load' })
+        await p.waitForSelector('.memo-row:not(.diary-row)', { timeout: 30_000 })
+        await p.click('.memo-row:not(.diary-row)')
+        await p.waitForSelector('.page.detail .rx-section', { timeout: 30_000 })
+        await sleep(400)
+      },
+    },
+    // 내 하루: one's own photos with the parent's and a sent one woven in.
+    '6-myday': {
+      as: self,
+      prepare: () => seedOwnMemos({ kidUid: self, days: [0] }),
+      go: async (p) => {
+        await p.goto(SITE, { waitUntil: 'load' })
+        await waitText(p, t('내 하루', 'My day'))
+        await p.waitForSelector('.day-card', { timeout: 30_000 })
+        await sleep(400)
+      },
+    },
+    // The parent's day on the family phone, with the small map.
+    '7-parent-day': {
+      as: momUid,
+      go: async (p) => {
+        await p.goto(SITE, { waitUntil: 'load' })
+        await p.waitForSelector('.day-map-open', { timeout: 30_000 })
+        await sleep(600)
+      },
+    },
+    // 설정 → the QR the parent's phone scans (the worker makes the link).
+    '8-qr': {
+      as: momUid,
+      prepare: () => elderKit(),
+      go: async (p) => {
+        await p.goto(SITE, { waitUntil: 'load' })
+        await p.waitForSelector('nav.tabbar')
+        await tab(p, t('설정', 'Settings'))
+        await clickOne(p, 'button.linkbtn', '휴대폰 연결', 'hone')
+        await p.waitForSelector('img[src^="data:image"]', { timeout: 40_000 })
+        await sleep(400)
+      },
+    },
+  },
   // A14: calmer family lists and the parent's 내 사진 (docs/DAYLIE_V3_UI_FIX.md
   // Round 3). The empty day comes first, before anything is seeded for today.
   // The family's 13pt counts (♥ n 💬 n, 보냈어요) and the 14pt time column
@@ -270,7 +426,7 @@ const PHASES = {
     },
     'camera-empty': {
       prepare: async () => { dad = await seedSecondParent({ kidUid: self, kidName: KID.name, yesterday: 0 }) },
-      open: async (device) => { const k = await elderKit(); dadPhone ??= await k.phone(dad.uid); return openPage(k.camera, { device, session: dadPhone }) },
+      open: async (device) => { const k = await elderKit(); dadPhone ??= await k.phone(dad.uid); return openPage(k.camera, { device, session: dadPhone, extraStorage: LANG_STORAGE }) },
       go: async (p) => { await viewfinder(p); await sleep(800) },
     },
   },
@@ -322,7 +478,7 @@ async function elderKit() {
     const onData = (c) => { log += c; if (log.includes('[worker] listening')) resolve() }
     worker.stdout.on('data', onData); worker.stderr.on('data', onData)
     worker.on('exit', (code) => reject(new Error(`worker exited (${code})\n${log.slice(-600)}`)))
-    setTimeout(() => reject(new Error(`worker did not start\n${log.slice(-600)}`)), 30_000)
+    setTimeout(() => reject(new Error(`worker did not start\n${log.slice(-600)}`)), 90_000)
   })
   const link = (mode, patientUid = momUid) => workerCall(env, `
     import { initializeApp } from 'firebase-admin/app'
@@ -374,7 +530,7 @@ async function shootA6() {
   try {
     // 1. Sign-in: 부모님 휴대폰이에요 under Google.
     {
-      const p = await openPage(plain, { device: DEVICE, signedIn: false })
+      const p = await openPage(plain, { device: DEVICE, signedIn: false, extraStorage: LANG_STORAGE })
       await p.goto(SITE, { waitUntil: 'load' })
       await waitText(p, '부모님 휴대폰이에요')
       await snap(p, 'signin')
@@ -383,7 +539,7 @@ async function shootA6() {
     // 2. The link opened on the parent's phone → 연결하기 → the consent screen → camera's plain sentence.
     {
       const { url } = await link('qr')
-      const p = await openPage(plain, { device: DEVICE, signedIn: false })
+      const p = await openPage(plain, { device: DEVICE, signedIn: false, extraStorage: LANG_STORAGE })
       const u = new URL(url)
       // web=1: link right here in the browser (no app-install page); on an
       // iPhone the page first offers the home-screen icon — skip it.
@@ -406,7 +562,7 @@ async function shootA6() {
     }
     // 3. A second phone, linked in-process (QR, no approval), with a fake camera: viewfinder, bubble, overlay.
     {
-      const p = await openPage(camera, { device: DEVICE, session: await phone() })
+      const p = await openPage(camera, { device: DEVICE, session: await phone(), extraStorage: LANG_STORAGE })
       try {
         await viewfinder(p)
       } catch (err) {
@@ -457,7 +613,14 @@ if (!screens) throw new Error(`no screens defined for phase ${PHASE}`)
 
 // One picture per screen on the chosen device, or (UI_MATRIX=1) one per row
 // of the §Q.2 matrix, each with the §Q.1 audit's findings printed under it.
-const rows = process.env.UI_MATRIX === '1' ? QA_MATRIX : [{ id: null, device: DEVICE }]
+const rows = STORE
+  ? STORE_DEVICES.map((device) => ({ id: null, device }))
+  : process.env.UI_MATRIX === '1' ? QA_MATRIX : [{ id: null, device: DEVICE }]
+if (STORE) for (const row of rows) await mkdir(join(STORE_OUT, STORE_FOLDER[row.device] ?? row.device), { recursive: true })
+/** Where one picture goes: the store's folders, or docs/v3-ui. */
+const picture = (name, row) => STORE
+  ? join(STORE_OUT, STORE_FOLDER[row.device] ?? row.device, `${name}.png`)
+  : join(OUT, row.id ? `${PHASE}-${name}-${row.id}.png` : `${PHASE}-${name}.png`)
 const findings = {}
 try {
   for (const [name, { as, go, prepare, account, open, rules }] of Object.entries(screens)) {
@@ -467,7 +630,10 @@ try {
     const kid = account ? KID2 : KID
     for (const row of rows) {
       const file = row.id ? `${PHASE}-${name}-${row.id}.png` : `${PHASE}-${name}.png`
-      const p = open ? await open(row.device) : await openPage(browser, { device: row.device, acct: who, kid, activePatient: account ? undefined : as })
+      const shot = picture(name, row)
+      const p = open ? await open(row.device) : await openPage(browser, { device: row.device, acct: who, kid, activePatient: account ? undefined : as, extraStorage: LANG_STORAGE })
+      // The store's pictures are of the light screens, whatever the Mac is set to.
+      if (STORE) await p.emulateMediaFeatures([{ name: 'prefers-color-scheme', value: 'light' }])
       try {
         await go(p)
         await settle(p)
@@ -480,11 +646,11 @@ try {
           for (const f of found) console.log(`      ! ${f}`)
         }
         // UI_FULL=1: the whole page, not just the first screen.
-        await p.screenshot({ path: join(OUT, file), fullPage: process.env.UI_FULL === '1' })
-        console.log('  ', file, row.id && !findings[file].length ? 'OK' : '')
+        await p.screenshot({ path: shot, fullPage: process.env.UI_FULL === '1' })
+        console.log('  ', STORE ? `${row.device}/${name}.png` : file, row.id && !findings[file].length ? 'OK' : '')
       } catch (err) {
-        console.log(`   ${file} FAILED: ${String(err.message).split('\n')[0]}`)
-        await p.screenshot({ path: join(OUT, `FAIL-${file}`) }).catch(() => {})
+        console.log(`   ${STORE ? `${row.device}/${name}` : file} FAILED: ${String(err.message).split('\n')[0]}`)
+        await p.screenshot({ path: join(dirname(shot), `FAIL-${name}.png`) }).catch(() => {})
       }
       await p.browserContext().close()
     }
@@ -493,7 +659,7 @@ try {
     const bad = Object.entries(findings).filter(([, f]) => f.length)
     console.log(bad.length ? `audit: ${bad.length} picture(s) with findings` : 'audit: clean')
   }
-  console.log(`pictures in ${OUT}`)
+  console.log(`pictures in ${STORE ? STORE_OUT : OUT}`)
 } finally {
   await elder?.stop()
   await browser.close()

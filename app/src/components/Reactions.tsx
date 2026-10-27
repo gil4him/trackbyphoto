@@ -105,7 +105,7 @@ export function Reactions({ memoId, ctx, max }: { memoId: string; ctx: Reactions
                 <div className="rx-text">
                   {r.text}
                   {r.actorUid === ctx.me.uid && (
-                    <button className="rx-del" onClick={() => removeReaction(r.id).catch((err) => console.error('[reactions] delete failed', err))} aria-label={tr('내 글 지우기', 'Delete my message')}>{tr('지우기', 'Delete')}기</button>
+                    <button className="rx-del" onClick={() => removeReaction(r.id).catch((err) => console.error('[reactions] delete failed', err))} aria-label={tr('내 글 지우기', 'Delete my message')}>{tr('지우기', 'Delete')}</button>
                   )}
                 </div>
               )}
