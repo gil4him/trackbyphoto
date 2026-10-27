@@ -959,6 +959,7 @@ nav.tabbar .tab.on .tab-avatar { box-shadow: 0 0 0 2px var(--coral2); }
 }
 .simple-consent-title { margin: 0; font-size: 30px; line-height: 1.35; font-weight: 800; letter-spacing: -0.02em; }
 .simple-consent-text { margin: 0; max-width: 340px; font-size: 24px; line-height: 1.5; }
+.simple-consent-ai { margin: 0; max-width: 340px; font-size: 20px; line-height: 1.5; color: var(--muted); }
 .simple-consent .pair-btn { min-height: 72px; }
 /* 자세한 내용 보기: the secondary, outlined. */
 .simple-consent-more {

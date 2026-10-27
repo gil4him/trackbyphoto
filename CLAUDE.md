@@ -31,6 +31,14 @@
 - After a deploy, verify from the worker log (`~/Library/Logs/daylie-worker-simple.log`, `~/Library/Logs/trackbyphoto-worker.log`) that the `[worker] starting` line shows the expected `deployedCommit` and features (e.g. `"weather":"WeatherKit"`), and tell the user what is running.
 - Production deploys (workers, Firebase, store submissions) are run by the user unless they say otherwise.
 
+### Store readiness (owner decisions, 2026-10-27)
+- Launch Korea first on both stores; the US (English UI `i18n-b`, English legal pages and Play listing `listing-play-en`, en.lproj permission strings) is a 1.1 item. The en-US metadata on main is not submitted.
+- The legal pages (`simple/app/legal/`) tell the truth about what runs: Gemini writes memos, RevenueCat checks subscriptions, a parent's phone registers push, `users/{uid}.arrival` is stored. Changing what the app sends to a third party means changing privacy §4–§6 and the consent text in the same PR, with the 시행일.
+- Consent (simple-v2): the parent's consent screen and the family's registration consent say "사진 설명은 Google의 AI가 써요. 사진이 Google에 전달되지만, AI 학습에는 쓰이지 않아요." (Apple 5.1.2(i)). Changing this wording needs the owner's approval.
+- The microphone permission (iOS NSMicrophoneUsageDescription, Android RECORD_AUDIO/MODIFY_AUDIO_SETTINGS) is removed: `voiceReplies` is OFF on simple and the store app has no voice feature. Turning voice replies on in the store app means adding the permission back first.
+- The operator is Digioptics, LLC in every legal text and in copyright.txt. terms 제9조 (plans, monthly auto-renewal, cancel in the store, 청약철회/refunds via Apple/Google) is the recorded subscription policy; the plan sheet keeps its price, period, auto-renew line, 구독 관리, 구매 복원 and legal links.
+- Store screenshots: iOS from `app/fastlane/screenshots/ko/` (gitignored, 1320×2868, regenerated from `launch/store-screenshots/`), Android in `app/fastlane/metadata/android/ko-KR/images/phoneScreenshots/` (8 shots, tracked). Never run `release_ios`/`release_android` with an empty screenshots folder (deliver would wipe the listing).
+
 ### Subscription prices (CEO decision, 2026-10-22)
 - Plans sold: Free, Plus, Family (Basic is not offered). Monthly auto-renewing store subscriptions, ids `daylie_plus_monthly` / `daylie_family_monthly` (Play base plan `monthly`), in App Store group "Daylie".
 - Plus: ₩4,400 in Korea, $4.99 in the US. Family: ₩7,700 in Korea, $7.99 in the US. Same on both stores (Apple has no ₩4,900/₩7,900 price points). Other countries: the stores' automatic conversion.

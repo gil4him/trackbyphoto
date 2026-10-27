@@ -117,7 +117,7 @@ describe('what each page has to say', () => {
       expect(html).toContain('<html lang="ko">')
       expect(html).toContain('name="viewport"')
       expect(html).toContain('Daylie')
-      expect(html).toContain('2026년 10월 16일')
+      expect(html).toContain('2026년 10월 27일')
     }
   })
 
