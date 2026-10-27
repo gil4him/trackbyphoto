@@ -22,6 +22,7 @@
  *   WORKER_STATE_DIR                default ~/.trackbyphoto/state
  *   APP_URL                         default https://trackbyphoto.web.app (links in pair/push/digest)
  *   EDITION                         'simple' for the simple-core worker; default full (config.ts)
+ *   APP_STORE_URL / PLAY_STORE_URL  store pages the app-update notice opens (config.ts)
  *   FIRESTORE_EMULATOR_HOST etc.    honored by firebase-admin for local runs
  */
 
@@ -44,6 +45,7 @@ import { startHousekeeping } from './handlers/housekeeping.js'
 import { startSubscriptionPoll } from './handlers/subscriptions.js'
 import { watchFamilyPhotos } from './handlers/familyPhotos.js'
 import { startHeartbeat } from './heartbeat.js'
+import { playConfigured, startStoreVersions } from './storeVersions.js'
 import { sttAvailable } from './llm/stt.js'
 import { geminiConfigured } from './llm/gemini.js'
 import { weatherKitConfigured } from './weather.js'
@@ -67,6 +69,7 @@ async function main() {
     stt: (await sttAvailable()) ? 'up' : 'DOWN (voice replies will wait)',
     cloud: geminiConfigured() ? 'configured (cloudMemo flag / admin_config/cloudLlm decide who)' : 'off',
     weather: weatherKitConfigured() ? 'WeatherKit' : 'off (no WEATHERKIT_* settings)',
+    storeVersions: playConfigured() ? 'itunes+play' : 'itunes only',
     // scripts/install.sh records it; tells anyone reading the log what is running.
     deployedCommit: deployedCommit(),
   })
@@ -84,6 +87,8 @@ async function main() {
     watchRequests(),
     watchUserSettings(cache),
     startHeartbeat(() => scheduler.waiting),
+    // The store versions behind the family's app-update notice (system/app).
+    startStoreVersions(),
     startRetention(),
     startDigests(),
     startHousekeeping(),

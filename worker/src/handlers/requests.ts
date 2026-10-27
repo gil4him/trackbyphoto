@@ -55,6 +55,7 @@ import {
 } from './pairing.js'
 
 import { registerFcmToken, setChannels } from './push.js'
+import { reportDevice, sendUpdateNudge } from './device.js'
 import { setDigest } from './digest.js'
 import { changePlan } from './plan.js'
 import { searchAddress } from './geo.js'
@@ -96,6 +97,8 @@ export const HANDLERS: Record<string, Handler> = {
   deleteManagedElder,
   deleteMyAccount,
   registerFcmToken,
+  reportDevice,
+  sendUpdateNudge,
   setChannels,
   setDigest,
   changePlan,

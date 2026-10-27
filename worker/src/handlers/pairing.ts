@@ -114,7 +114,7 @@ export function pairLink(code: string): string {
 }
 
 /** Active guardian/admin family member of this elder (never the elder). */
-async function canManageElder(callerUid: string, patientUid: string): Promise<boolean> {
+export async function canManageElder(callerUid: string, patientUid: string): Promise<boolean> {
   if (callerUid === patientUid) return false
   const snap = await getFirestore().collection('memberships').doc(`${patientUid}_${callerUid}`).get()
   const m = snap.data() as { status?: string; role?: string } | undefined
