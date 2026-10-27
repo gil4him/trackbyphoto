@@ -1691,6 +1691,7 @@ html:not(.camera-live) .elder-cam { background: #000; }
 .hq-fr .f2 { background: color-mix(in srgb, var(--good) 40%, var(--surface)); }
 .hq-fr .f3 { background: color-mix(in srgb, var(--good) 65%, var(--surface)); }
 .hq-fr .f4 { background: var(--good); color: var(--surface); }
+.hq-fr .f5 { background: var(--ink); color: var(--surface); }
 .hq-fr .pct { font-size: 13px; font-weight: 800; text-align: right; color: var(--muted); }
 .hq-fr.leak .pct { color: var(--danger); }
 .hq-fr.off .fill { background: var(--surface-dim); color: var(--muted); }
@@ -2019,3 +2020,11 @@ html:not(.camera-live) .elder-cam { background: #000; }
 .hq-store i { font-style: normal; color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
 .hq-src div.none span:first-child, .hq-src div.none b { color: var(--muted); }
 .hq-nowrap { white-space: nowrap; }
+
+/* 매출 · 구독 현황 (D12): the purchases table reads on a phone too; rows are not links. */
+.hq-subs table { min-width: 640px; }
+.hq-subs tbody tr { cursor: default; }
+.hq-subs tbody tr:hover { background: none; }
+.hq-subs td .hq-tag { margin-left: 6px; }
+.hq-subs td .hq-tag:first-child { margin-left: 0; }
+.hq-banner .hq-tag { flex: none; }

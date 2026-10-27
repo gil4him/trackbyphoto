@@ -1,0 +1,80 @@
+[
+ {
+  "view": "growth",
+  "viewport": "1440",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "growth",
+  "viewport": "1280",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "growth",
+  "viewport": "820",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "growth",
+  "viewport": "393",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "growth",
+  "viewport": "360",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "growth",
+  "viewport": "393-L",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "revenue",
+  "viewport": "1440",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "revenue",
+  "viewport": "1280",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "revenue",
+  "viewport": "820",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "revenue",
+  "viewport": "393",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "revenue",
+  "viewport": "360",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "revenue",
+  "viewport": "393-L",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "revenue-down",
+  "viewport": "1440",
+  "shell": [],
+  "inside": []
+ }
+]

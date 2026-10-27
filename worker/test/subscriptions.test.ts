@@ -81,7 +81,7 @@ describe('pollSubscriptions', () => {
     expect(await planChanges()).toEqual([expect.objectContaining({
       patientUid: 'p1',
       actorUid: 'cg1',
-      details: { from: 'plus', to: 'free', provider: 'revenuecat', source: 'subscription' },
+      details: { from: 'plus', to: 'free', provider: 'revenuecat', source: 'subscription', refunded: false },
     })])
   })
 

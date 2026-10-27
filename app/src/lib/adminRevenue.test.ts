@@ -1,6 +1,7 @@
 // 운영실 매출: the plan mix, the calculator's arithmetic, and what it starts from.
-import { describe, it, expect } from 'vitest'
-import { paidTiers, planMix, priceFromLabel, revenue, startingAssumptions, upgrades, won } from './adminRevenue'
+import { describe, it, expect, vi } from 'vitest'
+vi.mock('./worker', () => ({ callWorker: vi.fn() }))
+import { paidTiers, planMix, priceFromLabel, revenue, startingAssumptions, upgrades, won, waterfall, overviewRows, metricText, dayText } from './adminRevenue'
 import type { AdminPerson } from './admin'
 import type { Plans } from '../types'
 
@@ -54,5 +55,29 @@ describe('upgrades', () => {
       { details: { to: 'plus' }, timestampMs: 150 },
     ]
     expect(upgrades(rows, 50)).toBe(3)
+  })
+})
+
+describe('real revenue (D12)', () => {
+  it('runs the real MRR through the same waterfall as the calculator', () => {
+    const w = waterfall(12100, 5000)
+    expect(w.gross).toBe(12100)
+    expect(w.vat).toBe(1100)
+    expect(w.fee).toBeCloseTo(1650)
+    expect(w.net).toBeCloseTo(12100 - 1100 - 1650 - 5000)
+    expect(waterfall(0, null)).toEqual({ gross: 0, vat: 0, fee: 0, cost: null, net: 0 })
+  })
+  it('names RevenueCat\'s figures in the screen\'s order and formats them by unit', () => {
+    const rows = overviewRows([
+      { id: 'weird', name: 'Something', value: 2, unit: 'x', period: null },
+      { id: 'active_subscriptions', name: 'Active Subscriptions', value: 3, unit: '#', period: null },
+      { id: 'mrr', name: 'MRR', value: 12.5, unit: '$', period: 'P0D' },
+    ])
+    expect(rows.map((r) => [r.label, r.text])).toEqual([['MRR', '$12.50'], ['활성 구독', '3'], ['Something', '2 x']])
+    expect(metricText({ id: 'revenue', name: 'Revenue', value: 4400, unit: '₩', period: null })).toBe('₩4,400')
+  })
+  it('writes a day in Seoul, nothing for no date', () => {
+    expect(dayText(Date.parse('2026-11-20T20:00:00Z'))).toBe('11월 21일')
+    expect(dayText(null)).toBe('')
   })
 })

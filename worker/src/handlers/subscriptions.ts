@@ -111,7 +111,7 @@ export async function pollSubscriptions(deps: SubscriptionDeps = defaultSubscrip
           patientUid,
           actorUid: payerUid,
           action: 'plan.change',
-          details: { from: tier, to: 'free', provider: 'revenuecat', source: 'subscription' },
+          details: { from: tier, to: 'free', provider: 'revenuecat', source: 'subscription', refunded: !!ent?.refunded },
           timestamp: FieldValue.serverTimestamp(),
         })
       })

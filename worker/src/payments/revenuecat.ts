@@ -85,9 +85,11 @@ export function entitlementActive(ent: EntitlementState, now: Date = new Date())
 /** Why a lookup came back empty. The three are told apart because buying
  *  and renewing answer differently: a purchase may say "not entitled", a
  *  renewal must never end a plan over a failed call. */
-type LookupProblem = 'missing-key' | 'unknown-subscriber' | 'unreachable'
+export type LookupProblem = 'missing-key' | 'unknown-subscriber' | 'unreachable'
 
-async function fetchSubscriber(payerUid: string, doFetch: typeof fetch): Promise<SubscriberState | LookupProblem> {
+/** RevenueCat's whole answer about one payer, or why there is none. The
+ *  운영실 reads the subscription details out of the same answer. */
+export async function fetchSubscriberJson(payerUid: string, doFetch: typeof fetch = fetch): Promise<{ json: unknown } | LookupProblem> {
   const key = process.env.REVENUECAT_SECRET_KEY
   if (!key) return 'missing-key'
   try {
@@ -100,11 +102,16 @@ async function fetchSubscriber(payerUid: string, doFetch: typeof fetch): Promise
       logger.warn('[payments] revenuecat refused a lookup', { payerUid, status: res.status })
       return 'unreachable'
     }
-    return toSubscriberState(await res.json())
+    return { json: await res.json() }
   } catch (err) {
     logger.warn('[payments] revenuecat could not be reached', { payerUid, err: String(err) })
     return 'unreachable'
   }
+}
+
+async function fetchSubscriber(payerUid: string, doFetch: typeof fetch): Promise<SubscriberState | LookupProblem> {
+  const found = await fetchSubscriberJson(payerUid, doFetch)
+  return typeof found === 'string' ? found : toSubscriberState(found.json)
 }
 
 /**

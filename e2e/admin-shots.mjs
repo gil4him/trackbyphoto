@@ -53,7 +53,7 @@ const VIEWS = [
   { id: 'families-parent', search: '?tab=families&kind=parent', ready: '엄마', settled: '.hq-families .hq-tbl' },
   { id: 'families-unpaired', search: '?tab=families&kind=parent&f=unpaired', ready: '엄마', settled: '.hq-families .hq-tbl' },
   { id: 'families-child', search: '?tab=families&kind=child', ready: KID.email },
-  { id: 'revenue', search: '?tab=revenue', ready: '가정으로 계산해 보기', settled: '.hq-revenue:not(:has(.hq-skel))' },
+  { id: 'revenue', search: '?tab=revenue', ready: '가정으로 계산해 보기', settled: '.hq-revenue:not(:has(.hq-skel)):not(:has(.hq-err))' },
   // A new price, saved, and still there after a reload (one viewport).
   { id: 'revenue-saved', search: '?tab=revenue', ready: '가정으로 계산해 보기', settled: '.hq-revenue:not(:has(.hq-skel))', only: '1440',
     act: async (p) => {
@@ -99,6 +99,7 @@ const VIEWS = [
   { id: 'today-down', search: '', ready: '북극성 지표', settled: '.hq-today .hq-err', down: true, only: ['1440', '393'] },
   { id: 'inbox-down', search: '?tab=inbox', ready: '할 일은 이렇게 골라요', settled: '.hq-inbox-view .hq-err', down: true, only: '1440' },
   { id: 'growth-down', search: '?tab=growth', ready: '한 가족이 들어와', settled: '.hq-growth .hq-err', down: true, only: '1440' },
+  { id: 'revenue-down', search: '?tab=revenue', ready: '가정으로 계산해 보기', settled: '.hq-revenue .hq-err', down: true, only: '1440' },
   { id: 'system-down', search: '?tab=system', ready: '시스템', settled: '.hq-system .hq-err', down: true, only: '1440' },
 ]
 
@@ -106,7 +107,8 @@ await mkdir(OUT, { recursive: true })
 initializeApp({ projectId: PROJECT, storageBucket: `${PROJECT}.appspot.com` })
 // The plans table as the owner set it (CLAUDE.md, 2026-10-22): Free, Plus, Family.
 await getFirestore().doc('admin_config/plans').set({
-  flags: { reactions: true, familyPhotos: true },
+  // payments on (D12): 매출 shows the store purchases on file.
+  flags: { reactions: true, familyPhotos: true, payments: true },
   free: { familyMembers: 3 }, plus: { familyMembers: 6, priceLabel: '₩4,400/월' }, family: { familyMembers: 10, priceLabel: '₩7,700/월' },
 })
 
@@ -132,9 +134,17 @@ const admin = await familyAccount(ADMIN)
   await parent('granQuiet0000000000000000000', '할머니', 'guardian', 12)
   for (let d = 4; d <= 10; d++) await db.collection('memos').add({ patientUid: 'granQuiet0000000000000000000', takenAt: Timestamp.fromMillis(Date.now() - d * day), createdAt: Timestamp.fromMillis(Date.now() - d * day), status: 'ready', memo: '산책', place: '공원' })
   await parent('grandpaViewer000000000000000', '할아버지', 'viewer')
-  // 할머니 is on Plus since this week (매출: plan mix and an upgrade).
-  await db.doc('users/granQuiet0000000000000000000').set({ plan: { tier: 'plus', status: 'active', since: Timestamp.now() } }, { merge: true })
-  await db.collection('auditLogs').add({ patientUid: 'granQuiet0000000000000000000', actorUid: kid.localId, action: 'plan.change', details: { from: 'free', to: 'plus', provider: 'admin', source: 'admin' }, timestamp: Timestamp.now() })
+  // 할머니 is on Plus since this week, bought in the store by the demo family
+  // member (매출: plan mix, an upgrade, a store purchase on file). 할아버지 is
+  // on Family through another payer whose card the store is retrying. With no
+  // RevenueCat key in the e2e worker both rows read 확인 전.
+  await db.doc('users/granQuiet0000000000000000000').set({ plan: { tier: 'plus', status: 'active', since: Timestamp.now(), changedBy: kid.localId, payment: { provider: 'revenuecat', reference: 'daylie_plus_monthly', payerUid: kid.localId, expiresAt: Timestamp.fromMillis(Date.now() + 27 * day) } } }, { merge: true })
+  await db.doc(`planPayments/${kid.localId}`).set({ patientUid: 'granQuiet0000000000000000000', tier: 'plus', productId: 'daylie_plus_monthly', expiresAt: Timestamp.fromMillis(Date.now() + 27 * day), updatedAt: Timestamp.now() })
+  await db.collection('auditLogs').add({ patientUid: 'granQuiet0000000000000000000', actorUid: kid.localId, action: 'plan.change', details: { from: 'free', to: 'plus', provider: 'revenuecat', source: 'sheet' }, timestamp: Timestamp.now() })
+  await db.doc('users/grandpaViewer000000000000000').set({ plan: { tier: 'family', status: 'grace', since: Timestamp.fromMillis(Date.now() - 40 * day), payment: { provider: 'revenuecat', reference: 'daylie_family_monthly:monthly', payerUid: 'arrivedIos000000000000000000', expiresAt: Timestamp.fromMillis(Date.now() + 3 * day) } } }, { merge: true })
+  await db.doc('planPayments/arrivedIos000000000000000000').set({ patientUid: 'grandpaViewer000000000000000', tier: 'family', productId: 'daylie_family_monthly:monthly', expiresAt: Timestamp.fromMillis(Date.now() + 3 * day), updatedAt: Timestamp.fromMillis(Date.now() - 40 * day) })
+  // One subscription the poll already ended this month (a refund).
+  await db.collection('auditLogs').add({ patientUid: momUid, actorUid: 'gonePayer0000000000000000000', action: 'plan.change', details: { from: 'plus', to: 'free', provider: 'revenuecat', source: 'subscription', refunded: true }, timestamp: Timestamp.fromMillis(Date.now() - 2 * day) })
   await getAuth().createUser({ uid: 'blockedKid00000000000000000', email: 'blocked@example.com', displayName: '민수', disabled: true })
   // 어디서 들어왔나 (D11): the demo family came in on Android; three more recent
   // family accounts from the App Store, the tester link and a web search. 민수

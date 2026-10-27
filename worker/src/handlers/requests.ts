@@ -39,6 +39,7 @@ import {
 import { adminMetrics } from './adminMetrics.js'
 import { adminInbox } from './adminInbox.js'
 import { adminGrowth } from './adminGrowth.js'
+import { adminRevenue } from './adminRevenue.js'
 import { adminSetFlag } from './adminFlags.js'
 import { adminSendCheckIn } from './adminCheckIn.js'
 import { deleteMyAccount } from './account.js'
@@ -81,6 +82,7 @@ export const HANDLERS: Record<string, Handler> = {
   adminMetrics,
   adminInbox,
   adminGrowth,
+  adminRevenue,
   adminSetFlag,
   adminSendCheckIn,
   createManagedElder,
