@@ -80,7 +80,9 @@ export async function adminRevenue(caller: Caller, data: { refresh?: unknown } =
   const [plans, paymentsSnap, endedSnap] = await Promise.all([
     getPlans(),
     db.collection('planPayments').get(),
-    db.collection('auditLogs').where('action', '==', 'plan.change').where('timestamp', '>=', Timestamp.fromMillis(now - 30 * D)).get(),
+    // Equality only (a range on timestamp too would need a composite index);
+    // the 30-day window is cut in code, like the app's own plan-log read.
+    db.collection('auditLogs').where('action', '==', 'plan.change').limit(1000).get(),
   ])
   const prices: Record<string, number | null> = {}
   for (const t of ['basic', 'plus', 'family']) prices[t] = priceFromLabel(plans?.[t as 'plus']?.priceLabel)
@@ -125,7 +127,7 @@ export async function adminRevenue(caller: Caller, data: { refresh?: unknown } =
   const endedLog = endedSnap.docs.flatMap((d) => {
     const det = (d.get('details') ?? {}) as Record<string, unknown>
     const at = ms(d.get('timestamp'))
-    return det.source === 'subscription' && det.to === 'free' && at !== null ? [{ atMs: at, refunded: det.refunded === true }] : []
+    return det.source === 'subscription' && det.to === 'free' && at !== null && at >= now - 30 * D ? [{ atMs: at, refunded: det.refunded === true }] : []
   })
 
   const overview: AdminRevenue['overview'] = { state: 'ok', missing: [], error: null, metrics: [] }
