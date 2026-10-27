@@ -7,9 +7,10 @@
  * the worker also pushes it to each recipient who has tokens and hasn't
  * switched 앱 알림 off (users/{uid}.channels.push).
  *
- * The parent's phone never registers a token and is never pushed to: an
- * elder session can't create requests at all (firestore.rules), and pushes
- * only ever go to the family members a notice is addressed to.
+ * A parent's paired phone registers its token against its device record
+ * (the only request an elder session may make besides reportDevice,
+ * firestore.rules). It is pushed only a photo from family, a family heart or
+ * word, and the family's app-update notice (handlers/device.ts).
  *
  * A push carries the same one line as the in-app notice and a link into the
  * app, never the photo. Tokens FCM reports as gone are pruned. Everything
@@ -144,9 +145,9 @@ export async function elderBadge(patientUid: string): Promise<number> {
 
 /**
  * One message to a parent's paired phones (the tokens registerFcmToken keeps
- * per device), carrying the icon number. Only a photo from family and a
- * family heart or word ever call this. Returns how many phones it reached.
- * Never throws.
+ * per device), carrying the icon number. Only a photo from family, a
+ * family heart or word, and the family's app-update notice ever call this.
+ * Returns how many phones it reached. Never throws.
  */
 export async function pushToElder(patientUid: string, message: PushMessage, deps: PushDeps = defaultPushDeps): Promise<number> {
   try {
@@ -177,7 +178,7 @@ export async function pushToElder(patientUid: string, message: PushMessage, deps
 
 /** The caller is a parent's paired phone: signed in as the parent, and the
  *  device it names is one of the parent's active phones. */
-async function requireElderDevice(caller: Caller, deviceId: unknown): Promise<string> {
+export async function requireElderDevice(caller: Caller, deviceId: unknown): Promise<string> {
   if (!caller.uid) throw new HttpsError('unauthenticated', 'sign in required')
   if (typeof deviceId !== 'string' || !deviceId) throw new HttpsError('permission-denied', 'a signed-in family account is required')
   const device = await getFirestore().doc(`users/${caller.uid}/devices/${deviceId}`).get()
@@ -185,7 +186,7 @@ async function requireElderDevice(caller: Caller, deviceId: unknown): Promise<st
   return caller.uid
 }
 
-function requireFamilyAccount(caller: Caller): string {
+export function requireFamilyAccount(caller: Caller): string {
   // Anonymous pairing sessions have no e-mail; a parent's linked phone can't
   // make requests at all.
   if (!caller.uid || !caller.email) throw new HttpsError('permission-denied', 'a signed-in family account is required')

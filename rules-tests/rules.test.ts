@@ -383,6 +383,10 @@ describe('requests', () => {
     }
   })
 
+  it('can ask the worker to send a parent\'s phone the app-update notice', async () => {
+    await assertSucceeds(setDoc(doc(alice(), 'requests', 'r1'), req({ type: 'sendUpdateNudge', payload: { patientUid: PATIENT } })))
+  })
+
   it('cannot submit a pre-completed request or an unknown type', async () => {
     await assertFails(setDoc(doc(alice(), 'requests', 'r1'), req({ status: 'done', result: {} })))
     await assertFails(setDoc(doc(alice(), 'requests', 'r1'), req({ type: 'deleteEverything' })))
@@ -863,7 +867,7 @@ describe('managed elder sessions', () => {
     }))
   })
 
-  it('elder phone makes one worker request, its push token, and no other', async () => {
+  it('elder phone makes two worker requests, its push token and its app version, and no other', async () => {
     const elderReq = (type: string, payload: Record<string, unknown> = {}) => ({
       type, uid: ELDER, email: null, emailVerified: false, name: null, payload, status: 'pending', createdAt: serverTimestamp(),
     })
@@ -871,6 +875,10 @@ describe('managed elder sessions', () => {
     await assertFails(setDoc(doc(elderDb(), 'requests', 'r2'), elderReq('createInvite')))
     await assertFails(setDoc(doc(elderDb(), 'requests', 'r3'), elderReq('setChannels')))
     await assertFails(setDoc(doc(elderDb('dev2'), 'requests', 'r4'), elderReq('registerFcmToken', { token: 't'.repeat(40), deviceId: 'dev2' })))
+    const version = { version: '1.0.3', build: '30', platform: 'ios' }
+    await assertSucceeds(setDoc(doc(elderDb(), 'requests', 'r5'), elderReq('reportDevice', { deviceId: 'dev1', ...version })))
+    await assertFails(setDoc(doc(elderDb('dev2'), 'requests', 'r6'), elderReq('reportDevice', { deviceId: 'dev2', ...version })))
+    await assertFails(setDoc(doc(elderDb(), 'requests', 'r7'), elderReq('sendUpdateNudge', { patientUid: ELDER })))
   })
 
   it('anonymous session may only redeem a pairing code', async () => {
