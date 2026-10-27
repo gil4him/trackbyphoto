@@ -12,6 +12,7 @@ export interface GuardFacts {
 export type GuardVerdict = { ok: true } | { ok: false; reason: 'hook' | 'number' | 'place' | 'relation' | 'similar'; detail: string }
 
 /** Who the people are is never in the facts unless the family wrote it; the writer may not guess. */
+const RELATIONS_EN = ['family', 'daughter', 'son', 'grandson', 'granddaughter', 'grandchild', 'grandchildren', 'grandkid', 'grandkids', 'daughter-in-law', 'son-in-law', 'wife', 'husband', 'couple', 'friend', 'friends', 'colleague', 'colleagues', 'mom', 'mum', 'mother', 'dad', 'father', 'parents', 'neighbor', 'neighbour', 'sister', 'brother', 'aunt', 'uncle', 'cousin']
 const RELATIONS = ['가족', '식구', '딸', '아들', '손주', '손자', '손녀', '며느리', '사위', '아내', '남편', '부부', '친구', '동료', '엄마', '아빠', '어머니', '아버지', '저희', '우리', '남자분', '여자분', '남성', '여성', '어르신']
 
 /** Word endings that mark a place in Korean. */
@@ -24,6 +25,8 @@ const SHORT_SUFFIX = /[시구동역산강항절궁섬]$/
 const PARTICLES = /(에서는|에서도|에서|에는|에도|에|으로|로|의|은|는|이|가|을|를|과|와|도|만)$/
 const DIGITS = /\d+/g
 export const SIMILARITY_MAX = 0.6
+/** Words that say nothing about what a title is about. */
+const STOPWORDS_EN = new Set(['a', 'an', 'the', 'at', 'in', 'on', 'of', 'with', 'and', 'to', 'for', 'by', 'from', 'out', 'up', 'into', 'their', 'they', 'it', 'its', 'some', 'one'])
 
 const normalize = (s: string) => s.replace(/[\s,.··"“”'‘’()\[\]!?~]/g, '')
 
@@ -51,6 +54,29 @@ export function bigramSimilarity(a: string, b: string): number {
   return (2 * shared) / total
 }
 
+/** Dice similarity over the words of two English titles, 0..1. Character
+ *  bigrams make any two English sentences look alike ("the", "ing"), so
+ *  English titles are compared word by word, stopwords left out. */
+export function wordSimilarity(a: string, b: string): number {
+  const words = (s: string) => {
+    const out = new Map<string, number>()
+    for (const w of s.toLowerCase().split(/[^a-z0-9']+/i)) {
+      if (!w || STOPWORDS_EN.has(w)) continue
+      out.set(w, (out.get(w) ?? 0) + 1)
+    }
+    return out
+  }
+  const A = words(a)
+  const B = words(b)
+  let total = 0
+  let shared = 0
+  for (const v of A.values()) total += v
+  for (const v of B.values()) total += v
+  if (total === 0) return 0
+  for (const [w, v] of A) shared += Math.min(v, B.get(w) ?? 0)
+  return (2 * shared) / total
+}
+
 /** Tokens of a title that look like place names, particles stripped. */
 export function placeTokens(memo: string): string[] {
   const out: string[] = []
@@ -69,10 +95,31 @@ export function placeTokens(memo: string): string[] {
 /**
  * Checks one written memo. `hookId` is what the writer claimed to use;
  * `hookIds` what it was offered; `facts.texts` what it may quote.
+ *
+ * `lang: 'en'` checks an English title with English rules: the Korean
+ * relation words and place endings cannot match English, and character
+ * bigrams make two unrelated English titles look alike, so the relations are
+ * the English ones and "too similar" is measured word by word. The numbers
+ * rule is the same in both languages.
  */
-export function checkMemo(memo: string, hookId: string | null, facts: GuardFacts, hookIds: string[], recentTitles: string[], scene = ''): GuardVerdict {
+export function checkMemo(memo: string, hookId: string | null, facts: GuardFacts, hookIds: string[], recentTitles: string[], scene = '', lang: 'ko' | 'en' = 'ko'): GuardVerdict {
   if (hookId && !hookIds.includes(hookId)) return { ok: false, reason: 'hook', detail: hookId }
   const allowed = normalize(facts.texts.join(' '))
+  if (lang === 'en') {
+    const text = `${memo} ${scene}`.toLowerCase()
+    const allowedEn = facts.texts.join(' ').toLowerCase()
+    for (const word of RELATIONS_EN) {
+      if (new RegExp(`\\b${word}\\b`).test(text) && !allowedEn.includes(word)) return { ok: false, reason: 'relation', detail: word }
+    }
+    for (const n of memo.match(DIGITS) ?? []) {
+      if (!allowed.includes(n)) return { ok: false, reason: 'number', detail: n }
+    }
+    for (const t of recentTitles) {
+      const sim = wordSimilarity(memo, t)
+      if (sim > SIMILARITY_MAX) return { ok: false, reason: 'similar', detail: `${t} (${sim.toFixed(2)})` }
+    }
+    return { ok: true }
+  }
   for (const word of RELATIONS) {
     if ((memo.includes(word) || scene.includes(word)) && !allowed.includes(word)) return { ok: false, reason: 'relation', detail: word }
   }

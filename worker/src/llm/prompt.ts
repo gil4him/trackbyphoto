@@ -46,7 +46,17 @@ export interface PromptHints {
   todayHint?: string[]
   /** The weather there that hour, from WeatherKit (weather.ts); never guessed. */
   weather?: import('../weather.js').Weather
+  /** The parent's language (users/{patientUid}.geoLang, travel.ts
+   *  resolveGeoLang). 'en' writes the whole prompt — rules, examples and
+   *  context lines — in English (buildPromptEn); anything else keeps the
+   *  Korean prompt exactly as it was. `activity` stays a Korean category
+   *  word in both. */
+  lang?: PromptLang
 }
+
+/** The language of a memo's text. Place names already use the same two
+ *  values (geocode.ts GeoLang). */
+export type PromptLang = 'ko' | 'en'
 
 /** 'cloud' is the prompt for Gemini, which reads Japanese and knows places;
  *  the local model keeps the stricter one. */
@@ -116,16 +126,22 @@ const DIARY_EXAMPLES = [
 
 /** The diary's opening, built in code so it is always there and right:
  *  "10월 18일 오후, 잠실동에서." from the date hint and the area's first part. */
-export function diaryOpener(dateHint?: string, placeHint?: string): string {
+export function diaryOpener(dateHint?: string, placeHint?: string, lang: PromptLang = 'ko'): string {
   const area = (placeHint || '').split(',')[0].trim()
+  if (lang === 'en') {
+    // "October 18, afternoon, in Jamsil." (dateHint from travel.ts dateHintAt).
+    if (dateHint && area) return `${dateHint}, in ${area}.`
+    if (dateHint) return `${dateHint}.`
+    return area ? `In ${area}.` : ''
+  }
   if (dateHint && area) return `${dateHint}, ${area}에서.`
   if (dateHint) return `${dateHint}.`
   return area ? `${area}에서.` : ''
 }
 
 /** A diary scene as stored: the opener, then what the model wrote. */
-export function diaryScene(scene: string, hints: Pick<PromptHints, 'dateHint' | 'placeHint'>): string {
-  const opener = diaryOpener(hints.dateHint, hints.placeHint)
+export function diaryScene(scene: string, hints: Pick<PromptHints, 'dateHint' | 'placeHint' | 'lang'>): string {
+  const opener = diaryOpener(hints.dateHint, hints.placeHint, hints.lang)
   return [opener, scene].filter(Boolean).join(' ')
 }
 
@@ -137,9 +153,17 @@ export function diaryScene(scene: string, hints: Pick<PromptHints, 'dateHint' | 
  * "김밥을 드시고 계세요"). The local model reads no Japanese, so a name in
  * kana or kanji is left out for it.
  */
-export function nearestPlaceLines(placeFull: string | undefined, variant: PromptVariant = 'local'): string[] {
+export function nearestPlaceLines(placeFull: string | undefined, variant: PromptVariant = 'local', lang: PromptLang = 'ko'): string[] {
   if (!placeFull || !placeFull.includes(' · ')) return []
   if (variant === 'local' && FOREIGN_SCRIPT.test(placeFull)) return []
+  if (lang === 'en') {
+    return [
+      `- Nearest place on the map: ${placeFull}`,
+      '  → This is the nearest shop or building GPS could find. It can be tens of meters off.',
+      '  → When the photo (a shopfront, a sign, the inside of a shop, food) and the time fit this place, they went there. Put its name in the title (in front of a restaurant at lunchtime → "Lunch at ○○").',
+      '  → Never invent this place\'s menu, goods or food when they are not in the photo. When a sign in the photo says somewhere else, follow the photo.',
+    ]
+  }
   return [
     `- 지도에서 가장 가까운 곳: ${placeFull}`,
     '  → GPS로 찾은 가장 가까운 가게·건물이에요. 수십 m 오차가 있을 수 있어요.',
@@ -149,6 +173,9 @@ export function nearestPlaceLines(placeFull: string | undefined, variant: Prompt
 }
 
 export function buildPrompt(hints: PromptHints = {}, variant: PromptVariant = 'local'): string {
+  // English families get the same memory diary in English; everyone else the
+  // Korean prompt below, unchanged.
+  if (hints.lang === 'en') return buildPromptEn(hints, variant)
   const { placeHint, homeHint, textHint, nearHint, placeFull, coords, diary } = hints
   const cloud = variant === 'cloud'
   const context = [
@@ -254,6 +281,182 @@ export function buildPrompt(hints: PromptHints = {}, variant: PromptVariant = 'l
   ].join('\n')
 }
 
+// ────────────────────────────────────────────────────────────────────────────
+// The English prompt (lang: 'en'), for a family whose language is English
+// (users/{patientUid}.geoLang === 'en', travel.ts resolveGeoLang).
+//
+// Same memory diary as the Korean prompt, rule for rule, in English: only
+// memo (the title) and scene (the one-line diary) are English. `activity`
+// stays one of the Korean words in VALID_CATEGORIES, because the app maps
+// those keys to its own styles and English labels — so the model is told to
+// copy the Korean word exactly and never translate it.
+//
+// The tone is the CEO's (CLAUDE.md, 2026-10-27); changing it needs the CEO's
+// approval, exactly like the Korean prompt.
+// ────────────────────────────────────────────────────────────────────────────
+
+export const JAPANESE_RULE_LOCAL_EN = '- Quote only letters you can read clearly in the Latin alphabet, in Korean, or numbers. Never transcribe or translate Japanese or Chinese characters; say only that they are there ("a sign in Japanese is on the wall").'
+const JAPANESE_RULE_CLOUD_EN = '- You may read Japanese and Chinese signs and notices and give their meaning in English. Write stations, shops and place names in the Latin alphabet ("新宿駅" → "Shinjuku Station").'
+/** Cloud only: one spelling for a shop name, so the same place does not read
+ *  "한양식당" in one memo and "Hanyang Restaurant" in the next. */
+const SHOP_NAME_RULE_CLOUD_EN = '- Write shop and restaurant names in the Latin alphabet so the family can read them ("한양식당" → "Hanyang Restaurant", "코스트코" → "Costco"). Keep the name on the sign when it is already in the Latin alphabet.'
+export const AD_BOARD_RULE_EN = '- An advertising board or poster for a product, a book or a service is not the same as a banner or a notice. Do not pass on what it says; write only "an advertising board is up".'
+
+/** The 13 categories: the Korean key the app stores, with an English gloss. */
+export const CATEGORY_LINES_EN = [
+  '- 식사 (a meal): food, a restaurant, a dining table',
+  '- 카페 (a cafe): coffee, tea, dessert, sitting at a cafe or food-court table',
+  '- 산책 (a walk): walking the neighborhood or a park',
+  '- 여행 (a trip): a tourist spot, a hotel or an unfamiliar city far from home',
+  '- 출장 (a business trip): working in a meeting room, an exhibition hall or an office far from home',
+  '- 이동 (getting there): an airport, a station, a terminal, inside a car, a train or a plane, a suitcase',
+  '- 쇼핑 (shopping): a shop with goods on display, a market, a supermarket, a convenience store',
+  '- 휴식 (resting): resting at home or indoors',
+  '- 모임 (a gathering): several people together',
+  '- 운동 (exercise): exercise, hiking, a sports facility',
+  '- 자연 (nature): flowers, trees, the sky, the sea, a landscape',
+  '- 병원 (a clinic): a hospital, a pharmacy',
+  '- 기타 (other): only when none of the above fits',
+]
+
+const DIARY_SCENE_LINES_EN = [
+  'scene (a short diary of that moment, 3 or 4 sentences):',
+  '- The app puts the date and the area in front. Do not write the date or the area in the scene; start with what is in the photo.',
+  '- Do not open with "This is a photo taken at …". Open with what can be seen (the words on a banner or a sign first, when there are any).',
+  '- The middle sentences are what is in the photo: what is there, where, how it looks.',
+  '- The last sentence may be one warm line that follows from what is visible ("a hearty, warm meal").',
+  '- Keep every sentence short. Do not run clauses together with commas or repeat the same adjective.',
+  '- Never write "I", "we" or "you". Do not write as the person who took the photo; set the moment down plainly.',
+  '- Never write a smell, a taste, a sound or a feeling, which a photo cannot show ("it smells wonderful", "they enjoyed it", "they had a lovely time" are forbidden).',
+  '- When the photo is blurred or impossible to make out, write one sentence only.',
+]
+
+const DIARY_EXAMPLES_EN = [
+  '- a stone pot of rice and side dishes on the table → {"activity":"식사","memo":"Gondre rice bowl for lunch","scene":"A steaming stone pot of rice sits on the table. The side dishes are neatly laid out. A hearty, warm meal."}',
+  '- a park path lined with trees → {"activity":"산책","memo":"A walk down the park path","scene":"Trees line the path on both sides. Sunlight comes through the leaves. A good path to walk slowly."}',
+  '- a convenience store inside an airport (560 miles from home, area: Tokoname, Japan) → {"activity":"이동","memo":"Stopped at the Nagoya airport store","scene":"A stop at the convenience store inside the airport. The shelves are full of snacks. The long way to Nagoya has begun."}',
+  '- the photo is too blurred to tell → {"activity":"기타","memo":"A blurred photo","scene":"The photo is too blurred to make out."}',
+]
+
+/** Miles for an English family (CLAUDE.md: distances in English are miles),
+ *  kept as coarse as the km hint it comes from. */
+function milesFrom(km: number): number {
+  const mi = km * 0.621371
+  return mi < 10 ? Math.max(1, Math.round(mi)) : Math.round(mi / 10) * 10
+}
+
+/** The home-distance block of the English context. */
+function homeLinesEn(homeHint: NonNullable<PromptHints['homeHint']>): string[] {
+  const miles = milesFrom(homeHint.km)
+  if (!homeHint.away) {
+    return [`- Distance from home: ${homeHint.km < 2 ? 'at home, or close to home.' : `about ${miles} miles from home.`} Do not choose "여행" or "출장".`]
+  }
+  return [
+    homeHint.homeArea
+      ? `- Distance from home: about ${miles} miles from home (${homeHint.homeArea}). They are most likely on a trip or a business trip.`
+      : `- Distance from home: about ${miles} miles from home. They are most likely on a trip or a business trip.`,
+    ...(homeHint.homeArea ? [`  → Home is ${homeHint.homeArea}; this is somewhere else. Working → "출장", looking around → "여행".`] : []),
+    '  → An airport, a station or inside a car → "이동"; a meeting room or an exhibition hall, anything that looks like work → "출장"; a clear meal, cafe or shopping → that category; anything else → "여행".',
+    '  → A suit, a tie or a jacket, or a badge or a lanyard, most likely means "출장".',
+    '  → With nobody in the picture, a desk with a laptop or papers, or a room that looks like an office, is "출장".',
+    '  → Put the place name (the city) into the memo or the scene once, naturally.',
+  ]
+}
+
+/** The English prompt. buildPrompt dispatches here when hints.lang is 'en'. */
+export function buildPromptEn(hints: PromptHints = {}, variant: PromptVariant = 'local'): string {
+  const { placeHint, homeHint, textHint, nearHint, placeFull, coords, diary } = hints
+  const cloud = variant === 'cloud'
+  const context = [
+    ...momentLines(hints),
+    `- Area: ${placeHint ? (nearHint ? `near ${placeHint} (this photo has no location of its own; this is where another photo taken within minutes was taken)` : placeHint) : 'unknown'}`,
+    '  → This is only the name of an area. Never invent a shop, a dish or an object out of it that is not in the photo.',
+  ]
+  if (homeHint) context.push(...homeLinesEn(homeHint))
+  if (!nearHint) context.push(...nearestPlaceLines(placeFull, variant, 'en'))
+  if (cloud && coords) {
+    context.push(
+      `- Coordinates: ${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}`,
+      '  → When you know a well-known station, street or landmark near these coordinates and it fits the photo, name it.',
+    )
+  }
+  if (textHint?.length) {
+    context.push(
+      `- Text the phone read in the photo: ${textHint.map((t) => `"${t}"`).join(', ')}`,
+      '  → It may come from a banner, a sign or a notice. Use only what is really visible in the photo, ignore letters that make no sense, and never read them as a person\'s name.',
+    )
+  }
+
+  return [
+    'You are an assistant who looks at one photo a parent took on their phone and tells their family what the parent was doing at that moment.',
+    'The parent took the photo themselves. This is not a description of a scene: weave the photo, the time, the place and the parent\'s earlier photos today together into the most plausible account of what they were doing.',
+    'Write four things: guess, activity (the category), memo (the title) and scene (the one-line diary).',
+    '',
+    'guess (write this first, one line):',
+    '- What is visible + the time + the place (near home, or far away) + the earlier photos today → what they were doing then.',
+    '- e.g. "park path and trees + Monday 7 a.m. + near home → out for a morning walk"',
+    '- e.g. "kalguksu on the table + lunchtime + a street of restaurants → having lunch"',
+    '- e.g. "boarding gate and a plane + morning + 560 miles from home, at the airport earlier → waiting to board"',
+    '',
+    'Common rules:',
+    '- Never invent an object, a dish, a shop or a person that is not in the photo. You may still work out what the parent was doing from the clues above.',
+    '- When the clues are thin, write what is certain: "Photographed the flowers by the road", "Looked out of the window". Taking the photo is always true.',
+    '- The time of day (morning, lunchtime, evening, night, sunrise, sunset) is a fact from the context below. Never change it because of the light or the colors in the photo.',
+    '- Plain, warm English, about the parent, for their family. Leave the subject out where that reads naturally ("Walked the neighborhood park early"); where a sentence needs one, write "they". Never write "I", "we" or "you".',
+    '- Never guess a name, a relationship (family, daughter, friend) or anything about health, medicines or a diagnosis. With several people together, write "with the group".',
+    '- Never add a mood or a flourish of your own ("beautiful", "peaceful", "relaxing").',
+    '- Use the name of a shop or a building only when it can be read in the photo or is in the context below.',
+    ...(cloud ? ['- You may use the name of an area, a station or a street that you know from the coordinates.'] : []),
+    '',
+    'Text in the background:',
+    '- When a banner, a sign, a display board or a notice is visible, read the words and use them (an event name, a station name, a shop name).',
+    '- When a banner or a sign fills the picture, they were there: put it in the title together with what they did ("Went to the Jinhae cherry blossom festival!").',
+    '- Put a sentence in another language into English ("가장 큰 축제" → "the biggest festival"). Place, station, shop and event names may stay as they are written ("Higashi Betsuin Station").',
+    cloud ? JAPANESE_RULE_CLOUD_EN : JAPANESE_RULE_LOCAL_EN,
+    ...(cloud ? [SHOP_NAME_RULE_CLOUD_EN] : []),
+    AD_BOARD_RULE_EN,
+    '',
+    'memo (the title, one line, 4 to 8 words) — what they did + where:',
+    '- Write what the parent did then and where. No subject and no full stop at the end ("Walked the neighborhood park early", "Lunch with kalguksu at a restaurant", "Waiting to board at the airport").',
+    '- When a landmark or a tourist spot is in the picture, or a background framed on purpose (a famous building, view or sculpture), put its name first and end the title warmly with "!": "Visited Bulguksa Temple!", "Went to see the sea at Haeundae!". No "!" otherwise.',
+    '- When a dish or a shop name can be read on a menu, a bowl or a sign, put it in ("Gondre rice bowl at Hanyang Restaurant").',
+    '- Good: "Walked the neighborhood park early", "Lunch with kalguksu at a restaurant", "Waiting to board at the airport"',
+    '- Bad: "A park path lined with trees" (nothing they did), "A beautiful sunset" (a description of the picture), "A moment of today", "Spent some time" (says nothing about what they did).',
+    '',
+    ...(diary ? DIARY_SCENE_LINES_EN : [
+      'scene (a one-line diary that brings the day back, 1 sentence · 2 at most · under 90 characters):',
+      '- Weave 1 or 2 memory anchors together with what they did, in one natural sentence. Memory anchors: the weather and the temperature (the real values in the context below), the weekday, a holiday or a special day, the part of the day, a trip far from home, the flow from the earlier photos today.',
+      '- e.g. "A clear, warm Sunday, stepping out after lunch for a photo with the group." / "A rainy, chilly Monday morning, heading out to work under an umbrella." / "A clear, cool Monday morning, starting the day with a lap around the park."',
+      '- Do not say the title over again; add the context of that day that the title does not have.',
+      '- Describe the picture only for a landmark or a background framed on purpose, and then briefly ("in front of Dabotap"). Sentences that list objects or the background are forbidden: "A glass of water is on the table", "Trees line the path", "Shops can be seen behind them", "A white car is parked outside". Never end a sentence with "… is on the table" or "… can be seen", and never write "There is …" or "There are …".',
+      '- Write the weather only from the real values in the context. With no value, leave the weather out, and never read the weather off the light or the sky in the photo.',
+      '- Never invent a feeling ("delicious", "lovely", "happy", "pretty"), and never put a feeling adverb on what they did ("comfortably", "leisurely", "happily", "peacefully").',
+    ]),
+    '',
+    'activity (exactly one, for what they were doing):',
+    '- The value must be one of these 13 Korean words, copied exactly as written and never translated. Everything else you write (guess, memo, scene) is in English.',
+    ...CATEGORY_LINES_EN,
+    '',
+    'Examples:',
+    ...(diary ? DIARY_EXAMPLES_EN : [
+      '- stew and side dishes on the table, Tuesday 12:20, rain 48°F, at home → {"guess":"stew and side dishes + lunchtime + at home → lunch at home","activity":"식사","memo":"Doenjang stew for lunch at home","scene":"A rainy, chilly Tuesday, a hot lunch at home."}',
+      '- a park path lined with trees, Monday 07:10, clear 63°F, 1 mile from home → {"guess":"park path + early morning + near home → a morning walk","activity":"산책","memo":"Walked the neighborhood park early","scene":"A clear, cool Monday morning, starting the day with a lap around the park."}',
+      '- inside a restaurant, a stone pot of rice and a "gondre" menu, Sunday 13:10, clear 75°F, nearest place: Hanyang Restaurant → {"guess":"stone pot rice + the menu + Sunday lunchtime + Hanyang Restaurant → lunch with the group","activity":"식사","memo":"Gondre rice bowl at Hanyang Restaurant","scene":"A clear, warm Sunday, lunch with the group."}',
+      '- several people in front of a restaurant, Sunday 13:40, clear 75°F, earlier photo: 13:00 lunch at Hanyang Restaurant → {"guess":"outside the restaurant + just after lunch + lunch earlier → a photo together after the meal","activity":"모임","memo":"A photo after lunch at Hanyang","scene":"A clear, warm Sunday, stepping out after lunch for a photo with the group."}',
+      '- a selfie in front of Dabotap, Saturday 10:20, clear 61°F, 190 miles from home (area: Gyeongju) → {"guess":"Dabotap + Gyeongju + far from home → a trip to Bulguksa","activity":"여행","memo":"Visited Bulguksa Temple!","scene":"A cool autumn Saturday morning, a photo in front of Dabotap in Gyeongju."}',
+      '- a convenience store inside an airport, Friday 10:40, weather unknown, 560 miles from home (area: Tokoname, Japan) → {"guess":"airport store + morning + Nagoya, Japan → picking up a snack after landing","activity":"이동","memo":"Stopped at the Nagoya airport store","scene":"Friday morning, landing in Nagoya and picking out a snack at the airport."}',
+      '- an indoor photo with almost no clues, Wednesday 15:00 → {"guess":"indoors, few clues → took a photo indoors","activity":"기타","memo":"Took a photo indoors","scene":"Wednesday afternoon, one photo indoors."}',
+      '- the photo is too blurred to tell → {"guess":"blurred, no clues","activity":"기타","memo":"A blurred photo","scene":"The photo is too blurred to make out."}',
+    ]),
+    '',
+    'Context (the time is a fact, the rest is for reference — when what you see disagrees, follow the photo):',
+    ...context,
+    '',
+    'Answer with JSON only. No other text:',
+    '{"guess":"<clues → what they were doing>","activity":"<one of the 13 Korean category words>","memo":"<the title, one line>","scene":"<the one-line diary of that day>"}',
+  ].join('\n')
+}
+
 /**
  * The part of a place label that is safe to tell the model: the area
  * ("센트럴시티, 서초구"), without the leading name. That name is whatever shop
@@ -287,15 +490,28 @@ export function readableText(lines: string[] | undefined): string[] {
 }
 
 const MEMO_MAX = 40
+/** An English title is 4–8 words, so 40 characters would cut it mid-word. */
+const MEMO_MAX_EN = 70
 const SCENE_MAX_SENTENCES = 3
 export const DIARY_MAX_SENTENCES = 4
 /** UI insurance for the diary body (the opener comes on top): whole
  *  sentences past this are dropped. */
 export const DIARY_MAX_CHARS = 230
 
-/** One line, no stray quotes; an over-long title is cut at its first sentence. */
-export function tidyMemo(raw: string): string {
+/** One line, no stray quotes; an over-long title is cut at its first sentence
+ *  (at the last whole word, for English, which has no 12–24 character shape).
+ *  An English title carries no closing full stop, but keeps its "!". */
+export function tidyMemo(raw: string, lang: PromptLang = 'ko'): string {
   let memo = raw.replace(/\s+/g, ' ').trim().replace(/^["'“”]+|["'“”]+$/g, '')
+  if (lang === 'en') {
+    memo = memo.replace(/\.+$/, '')
+    if (memo.length > MEMO_MAX_EN) {
+      const cut = memo.slice(0, MEMO_MAX_EN)
+      const at = cut.lastIndexOf(' ')
+      memo = `${(at > 20 ? cut.slice(0, at) : cut).replace(/[,;:·-]$/, '')}…`
+    }
+    return memo
+  }
   if (memo.length > MEMO_MAX) {
     const first = memo.match(/^.*?[.!?。]/)?.[0] ?? memo
     memo = first.length > MEMO_MAX ? `${first.slice(0, MEMO_MAX - 1)}…` : first
@@ -319,11 +535,32 @@ const INVENTORY = /(놓여 ?있|차려져 ?있|늘어서 ?있|늘어선|붙어 ?
 // 보내셨어요"): the photo can't show it. Gemini writes them now and then
 // despite the rule, so they are taken out of the sentence in code.
 const FEELING_ADVERBS = /(편안하게|편안히|여유롭게|느긋하게|즐겁게|행복하게|기분 좋게|맛있게|흐뭇하게)\s+/g
-export function dropFeelingWords(s: string): string {
+// The same three families of sentence in English. The English scene is one
+// sentence about what the parent did, so "Shops can be seen behind them" and
+// "A glass of water is on the table" are dropped here too, and a feeling the
+// photo cannot show is taken out of the sentence.
+const BACKGROUND_EN = /\b(behind (them|him|her|it)|in the background|off to the (left|right)|nearby|around them)\b/i
+const MEANINGFUL_EN = /["'“”‘’]|\b(sign|signs|banner|banners|notice|noticeboard|billboard|display board|menu|lettering|letters|words)\b/i
+const INVENTORY_EN = /\bthere (is|are|was|were)\b|\b(is|are|was|were)\s+(on|at|in|by|next to|beside|under|over)\s+the\b|\b(can be seen|could be seen|is visible|are visible|is parked|are parked|is placed|are placed|is laid out|are laid out|is displayed|are displayed|is hanging|are hanging|is set out|are set out)\b|\b(line|lines|lined)\s+the\b|\b(sits|sit|stands|stand|lies|lie)\s+(on|at|in|by|beside|under)\s+the\b/i
+// Feelings and flourishes the photo cannot show. Weather words ("warm",
+// "clear", "chilly") are facts from WeatherKit and are never dropped.
+const FEELING_WORDS_EN = /\b(deliciously|lovingly|happily|cheerfully|comfortably|leisurely|peacefully|pleasantly|joyfully|warmly|nicely|delightfully|contentedly)\s+/gi
+// "a"/"an" goes with the adjective, so "had a delicious lunch" reads "had lunch".
+const FEELING_ADJECTIVES_EN = /\b(?:(?:a|an)\s+)?(?:delicious|lovely|beautiful|peaceful|wonderful|amazing|pleasant|charming|happy|joyful|cozy|relaxing|delightful|pretty|cheerful)\b,?\s+/gi
+
+/** Takes the feeling words out of a sentence; the Korean list for Korean,
+ *  the English one for English. */
+export function dropFeelingWords(s: string, lang: PromptLang = 'ko'): string {
+  if (lang === 'en') {
+    const out = s.replace(FEELING_WORDS_EN, '').replace(FEELING_ADJECTIVES_EN, '').replace(/\s{2,}/g, ' ').trim()
+    // "Delicious lunch at …" loses its first word: the next one takes the capital.
+    return out ? out[0].toUpperCase() + out.slice(1) : out
+  }
   return s.replace(FEELING_ADVERBS, '')
 }
 
-export function isBackgroundSentence(s: string): boolean {
+export function isBackgroundSentence(s: string, lang: PromptLang = 'ko'): boolean {
+  if (lang === 'en') return (BACKGROUND_EN.test(s) && !MEANINGFUL_EN.test(s)) || INVENTORY_EN.test(s)
   return (BACKGROUND.test(s) && !MEANINGFUL.test(s)) || INVENTORY.test(s)
 }
 
@@ -331,34 +568,38 @@ export function isBackgroundSentence(s: string): boolean {
  *  when relaxed) or only describe the background (never the first one;
  *  not in a memoDiary body, which describes the photo by design), and keep
  *  at most three sentences (four, and at most DIARY_MAX_CHARS, for a diary body). */
-export function tidyScene(raw: string, relaxed = false, diary = false): string {
+export function tidyScene(raw: string, relaxed = false, diary = false, lang: PromptLang = 'ko'): string {
   const text = raw.replace(/\s+/g, ' ').trim()
   // A sentence ends where Korean text meets a full stop; a period inside a
-  // quoted sign ("Sta.", "jejuair.com") is not an ending.
-  const sentences = text.split(/(?<=[가-힣][.!?])\s+/)
+  // quoted sign ("Sta.", "jejuair.com") is not an ending. In English the
+  // sentence ends after a letter, a digit or a closing quote.
+  const sentences = lang === 'en'
+    ? text.split(/(?<=[A-Za-z0-9"'”’)\]][.!?])\s+/)
+    : text.split(/(?<=[가-힣][.!?])\s+/)
   const kept = sentences
-    .filter((s, i) => diary || i === 0 || !isBackgroundSentence(s))
+    .filter((s, i) => diary || i === 0 || !isBackgroundSentence(s, lang))
     .filter((s) => relaxed || !FOREIGN_SCRIPT.test(s))
     .slice(0, diary ? DIARY_MAX_SENTENCES : SCENE_MAX_SENTENCES)
-    .map((s) => (diary ? s : dropFeelingWords(s)).trim())
+    .map((s) => (diary ? s : dropFeelingWords(s, lang)).trim())
   if (diary) while (kept.length > 1 && kept.join(' ').length > DIARY_MAX_CHARS) kept.pop()
   return kept.join(' ')
 }
 
 /** `relaxed`: the cloud model, which reads Japanese well; a stray kana in its
  *  answer is kept rather than failing the memo. */
-export function parseModelResponse(raw: string, opts: { relaxed?: boolean; diary?: boolean } = {}): { activity: string; memo: string; scene: string; guess?: string } | null {
+export function parseModelResponse(raw: string, opts: { relaxed?: boolean; diary?: boolean; lang?: PromptLang } = {}): { activity: string; memo: string; scene: string; guess?: string } | null {
   const relaxed = opts.relaxed === true
+  const lang: PromptLang = opts.lang === 'en' ? 'en' : 'ko'
   // Models occasionally wrap JSON in a code fence even with the
   // response-format hint.
   const cleaned = raw.replace(/^```(?:json)?\s*|\s*```$/g, '').trim()
   try {
     const parsed = JSON.parse(cleaned) as { activity?: unknown; memo?: unknown; scene?: unknown; guess?: unknown }
     const activityRaw = typeof parsed.activity === 'string' ? parsed.activity.trim() : ''
-    const memo = typeof parsed.memo === 'string' ? tidyMemo(parsed.memo) : ''
+    const memo = typeof parsed.memo === 'string' ? tidyMemo(parsed.memo, lang) : ''
     // scene is optional in the response — when a model briefly drops it we
     // still accept the memo. The UI falls back to the title when it's empty.
-    const scene = typeof parsed.scene === 'string' ? tidyScene(parsed.scene, relaxed, opts.diary === true) : ''
+    const scene = typeof parsed.scene === 'string' ? tidyScene(parsed.scene, relaxed, opts.diary === true, lang) : ''
     // A title quoting Japanese/Chinese text is rejected so the caller retries.
     if (!memo || (!relaxed && FOREIGN_SCRIPT.test(memo))) return null
     // Snap the activity to one of the known categories. The model can drift

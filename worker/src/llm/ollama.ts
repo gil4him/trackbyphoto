@@ -155,12 +155,12 @@ export async function generateMemo(args: PromptHints & {
 }): Promise<LlmResult> {
   const model = args.model || await resolveModel()
   const { raw, promptTokens, outputTokens } = await ollamaGenerate(model, {
-    prompt: buildPrompt({ timeHint: args.timeHint, placeHint: args.placeHint, homeHint: args.homeHint, textHint: args.textHint, nearHint: args.nearHint, placeFull: args.placeFull, dayHint: args.dayHint, sunHint: args.sunHint, todayHint: args.todayHint, weather: args.weather, diary: args.diary, dateHint: args.dateHint }),
+    prompt: buildPrompt({ timeHint: args.timeHint, placeHint: args.placeHint, homeHint: args.homeHint, textHint: args.textHint, nearHint: args.nearHint, placeFull: args.placeFull, dayHint: args.dayHint, sunHint: args.sunHint, todayHint: args.todayHint, weather: args.weather, diary: args.diary, dateHint: args.dateHint, lang: args.lang }),
     images: [args.imageBase64],
     format: RESPONSE_SCHEMA,
     options: { temperature: args.temperature ?? TEMPERATURE, num_predict: 600 },
   })
-  const parsed = parseModelResponse(raw, { diary: args.diary })
+  const parsed = parseModelResponse(raw, { diary: args.diary, lang: args.lang })
   if (!parsed) throw new LlmGenerationError(`unparseable model output: ${raw.slice(0, 200)}`)
   if (args.diary) parsed.scene = diaryScene(parsed.scene, args)
   return { ...parsed, model, source: 'local-llm', cost: { promptTokens, outputTokens, totalUSD: 0 } }

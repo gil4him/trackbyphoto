@@ -18,6 +18,9 @@ import type { PromptHints, VisionTags } from './prompt.js'
 /** Gemini takes inline images up to 20 MB of request; base64 adds a third. */
 const MAX_INLINE_BASE64 = 19_000_000
 
+/** PromptHints carries `lang` (the parent's geoLang, set in handlers/memo.ts
+ *  memoArgsFor), so both the cloud and the local writer get the same
+ *  language without the router having to know about it. */
 export type MemoArgs = PromptHints & {
   imageBase64: string
   patientUid: string

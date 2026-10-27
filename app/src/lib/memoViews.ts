@@ -74,6 +74,7 @@ export function cardTitle(m: Pick<Memo, 'status' | 'memo' | 'activity'> & { plac
   if (m.status !== 'pending') {
     const name = placeName(m.place)
     if ((m.memo || '').trim() === GENERIC_TITLE && name) return tr(`${name}에서`, `At ${name}`)
+    if ((m.memo || '').trim() === GENERIC_TITLE && lang === 'en') return 'Photo'
     return m.memo || m.activity || tr('기록', 'Photo')
   }
   return serverDown ? tr('메모 서버가 쉬는 중이에요. 켜지면 써 드려요.', "The memo server is resting. We'll write it once it's back.") : tr('메모 작성 중…', 'Writing the memo…')

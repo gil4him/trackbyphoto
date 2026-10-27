@@ -90,10 +90,17 @@ export async function localTimeHint(
   return new Date(takenAt.getTime() + offsetMin * 60_000).toISOString().slice(11, 16)
 }
 
-/** "10월 18일 오후" for a photographer's local time: the diary memo's opening.
- *  Built here so the model never has to work out a date or 오전/오후. */
-export function dateHintAt(local: Date): string {
+const MONTHS_EN = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+
+/** "10월 18일 오후" ("October 18, afternoon" in English) for a photographer's
+ *  local time: the diary memo's opening. Built here so the model never has to
+ *  work out a date or 오전/오후. */
+export function dateHintAt(local: Date, lang: GeoLang = 'ko'): string {
   const h = local.getUTCHours()
+  if (lang === 'en') {
+    const partEn = h >= 5 && h < 11 ? 'morning' : h >= 11 && h < 18 ? 'afternoon' : h >= 18 && h < 22 ? 'evening' : 'night'
+    return `${MONTHS_EN[local.getUTCMonth()]} ${local.getUTCDate()}, ${partEn}`
+  }
   const part = h >= 5 && h < 11 ? '아침' : h >= 11 && h < 18 ? '오후' : h >= 18 && h < 22 ? '저녁' : '밤'
   return `${local.getUTCMonth() + 1}월 ${local.getUTCDate()}일 ${part}`
 }
@@ -105,10 +112,11 @@ export async function localDateHint(
   lat: number | null,
   lng: number | null,
   tzOffsetMin?: number | null,
+  lang: GeoLang = 'ko',
 ): Promise<string | undefined> {
   if (!takenAt) return undefined
   const offsetMin = await localOffsetMin(patientUid, lat, lng, tzOffsetMin)
-  return dateHintAt(new Date(takenAt.getTime() + offsetMin * 60_000))
+  return dateHintAt(new Date(takenAt.getTime() + offsetMin * 60_000), lang)
 }
 
 const inferredCache = new Map<string, { home: LatLng | null; expiresAt: number }>()
