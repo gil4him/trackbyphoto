@@ -47,7 +47,9 @@ What the pages say as of 2026-10-27 (store readiness review, blockers 1–3):
   제9조 covers plans, monthly auto-renewal, cancelling in the store, 청약철회 /
   refunds through Apple/Google, what happens when a plan ends, price changes.
 - A parent's linked phone registers for push since 1.0.1 (photos and words
-  from family only); both pages say so.
+  from family only); both pages say so. Since 1.0.3 (시행일 2026-10-28) it
+  also reports its app version, and family may send it an app-update notice;
+  privacy §2 lists 앱 버전 and the update notice.
 - `users/{uid}.arrival` (platform + ref, once at first sign-in) is listed as
   설치 경로. No analytics SDK, no ad id.
 - Address lookups: photo coordinates and the typed home-address search both go
