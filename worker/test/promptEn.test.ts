@@ -40,8 +40,11 @@ describe('the English prompt', () => {
     expect(p).toContain('"Lunch with kalguksu at a restaurant"')
     expect(p).toContain('"Waiting to board at the airport"')
     expect(p).toContain('"Visited Bulguksa Temple!"')
-    expect(p).toContain('A clear, warm Sunday, stepping out after lunch for a photo with the group.')
-    expect(p).toContain('A clear, cool Monday morning, starting the day with a lap around the park.')
+    // The CEO's wording (2026-10-27): the scene speaks to the parent as "you"; the title has no subject.
+    expect(p).toContain('A clear, warm Sunday. You had lunch and stepped out for a photo with the group.')
+    expect(p).toContain('A clear, cool Monday morning. You started the day with a lap around the park.')
+    expect(p).toContain('The scene speaks to the parent as "you"')
+    expect(p).not.toContain('stepping out after lunch')
     // No feelings, no inventory of the background.
     expect(p).toContain('Never invent a feeling ("delicious", "lovely", "happy", "pretty")')
     expect(p).toContain('"A glass of water is on the table"')
