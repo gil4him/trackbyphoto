@@ -356,6 +356,44 @@ lane :submit_ios do |options|
   )
 end
 
+# Upload the listing only — fastlane/metadata and fastlane/screenshots — to the
+# App Store version, without a build and without submitting. Run it before
+# submit_ios when the screenshots changed (submit_ios never uploads screenshots).
+#
+#   bundle exec fastlane listing_ios [app_version:1.0.2] [skip_screenshots:true]
+#
+# fastlane/screenshots/ko must hold the real files (gitignored; the current set
+# is launch/store-screenshots/ios-6.9-1320x2868): an empty folder is skipped,
+# never uploaded, so the store's screenshots can't be wiped by mistake.
+lane :listing_ios do |options|
+  metadata_path    = File.join(app_dir, "fastlane/metadata")
+  screenshots_path = File.join(app_dir, "fastlane/screenshots")
+  skip_shots = options.key?(:skip_screenshots) ? flag(options[:skip_screenshots]) : !folder_has_files?(screenshots_path)
+  UI.user_error!("listing_ios: nothing in #{metadata_path}") unless folder_has_files?(metadata_path)
+  UI.message("metadata:    #{metadata_path}")
+  UI.message("screenshots: #{skip_shots ? 'skipped' : screenshots_path}")
+  args = {
+    api_key: asc_api_key,
+    app_identifier: ENV["IOS_BUNDLE_ID"],
+    app_version: (options[:app_version] || "1.0.2").to_s,
+    skip_binary_upload: true,
+    skip_metadata: false,
+    metadata_path: metadata_path,
+    ignore_language_directory_validation: true,
+    skip_screenshots: skip_shots,
+    skip_app_version_update: false,
+    submit_for_review: false,
+    force: true,
+    run_precheck_before_submit: false,
+    precheck_include_in_app_purchases: false
+  }
+  unless skip_shots
+    args[:screenshots_path] = screenshots_path
+    args[:overwrite_screenshots] = true
+  end
+  upload_to_app_store(args)
+end
+
 # ── Android lanes (require `npx cap add android` to have been run once) ────────
 
 # Build the signed release AAB and stop. Nothing is uploaded and nothing talks
