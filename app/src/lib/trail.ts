@@ -7,6 +7,7 @@
 // that holds most of the recent located photos, once enough of them agree.
 
 import type { Memo } from '../types'
+import { lang } from './lang'
 
 export interface LatLng { lat: number; lng: number }
 
@@ -90,8 +91,14 @@ export function trailStops(memos: Memo[], home: LatLng | null): TrailStop[] {
   return stops
 }
 
-/** "집 근처", "1.2km", "900km". */
+/** "집 근처", "1.2km", "900km"; in English "near home", "0.7 mi", "560 mi". */
 export function fmtKm(km: number): string {
+  if (lang === 'en') {
+    // English readers are mostly in the US: miles.
+    if (km < NEAR_HOME_KM) return 'near home'
+    const mi = km * 0.621371
+    return mi < 10 ? `${mi.toFixed(1)} mi` : `${Math.round(mi).toLocaleString('en-US')} mi`
+  }
   if (km < NEAR_HOME_KM) return '집 근처'
   return km < 10 ? `${km.toFixed(1)}km` : `${Math.round(km).toLocaleString('en-US')}km`
 }
@@ -110,7 +117,9 @@ export function trailSummary(stops: TrailStop[]): TrailSummary {
   if (kms.length === 0) return { maxKm: null, away: false, text: '' }
   const maxKm = Math.max(...kms)
   const away = Math.min(...kms) >= AWAY_KM
-  const text = away ? `집에서 약 ${fmtKm(maxKm)}` : maxKm < NEAR_HOME_KM ? '집 근처' : `집에서 최대 ${fmtKm(maxKm)}`
+  const text = lang === 'en'
+    ? (away ? `about ${fmtKm(maxKm)} from home` : maxKm < NEAR_HOME_KM ? 'near home' : `up to ${fmtKm(maxKm)} from home`)
+    : (away ? `집에서 약 ${fmtKm(maxKm)}` : maxKm < NEAR_HOME_KM ? '집 근처' : `집에서 최대 ${fmtKm(maxKm)}`)
   return { maxKm, away, text }
 }
 
@@ -165,6 +174,9 @@ export function placeVisits(stops: TrailStop[]): TrailPlace[] {
 /** `3곳 · 5번 들름 · 집에서 최대 2.0km`: the trail page's line. */
 export function trailCaption(stops: TrailStop[]): string {
   const places = placeVisits(stops).length
+  if (lang === 'en') {
+    return [`${places} place${places === 1 ? '' : 's'}`, stops.length > places ? `${stops.length} stops` : '', trailSummary(stops).text].filter(Boolean).join(' · ')
+  }
   return [`${places}곳`, stops.length > places ? `${stops.length}번 들름` : '', trailSummary(stops).text].filter(Boolean).join(' · ')
 }
 

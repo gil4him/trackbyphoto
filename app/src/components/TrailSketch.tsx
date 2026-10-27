@@ -1,6 +1,7 @@
 import { useId } from 'react'
 import { placeVisits, project, type LatLng, type TrailStop } from '../lib/trail'
 import { listPhoto } from '../lib/listPhoto'
+import { tr } from '../lib/lang'
 
 const W = 320
 const H = 200
@@ -37,7 +38,7 @@ export function TrailSketch({ stops, home, thumbs = false, wide = false, onPick 
   // A chip as wide as its numbers: a circle for one, a pill for `1·5`.
   const chipW = (label: string, base: number) => Math.max(base * 2, label.length * 6.5 + 8)
   return (
-    <svg className="trail-sketch" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio={wide ? 'xMidYMid slice' : undefined} role="img" aria-label={`다녀온 곳 ${places.length}곳`}>
+    <svg className="trail-sketch" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio={wide ? 'xMidYMid slice' : undefined} role="img" aria-label={tr(`다녀온 곳 ${places.length}곳`, `${places.length} place${places.length === 1 ? '' : 's'} visited`)}>
       {stops.length > 1 && (
         <polyline
           points={xy.slice(0, stops.length).map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')}
@@ -47,7 +48,7 @@ export function TrailSketch({ stops, home, thumbs = false, wide = false, onPick 
       {homeXY && (
         <g>
           <circle cx={homeXY.x} cy={homeXY.y} r="10" fill="#fff" stroke="var(--ink-3)" strokeWidth="1.5" />
-          <text x={homeXY.x} y={homeXY.y + 4} textAnchor="middle" fontSize="10" fontWeight="700" fill="var(--ink-2)">집</text>
+          <text x={homeXY.x} y={homeXY.y + 4} textAnchor="middle" fontSize="10" fontWeight="700" fill="var(--ink-2)">{tr('집', 'Home')}</text>
         </g>
       )}
       {places.map((pl, k) => {

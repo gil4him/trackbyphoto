@@ -111,6 +111,8 @@ const PARTICLES = { 가: '이', 는: '은', 를: '을', 와: '과' } as const
 export function honorificWith(name: string, particle: keyof typeof PARTICLES): string {
   const who = honorific(name)
   if (!who) return ''
+  // English screens: no particles.
+  if (lang === 'en') return who
   return who + (hasBatchim(who) ? PARTICLES[particle] : particle)
 }
 

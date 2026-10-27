@@ -23,6 +23,7 @@ import { PUBLIC_ORIGIN } from './publicUrl'
 import { isSimple } from './edition'
 import { inAnyStore } from './storeLinks'
 import { honorific } from './people'
+import { lang, tr } from './lang'
 
 // ────────────────────────────────────────────────────────────────────────────
 // Phone formatting
@@ -79,16 +80,16 @@ export function buildDailySummary(memos: Memo[], patientName: string): string {
     .sort((a, b) => a.takenAt.toMillis() - b.takenAt.toMillis())
   if (items.length === 0) return ''
   const lines = [
-    `[${patientName}의 하루] 오늘의 기록`,
-    `오늘 ${items.length}건의 일상이 기록되었어요.`,
+    tr(`[${patientName}의 하루] 오늘의 기록`, `[${patientName}'s day] Today`),
+    tr(`오늘 ${items.length}건의 일상이 기록되었어요.`, `${items.length} moment${items.length === 1 ? '' : 's'} recorded today.`),
     ...items.slice(0, 6).map((m) => {
       const t = fmtTime(m.takenAt.toDate())
-      const act = m.activity || '기록'
+      const act = m.activity || tr('기록', 'Photo')
       const place = m.place ? ` — ${m.place}` : ''
       return `· ${t} ${act}${place}`
     }),
   ]
-  if (items.length > 6) lines.push(`외 ${items.length - 6}건 더`)
+  if (items.length > 6) lines.push(tr(`외 ${items.length - 6}건 더`, `and ${items.length - 6} more`))
   return lines.join('\n')
 }
 
@@ -200,7 +201,7 @@ export async function shareToKakao(text: string, linkUrl: string): Promise<void>
       mobileWebUrl: linkUrl,
       webUrl: linkUrl,
     },
-    buttonTitle: '앱에서 보기',
+    buttonTitle: tr('앱에서 보기', 'Open in the app'),
   })
 }
 
@@ -221,6 +222,10 @@ export function inviteLink(code: string): string {
 }
 
 export function buildInviteMessage(patientName: string, code: string): string {
+  if (lang === 'en') {
+    const name = patientName.trim() || 'Your family'
+    return `[Daylie] ${name} invited you to join the family.\nTap the link below to join (good for 24 hours)\n${inviteLink(code)}`
+  }
   const who = patientName.trim() || '가족'
   return `[Daylie] ${who}님이 가족으로 초대했어요.\n아래 링크를 눌러 참여해주세요 (24시간 유효)\n${inviteLink(code)}`
 }
@@ -234,7 +239,9 @@ export function buildInviteMessage(patientName: string, code: string): string {
  */
 export async function shareInviteToKakao(patientName: string, code: string): Promise<'shared' | 'copied'> {
   const text = buildInviteMessage(patientName, code)
-  if (!Capacitor.isNativePlatform() && isKakaoConfigured()) {
+  // English accounts never use KakaoTalk: the phone's own share sheet (SMS,
+  // iMessage, mail) carries the invitation.
+  if (lang !== 'en' && !Capacitor.isNativePlatform() && isKakaoConfigured()) {
     try {
       await shareToKakao(text, inviteLink(code))
       return 'shared'
@@ -244,7 +251,7 @@ export async function shareInviteToKakao(patientName: string, code: string): Pro
   }
   if ((await Share.canShare()).value) {
     try {
-      await Share.share({ title: 'Daylie 가족초대', text, dialogTitle: '카카오톡으로 초대' })
+      await Share.share({ title: tr('Daylie 가족초대', 'Daylie family invitation'), text, dialogTitle: tr('카카오톡으로 초대', 'Send the invitation') })
     } catch {
       // The user closed the sheet without picking an app; nothing to do.
     }
@@ -264,6 +271,38 @@ export function sendInviteSMS(phone: string, patientName: string, code: string):
 // ────────────────────────────────────────────────────────────────────────────
 
 export function buildPairMessage(patientName: string, url: string, code: string, hours: number): string {
+  if (lang === 'en') {
+    const name = honorific(patientName.trim()) || 'your parent'
+    const spaced = `${code.slice(0, 4)} ${code.slice(4)}`
+    const valid = `good for ${hours} hour${hours === 1 ? '' : 's'}`
+    if (isSimple() && !inAnyStore()) {
+      // Before the store release the link connects the phone in its browser.
+      return [
+        `[Daylie] Let's connect ${name}'s phone.`,
+        `Tap the link below, then tap 'Connect'. (${valid})`,
+        url,
+        '',
+        `Link code: ${spaced}`,
+      ].join('\n')
+    }
+    if (isSimple()) {
+      return [
+        `[Daylie] Let's connect ${name}'s phone.`,
+        `Tap the link below to install the Daylie app. (${valid})`,
+        url,
+        'After installing, tap this link once more.',
+        '',
+        `Link code: ${spaced}`,
+        "(Or open the app, tap 'Enter code' and type it in.)",
+      ].join('\n')
+    }
+    return [
+      `[Daylie] Let's connect ${name}'s phone.`,
+      `Tap the link below, then tap 'Connect'. (${valid})`,
+      url,
+      `In the app, enter the code ${spaced}.`,
+    ].join('\n')
+  }
   const who = patientName.trim() || '부모님'
   if (isSimple() && !inAnyStore()) {
     // Before the store release the link connects the phone in its browser.
@@ -303,9 +342,12 @@ export async function copyPairMessage(text: string): Promise<void> {
   else await navigator.clipboard.writeText(text)
 }
 
-/** Send the pairing link through KakaoTalk (same paths as 가족초대). */
+/** Send the pairing link through KakaoTalk (same paths as 가족초대).
+ *  English accounts skip Kakao and use the phone's share sheet (SMS, iMessage). */
 export async function sharePairToKakao(text: string, url: string): Promise<'shared' | 'copied'> {
-  if (!Capacitor.isNativePlatform() && isKakaoConfigured()) {
+  // English accounts never use KakaoTalk: the phone's own share sheet (SMS,
+  // iMessage) carries the link.
+  if (lang !== 'en' && !Capacitor.isNativePlatform() && isKakaoConfigured()) {
     try {
       await shareToKakao(text, url)
       return 'shared'
@@ -315,7 +357,7 @@ export async function sharePairToKakao(text: string, url: string): Promise<'shar
   }
   if ((await Share.canShare()).value) {
     try {
-      await Share.share({ title: 'Daylie 휴대폰 연결', text, dialogTitle: '카카오톡으로 보내기' })
+      await Share.share({ title: tr('Daylie 휴대폰 연결', 'Connect a phone to Daylie'), text, dialogTitle: tr('카카오톡으로 보내기', 'Send the link') })
     } catch {
       // Sheet closed without picking an app.
     }

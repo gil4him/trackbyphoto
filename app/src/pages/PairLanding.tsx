@@ -59,7 +59,7 @@ export function PairLandingView({ code, kind, storeUrl, onInstall, onWebPair, on
           <div className="invite-code-display">{formatPairCode(code)}</div>
         </div>
       )}
-      {onBack && <button className="pair-link" onClick={onBack}>돌아가기</button>}
+      {onBack && <button className="pair-link" onClick={onBack}>{tr('돌아가기', 'Back')}</button>}
     </section>
   )
 }

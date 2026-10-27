@@ -2,6 +2,7 @@ import { Capacitor } from '@capacitor/core'
 import { Directory, Filesystem } from '@capacitor/filesystem'
 import { keepInPhotos } from './gallery'
 import { blobToBase64, downloadBlob, photoBlob } from './photoShare'
+import { tr } from './lang'
 import type { FamilyPhoto } from '../types'
 
 /**
@@ -19,7 +20,8 @@ const pad = (n: number) => String(n).padStart(2, '0')
 /** "Daylie_가족_20261012_2124.jpg", from when it was sent. */
 export function keptFileName(p: Pick<FamilyPhoto, 'createdAtMs'>): string {
   const d = new Date(p.createdAtMs)
-  return `Daylie_가족_${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}.jpg`
+  const when = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}`
+  return tr(`Daylie_가족_${when}.jpg`, `Daylie_family_${when}.jpg`)
 }
 
 /** Where a copy can be kept quietly: the phone app, or an Android browser. */

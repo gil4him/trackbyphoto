@@ -1,4 +1,5 @@
 import { isSimple } from '../lib/edition'
+import { tr } from '../lib/lang'
 
 export type TabKey = 'home' | 'today' | 'ask' | 'alerts' | 'settings'
 
@@ -48,11 +49,11 @@ const ICONS = {
 // exchanges with the parents) and 어제까지 (everything before today).
 // The keys stay home/today everywhere else (links, notices).
 const TABS: { key: TabKey; label: string; simpleLabel?: string }[] = [
-  { key: 'home',     label: '홈',   simpleLabel: '오늘하루' },
-  { key: 'today',    label: '사진', simpleLabel: '어제까지' },
-  { key: 'ask',      label: '물어보기' },
-  { key: 'alerts',   label: '알림' },
-  { key: 'settings', label: '설정' },
+  { key: 'home',     label: tr('홈', 'Home'),   simpleLabel: tr('오늘하루', 'Today') },
+  { key: 'today',    label: tr('사진', 'Photos'), simpleLabel: tr('어제까지', 'Before today') },
+  { key: 'ask',      label: tr('물어보기', 'Ask') },
+  { key: 'alerts',   label: tr('알림', 'Alerts') },
+  { key: 'settings', label: tr('설정', 'Settings') },
 ]
 
 export function Tabs({
@@ -80,7 +81,7 @@ export function Tabs({
   const simple = isSimple()
   const badgeTab: TabKey = showAlerts ? 'alerts' : 'home'
   return (
-    <nav className="tabbar" aria-label="주 메뉴">
+    <nav className="tabbar" aria-label={tr('주 메뉴', 'Main menu')}>
       {TABS.filter((t) => (t.key !== 'alerts' || showAlerts) && (t.key !== 'ask' || !simple)).map((t) => ({ ...t, label: (simple && t.simpleLabel) || t.label })).map((t) => (
         <button
           key={t.key}
@@ -93,8 +94,8 @@ export function Tabs({
             ? <img className="tab-avatar" src={avatarUrl} alt="" referrerPolicy="no-referrer" />
             : ICONS[t.key]}
           {t.key === badgeTab && unreadCount > 0 && (simple
-            ? <span className="tab-dot" role="img" aria-label={`알림 ${unreadCount}건`} />
-            : <span className="tab-badge" aria-label={`알림 ${unreadCount}건`}>{unreadCount > 9 ? '9+' : unreadCount}</span>)}
+            ? <span className="tab-dot" role="img" aria-label={tr(`알림 ${unreadCount}건`, `${unreadCount} alert${unreadCount === 1 ? '' : 's'}`)} />
+            : <span className="tab-badge" aria-label={tr(`알림 ${unreadCount}건`, `${unreadCount} alert${unreadCount === 1 ? '' : 's'}`)}>{unreadCount > 9 ? '9+' : unreadCount}</span>)}
           <span className="tab-label">{t.label}</span>
         </button>
       ))}

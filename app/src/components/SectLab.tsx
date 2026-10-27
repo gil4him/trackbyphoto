@@ -1,4 +1,5 @@
 import { useId, useState, type ReactNode } from 'react'
+import { tr } from '../lib/lang'
 
 /**
  * A settings section's label with its explanation folded behind ⓘ: the page
@@ -17,7 +18,7 @@ export function SectLab({ children, info }: { children: ReactNode; info?: ReactN
           <button
             type="button"
             className={`info-btn ${open ? 'on' : ''}`}
-            aria-label={open ? '설명 닫기' : '설명 보기'}
+            aria-label={open ? tr('설명 닫기', 'Hide the explanation') : tr('설명 보기', 'Show the explanation')}
             aria-expanded={open}
             aria-controls={id}
             onClick={() => setOpen((o) => !o)}

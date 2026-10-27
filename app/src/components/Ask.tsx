@@ -2,15 +2,16 @@ import { useMemo, useState } from 'react'
 import type { Memo, MemoCategory } from '../types'
 import { fmtTime, isSameDay } from '../util'
 import { MemoThumb } from './MemoThumb'
+import { lang, tr } from '../lib/lang'
 
 type WhenKey = 'today' | 'yesterday' | 'week' | 'all'
 type WhatKey = 'all' | MemoCategory
 
 const WHEN_OPTIONS: { key: WhenKey; label: string }[] = [
-  { key: 'today',     label: '오늘' },
-  { key: 'yesterday', label: '어제' },
-  { key: 'week',      label: '이번 주' },
-  { key: 'all',       label: '전체 기간' },
+  { key: 'today',     label: tr('오늘', 'Today') },
+  { key: 'yesterday', label: tr('어제', 'Yesterday') },
+  { key: 'week',      label: tr('이번 주', 'This week') },
+  { key: 'all',       label: tr('전체 기간', 'All time') },
 ]
 
 // Display order for the 무엇을 chips. Only categories that actually appear
@@ -18,6 +19,8 @@ const WHEN_OPTIONS: { key: WhenKey; label: string }[] = [
 const CATEGORY_ORDER: MemoCategory[] = [
   '식사', '카페', '산책', '여행', '출장', '이동', '쇼핑', '휴식', '모임', '가족', '운동', '자연', '꽃', '병원', '기타',
 ]
+
+const EN_DAY = new Intl.DateTimeFormat('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
 
 /**
  * Ask page — chip-based filter UI. Two axes:
@@ -35,7 +38,7 @@ export function Ask({ memos, onOpen }: { memos: Memo[]; onOpen: (id: string) => 
   const whatOptions = useMemo<{ key: WhatKey; label: string }[]>(() => {
     const present = new Set(ready.map((m) => m.activity))
     return [
-      { key: 'all', label: '전체' },
+      { key: 'all', label: tr('전체', 'All') },
       ...CATEGORY_ORDER.filter((c) => present.has(c)).map((c) => ({ key: c, label: c })),
     ]
   }, [ready])
@@ -82,12 +85,12 @@ export function Ask({ memos, onOpen }: { memos: Memo[]; onOpen: (id: string) => 
         className="tl-item"
         key={m.id}
         onClick={() => onOpen(m.id)}
-        aria-label="자세히 보기"
+        aria-label={tr('자세히 보기', 'See it in full')}
       >
         <MemoThumb memo={m} />
         <div className="tl-body">
           <div className="when">{fmtTime(m.takenAt.toDate())}</div>
-          <div className="act">{m.activity || '기록'}</div>
+          <div className="act">{m.activity || tr('기록', 'Record')}</div>
           <div className="desc">
             {m.place ? `${m.place} · ` : ''}
             {m.memo}
@@ -100,16 +103,17 @@ export function Ask({ memos, onOpen }: { memos: Memo[]; onOpen: (id: string) => 
   const dayLabel = (key: string): string => {
     const [y, mo, d] = key.split('-').map(Number)
     const dt = new Date(y, mo - 1, d)
+    if (lang === 'en') return EN_DAY.format(dt)
     const days = ['일', '월', '화', '수', '목', '금', '토']
     return `${dt.getMonth() + 1}월 ${dt.getDate()}일 ${days[dt.getDay()]}요일`
   }
 
   return (
     <section className="page">
-      <div className="h-eyebrow">물어보기</div>
-      <h2 className="h-title" style={{ marginBottom: 4 }}>언제 · 무엇을 찾아볼까요</h2>
+      <div className="h-eyebrow">{tr('물어보기', 'Find a photo')}</div>
+      <h2 className="h-title" style={{ marginBottom: 4 }}>{tr('언제 · 무엇을 찾아볼까요', 'When and what shall we look for?')}</h2>
 
-      <div className="q-lab">언제</div>
+      <div className="q-lab">{tr('언제', 'When')}</div>
       <div className="qrow">
         {WHEN_OPTIONS.map((o) => (
           <button
@@ -120,7 +124,7 @@ export function Ask({ memos, onOpen }: { memos: Memo[]; onOpen: (id: string) => 
         ))}
       </div>
 
-      <div className="q-lab">무엇을</div>
+      <div className="q-lab">{tr('무엇을', 'What')}</div>
       <div className="qrow">
         {whatOptions.map((o) => (
           <button
@@ -134,12 +138,12 @@ export function Ask({ memos, onOpen }: { memos: Memo[]; onOpen: (id: string) => 
       <div className="q-results">
         {results.length === 0 ? (
           <div className="q-empty">
-            해당하는 기록이 없어요.<br />
-            다른 날짜나 활동을 눌러보세요.
+            {tr('해당하는 기록이 없어요.', 'Nothing matches.')}<br />
+            {tr('다른 날짜나 활동을 눌러보세요.', 'Try another day or another activity.')}
           </div>
         ) : (
           <>
-            <div className="q-count">{results.length}건을 찾았어요</div>
+            <div className="q-count">{tr(`${results.length}건을 찾았어요`, `Found ${results.length}`)}</div>
             {grouped && groupedByDate
               ? groupedByDate.map(([key, list]) => (
                   <div key={key}>

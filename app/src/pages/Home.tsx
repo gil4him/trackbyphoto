@@ -13,6 +13,7 @@ import { latestActivity, type ParentSummary } from '../lib/dashboard'
 import { useWorkerStatus } from '../hooks/useWorkerStatus'
 import { clock, dayCaption, dayEyebrow, farthestKm, memosOnDay } from '../lib/memoViews'
 import { addressed, honorific } from '../lib/people'
+import { tr } from '../lib/lang'
 import { AWAY_KM, placeVisits, samePlaceRuns, trailStops, trailSummary, type LatLng, type TrailStop } from '../lib/trail'
 import { MAP_KEYS, KAKAO_IN_FRAME, pickProvider, type MapKeys } from '../lib/map'
 import { staticMapUrl } from '../lib/map/googleStatic'
@@ -33,12 +34,12 @@ import type { Memo, AppNotification, Reaction } from '../types'
 function Notices({ notifications, onDismiss, parentName }: { notifications: AppNotification[]; onDismiss?: (id: string) => void; parentName?: string }) {
   if (notifications.length === 0) return null
   return (
-    <div className="notice-stack" role="status" aria-label="가족 활동 알림">
+    <div className="notice-stack" role="status" aria-label={tr('가족 활동 알림', 'Family activity alerts')}>
       {notifications.map((n) => (
         <div key={n.id} className="notice">
           <span className="notice-msg">{parentName ? addressed(n.message, parentName) : n.message}</span>
           {onDismiss && (
-            <button className="notice-x" aria-label="알림 지우기" onClick={() => onDismiss(n.id)}>✕</button>
+            <button className="notice-x" aria-label={tr('알림 지우기', 'Dismiss alert')} onClick={() => onDismiss(n.id)}>✕</button>
           )}
         </div>
       ))}
@@ -100,10 +101,10 @@ function DayMap({ stops, home, away, onOpen, keys }: { stops: TrailStop[]; home:
         ? <KakaoFrame className="day-map-kakao" map={{ key: keys.kakao!, pins: placeVisits(stops).map((p) => ({ lat: p.lat, lng: p.lng, label: p.label })), home, pad: 28 }} onFail={() => setKakaoFailed(true)} />
         : <div ref={mapRef} className="day-map-kakao" aria-hidden="true" />)}
       {picture && <img className="day-map-static" src={staticMapUrl(stops, keys.google!, { width: 640, height: 300 }, true, placeVisits(stops))} alt="" onError={() => setFailed(true)} />}
-      <button type="button" className="day-map-open" onClick={onOpen} aria-label={`다녀온 곳 ${placeVisits(stops).length}곳 보기`}>
+      <button type="button" className="day-map-open" onClick={onOpen} aria-label={tr(`다녀온 곳 ${placeVisits(stops).length}곳 보기`, `See ${placeVisits(stops).length} place${placeVisits(stops).length === 1 ? '' : 's'} visited`)}>
         <span className="day-map-pill">
-          {away && <span className="trail-badge">여행 중</span>}
-          다녀온 곳 {placeVisits(stops).length} ›
+          {away && <span className="trail-badge">{tr('여행 중', 'On a trip')}</span>}
+          {tr('다녀온 곳', 'Places visited')} {placeVisits(stops).length} ›
         </span>
       </button>
     </div>
@@ -150,21 +151,21 @@ export function ParentDayHome({ parentName, memos, byMemo, home, onOpen, onYeste
   const nearHome = home && !summary.away && summary.maxKm !== null && summary.maxKm < AWAY_KM ? home : null
   const who = honorific(parentName)
   return (
-    <section className="page home-day" aria-label={`${who}의 하루`}>
+    <section className="page home-day" aria-label={tr(`${who}의 하루`, `${who}'s day`)}>
       <Notices notifications={notifications} onDismiss={onDismissNotification} parentName={parentName} />
       {topCard}
       <header className="day-head">
         <div className="h-eyebrow">{dayEyebrow(now)}</div>
-        <h1 className="day-title">{who}의 하루</h1>
+        <h1 className="day-title">{tr(`${who}의 하루`, `${who}'s day`)}</h1>
         <div className="day-caption">{dayCaption(todays.length, farthestKm(todays, home), placeVisits(stops).length)}</div>
       </header>
 
       {stops.length > 0 && <DayMap stops={stops} home={nearHome} away={summary.away} onOpen={() => onOpenTrail?.(now)} keys={keys} />}
 
       {todays.length === 0 ? (
-        <div className="day-empty" role="status">오늘 아직 사진이 없어요</div>
+        <div className="day-empty" role="status">{tr('오늘 아직 사진이 없어요', 'No photos today yet')}</div>
       ) : (
-        <DayCard label="오늘의 사진">
+        <DayCard label={tr('오늘의 사진', "Today's photos")}>
           {/* Newest at the top, no numbers (only 다녀온 곳 numbers); photos in a
               row at one place fold into one line (A14.5). */}
           {samePlaceRuns(todays).map((run) => run.length > 1
@@ -173,7 +174,7 @@ export function ParentDayHome({ parentName, memos, byMemo, home, onOpen, onYeste
         </DayCard>
       )}
 
-      <button type="button" className="day-more" onClick={onYesterday}>어제 보기 ›</button>
+      <button type="button" className="day-more" onClick={onYesterday}>{tr('어제 보기 ›', 'See yesterday ›')}</button>
 
       {sentPhotos}
     </section>
@@ -195,7 +196,7 @@ export function Home({ uid, patientName, greetingName, memos, onOpenAsk, onOpen,
       lastReadyId.current = newestReady.id
       toast.show(
         `${fmtTime(newestReady.takenAt.toDate())} · ${newestReady.memo}`,
-        `${newestReady.place} — 저장되었어요`,
+        tr(`${newestReady.place} — 저장되었어요`, `${newestReady.place} — saved`),
       )
     }
   }, [memos, toast])
@@ -213,7 +214,7 @@ export function Home({ uid, patientName, greetingName, memos, onOpenAsk, onOpen,
 
   if (connectOnly) {
     return (
-      <section className="page home connect-only" aria-label={`${who}의 홈`}>
+      <section className="page home connect-only" aria-label={tr(`${who}의 홈`, `${who}'s home`)}>
         {!simple && <Notices notifications={notifications} onDismiss={onDismissNotification} />}
         {topCard}
       </section>
@@ -223,8 +224,8 @@ export function Home({ uid, patientName, greetingName, memos, onOpenAsk, onOpen,
   const outbox = waiting.length > 0 && (
     <div className={`outbox-note ${struggling ? 'weak' : ''}`} role="status">
       {struggling
-        ? <>인터넷이 약해요. 사진 {waiting.length}장은 휴대폰에 안전하게 보관했어요.<br />연결되면 자동으로 보내요.</>
-        : <>사진 {waiting.length}장을 보내는 중이에요…</>}
+        ? <>{tr(`인터넷이 약해요. 사진 ${waiting.length}장은 휴대폰에 안전하게 보관했어요.`, `Your connection is weak. We kept ${waiting.length} photo${waiting.length === 1 ? '' : 's'} safe on your phone.`)}<br />{tr('연결되면 자동으로 보내요.', "We'll send them once you're back online.")}</>
+        : <>{tr(`사진 ${waiting.length}장을 보내는 중이에요…`, `Sending ${waiting.length} photo${waiting.length === 1 ? '' : 's'}…`)}</>}
     </div>
   )
 
@@ -233,12 +234,12 @@ export function Home({ uid, patientName, greetingName, memos, onOpenAsk, onOpen,
     // then one's own photos today with the dashed + for the camera.
     const cards = [...parents].sort((a, b) => latestActivity(b) - latestActivity(a))
     return (
-      <section className="page home dash" aria-label={`${who}의 홈`}>
+      <section className="page home dash" aria-label={tr(`${who}의 홈`, `${who}'s home`)}>
         {topCard}
 
         <div className="home-hi">
           <div className="d">{fmtDate(today)}</div>
-          <div className="t">{greetingName}님, 안녕하세요</div>
+          <div className="t">{tr(`${greetingName}님, 안녕하세요`, `Hello, ${greetingName}`)}</div>
         </div>
 
         {cards.length > 0 && (
@@ -256,15 +257,15 @@ export function Home({ uid, patientName, greetingName, memos, onOpenAsk, onOpen,
   }
 
   return (
-    <section className="page home" aria-label={`${who}의 홈`}>
+    <section className="page home" aria-label={tr(`${who}의 홈`, `${who}'s home`)}>
       <Notices notifications={notifications} onDismiss={onDismissNotification} />
 
       {topCard}
 
       <div className="home-hi">
         <div className="d">{fmtDate(today)}</div>
-        <div className="t">{greetingName}님, 안녕하세요</div>
-        <div className="sub">오늘 하루를 기록해요</div>
+        <div className="t">{tr(`${greetingName}님, 안녕하세요`, `Hello, ${greetingName}`)}</div>
+        <div className="sub">{tr('오늘 하루를 기록해요', "Let's keep today")}</div>
       </div>
 
       <div className="capwrap">
@@ -274,8 +275,8 @@ export function Home({ uid, patientName, greetingName, memos, onOpenAsk, onOpen,
             action when the active patient isn't the signed-in user. */}
         {!canCapture && (
           <div className="caregiver-note" role="status">
-            <b>{who}의 기록을 보고 있어요.</b>
-            <span>{canSendPhoto ? `아래 카메라 버튼으로 ${who}께 사진을 보내 드릴 수 있어요.` : '사진 찍기는 본인 계정에서만 가능해요.'}</span>
+            <b>{tr(`${who}의 기록을 보고 있어요.`, `You're looking at ${who}'s photos.`)}</b>
+            <span>{canSendPhoto ? tr(`아래 카메라 버튼으로 ${who}께 사진을 보내 드릴 수 있어요.`, `You can send ${who} a photo with the camera button below.`) : tr('사진 찍기는 본인 계정에서만 가능해요.', 'You can only take photos from your own account.')}</span>
           </div>
         )}
         {/* Take-photo and Ask sit side by side as equal tiles. In caregiver
@@ -284,7 +285,7 @@ export function Home({ uid, patientName, greetingName, memos, onOpenAsk, onOpen,
           {canCapture && (
             <button
               className="capbtn"
-              aria-label="사진 찍기"
+              aria-label={tr('사진 찍기', 'Take a photo')}
               disabled={capture.busy}
               onClick={capture.takePhoto}
             >
@@ -292,16 +293,16 @@ export function Home({ uid, patientName, greetingName, memos, onOpenAsk, onOpen,
                 <path d="M3 8.5A2.5 2.5 0 0 1 5.5 6h1.2l.9-1.4A1.5 1.5 0 0 1 8.9 4h6.2a1.5 1.5 0 0 1 1.3.6L17.3 6h1.2A2.5 2.5 0 0 1 21 8.5v8A2.5 2.5 0 0 1 18.5 19h-13A2.5 2.5 0 0 1 3 16.5z" />
                 <circle cx="12" cy="12.3" r="3.4" />
               </svg>
-              <span className="lab">사진 찍기</span>
+              <span className="lab">{tr('사진 찍기', 'Take a photo')}</span>
             </button>
           )}
 
-          <button className="askbtn" onClick={onOpenAsk} aria-label={recordsLabel ? '지난 기록 보기' : '지난 기록 물어보기'}>
+          <button className="askbtn" onClick={onOpenAsk} aria-label={recordsLabel ? tr('지난 기록 보기', 'See past photos') : tr('지난 기록 물어보기', 'Ask about past photos')}>
             <svg className="ask-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <circle cx="11" cy="11" r="7" />
               <path d="M20.5 20.5l-3.6-3.6" />
             </svg>
-            <span className="lab">{recordsLabel ? '지난 기록 보기' : '지난 기록 물어보기'}</span>
+            <span className="lab">{recordsLabel ? tr('지난 기록 보기', 'See past photos') : tr('지난 기록 물어보기', 'Ask about past photos')}</span>
           </button>
         </div>
 
@@ -314,14 +315,14 @@ export function Home({ uid, patientName, greetingName, memos, onOpenAsk, onOpen,
       </div>
 
       {memos.length > 0 && (
-        <div className="recent-strip" aria-label="최근 사진">
+        <div className="recent-strip" aria-label={tr('최근 사진', 'Recent photos')}>
           {memos.slice(0, 10).map((m) => (
             <button
               type="button"
               key={m.id}
               className="recent-thumb"
               onClick={() => onOpen(m.id)}
-              aria-label="자세히 보기"
+              aria-label={tr('자세히 보기', 'See details')}
             >
               <MemoThumb memo={m} showLocation />
             </button>

@@ -8,6 +8,7 @@ import { PairingSender } from '../pages/RegisterElder'
 import type { ElderDevice, Pairing } from '../types'
 import { SectLab } from './SectLab'
 import { honorific } from '../lib/people'
+import { tr } from '../lib/lang'
 
 /**
  * 기기 관리 for a family-managed elder (Settings, family view): linked phones
@@ -41,16 +42,16 @@ export function ElderDevices({ patientUid, patientName }: { patientUid: string; 
 
   const fail = (title: string, err: unknown) => {
     console.error(title, err)
-    toast.show(title, isWorkerOffline(err) ? WORKER_OFFLINE_MESSAGE : '잠시 후 다시 시도해 주세요')
+    toast.show(title, isWorkerOffline(err) ? WORKER_OFFLINE_MESSAGE : tr('잠시 후 다시 시도해 주세요', 'Please try again in a moment'))
   }
 
   const decide = async (p: Pairing, approve: boolean) => {
     setBusy(true)
     try {
       await approvePairing(p.id, approve)
-      toast.show(approve ? '연결을 승인했어요' : '연결을 거절했어요')
+      toast.show(approve ? tr('연결을 승인했어요', 'The link is approved') : tr('연결을 거절했어요', 'The request was turned down'))
     } catch (err) {
-      fail('처리하지 못했어요', err)
+      fail(tr('처리하지 못했어요', "Couldn't do that"), err)
     } finally {
       setBusy(false)
     }
@@ -60,10 +61,10 @@ export function ElderDevices({ patientUid, patientName }: { patientUid: string; 
     setBusy(true)
     try {
       await unlinkDevice(patientUid, d.id)
-      toast.show('연결을 해제했어요', `${d.name}에서 더 이상 기록할 수 없어요`)
+      toast.show(tr('연결을 해제했어요', 'The phone is unlinked'), tr(`${d.name}에서 더 이상 기록할 수 없어요`, `${d.name} can't take photos any more`))
       setConfirmUnlink(null)
     } catch (err) {
-      fail('해제하지 못했어요', err)
+      fail(tr('해제하지 못했어요', "Couldn't unlink it"), err)
     } finally {
       setBusy(false)
     }
@@ -71,35 +72,35 @@ export function ElderDevices({ patientUid, patientName }: { patientUid: string; 
 
   return (
     <div className="sect">
-      <SectLab info="휴대폰을 잃어버렸다면 바로 ‘연결 해제’를 눌러주세요. 새 휴대폰을 원격으로 연결할 때는 여기서 승인해야 연결돼요.">{honorific(patientName)} 휴대폰</SectLab>
+      <SectLab info={tr('휴대폰을 잃어버렸다면 바로 ‘연결 해제’를 눌러주세요. 새 휴대폰을 원격으로 연결할 때는 여기서 승인해야 연결돼요.', 'If the phone is lost, tap Unlink right away. When a new phone is linked from afar, you approve it here.')}>{tr(`${honorific(patientName)} 휴대폰`, `${honorific(patientName)}'s phone`)}</SectLab>
 
       {requests.map((p) => (
         <div className="row approval-row" key={p.id}>
           <div className="who">
-            <b>새 휴대폰 연결 요청</b><br />
-            <span>{p.deviceInfo?.name ?? '휴대폰'} · 직접 보낸 링크가 맞을 때만 승인하세요</span>
+            <b>{tr('새 휴대폰 연결 요청', 'A new phone wants to link')}</b><br />
+            <span>{p.deviceInfo?.name ?? tr('휴대폰', 'Phone')} · {tr('직접 보낸 링크가 맞을 때만 승인하세요', 'Approve it only if this is the link you sent')}</span>
           </div>
           <div className="send-row">
-            <button className="signin-secondary" disabled={busy} onClick={() => decide(p, false)}>거절</button>
-            <button className="linkbtn" disabled={busy} onClick={() => decide(p, true)}><span>승인</span></button>
+            <button className="signin-secondary" disabled={busy} onClick={() => decide(p, false)}>{tr('거절', 'Turn down')}</button>
+            <button className="linkbtn" disabled={busy} onClick={() => decide(p, true)}><span>{tr('승인', 'Approve')}</span></button>
           </div>
         </div>
       ))}
 
       {devices.length === 0 ? (
-        <div className="row"><div className="who"><span>아직 연결된 휴대폰이 없어요.</span></div></div>
+        <div className="row"><div className="who"><span>{tr('아직 연결된 휴대폰이 없어요.', 'No phone is linked yet.')}</span></div></div>
       ) : devices.map((d) => (
         <div className="row" key={d.id}>
           <div className="who">
             <b>{d.name}</b><br />
-            <span>{d.pairedAt ? `${d.pairedAt.toDate().toLocaleDateString('ko-KR')} 연결` : '연결됨'}</span>
+            <span>{d.pairedAt ? tr(`${d.pairedAt.toDate().toLocaleDateString('ko-KR')} 연결`, `Linked ${d.pairedAt.toDate().toLocaleDateString('en-US')}`) : tr('연결됨', 'Linked')}</span>
           </div>
-          <button className="signout-btn" onClick={() => setConfirmUnlink(d)}>연결 해제</button>
+          <button className="signout-btn" onClick={() => setConfirmUnlink(d)}>{tr('연결 해제', 'Unlink')}</button>
         </div>
       ))}
 
       <button className="linkbtn" onClick={() => setSending(true)} style={{ marginTop: 8 }}>
-        <span>{devices.length === 0 ? '휴대폰 연결 링크 보내기' : '새 휴대폰 연결'}</span>
+        <span>{devices.length === 0 ? tr('휴대폰 연결 링크 보내기', 'Send a link to the phone') : tr('새 휴대폰 연결', 'Link a new phone')}</span>
         <span aria-hidden="true">→</span>
       </button>
 
@@ -114,14 +115,14 @@ export function ElderDevices({ patientUid, patientName }: { patientUid: string; 
       {confirmUnlink && (
         <div className="modal-backdrop" role="dialog" aria-modal="true">
           <div className="modal">
-            <div className="modal-title">연결을 해제할까요?</div>
+            <div className="modal-title">{tr('연결을 해제할까요?', 'Unlink this phone?')}</div>
             <div className="modal-body">
-              <p>{confirmUnlink.name}에서 {honorific(patientName)} 기록을 더 이상 보거나 찍을 수 없어요. 다시 쓰려면 새 연결 링크를 보내야 해요.</p>
+              <p>{tr(`${confirmUnlink.name}에서 ${honorific(patientName)} 기록을 더 이상 보거나 찍을 수 없어요. 다시 쓰려면 새 연결 링크를 보내야 해요.`, `${confirmUnlink.name} can no longer see or take ${honorific(patientName)}'s photos. To use it again, send a new link.`)}</p>
             </div>
             <div className="modal-actions">
-              <button className="signin-secondary" onClick={() => setConfirmUnlink(null)}>취소</button>
+              <button className="signin-secondary" onClick={() => setConfirmUnlink(null)}>{tr('취소', 'Cancel')}</button>
               <button className="linkbtn" disabled={busy} onClick={() => unlink(confirmUnlink)}>
-                <span>{busy ? '해제하는 중…' : '연결 해제'}</span>
+                <span>{busy ? tr('해제하는 중…', 'Unlinking…') : tr('연결 해제', 'Unlink')}</span>
               </button>
             </div>
           </div>

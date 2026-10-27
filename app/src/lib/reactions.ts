@@ -7,6 +7,7 @@ import {
   addDoc, collection, deleteDoc, doc, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc, where,
 } from 'firebase/firestore'
 import { auth, db } from '../firebase'
+import { tr } from './lang'
 import type { Reaction } from '../types'
 
 export const COMMENT_MAX = 60
@@ -23,7 +24,7 @@ export async function familyActor(fallbackName: string): Promise<Actor> {
   const user = auth.currentUser
   if (!user) throw new Error('not signed in')
   const claim = (await user.getIdTokenResult()).claims.name
-  const name = (typeof claim === 'string' && claim) || fallbackName || '가족'
+  const name = (typeof claim === 'string' && claim) || fallbackName || tr('가족', 'Family')
   return { uid: user.uid, name: name.slice(0, NAME_MAX) }
 }
 

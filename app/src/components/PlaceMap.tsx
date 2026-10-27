@@ -4,6 +4,7 @@ import { renderKakaoMap } from '../lib/map/kakao'
 import { staticMapUrl } from '../lib/map/googleStatic'
 import { KakaoFrame } from './KakaoFrame'
 import type { LatLng } from '../lib/trail'
+import { tr } from '../lib/lang'
 
 /**
  * Where one photo was taken, on a map inside the app (사진 → 지도에서 보기).
@@ -35,7 +36,7 @@ export function PlaceMap({ point, keys = MAP_KEYS }: { point: LatLng; keys?: Map
       : <div ref={mapRef} className="place-map" />
   }
   if (provider === 'googleStatic' && keys.google && !staticFailed) {
-    return <img className="place-map" src={staticMapUrl([point], keys.google, { width: 640, height: 360 }, false)} alt="찍은 곳 지도" onError={() => setStaticFailed(true)} />
+    return <img className="place-map" src={staticMapUrl([point], keys.google, { width: 640, height: 360 }, false)} alt={tr('찍은 곳 지도', 'Map of where the photo was taken')} onError={() => setStaticFailed(true)} />
   }
   return null
 }

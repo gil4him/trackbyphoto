@@ -2,6 +2,7 @@ import type { FamilyPhoto } from '../types'
 import { fmtTime } from '../util'
 import { S } from '../lib/strings'
 import { listPhoto } from '../lib/listPhoto'
+import { tr } from '../lib/lang'
 
 /**
  * A photo the family sent, as a row in the parent's 내 사진, among the
@@ -11,10 +12,10 @@ import { listPhoto } from '../lib/listPhoto'
  * under it. Opens the family-photo viewer on this photo.
  */
 export function ReceivedRow({ photo, onOpen }: { photo: FamilyPhoto; onOpen: (id: string) => void }) {
-  const answer = photo.reply?.kind === 'comment' && photo.reply.text ? `“${photo.reply.text}”` : photo.reply?.kind === 'heart' ? '❤️ 고마워요' : ''
+  const answer = photo.reply?.kind === 'comment' && photo.reply.text ? `“${photo.reply.text}”` : photo.reply?.kind === 'heart' ? tr('❤️ 고마워요', '❤️ Thank you') : ''
   const meta = [fmtTime(new Date(photo.createdAtMs)), answer || photo.caption].filter(Boolean).join(' · ')
   return (
-    <button type="button" className="memo-row received" onClick={() => onOpen(photo.id)} aria-label="가족 사진 보기">
+    <button type="button" className="memo-row received" onClick={() => onOpen(photo.id)} aria-label={tr('가족 사진 보기', 'See the family photo')}>
       <span className="memo-row-pic">
         <span className="tl-thumb">{photo.photoUrl && <img src={listPhoto(photo)} alt="" loading="lazy" />}</span>
       </span>
@@ -22,7 +23,7 @@ export function ReceivedRow({ photo, onOpen }: { photo: FamilyPhoto; onOpen: (id
         <span className="memo-row-title">{S.familyPhotoFrom(photo.senderName)}</span>
         {meta && <span className="memo-row-meta">{meta}</span>}
       </span>
-      {!photo.seenAtMs && <span className="memo-row-new" aria-label="새 사진" />}
+      {!photo.seenAtMs && <span className="memo-row-new" aria-label={tr('새 사진', 'New photo')} />}
     </button>
   )
 }

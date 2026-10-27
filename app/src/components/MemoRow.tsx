@@ -1,5 +1,6 @@
 import { MemoThumb } from './MemoThumb'
 import { cardTitle, reactionCounts, rowMeta } from '../lib/memoViews'
+import { tr } from '../lib/lang'
 import type { Memo, Reaction } from '../types'
 
 /**
@@ -29,7 +30,7 @@ export function MemoRow({ memo, onOpen, reactions, meta, badge, time, fresh = fa
   const line = meta ?? rowMeta(memo)
   const { hearts, words } = reactionCounts(reactions)
   const card = (
-    <button type="button" className="memo-row" onClick={() => onOpen(memo.id)} aria-label="자세히 보기">
+    <button type="button" className="memo-row" onClick={() => onOpen(memo.id)} aria-label={tr('자세히 보기', 'See details')}>
       <span className="memo-row-pic">
         <MemoThumb memo={memo} />
         {badge !== undefined && <span className="memo-row-badge" aria-hidden="true">{badge}</span>}
@@ -40,7 +41,7 @@ export function MemoRow({ memo, onOpen, reactions, meta, badge, time, fresh = fa
           <span className="memo-row-line">
             <span className="memo-row-meta">{line}</span>
             {(hearts > 0 || words > 0) && (
-              <span className="memo-row-rx" aria-label={[hearts ? `하트 ${hearts}` : '', words ? `글 ${words}` : ''].filter(Boolean).join(', ')}>
+              <span className="memo-row-rx" aria-label={[hearts ? tr(`하트 ${hearts}`, `${hearts} heart${hearts === 1 ? '' : 's'}`) : '', words ? tr(`글 ${words}`, `${words} message${words === 1 ? '' : 's'}`) : ''].filter(Boolean).join(', ')}>
                 {hearts > 0 && <span className="memo-rx-heart">♥ {hearts}</span>}
                 {words > 0 && <span>💬 {words}</span>}
               </span>
@@ -48,7 +49,7 @@ export function MemoRow({ memo, onOpen, reactions, meta, badge, time, fresh = fa
           </span>
         )}
       </span>
-      <span className="memo-row-side">{fresh && <span className="memo-row-new" aria-label="새 소식" />}</span>
+      <span className="memo-row-side">{fresh && <span className="memo-row-new" aria-label={tr('새 소식', 'New')} />}</span>
     </button>
   )
   if (time === undefined) return card

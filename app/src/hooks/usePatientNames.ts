@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { doc, onSnapshot } from 'firebase/firestore'
 import { db } from '../firebase'
+import { tr } from '../lib/lang'
 import type { NameState } from '../lib/people'
 import type { UserSettings } from '../types'
 
@@ -29,7 +30,7 @@ export function usePatientDocs(patientUids: string[]): { names: Record<string, N
     const unsubs = uids.map((uid) =>
       onSnapshot(doc(db, 'users', uid), { includeMetadataChanges: true }, (snap) => {
         const next: NameState = snap.exists()
-          ? ((snap.data()?.patientName as string | undefined) || '이름 없음')
+          ? ((snap.data()?.patientName as string | undefined) || tr('이름 없음', 'No name'))
           : snap.metadata.fromCache ? undefined : null
         setNames((prev) => (prev[uid] === next ? prev : { ...prev, [uid]: next }))
         const fp = snap.data()?.familyPhotos as FamilyPhotosSetting

@@ -9,6 +9,7 @@
 
 import { Capacitor } from '@capacitor/core'
 import { Purchases, PURCHASES_ERROR_CODE } from '@revenuecat/purchases-capacitor'
+import { tr } from './lang'
 import type { Plans, PlanTier } from '../types'
 
 export interface Checkout {
@@ -75,7 +76,7 @@ export async function storePrices(): Promise<Partial<Record<PlanTier, string>>> 
     const out: Partial<Record<PlanTier, string>> = {}
     for (const p of current?.availablePackages ?? []) {
       const tier = TIER_OF_PRODUCT[baseProductId(p.product.identifier)]
-      if (tier) out[tier] = `${p.product.priceString}/월`
+      if (tier) out[tier] = tr(`${p.product.priceString}/월`, `${p.product.priceString}/mo`)
     }
     return out
   } catch (err) {

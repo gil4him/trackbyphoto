@@ -8,6 +8,7 @@
 
 import { addDoc, collection, deleteDoc, onSnapshot, serverTimestamp } from 'firebase/firestore'
 import { auth, db } from '../firebase'
+import { tr } from './lang'
 
 export class WorkerError extends Error {
   code: string
@@ -22,7 +23,7 @@ export class WorkerError extends Error {
 }
 
 /** Friendly Korean message for an offline worker. */
-export const WORKER_OFFLINE_MESSAGE = '서버가 잠시 오프라인이에요. 잠시 후 다시 시도해 주세요.'
+export const WORKER_OFFLINE_MESSAGE = tr('서버가 잠시 오프라인이에요. 잠시 후 다시 시도해 주세요.', 'The server is offline for a moment. Please try again shortly.')
 
 export function isWorkerOffline(err: unknown): boolean {
   return err instanceof WorkerError && err.code === 'unavailable'

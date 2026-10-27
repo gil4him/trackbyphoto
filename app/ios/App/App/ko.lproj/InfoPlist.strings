@@ -1,0 +1,5 @@
+/* 한국어 (Info.plist와 같은 문구). */
+"NSCameraUsageDescription" = "오늘 하루의 순간을 사진으로 담기 위해 카메라가 필요해요.";
+"NSLocationWhenInUseUsageDescription" = "사진을 찍을 때 어디에 계셨는지 가족에게 알려주기 위해 위치 정보를 사용해요.";
+"NSPhotoLibraryAddUsageDescription" = "찍은 사진을 사진 앱에도 저장해요.";
+"NSPhotoLibraryUsageDescription" = "찍은 사진을 가족에게 전달하기 위해 사진에 접근해요.";

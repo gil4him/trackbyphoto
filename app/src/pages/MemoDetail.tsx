@@ -17,19 +17,20 @@ import { sharePhoto } from '../lib/photoShare'
 import { honorific } from '../lib/people'
 import { SendSheet, type SendTarget } from '../components/SendSheet'
 import { SEND_HINT_KEY, hintSeen, markHintSeen } from '../lib/hints'
+import { tr } from '../lib/lang'
 
 // 'stored-only' has no badge on purpose: nothing says a step was skipped.
 const SOURCE_BADGES: Partial<Record<MemoSource, { label: string; tone: 'good' | 'neutral' | 'warn' }>> = {
   'foundation-models': { label: 'Apple Intelligence', tone: 'good' },
-  'template':          { label: 'iPhone 분석',         tone: 'neutral' },
-  'local-llm':         { label: 'AI 분석',             tone: 'good' },
+  'template':          { label: tr('iPhone 분석', 'iPhone'), tone: 'neutral' },
+  'local-llm':         { label: tr('AI 분석', 'AI'), tone: 'good' },
   // Same words for the family: which model wrote it is not their concern.
-  'cloud-llm':         { label: 'AI 분석',             tone: 'good' },
-  'local-llm-v2':      { label: 'AI 분석',             tone: 'good' },
-  'local-stub':        { label: 'AI 추정',             tone: 'warn' },
-  'cloud-vision':      { label: '클라우드 AI',         tone: 'good' },
-  'cloud-stub':        { label: '클라우드 추정',        tone: 'warn' },
-  'human':             { label: '직접 작성',           tone: 'good' },
+  'cloud-llm':         { label: tr('AI 분석', 'AI'), tone: 'good' },
+  'local-llm-v2':      { label: tr('AI 분석', 'AI'), tone: 'good' },
+  'local-stub':        { label: tr('AI 추정', 'AI guess'), tone: 'warn' },
+  'cloud-vision':      { label: tr('클라우드 AI', 'Cloud AI'), tone: 'good' },
+  'cloud-stub':        { label: tr('클라우드 추정', 'Cloud guess'), tone: 'warn' },
+  'human':             { label: tr('직접 작성', 'By family'), tone: 'good' },
 }
 
 const TITLE_MAX = 40
@@ -79,7 +80,9 @@ export function MemoDetail({ memo, onBack, readOnly = false, rx, sendTo }: { mem
   const rewriting = memo.status === 'pending' && !!memo.memo
   // The memo server is off or its model isn't answering: say so, don't spin.
   const serverDown = useWorkerStatus(memo.status === 'pending') === 'down'
-  const waitingText = serverDown ? '메모 서버가 잠시 쉬고 있어요. 다시 켜지면 자동으로 써 드려요.' : '메모 작성 중…'
+  const waitingText = serverDown
+    ? tr('메모 서버가 잠시 쉬고 있어요. 다시 켜지면 자동으로 써 드려요.', "The memo server is resting. We'll write this for you once it's back.")
+    : tr('메모 작성 중…', 'Writing the memo…')
   const body = memo.scene || ''
 
   const startEdit = () => {
@@ -92,7 +95,7 @@ export function MemoDetail({ memo, onBack, readOnly = false, rx, sendTo }: { mem
     const title = draftTitle.trim()
     const text = draftBody.trim()
     if (!title) {
-      toast.show('제목을 입력해주세요', '비워둘 수 없어요')
+      toast.show(tr('제목을 입력해주세요', 'Please enter a title'), tr('비워둘 수 없어요', "It can't be empty"))
       return
     }
     if (title === memo.memo && text === body) {
@@ -108,10 +111,10 @@ export function MemoDetail({ memo, onBack, readOnly = false, rx, sendTo }: { mem
         humanEdited: true,
       })
       setEditing(false)
-      toast.show('메모를 저장했어요', '')
+      toast.show(tr('메모를 저장했어요', 'Memo saved'), '')
     } catch (err) {
       console.error('[memo edit] failed', err)
-      toast.show('저장에 실패했어요', '잠시 후 다시 시도해주세요')
+      toast.show(tr('저장에 실패했어요', "Couldn't save"), tr('잠시 후 다시 시도해주세요', 'Please try again in a moment'))
     } finally {
       setSaving(false)
     }
@@ -123,10 +126,10 @@ export function MemoDetail({ memo, onBack, readOnly = false, rx, sendTo }: { mem
     setSaving(true)
     try {
       await updateDoc(doc(db, 'memos', memo.id), { status: 'pending', humanEdited: false })
-      toast.show('메모를 다시 쓰고 있어요', '잠시만 기다려 주세요')
+      toast.show(tr('메모를 다시 쓰고 있어요', 'Writing the memo again'), tr('잠시만 기다려 주세요', 'Just a moment'))
     } catch (err) {
       console.error('[memo rewrite] failed', err)
-      toast.show('다시 쓰지 못했어요', '잠시 후 다시 시도해주세요')
+      toast.show(tr('다시 쓰지 못했어요', "Couldn't rewrite it"), tr('잠시 후 다시 시도해주세요', 'Please try again in a moment'))
     } finally {
       setSaving(false)
     }
@@ -142,7 +145,7 @@ export function MemoDetail({ memo, onBack, readOnly = false, rx, sendTo }: { mem
       .then(onBack)
       .catch((err) => {
         console.error(err)
-        toast.show('삭제에 실패했어요', '잠시 후 다시 시도해주세요')
+        toast.show(tr('삭제에 실패했어요', "Couldn't delete it"), tr('잠시 후 다시 시도해주세요', 'Please try again in a moment'))
       })
   }
 
@@ -157,7 +160,7 @@ export function MemoDetail({ memo, onBack, readOnly = false, rx, sendTo }: { mem
       await run()
     } catch (err) {
       console.error('[share] photo failed', err)
-      toast.show('사진을 보내지 못했어요', '잠시 후 다시 시도해 주세요')
+      toast.show(tr('사진을 보내지 못했어요', "Couldn't send the photo"), tr('잠시 후 다시 시도해 주세요', 'Please try again in a moment'))
     } finally {
       setSharing(false)
     }
@@ -173,12 +176,12 @@ export function MemoDetail({ memo, onBack, readOnly = false, rx, sendTo }: { mem
     setSheet(null)
     try {
       const list = await sendTo!.targets()
-      if (list.length === 0) { toast.show('사진을 받을 수 있는 부모님이 없어요'); return }
+      if (list.length === 0) { toast.show(tr('사진을 받을 수 있는 부모님이 없어요', 'No parent can receive photos right now')); return }
       setTargets(list)
       setSheet('send')
     } catch (err) {
       console.error('[send] targets', err)
-      toast.show('잠시 후 다시 시도해 주세요')
+      toast.show(tr('잠시 후 다시 시도해 주세요', 'Please try again in a moment'))
     }
   }
   const onSend = async (uids: string[], caption: string) => {
@@ -187,7 +190,7 @@ export function MemoDetail({ memo, onBack, readOnly = false, rx, sendTo }: { mem
     setSheet(null)
     await passOn(async () => {
       await sendTo!.send(to.map((t) => t.uid), caption)
-      toast.show(`${to.map((t) => honorific(t.name)).join(', ')}에게 보냈어요`)
+      toast.show(tr(`${to.map((t) => honorific(t.name)).join(', ')}에게 보냈어요`, `Sent to ${to.map((t) => honorific(t.name)).join(', ')}`))
     })
   }
 
@@ -196,7 +199,13 @@ export function MemoDetail({ memo, onBack, readOnly = false, rx, sendTo }: { mem
     simple: isSimple(), readOnly,
     hasPhoto: !!memo.photoUrl, hasMemo: !!memo.memo, rewriting, canSend: !!sendTo,
   })
-  const ACTION_LABELS: Record<DetailAction, string> = { share: '공유하기', send: '부모님께 보내기', edit: '직접 수정', rewrite: 'AI로 다시 쓰기', delete: '지우기' }
+  const ACTION_LABELS: Record<DetailAction, string> = {
+    share: tr('공유하기', 'Share'),
+    send: tr('부모님께 보내기', 'Send to parent'),
+    edit: tr('직접 수정', 'Edit'),
+    rewrite: tr('AI로 다시 쓰기', 'Rewrite'),
+    delete: tr('지우기', 'Delete'),
+  }
   const runAction = (a: DetailAction) => {
     if (a === 'delete') return setSheet('confirm')
     setSheet(null)
@@ -209,13 +218,13 @@ export function MemoDetail({ memo, onBack, readOnly = false, rx, sendTo }: { mem
   return (
     <section className="page detail">
       <div className="detail-head">
-        <button type="button" className="head-btn" onClick={onBack} aria-label="뒤로가기">‹</button>
+        <button type="button" className="head-btn" onClick={onBack} aria-label={tr('뒤로가기', 'Back')}>‹</button>
         <div className="detail-head-when">{fmtDate(takenAt)} · {fmtTime(takenAt)}</div>
         {actions.length > 0
-          ? <button type="button" className="head-btn" onClick={() => { dismissHint(); setSheet('menu') }} aria-label="더보기" aria-haspopup="dialog">⋯</button>
+          ? <button type="button" className="head-btn" onClick={() => { dismissHint(); setSheet('menu') }} aria-label={tr('더보기', 'More')} aria-haspopup="dialog">⋯</button>
           : <span className="head-btn-space" aria-hidden="true" />}
         {hint && actions.includes('send') && (
-          <button type="button" className="menu-hint" onClick={dismissHint}>여기서 부모님께 보낼 수 있어요</button>
+          <button type="button" className="menu-hint" onClick={dismissHint}>{tr('여기서 부모님께 보낼 수 있어요', 'You can send this to your parent from here')}</button>
         )}
       </div>
 
@@ -230,17 +239,17 @@ export function MemoDetail({ memo, onBack, readOnly = false, rx, sendTo }: { mem
               onClick={() => runAction(a)}
             >{ACTION_LABELS[a]}</button>
           ))}
-          <button type="button" className="sheet-cancel" onClick={closeSheet}>취소</button>
+          <button type="button" className="sheet-cancel" onClick={closeSheet}>{tr('취소', 'Cancel')}</button>
         </BottomSheet>
       )}
       {sheet === 'send' && targets && (
         <SendSheet targets={targets} busy={sharing} onSend={(uids, caption) => void onSend(uids, caption)} onClose={closeSheet} />
       )}
       {sheet === 'confirm' && (
-        <BottomSheet title="이 사진을 지울까요?" onClose={closeSheet}>
-          <p className="sheet-sub">지운 사진은 되돌릴 수 없어요</p>
-          <button type="button" className="sheet-danger-btn" onClick={onDelete}>지우기</button>
-          <button type="button" className="sheet-cancel" onClick={closeSheet}>취소</button>
+        <BottomSheet title={tr('이 사진을 지울까요?', 'Delete this photo?')} onClose={closeSheet}>
+          <p className="sheet-sub">{tr('지운 사진은 되돌릴 수 없어요', "A deleted photo can't come back")}</p>
+          <button type="button" className="sheet-danger-btn" onClick={onDelete}>{tr('지우기', 'Delete')}</button>
+          <button type="button" className="sheet-cancel" onClick={closeSheet}>{tr('취소', 'Cancel')}</button>
         </BottomSheet>
       )}
 
@@ -249,11 +258,11 @@ export function MemoDetail({ memo, onBack, readOnly = false, rx, sendTo }: { mem
       <div className={`detail-photo ${memo.photoUrl ? 'has-img' : grad}`}>
         {memo.photoUrl
           ? <img src={memo.photoUrl} alt="" />
-          : <div className="detail-photo-empty">사진을 불러오는 중…</div>}
+          : <div className="detail-photo-empty">{tr('사진을 불러오는 중…', 'Loading the photo…')}</div>}
       </div>
 
       <div className="detail-memo">
-        {memo.memo || (serverDown ? '메모를 기다리는 중이에요' : '메모 작성 중…')}
+        {memo.memo || (serverDown ? tr('메모를 기다리는 중이에요', 'Waiting for the memo') : tr('메모 작성 중…', 'Writing the memo…'))}
       </div>
 
       <div className="detail-meta">
@@ -263,21 +272,21 @@ export function MemoDetail({ memo, onBack, readOnly = false, rx, sendTo }: { mem
 
       <div className="detail-section">
         <div className="d-label">
-          <span>메모</span>
+          <span>{tr('메모', 'Memo')}</span>
           <span className="d-label-end">
             {rewriting
-              ? <span className="src-badge tone-neutral">{serverDown ? '서버가 쉬는 중' : '다시 쓰는 중…'}</span>
+              ? <span className="src-badge tone-neutral">{serverDown ? tr('서버가 쉬는 중', 'Server resting') : tr('다시 쓰는 중…', 'Rewriting…')}</span>
               : memo.humanEdited
-                ? <span className="src-badge tone-good">직접 작성</span>
+                ? <span className="src-badge tone-good">{tr('직접 작성', 'By family')}</span>
                 : badge && <span className={`src-badge tone-${badge.tone}`}>{badge.label}</span>}
             {actions.includes('edit') && !editing && (
-              <button type="button" className="d-edit-link" disabled={saving} onClick={startEdit}>수정</button>
+              <button type="button" className="d-edit-link" disabled={saving} onClick={startEdit}>{tr('수정', 'Edit')}</button>
             )}
           </span>
         </div>
         {editing ? (
           <div className="d-edit">
-            <label htmlFor="memo-title">제목</label>
+            <label htmlFor="memo-title">{tr('제목', 'Title')}</label>
             <input
               id="memo-title"
               value={draftTitle}
@@ -285,7 +294,7 @@ export function MemoDetail({ memo, onBack, readOnly = false, rx, sendTo }: { mem
               maxLength={TITLE_MAX}
               autoFocus
             />
-            <label htmlFor="memo-body">설명</label>
+            <label htmlFor="memo-body">{tr('설명', 'Description')}</label>
             <textarea
               id="memo-body"
               value={draftBody}
@@ -294,15 +303,15 @@ export function MemoDetail({ memo, onBack, readOnly = false, rx, sendTo }: { mem
               maxLength={BODY_MAX}
             />
             <div className="d-edit-actions">
-              <button className="d-btn-secondary" disabled={saving} onClick={() => setEditing(false)}>취소</button>
-              <button className="d-btn-primary" disabled={saving} onClick={saveEdit}>{saving ? '저장 중…' : '저장'}</button>
+              <button className="d-btn-secondary" disabled={saving} onClick={() => setEditing(false)}>{tr('취소', 'Cancel')}</button>
+              <button className="d-btn-primary" disabled={saving} onClick={saveEdit}>{saving ? tr('저장 중…', 'Saving…') : tr('저장', 'Save')}</button>
             </div>
           </div>
         ) : (
           <>
             {body
               ? <p className="d-scene">{body}</p>
-              : <p className="d-scene muted">{memo.memo ? '설명이 아직 없어요.' : waitingText}</p>}
+              : <p className="d-scene muted">{memo.memo ? tr('설명이 아직 없어요.', 'No description yet.') : waitingText}</p>}
           </>
         )}
       </div>
@@ -311,21 +320,21 @@ export function MemoDetail({ memo, onBack, readOnly = false, rx, sendTo }: { mem
           photo; on one's own, it shows only what others have left. */}
       {rx && (rx.canReact || (rx.byMemo.get(memo.id)?.length ?? 0) > 0) && (
         <div className="detail-section rx-section">
-          <div className="d-label"><span>가족 이야기</span></div>
+          <div className="d-label"><span>{tr('가족 이야기', 'Family notes')}</span></div>
           <Reactions memoId={memo.id} ctx={rx} />
         </div>
       )}
 
       <div className="detail-section">
-        <div className="d-label"><span>장소</span></div>
+        <div className="d-label"><span>{tr('장소', 'Place')}</span></div>
         <div className="d-place">
           <div className="d-place-main">
-            <span>📍 {memo.place || '위치 정보 없음'}</span>
+            <span>📍 {memo.place || tr('위치 정보 없음', 'No location')}</span>
             {memo.address && <span className="d-address">{memo.address}</span>}
           </div>
           {located && (
             <button type="button" className="d-map-link" aria-expanded={mapOpen} onClick={() => setMapOpen((o) => !o)}>
-              {mapOpen ? '지도 닫기' : '지도에서 보기'}
+              {mapOpen ? tr('지도 닫기', 'Hide map') : tr('지도에서 보기', 'See on the map')}
             </button>
           )}
         </div>

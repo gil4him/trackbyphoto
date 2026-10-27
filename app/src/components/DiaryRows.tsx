@@ -3,6 +3,7 @@ import { MemoThumb } from './MemoThumb'
 import { listPhoto } from '../lib/listPhoto'
 import { sentStatus } from '../lib/familyPhotosModel'
 import { placeName } from '../lib/memoViews'
+import { lang, tr } from '../lib/lang'
 import type { ParentMemo } from '../lib/diary'
 import type { FamilyPhoto, Memo } from '../types'
 
@@ -20,7 +21,7 @@ function Timed({ time, children }: { time?: string; children: React.ReactNode })
 export function ParentRow({ item, onOpen, time }: { item: ParentMemo; onOpen: (memo: Memo) => void; time?: string }) {
   return (
     <Timed time={time}>
-      <button type="button" className="memo-row diary-row" style={{ '--pc': item.color } as CSSProperties} onClick={() => onOpen(item.memo)} aria-label={`${item.name} 사진 보기`}>
+      <button type="button" className="memo-row diary-row" style={{ '--pc': item.color } as CSSProperties} onClick={() => onOpen(item.memo)} aria-label={tr(`${item.name} 사진 보기`, `See ${item.name}'s photo`)}>
         <span className="diary-thumb"><MemoThumb memo={item.memo} /></span>
         <span className="diary-line"><b className="diary-who">{item.name}</b> {placeName(item.memo.place)}</span>
       </button>
@@ -32,9 +33,11 @@ export function ParentRow({ item, onOpen, time }: { item: ParentMemo; onOpen: (m
 export function SentDiaryRow({ photo, to, color, onOpen, time }: { photo: FamilyPhoto; to: string; color: string; onOpen: (id: string) => void; time?: string }) {
   return (
     <Timed time={time}>
-      <button type="button" className="memo-row diary-row" style={{ '--pc': color } as CSSProperties} onClick={() => onOpen(photo.id)} aria-label={`${to}에게 보낸 사진 보기`}>
+      <button type="button" className="memo-row diary-row" style={{ '--pc': color } as CSSProperties} onClick={() => onOpen(photo.id)} aria-label={tr(`${to}에게 보낸 사진 보기`, `See the photo sent to ${to}`)}>
         <span className="diary-thumb"><span className="tl-thumb">{photo.photoUrl && <img src={listPhoto(photo)} alt="" loading="lazy" />}</span></span>
-        <span className="diary-line"><b className="diary-who">{to}</b>에게 보냄</span>
+        <span className="diary-line">{lang === 'en'
+          ? <>Sent to <b className="diary-who">{to}</b></>
+          : <><b className="diary-who">{to}</b>에게 보냄</>}</span>
         <span className="diary-status">{sentStatus(photo)}</span>
       </button>
     </Timed>
@@ -53,12 +56,12 @@ export function ParentGroupRow({ items, onOpen, time, timeOf }: { items: ParentM
   }
   return (
     <Timed time={time}>
-      <button type="button" className="memo-row diary-row diary-group" style={{ '--pc': first.color } as CSSProperties} onClick={() => setOpen(true)} aria-expanded="false" aria-label={`${first.name} 사진 ${items.length}장 펼치기`}>
+      <button type="button" className="memo-row diary-row diary-group" style={{ '--pc': first.color } as CSSProperties} onClick={() => setOpen(true)} aria-expanded="false" aria-label={tr(`${first.name} 사진 ${items.length}장 펼치기`, `Open ${first.name}'s ${items.length} photos`)}>
         <span className="diary-stack" aria-hidden="true">
           {items.slice(0, 3).map((it, i) => <span key={it.memo.id} className="diary-stack-thumb" style={{ '--i': i } as CSSProperties}><MemoThumb memo={it.memo} /></span>)}
         </span>
-        <span className="diary-line"><b className="diary-who">{first.name}</b> · 사진 {items.length}장</span>
-        <span className="diary-status diary-open">펼치기 ›</span>
+        <span className="diary-line"><b className="diary-who">{first.name}</b> · {tr(`사진 ${items.length}장`, `${items.length} photos`)}</span>
+        <span className="diary-status diary-open">{tr('펼치기 ›', 'Open ›')}</span>
       </button>
     </Timed>
   )
@@ -71,17 +74,17 @@ export function ParentGroupRow({ items, onOpen, time, timeOf }: { items: ParentM
 export function PlaceGroupRow({ memos, time, renderRow }: { memos: Memo[]; time?: string; renderRow: (m: Memo) => React.ReactNode }) {
   const [open, setOpen] = useState(false)
   if (open) return <>{memos.map((m) => renderRow(m))}</>
-  const place = placeName(memos[0].place) || '같은 곳'
+  const place = placeName(memos[0].place) || tr('같은 곳', 'The same place')
   return (
     <Timed time={time}>
-      <button type="button" className="memo-row place-group" onClick={() => setOpen(true)} aria-expanded="false" aria-label={`${place} 사진 ${memos.length}장 펼치기`}>
+      <button type="button" className="memo-row place-group" onClick={() => setOpen(true)} aria-expanded="false" aria-label={tr(`${place} 사진 ${memos.length}장 펼치기`, `Open ${memos.length} photos at ${place}`)}>
         <span className="diary-stack place-stack" aria-hidden="true">
           {memos.slice(0, 3).map((m, i) => <span key={m.id} className="diary-stack-thumb" style={{ '--i': i } as CSSProperties}><MemoThumb memo={m} /></span>)}
         </span>
         <span className="memo-row-body">
-          <span className="memo-row-title">{place} · 사진 {memos.length}장</span>
+          <span className="memo-row-title">{place} · {tr(`사진 ${memos.length}장`, `${memos.length} photos`)}</span>
         </span>
-        <span className="diary-status diary-open">펼치기 ›</span>
+        <span className="diary-status diary-open">{tr('펼치기 ›', 'Open ›')}</span>
       </button>
     </Timed>
   )

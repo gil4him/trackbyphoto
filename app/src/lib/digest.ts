@@ -2,6 +2,7 @@
 
 import { doc, getDoc } from 'firebase/firestore'
 import { db } from '../firebase'
+import { lang } from './lang'
 import { callWorker } from './worker'
 import type { Digest, DigestSettings, Memo } from '../types'
 
@@ -19,6 +20,7 @@ export function noticeHourChoices(current: number): number[] {
 }
 
 export function noticeHourLabel(h: number): string {
+  if (lang === 'en') return h === 0 ? '12 AM' : h === 12 ? '12 noon' : h < 12 ? `${h} AM` : `${h - 12} PM`
   if (h >= 22) return `밤 ${h - 12}시`
   if (h >= 17) return `저녁 ${h - 12}시`
   return h < 12 ? `오전 ${h}시` : h === 12 ? '낮 12시' : `오후 ${h - 12}시`
@@ -73,6 +75,14 @@ export function placesVisited(memos: Memo[]): string[] {
 /** "어머니님이 하트 1개, 음성 답장 1개를 남기셨어요" → the short form on the page. */
 export function repliesSummary(replies: Digest['replies']): string {
   const texts = replies.texts?.length ?? 0
+  if (lang === 'en') {
+    const many = (n: number, one: string, more: string) => `${n} ${n === 1 ? one : more}`
+    return [
+      replies.hearts ? many(replies.hearts, 'heart', 'hearts') : '',
+      texts ? many(texts, 'written reply', 'written replies') : '',
+      replies.voices ? many(replies.voices, 'voice reply', 'voice replies') : '',
+    ].filter(Boolean).join(' · ')
+  }
   return [replies.hearts ? `하트 ${replies.hearts}개` : '', texts ? `글 답장 ${texts}개` : '', replies.voices ? `음성 답장 ${replies.voices}개` : ''].filter(Boolean).join(' · ')
 }
 

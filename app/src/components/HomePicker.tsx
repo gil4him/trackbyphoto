@@ -5,6 +5,7 @@ import { SectLab } from './SectLab'
 import { isWorkerOffline, WORKER_OFFLINE_MESSAGE } from '../lib/worker'
 import { searchAddress, type AddressCandidate } from '../lib/location'
 import { AUTO_SEARCH_MS, autoSearchable } from '../lib/homePlaces'
+import { tr } from '../lib/lang'
 
 type Home = NonNullable<UserSettings['home']>
 
@@ -49,7 +50,7 @@ export function HomePicker({ home, patientUid, onChange, heading = 'section' }: 
       // Typing on is the usual answer to a failed lookup while typing; only
       // a search someone asked for says so.
       if (mine === seq.current && !auto) {
-        toast.show('주소를 찾지 못했어요', isWorkerOffline(err) ? WORKER_OFFLINE_MESSAGE : '잠시 후 다시 시도해 주세요')
+        toast.show(tr('주소를 찾지 못했어요', "Couldn't find that address"), isWorkerOffline(err) ? WORKER_OFFLINE_MESSAGE : tr('잠시 후 다시 시도해 주세요', 'Please try again in a moment'))
       }
     } finally {
       if (mine === seq.current) setSearching(false)
@@ -75,40 +76,40 @@ export function HomePicker({ home, patientUid, onChange, heading = 'section' }: 
     setFound(null)
     setSearching(false)
     setEditing(false)
-    toast.show('집 위치를 저장했어요')
+    toast.show(tr('집 위치를 저장했어요', 'Home saved'))
   }
   const onFocus = () => { setQuery(home?.label ?? ''); setEditing(true) }
   const onBlur = () => {
     // Leaving the box empty forgets the home; leaving typed text that was
     // never picked keeps the saved one.
-    if (home && !query.trim()) { onChange(null); toast.show('집 위치를 지웠어요', '사진을 가장 자주 찍는 곳을 집으로 봐요') }
+    if (home && !query.trim()) { onChange(null); toast.show(tr('집 위치를 지웠어요', 'Home cleared'), tr('사진을 가장 자주 찍는 곳을 집으로 봐요', 'The place photos are taken most often counts as home')) }
     seq.current++
     setSearching(false)
     setEditing(false)
     setFound(null)
   }
 
-  const info = '집에서 멀리 있을 때 찍은 사진은 여행·출장으로 기록해요. 비워 두면 사진을 가장 자주 찍는 곳을 집으로 봐요. 주소나 건물 이름을 적으면 찾아 드리고, 앞으로 찍는 사진부터 적용돼요.'
+  const info = tr('집에서 멀리 있을 때 찍은 사진은 여행·출장으로 기록해요. 비워 두면 사진을 가장 자주 찍는 곳을 집으로 봐요. 주소나 건물 이름을 적으면 찾아 드리고, 앞으로 찍는 사진부터 적용돼요.', "A photo taken far from home is recorded as a trip. Leave it empty and the place photos are taken most often counts as home. Write an address or a building name and we'll look it up; it applies from the next photo on.")
   return (
     <>
       {heading === 'section'
-        ? <SectLab info={info}>집 위치</SectLab>
-        : <div className="sub-lab">집 위치</div>}
+        ? <SectLab info={info}>{tr('집 위치', 'Home')}</SectLab>
+        : <div className="sub-lab">{tr('집 위치', 'Home')}</div>}
       <div className="home-search">
         <input
           value={shown}
           maxLength={100}
-          placeholder="예: 서초대로 1, 350 5th Ave New York"
-          aria-label="주소나 건물 이름"
+          placeholder={tr('예: 서초대로 1, 350 5th Ave New York', 'e.g. 350 5th Ave New York')}
+          aria-label={tr('주소나 건물 이름', 'Address or building name')}
           onFocus={onFocus}
           onBlur={onBlur}
           onChange={(e) => onType(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') void find() }}
         />
       </div>
-      {editing && searching && !found && <div className="help">찾는 중…</div>}
+      {editing && searching && !found && <div className="help">{tr('찾는 중…', 'Looking…')}</div>}
       {editing && found && (found.length === 0
-        ? <div className="help">찾은 곳이 없어요. 다르게 적어 보세요.</div>
+        ? <div className="help">{tr('찾은 곳이 없어요. 다르게 적어 보세요.', 'Nothing found. Try writing it differently.')}</div>
         : (
           <div className="name-chips">
             {/* onMouseDown: a tap must land before the box blurs and drops the list. */}

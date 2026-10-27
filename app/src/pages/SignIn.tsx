@@ -2,13 +2,14 @@ import { useState, type FormEvent } from 'react'
 import { useToast } from '../components/Toast'
 import { LegalLinks } from '../components/LegalLinks'
 import { isSimple } from '../lib/edition'
+import { tr } from '../lib/lang'
 
 /** What a failed email sign-in says, in place of Firebase's code. */
 export function emailSignInError(err: unknown): string {
   const code = String((err as { code?: string })?.code ?? '')
-  if (/invalid-credential|wrong-password|user-not-found|invalid-email/.test(code)) return '이메일 또는 비밀번호가 맞지 않아요.'
-  if (/too-many-requests/.test(code)) return '잠시 후 다시 시도해 주세요.'
-  return '로그인에 실패했어요. 다시 시도해 주세요.'
+  if (/invalid-credential|wrong-password|user-not-found|invalid-email/.test(code)) return tr('이메일 또는 비밀번호가 맞지 않아요.', "That email or password isn't right.")
+  if (/too-many-requests/.test(code)) return tr('잠시 후 다시 시도해 주세요.', 'Please try again in a moment.')
+  return tr('로그인에 실패했어요. 다시 시도해 주세요.', "Sign-in didn't work. Please try again.")
 }
 
 export function SignIn({ onGoogle, onApple, onEmail, invited, onEnterCode, parentButton = false }: {
@@ -58,7 +59,7 @@ export function SignIn({ onGoogle, onApple, onEmail, invited, onEnterCode, paren
       // so a failure on a phone can be read off the screen and reported.
       const e = err as { code?: string; message?: string }
       const reason = [e?.code, e?.message].filter(Boolean).join(' · ').slice(0, 200) || String(err)
-      toast.show('로그인에 실패했어요', reason)
+      toast.show(tr('로그인에 실패했어요', "Sign-in didn't work"), reason)
       // The toast fades quickly; keep the reason on screen until the next try.
       setError(reason)
       setBusy(false)
@@ -71,19 +72,19 @@ export function SignIn({ onGoogle, onApple, onEmail, invited, onEnterCode, paren
       <div className="signin-brand">
         <div className="signin-dot" />
         <h1>Daylie</h1>
-        <p>한 번의 터치로 오늘의 순간을 가족에게 전합니다.</p>
+        <p>{tr('한 번의 터치로 오늘의 순간을 가족에게 전합니다.', 'One tap sends today’s moment to your family.')}</p>
       </div>
 
       {onApple && (
-        <button className="apple-btn" onClick={run(onApple)} disabled={busy} aria-label="Apple로 로그인">
+        <button className="apple-btn" onClick={run(onApple)} disabled={busy} aria-label={tr('Apple로 로그인', 'Sign in with Apple')}>
           <svg width="18" height="22" viewBox="0 0 17 20" aria-hidden="true">
             <path fill="currentColor" d="M14.1 10.6c0-2.6 2.1-3.8 2.2-3.9-1.2-1.8-3.1-2-3.7-2-1.6-.2-3.1.9-3.9.9-.8 0-2.1-.9-3.4-.9C3.5 4.8 1.9 5.8 1 7.3c-1.9 3.2-.5 8 1.3 10.6.9 1.3 1.9 2.7 3.3 2.6 1.3-.1 1.8-.8 3.4-.8s2 .8 3.4.8c1.4 0 2.3-1.3 3.2-2.6 1-1.5 1.4-2.9 1.4-3-.1 0-2.9-1.1-2.9-4.3zM11.5 3c.7-.9 1.2-2 1.1-3.2-1 0-2.3.7-3 1.6-.7.8-1.3 2-1.1 3.1 1.1.1 2.3-.6 3-1.5z"/>
           </svg>
-          Apple로 로그인
+          {tr('Apple로 로그인', 'Sign in with Apple')}
         </button>
       )}
 
-      <button className="g-btn" onClick={run(onGoogle)} disabled={busy} aria-label="Google로 로그인">
+      <button className="g-btn" onClick={run(onGoogle)} disabled={busy} aria-label={tr('Google로 로그인', 'Sign in with Google')}>
         <span className="g-ico" aria-hidden>
           {/* Google "G" mark */}
           <svg width="20" height="20" viewBox="0 0 48 48">
@@ -93,39 +94,39 @@ export function SignIn({ onGoogle, onApple, onEmail, invited, onEnterCode, paren
             <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4 5.5l6.2 5.3C40.9 35 45 30 45 24c0-1.2-.1-2.3-.4-3.5z"/>
           </svg>
         </span>
-        {busy ? '로그인 중…' : 'Google로 로그인'}
+        {busy ? tr('로그인 중…', 'Signing in…') : tr('Google로 로그인', 'Sign in with Google')}
       </button>
 
       {error && <p className="signin-error">{error}</p>}
 
       {onEnterCode && !invited && (parentButton ? (
         <button className="signin-parent-btn" onClick={onEnterCode}>
-          <span className="signin-parent-title">부모님 휴대폰이에요</span>
-          <span className="signin-parent-sub">사진을 찍어 가족에게 보내요</span>
+          <span className="signin-parent-title">{tr('부모님 휴대폰이에요', "This is my parent's phone")}</span>
+          <span className="signin-parent-sub">{tr('사진을 찍어 가족에게 보내요', 'Take a photo and send it to your family')}</span>
         </button>
       ) : (
         <button className="signin-code-btn" onClick={onEnterCode}>
-          가족에게 받은 연결 코드가 있어요
+          {tr('가족에게 받은 연결 코드가 있어요', 'I have a link code from my family')}
         </button>
       ))}
 
       <p className="signin-note">
         {invited
-          ? '가족초대를 받으셨어요. 로그인하면 바로 참여할 수 있어요.'
+          ? tr('가족초대를 받으셨어요. 로그인하면 바로 참여할 수 있어요.', 'You have a family invitation. Sign in and you can join right away.')
           : parentButton
-            ? '로그인은 가족용이에요. 부모님은 위의 ‘부모님 휴대폰이에요’를 눌러 주세요.'
-            : '가족과 메모를 공유하기 위해 로그인해 주세요. 사진과 메모는 본인 계정에만 저장됩니다.'}
+            ? tr('로그인은 가족용이에요. 부모님은 위의 ‘부모님 휴대폰이에요’를 눌러 주세요.', 'Sign-in is for family. Parents: tap ‘This is my parent\'s phone’ above.')
+            : tr('가족과 메모를 공유하기 위해 로그인해 주세요. 사진과 메모는 본인 계정에만 저장됩니다.', 'Sign in to share memos with your family. Photos and memos are kept in your own account only.')}
       </p>
       {onEmail && (emailOpen ? (
         <form className="signin-email" onSubmit={submitEmail}>
-          <input className="text-input" type="email" autoComplete="username" placeholder="이메일" aria-label="이메일"
+          <input className="text-input" type="email" autoComplete="username" placeholder={tr('이메일', 'Email')} aria-label={tr('이메일', 'Email')}
             value={email} onChange={(e) => setEmail(e.target.value)} />
-          <input className="text-input" type="password" autoComplete="current-password" placeholder="비밀번호" aria-label="비밀번호"
+          <input className="text-input" type="password" autoComplete="current-password" placeholder={tr('비밀번호', 'Password')} aria-label={tr('비밀번호', 'Password')}
             value={password} onChange={(e) => setPassword(e.target.value)} />
-          <button className="linkbtn" type="submit" disabled={busy || !email.trim() || !password}>로그인</button>
+          <button className="linkbtn" type="submit" disabled={busy || !email.trim() || !password}>{tr('로그인', 'Sign in')}</button>
         </form>
       ) : (
-        <button className="signin-code-btn signin-email-link" onClick={() => setEmailOpen(true)}>이메일로 로그인</button>
+        <button className="signin-code-btn signin-email-link" onClick={() => setEmailOpen(true)}>{tr('이메일로 로그인', 'Sign in with email')}</button>
       ))}
       {isSimple() && <LegalLinks />}
     </section>
