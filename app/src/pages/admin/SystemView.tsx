@@ -127,7 +127,7 @@ export function SystemView({ worker, people, peopleFailed = false, refreshKey }:
           <h3>앱 상태</h3>
           <div className="hq-rows">
             <div><span>푸시 전달률</span><span className="hq-tag t-dim">연결 필요</span></div>
-            <div><span>크래시 없는 사용자</span><span className="hq-tag t-dim">Crashlytics 연결 필요</span></div>
+            <div><span>크래시 없는 사용자</span><span className="hq-tag t-dim">Crashlytics 미설치</span></div>
             <div><span>보관 기간 정리</span><span className={`hq-tag ${retention ? 't-good' : 't-dim'}`}>{retention === null ? '확인 중' : retention ? '스위치 켜짐' : '스위치 꺼짐'}</span></div>
           </div>
           <h3 className="hq-sub-h">연결된 부모님 휴대폰</h3>
@@ -138,7 +138,7 @@ export function SystemView({ worker, people, peopleFailed = false, refreshKey }:
               ))}
             </div>
           )}
-          <p className="hq-note">사용 중인 앱 버전은 아직 기록하지 않아요.</p>
+          <p className="hq-note">사용 중인 앱 버전은 아직 기록하지 않아요. 크래시 수치는 앱에 Crashlytics를 넣고 스토어에 다시 올린 뒤에야 셀 수 있어요 (2026-10-27 결정: 이번에는 넣지 않음).</p>
         </section>
       </div>
     </div>

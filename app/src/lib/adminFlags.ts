@@ -37,6 +37,7 @@ export const FLAGS: FlagInfo[] = [
   { key: 'memoDiary', name: '메모 일기 모드', note: '비교 스크립트용이에요. 메모를 쓸 때는 쓰지 않아요' },
   { key: 'payments', name: '앱 결제',
     confirm: { on: '앱에서 실제 구독 결제를 받기 시작해요. 스토어 상품과 RevenueCat 설정이 끝났는지 먼저 확인해 주세요.', off: '앱에서 새 결제를 받지 않아요. 이미 낸 구독은 스토어에서 계속돼요.' } },
+  { key: 'ceoMorningPush', name: '아침 8시 요약 푸시', note: '매일 8시(서울)에 어제 요약을 운영자 휴대폰으로 보내요' },
 ]
 
 export const setFlag = (flag: string, on: boolean) =>

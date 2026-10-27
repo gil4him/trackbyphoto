@@ -1,0 +1,122 @@
+[
+ {
+  "view": "today",
+  "viewport": "1440",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "today",
+  "viewport": "1280",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "today",
+  "viewport": "820",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "today",
+  "viewport": "393",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "today",
+  "viewport": "360",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "today",
+  "viewport": "393-L",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "system",
+  "viewport": "1440",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "system",
+  "viewport": "1280",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "system",
+  "viewport": "820",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "system",
+  "viewport": "393",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "system",
+  "viewport": "360",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "system",
+  "viewport": "393-L",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "flags",
+  "viewport": "1440",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "flags",
+  "viewport": "1280",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "flags",
+  "viewport": "820",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "flags",
+  "viewport": "393",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "flags",
+  "viewport": "360",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "flags",
+  "viewport": "393-L",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "today-down",
+  "viewport": "1440",
+  "shell": [],
+  "inside": []
+ },
+ {
+  "view": "today-down",
+  "viewport": "393",
+  "shell": [],
+  "inside": []
+ }
+]
