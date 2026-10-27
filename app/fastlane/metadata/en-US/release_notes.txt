@@ -1,3 +1,4 @@
+· If your parent's phone has an old version of the app, Settings says so, and you can send an update notice or the store link.
 · The family's screens are now organized by day: Today shows your photos and your parent's together; Before today shows earlier days one by one.
 · Your parent's My photos is now a large photo grid, with Find a date and Camera buttons below.
 · Send one of your own photos to your parent, with a one-line message, from the ⋯ menu on that photo.
