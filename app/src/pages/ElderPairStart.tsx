@@ -5,6 +5,7 @@ import { startQrScan } from '../lib/qrScan'
 import type { CameraPhase } from './ElderCamera'
 import { ASK_CAMERA_TO_LINK, cameraPermission } from '../lib/permissions'
 import { ElderAsk } from '../components/ElderAsk'
+import { tr } from '../lib/lang'
 
 /**
  * The simple edition's first screen on a phone that isn't linked yet: the
@@ -34,15 +35,15 @@ export function ElderPairStartView({ phase, asking = false, onFamily, onEnterCod
 
       {phase === 'denied' ? (
         <div className="elder-cam-denied" role="alert">
-          <p className="elder-cam-denied-title">카메라를 사용할 수 없어요</p>
-          <p className="elder-cam-denied-sub">설정에서 카메라를 허용해 주세요</p>
-          <button type="button" className="elder-cam-retry" onClick={onRetry}>다시 시도</button>
+          <p className="elder-cam-denied-title">{tr('카메라를 사용할 수 없어요', "Can't use the camera")}</p>
+          <p className="elder-cam-denied-sub">{tr('설정에서 카메라를 허용해 주세요', 'Please allow the camera in Settings')}</p>
+          <button type="button" className="elder-cam-retry" onClick={onRetry}>{tr('다시 시도', 'Try again')}</button>
         </div>
       ) : (
         <>
           <div className="elder-pair-hint" role="status">
-            <span className="elder-pair-hint-title">가족이 보낸 링크를 누르거나 QR을 비춰주세요</span>
-            <span className="elder-pair-hint-sub">가족이 옆에 있다면 가족 휴대폰의 QR을 여기에 비춰요</span>
+            <span className="elder-pair-hint-title">{tr('가족이 보낸 링크를 누르거나 QR을 비춰주세요', 'Tap the link your family sent, or point at their QR code')}</span>
+            <span className="elder-pair-hint-sub">{tr('가족이 옆에 있다면 가족 휴대폰의 QR을 여기에 비춰요', "If your family is with you, point this at the QR code on their phone")}</span>
           </div>
           <div className="elder-pair-frame" aria-hidden="true" />
         </>
@@ -52,9 +53,9 @@ export function ElderPairStartView({ phase, asking = false, onFamily, onEnterCod
 
       {/* A parent on her own: the link from the family, or its code. */}
       <div className="elder-pair-bar">
-        <p className="elder-pair-again">가족이 보낸 링크를 한 번 더 눌러주세요</p>
-        <button type="button" className="elder-pair-code" onClick={onEnterCode}>코드 입력</button>
-        <button type="button" className="elder-pair-link" onClick={onFamily}>가족이에요</button>
+        <p className="elder-pair-again">{tr('가족이 보낸 링크를 한 번 더 눌러주세요', 'Please tap the link your family sent once more')}</p>
+        <button type="button" className="elder-pair-code" onClick={onEnterCode}>{tr('코드 입력', 'Enter code')}</button>
+        <button type="button" className="elder-pair-link" onClick={onFamily}>{tr('가족이에요', "I'm family")}</button>
       </div>
     </div>
   )

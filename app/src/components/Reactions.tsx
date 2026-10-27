@@ -5,6 +5,7 @@ import { replyTarget } from '../lib/reactionsModel'
 import { S } from '../lib/strings'
 import { fmtTime } from '../util'
 import type { Reaction } from '../types'
+import { tr } from '../lib/lang'
 
 /** What a feed needs to show and send reactions; built once in App. */
 export interface ReactionsContext {
@@ -84,7 +85,7 @@ export function Reactions({ memoId, ctx, max }: { memoId: string; ctx: Reactions
       setDraft('')
     } catch (err) {
       console.error('[reactions] comment failed', err)
-      toast.show('보내지 못했어요', '잠시 후 다시 시도해 주세요')
+      toast.show(tr('보내지 못했어요', "Couldn't send it"), tr('잠시 후 다시 시도해 주세요', 'Please try again in a moment'))
     } finally {
       setBusy(false)
     }
@@ -104,11 +105,11 @@ export function Reactions({ memoId, ctx, max }: { memoId: string; ctx: Reactions
                 <div className="rx-text">
                   {r.text}
                   {r.actorUid === ctx.me.uid && (
-                    <button className="rx-del" onClick={() => removeReaction(r.id).catch((err) => console.error('[reactions] delete failed', err))} aria-label="내 글 지우기">지우기</button>
+                    <button className="rx-del" onClick={() => removeReaction(r.id).catch((err) => console.error('[reactions] delete failed', err))} aria-label={tr('내 글 지우기', 'Delete my message')}>{tr('지우기', 'Delete')}기</button>
                   )}
                 </div>
               )}
-              {r.kind === 'heart' && <div className="rx-text">❤️ 고마워요</div>}
+              {r.kind === 'heart' && <div className="rx-text">{tr('❤️ 고마워요', '❤️ Thank you')}</div>}
               {r.kind === 'voice' && <VoiceBubble r={r} ctx={ctx} />}
             </li>
           ))}
@@ -123,17 +124,17 @@ export function Reactions({ memoId, ctx, max }: { memoId: string; ctx: Reactions
             onChange={(e) => setDraft(e.target.value)}
             maxLength={COMMENT_MAX}
             placeholder={S.commentPlaceholder}
-            aria-label="글 남기기"
+            aria-label={tr('글 남기기', 'Leave a message')}
             enterKeyHint="send"
           />
-          <button type="submit" className="rx-send" disabled={busy || !draft.trim()}>보내기</button>
+          <button type="submit" className="rx-send" disabled={busy || !draft.trim()}>{tr('보내기', 'Send')}</button>
         </form>
       ) : (
         <div className="rx-bar">
           {familyHearts.length > 0 && <div className="rx-hearts">❤️ {familyHearts.map((r) => r.actorName).join(', ')}</div>}
           {target && (
             <button type="button" className="rx-reply" onClick={() => ctx.onReply!(target.item, target.unreadIds)}>
-              답장하기
+              {tr('답장하기', 'Reply')}
             </button>
           )}
         </div>

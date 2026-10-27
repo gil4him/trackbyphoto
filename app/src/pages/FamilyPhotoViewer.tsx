@@ -7,6 +7,7 @@ import { unseen, viewerOrder } from '../lib/familyPhotosModel'
 import { S } from '../lib/strings'
 import { fmtTime } from '../util'
 import type { FamilyPhoto, TextReplies } from '../types'
+import { tr } from '../lib/lang'
 
 /** Up to this many photos in a run, a dot each; more → `1 / 12`. */
 const DOTS_MAX = 9
@@ -78,7 +79,7 @@ export function FamilyPhotoViewer({ photos, textMode = 'full', onDone, startId, 
   if (!current) {
     return (
       <section className="page news">
-        <div className="news-text">가족이 보낸 사진이 아직 없어요</div>
+        <div className="news-text">{tr('가족이 보낸 사진이 아직 없어요', 'No photos from your family yet')}</div>
         <div className="news-actions">
           <button className="news-btn" onClick={() => onDone(false)}>{S.familyPhotoToCamera}</button>
         </div>
@@ -131,7 +132,7 @@ export function FamilyPhotoViewer({ photos, textMode = 'full', onDone, startId, 
           ? <div className="fp-broken">{S.familyPhotoLoadFail}</div>
           : <img
               src={current.photoUrl}
-              alt={current.caption || `${current.senderName}이 보낸 사진`}
+              alt={current.caption || tr(`${current.senderName}이 보낸 사진`, `Photo from ${current.senderName}`)}
               onLoad={(e) => { const { naturalWidth: w, naturalHeight: h } = e.currentTarget; if (w && h) setShapes((s) => ({ ...s, [current.id]: `${w} / ${h}` })) }}
               onError={() => setBroken((b) => new Set(b).add(current.id))}
             />}
@@ -141,7 +142,7 @@ export function FamilyPhotoViewer({ photos, textMode = 'full', onDone, startId, 
       {/* Answered already: say so, and offer only the way on — one reply per photo. */}
       {current.reply && (
         <div className="fp-replied" role="status">
-          {current.reply.kind === 'heart' ? '❤️ 고마워요를 보냈어요' : `“${current.reply.text}”라고 답했어요`}
+          {current.reply.kind === 'heart' ? tr('❤️ 고마워요를 보냈어요', 'You sent ❤️ Thank you') : tr(`“${current.reply.text}”라고 답했어요`, `You replied “${current.reply.text}”`)}
         </div>
       )}
       <div className="fp-actions">

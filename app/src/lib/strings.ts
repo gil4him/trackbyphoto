@@ -1,16 +1,20 @@
 // UI strings for v2 (docs/DAYLIE_V2_BUILD.md, Appendix A), easy 존댓말.
-// "어머니" in the guide is the patient's display name here.
+// "어머니" in the guide is the patient's display name here. English in
+// strings.en.ts, which has to have every key (it is typed as these).
 import { honorific } from './people'
+import { lang } from './lang'
+import { EN, EN_FAMILY_PHOTO_CAPTIONS, EN_QUICK_REPLIES } from './strings.en'
 
 /** Subject particle: 민수가 / 지은이. */
 export function subject(name: string): string {
+  if (lang === 'en') return name.trim()
   const last = name.trim().slice(-1)
   const code = last.charCodeAt(0)
   const hasFinal = code >= 0xac00 && code <= 0xd7a3 && (code - 0xac00) % 28 !== 0
   return `${name.trim()}${hasFinal ? '이' : '가'}`
 }
 
-export const S = {
+const KO = {
   elderCardEmpty: '오늘 가족 소식이 아직 없어요',
   elderCardHeart: (name: string) => `${subject(name)} 하트를 보냈어요`,
   elderCardComment: (name: string) => `${subject(name)} 글을 남겼어요`,
@@ -70,10 +74,16 @@ export const S = {
   familyPhotoSentList: '보낸 사진',
 }
 
+export type Strings = typeof KO
+export const S: Strings = lang === 'en' ? EN : KO
+
 /** One-tap captions for a photo sent to a parent. */
-export const FAMILY_PHOTO_CAPTIONS = ['보고 싶어요', '오늘 이렇게 지냈어요', '잘 지내고 있어요', '사랑해요']
+export const FAMILY_PHOTO_CAPTIONS = lang === 'en' ? EN_FAMILY_PHOTO_CAPTIONS : ['보고 싶어요', '오늘 이렇게 지냈어요', '잘 지내고 있어요', '사랑해요']
 /** The quiet limit on photos one family member sends in a day. */
 export const FAMILY_PHOTOS_PER_DAY = 10
 
 /** One-tap answers on the parent's 글로 답장하기 screen, in a parent's own voice. */
-export const QUICK_REPLIES = ['잘 지내', '고마워', '밥 먹었어', '나중에 전화할게', '사랑해']
+export const QUICK_REPLIES = lang === 'en' ? EN_QUICK_REPLIES : ['잘 지내', '고마워', '밥 먹었어', '나중에 전화할게', '사랑해']
+
+/** The Korean table, for the test that checks English has every key. */
+export const S_KO = KO

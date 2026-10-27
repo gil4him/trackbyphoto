@@ -2,6 +2,7 @@
 
 import type { FamilyPhoto } from '../types'
 import { S } from './strings'
+import { tr } from './lang'
 
 /** Whether this family member may send this parent photos: the parent's
  *  setting (received at all; everyone or admins only) and their role. The
@@ -45,10 +46,10 @@ export function viewerOrder(photos: FamilyPhoto[], startId?: string): FamilyPhot
 /** What the sender sees under a photo they sent. */
 export function sentStatus(p: FamilyPhoto): string {
   if (p.reply?.kind === 'comment' && p.reply.text) return `“${p.reply.text}”`
-  if (p.reply?.kind === 'heart') return '❤️ 고마워요'
-  if (p.seenAtMs) return '봤어요'
-  if (p.status === 'ready') return '보냈어요'
-  return '보내는 중…'
+  if (p.reply?.kind === 'heart') return tr('❤️ 고마워요', '❤️ Thank you')
+  if (p.seenAtMs) return tr('봤어요', 'Seen')
+  if (p.status === 'ready') return tr('보냈어요', 'Sent')
+  return tr('보내는 중…', 'Sending…')
 }
 
 /** How many of these were sent today by `uid` (local day). */

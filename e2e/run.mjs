@@ -137,6 +137,10 @@ const workerUp = new Promise((resolve, reject) => {
 
 // Hosted CI runners have no sandbox for Chrome to use.
 const browser = await puppeteer.launch({ executablePath: CHROME, headless: process.env.E2E_HEADFUL !== '1', args: ['--no-first-run', ...(process.env.CI ? ['--no-sandbox'] : [])] })
+// The tests read Korean screens. Headless Chrome reports en-US whatever it is
+// told, so every page starts with the app's own language choice set to Korean
+// (lib/lang.ts reads it before the phone's language).
+const korean = (page) => page.evaluateOnNewDocument(() => { try { localStorage.setItem('daylie.lang', 'ko') } catch { /* no storage */ } })
 const PHONE = { width: 390, height: 844, deviceScaleFactor: 2, isMobile: true, hasTouch: true }
 const ANDROID = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36'
 
@@ -162,6 +166,7 @@ try {
 // A synthetic test photo, drawn in the browser (no real photo is in the repo).
 async function makePhoto(file, hue) {
   const page = await browser.newPage()
+  await korean(page)
   const b64 = await page.evaluate((h) => {
     const c = document.createElement('canvas')
     c.width = 1200; c.height = 900
@@ -202,6 +207,7 @@ async function signedInFamilyPage(who = KID) {
   }
   const ctx = await browser.createBrowserContext()
   const page = await ctx.newPage()
+  await korean(page)
   await page.setViewport(PHONE)
   await page.evaluateOnNewDocument((key, value) => {
     if (!localStorage.getItem(key)) localStorage.setItem(key, value)
@@ -262,6 +268,7 @@ await step('family: registers a parent and gets a link for the parent\'s phone',
 
 const parentCtx = await browser.createBrowserContext()
 const parent = await parentCtx.newPage()
+await korean(parent)
 await parent.setViewport(PHONE)
 await parent.setUserAgent(ANDROID)
 parent.on('pageerror', (e) => console.log('  [parent page error]', String(e).split('\n')[0]))

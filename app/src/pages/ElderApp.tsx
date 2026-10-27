@@ -27,6 +27,7 @@ import { CameraFab } from '../components/CameraFab'
 import { useToast } from '../components/Toast'
 import { useIdleReturn } from '../hooks/useIdleReturn'
 import { S } from '../lib/strings'
+import { tr } from '../lib/lang'
 
 /**
  * Everything a family-managed elder's phone shows: the capture screen, one
@@ -124,9 +125,9 @@ export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn
         <main>
           <section className="pair">
             <div className="signin-dot" />
-            <h1 className="pair-title">연결이 해제되었어요</h1>
-            <p className="pair-sub">가족에게 새 연결을 요청해 주세요.</p>
-            <button className="pair-btn" onClick={onRelink}>새 코드 입력</button>
+            <h1 className="pair-title">{tr('연결이 해제되었어요', 'This phone was disconnected')}</h1>
+            <p className="pair-sub">{tr('가족에게 새 연결을 요청해 주세요.', 'Ask your family for a new link.')}</p>
+            <button className="pair-btn" onClick={onRelink}>{tr('새 코드 입력', 'Enter a new code')}</button>
           </section>
         </main>
       </div>
@@ -158,13 +159,13 @@ export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn
         ) : open ? (
           <div className="elder-scroll">
             <MemoDetail memo={open} onBack={() => setOpenId(null)} readOnly rx={rx} />
-            <CameraFab label="카메라로 돌아가기" onClick={backToCamera} />
+            <CameraFab label={tr('카메라로 돌아가기', 'Back to camera')} onClick={backToCamera} />
           </div>
         ) : view === 'records' ? (
           <div className="elder-scroll">
             <header className="elder-records-head">
-              <button type="button" className="back" onClick={() => setView('home')}>‹ 카메라</button>
-              <h1 className="elder-records-title">내 사진</h1>
+              <button type="button" className="back" onClick={() => setView('home')}>{tr('‹ 카메라', '‹ Camera')}</button>
+              <h1 className="elder-records-title">{tr('내 사진', 'My photos')}</h1>
               <span className="head-btn-space" aria-hidden="true" />
             </header>
             <ElderRecords

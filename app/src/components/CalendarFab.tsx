@@ -1,3 +1,4 @@
+import { tr } from '../lib/lang'
 import { isoDay } from '../util'
 
 /**
@@ -32,7 +33,7 @@ export function CalendarFab({ days, onPick }: { days: Date[]; onPick: (day: Date
   if (days.length === 0) return null
   return (
     <div className="cal-fab-wrap">
-      <label className="cal-fab" aria-label="날짜로 찾기">
+      <label className="cal-fab" aria-label={tr('날짜로 찾기', 'Find a date')}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <rect x="3.5" y="5" width="17" height="15.5" rx="2.5" />
           <path d="M3.5 10h17M8 3v4M16 3v4" />

@@ -2,6 +2,7 @@
 
 import { subject } from './strings'
 import { fmtTime } from '../util'
+import { lang, tr } from './lang'
 import type { FamilyPhoto, Memo, Reaction } from '../types'
 
 /** The family's hearts and words on one photo (the parent's own excluded). */
@@ -26,6 +27,12 @@ function familySummary(items: Reaction[] | undefined, patientUid: string): { nam
 export function reactionSentence(items: Reaction[] | undefined, patientUid: string, plain = false): string {
   const f = familySummary(items, patientUid)
   if (!f) return ''
+  if (lang === 'en') {
+    const who = f.names.length <= 1 ? (f.names[0] || 'Your family') : `${f.names[0]} and ${f.names.length - 1} other${f.names.length > 2 ? 's' : ''}`
+    if (f.heart && f.words) return plain ? `${who} sent a heart and a message` : `${who} sent ❤️ and a message`
+    if (f.heart) return plain ? `${who} sent a heart` : `${who} sent ❤️`
+    return `${who} left a message`
+  }
   const who = f.names.length <= 1 ? subject(f.names[0] || '가족') : `${f.names[0]} 외 ${f.names.length - 1}명이`
   if (f.heart && f.words) return plain ? `${who} 하트와 글을 남겼어요` : `${who} ❤️ 하고 글을 남겼어요`
   if (f.heart) return plain ? `${who} 하트를 보냈어요` : `${who} ❤️ 보냈어요`
@@ -45,7 +52,7 @@ export function tileChip(items: Reaction[] | undefined, patientUid: string, wide
 
 /** A tile's whole story for a screen reader: `오전 8:55 사진, 지민이 하트와 글을 남겼어요, 새 소식`. */
 export function tileAria(m: Memo, items: Reaction[] | undefined, patientUid: string): string {
-  return [`${fmtTime(m.takenAt.toDate())} 사진`, reactionSentence(items, patientUid, true), hasUnseen(items, patientUid) ? '새 소식' : ''].filter(Boolean).join(', ')
+  return [tr(`${fmtTime(m.takenAt.toDate())} 사진`, `Photo at ${fmtTime(m.takenAt.toDate())}`), reactionSentence(items, patientUid, true), hasUnseen(items, patientUid) ? tr('새 소식', 'new') : ''].filter(Boolean).join(', ')
 }
 
 /** Under a tile: `8:55` / `18:40` in the 3-column grid, `오전 8:55` in the roomier one. */
@@ -66,7 +73,7 @@ export function recordLine(m: Memo, place: string): string {
 
 /** Under a photo the family sent: `오후 8:40 · ❤️ 고마워요 보냄` (what the parent answered). */
 export function receivedLine(p: FamilyPhoto): string {
-  const answer = p.reply?.kind === 'heart' ? '❤️ 고마워요 보냄' : p.reply?.kind === 'comment' && p.reply.text ? `“${p.reply.text}” 보냄` : ''
+  const answer = p.reply?.kind === 'heart' ? tr('❤️ 고마워요 보냄', '❤️ Thank you sent') : p.reply?.kind === 'comment' && p.reply.text ? tr(`“${p.reply.text}” 보냄`, `“${p.reply.text}” sent`) : ''
   return [fmtTime(new Date(p.createdAtMs)), answer].filter(Boolean).join(' · ')
 }
 

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { SIMPLE_CONSENT_AI, SIMPLE_CONSENT_DETAILS, SIMPLE_CONSENT_TITLE, simpleConsentText } from '../lib/consent'
 import { consentButtonLabel, sentToName } from '../lib/people'
+import { tr } from '../lib/lang'
 
 /**
  * The simple edition's one consent screen on the parent's phone, right after
@@ -27,7 +28,7 @@ export function SimpleConsent({ caregivers, busy = false, initialOpen = false, o
           {SIMPLE_CONSENT_DETAILS.map((d) => <li key={d}>{d}</li>)}
         </ul>
       ) : (
-        <button className="simple-consent-more" onClick={() => setOpen(true)}>자세한 내용 보기</button>
+        <button className="simple-consent-more" onClick={() => setOpen(true)}>{tr('자세한 내용 보기', 'See details')}</button>
       )}
     </div>
   )

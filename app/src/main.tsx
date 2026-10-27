@@ -4,6 +4,9 @@ import App from './App'
 import './styles.css'   // includes the self-hosted Nanum Gothic @font-face rules
 import { Capacitor } from '@capacitor/core'
 import { registerAppCache } from './lib/sw'
+import { lang } from './lib/lang'
+
+document.documentElement.lang = lang
 
 registerAppCache()
 // The store app's web view measures the screen in full, so layout rules that

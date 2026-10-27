@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { User } from 'firebase/auth'
-import { addDoc, collection, serverTimestamp } from 'firebase/firestore'
+import { addDoc, collection, doc, serverTimestamp, updateDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 import type { DigestSettings, UserSettings, Memo, MemoStyle } from '../types'
 import { useToast } from '../components/Toast'
@@ -32,6 +32,7 @@ import { SectLab } from '../components/SectLab'
 import { PushToggle } from '../components/PushToggle'
 import { HomePicker } from '../components/HomePicker'
 import { dropLocalCache } from '../lib/localCache'
+import { lang, legalPath, setLang, tr, type Lang } from '../lib/lang'
 
 /** Version of the 음성 답장 consent text shown below. */
 const VOICE_CONSENT_VERSION = 'voice-v1'
@@ -85,6 +86,8 @@ interface Props {
 const simple = isSimple()
 /** 설정 → 메모 말투 (memo v2): the worker's model words the memos this way. */
 const MEMO_STYLES: [MemoStyle, string][] = [['plain', '담백하게'], ['warm', '다정하게'], ['playful', '재치있게']]
+/** Each language in its own name, so anyone can find theirs. */
+const LANGS: [Lang, string][] = [['ko', '한국어'], ['en', 'English']]
 
 export function Settings({ settings, onChange, user, onSignOut, activePatientUid, isSelf, onSwitchPatient, myRole, voiceRollout = false, reactionsRollout = false, digestRollout = false, weeklyIncluded = false, weeklyFrom = null, people = [], familyPhotosRollout = false, onOpenPlans, onOpenPlansFor, planName, familyLimit = null, pushRollout = false }: Props) {
   const toast = useToast()
@@ -133,6 +136,25 @@ export function Settings({ settings, onChange, user, onSignOut, activePatientUid
   // Only a real sign-in has one to delete; a parent's phone never gets here.
   const canDeleteMe = !!user.email
   const [deleteMeOpen, setDeleteMeOpen] = useState(false)
+  const [langBusy, setLangBusy] = useState(false)
+  /** Save my language on my account first (App.tsx follows the account on
+   *  every phone), then switch this phone. With no account doc to save on,
+   *  only this phone switches. */
+  const changeMyLang = async (next: Lang) => {
+    if (next === lang) return
+    setLangBusy(true)
+    try {
+      await updateDoc(doc(db, 'users', user.uid), { geoLang: next, lastModifiedBy: user.uid, lastModifiedAt: serverTimestamp() })
+    } catch (e) {
+      if ((e as { code?: string }).code !== 'not-found') {
+        console.error('[settings] language', e)
+        toast.show(tr('바꾸지 못했어요', "Couldn't change it"), tr('잠시 후 다시 시도해 주세요', 'Please try again in a moment'))
+        setLangBusy(false)
+        return
+      }
+    }
+    setLang(next)
+  }
   const [deleteMeBusy, setDeleteMeBusy] = useState(false)
   const onDeleteMyAccount = async () => {
     setDeleteMeBusy(true)
@@ -487,6 +509,16 @@ export function Settings({ settings, onChange, user, onSignOut, activePatientUid
         </div>
 
         <div className="sect">
+          {/* The screens' language on this phone, kept on my account (users/{me}.geoLang) so it follows me. */}
+          <SectLab>{tr('언어', 'Language')}</SectLab>
+          <div className="seg" role="group" aria-label={tr('언어', 'Language')}>
+            {LANGS.map(([v, label]) => (
+              <button key={v} className={lang === v ? 'on' : ''} disabled={langBusy} onClick={() => changeMyLang(v)}>{label}</button>
+            ))}
+          </div>
+        </div>
+
+        <div className="sect">
           <SectLab info={isSelf
             ? '부모님은 로그인할 필요가 없어요. 등록을 마치고 링크를 보내면, 부모님은 링크를 눌러 ‘연결하기’만 누르면 돼요. 목록의 ⋯에서 보기·삭제·빼기를 할 수 있어요.'
             : '휴대폰을 잃어버렸다면 바로 ‘연결 해제’를 눌러주세요. 가족을 초대하면 함께 볼 수 있고, 관리자는 설정을 바꿀 수 있어요.'}>부모님</SectLab>
@@ -518,13 +550,26 @@ export function Settings({ settings, onChange, user, onSignOut, activePatientUid
           )}
           {!isSelf && canManageHere && (
             <>
-              {/* 메모 말투: how the worker's model words this parent's memos (memo v2). Family only. */}
-              <div className="sub-lab">메모 말투</div>
-              <div className="seg" role="group" aria-label="메모 말투">
-                {MEMO_STYLES.map(([v, label]) => (
-                  <button key={v} className={(settings.memoStyle ?? 'warm') === v ? 'on' : ''} onClick={() => update('memoStyle', v)}>{label}</button>
+              {/* The parent's language: their screens, diary and place names (users/{parent}.geoLang). */}
+              <div className="sub-lab">{tr('부모님 언어', "Parent's language")}</div>
+              <div className="seg" role="group" aria-label={tr('부모님 언어', "Parent's language")}>
+                {LANGS.map(([v, label]) => (
+                  <button key={v} className={(settings.geoLang ?? 'ko') === v ? 'on' : ''} onClick={() => update('geoLang', v)}>{label}</button>
                 ))}
               </div>
+              <div className="help">{tr('부모님 화면과 사진 일기, 장소 이름을 이 언어로 적어요. 앞으로 찍는 사진부터 적용돼요.', "Your parent's screens, photo diary and place names use this language, from the next photo on.")}</div>
+              {/* 메모 말투: how the worker's model words this parent's memos (memo v2). Family only.
+                  English memos have one tone for now, so it is shown for Korean only. */}
+              {(settings.geoLang ?? 'ko') === 'ko' && (
+                <>
+                  <div className="sub-lab">메모 말투</div>
+                  <div className="seg" role="group" aria-label="메모 말투">
+                    {MEMO_STYLES.map(([v, label]) => (
+                      <button key={v} className={(settings.memoStyle ?? 'warm') === v ? 'on' : ''} onClick={() => update('memoStyle', v)}>{label}</button>
+                    ))}
+                  </div>
+                </>
+              )}
               {/* 집 위치: where this parent lives, so trips read as trips. */}
               <HomePicker home={settings.home} patientUid={activePatientUid} onChange={(h) => update('home', h)} heading="sub" />
               <div className="sub-lab">함께 보는 가족</div>
@@ -605,8 +650,8 @@ export function Settings({ settings, onChange, user, onSignOut, activePatientUid
         <div className="sect">
           <SectLab>도움말·약관</SectLab>
           {/* In this window, not a new tab: the page's own ‹ 설정으로 돌아가기 brings the app back here. */}
-          <a className="linkbtn" href={`${PUBLIC_ORIGIN}/privacy`}><span>개인정보처리방침</span><span aria-hidden="true">→</span></a>
-          <a className="linkbtn" href={`${PUBLIC_ORIGIN}/terms`}><span>이용약관</span><span aria-hidden="true">→</span></a>
+          <a className="linkbtn" href={`${PUBLIC_ORIGIN}${legalPath('privacy')}`}><span>{tr('개인정보처리방침', 'Privacy policy')}</span><span aria-hidden="true">→</span></a>
+          <a className="linkbtn" href={`${PUBLIC_ORIGIN}${legalPath('terms')}`}><span>{tr('이용약관', 'Terms of use')}</span><span aria-hidden="true">→</span></a>
         </div>
 
         <div className="sect">

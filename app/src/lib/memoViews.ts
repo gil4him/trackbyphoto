@@ -1,10 +1,14 @@
 import type { Memo, Reaction } from '../types'
 import { distanceKm, type LatLng } from './trail'
+import { lang, tr } from './lang'
+
+const EN_DAY = new Intl.DateTimeFormat('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
 
 // ── The parent's day on the family home (simple edition, option C) ─────────
 
 /** `10월 4일 토요일` */
 export function dayEyebrow(d: Date): string {
+  if (lang === 'en') return EN_DAY.format(d)
   const wk = ['일', '월', '화', '수', '목', '금', '토'][d.getDay()]
   return `${d.getMonth() + 1}월 ${d.getDate()}일 ${wk}요일`
 }
@@ -36,6 +40,14 @@ export function farthestKm(memos: Memo[], home: LatLng | null): number | null {
 
 /** `사진 9장 · 집에서 최대 2.0km`; just the count when the distance is unknown. */
 export function dayCaption(count: number, maxKm: number | null, places = 0): string {
+  if (lang === 'en') {
+    // English readers are mostly in the US: miles.
+    const photos = `${count} photo${count === 1 ? '' : 's'}`
+    const at = places ? `${places} place${places === 1 ? '' : 's'}` : ''
+    if (maxKm == null) return [photos, at].filter(Boolean).join(' · ')
+    const mi = maxKm * 0.621371
+    return [photos, at, `up to ${mi < 10 ? mi.toFixed(1) : Math.round(mi)} mi from home`].filter(Boolean).join(' · ')
+  }
   const photos = `사진 ${count}장`
   const at = places ? `${places}곳` : ''
   if (maxKm == null) return [photos, at].filter(Boolean).join(' · ')
@@ -61,10 +73,10 @@ const GENERIC_TITLE = '사진을 남겼어요'
 export function cardTitle(m: Pick<Memo, 'status' | 'memo' | 'activity'> & { place?: string }, serverDown = false): string {
   if (m.status !== 'pending') {
     const name = placeName(m.place)
-    if ((m.memo || '').trim() === GENERIC_TITLE && name) return `${name}에서`
-    return m.memo || m.activity || '기록'
+    if ((m.memo || '').trim() === GENERIC_TITLE && name) return tr(`${name}에서`, `At ${name}`)
+    return m.memo || m.activity || tr('기록', 'Photo')
   }
-  return serverDown ? '메모 서버가 쉬는 중이에요. 켜지면 써 드려요.' : '메모 작성 중…'
+  return serverDown ? tr('메모 서버가 쉬는 중이에요. 켜지면 써 드려요.', "The memo server is resting. We'll write it once it's back.") : tr('메모 작성 중…', 'Writing the memo…')
 }
 
 /** `♥ 2 · 💬 1` for a list card; '' when nothing was left on the photo. */
