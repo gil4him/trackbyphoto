@@ -37,7 +37,7 @@ export interface PlanEntitlements {
 }
 
 /** Rollout switches. Everything ships off and is turned on per feature. */
-export const PLAN_FLAGS = ['reactions', 'voiceReplies', 'digest', 'emailDigest', 'pushFamily', 'usageCaps', 'retentionJob', 'messengerFree', 'trailMap', 'planSheet', 'familyPhotos', 'cloudMemo', 'memoV2', 'memoWeather', 'memoDiary', 'payments'] as const
+export const PLAN_FLAGS = ['reactions', 'voiceReplies', 'digest', 'emailDigest', 'pushFamily', 'usageCaps', 'retentionJob', 'messengerFree', 'trailMap', 'planSheet', 'familyPhotos', 'cloudMemo', 'memoV2', 'memoWeather', 'memoDiary', 'payments', 'ceoMorningPush'] as const
 export type PlanFlag = (typeof PLAN_FLAGS)[number]
 
 export interface PlansDoc extends Partial<Record<PlanTier, PlanEntitlements>> {

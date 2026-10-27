@@ -39,6 +39,7 @@ import { SettingsCache, watchUserSettings } from './handlers/audit.js'
 import { ReactionScheduler, watchReactions } from './handlers/reactions.js'
 import { startRetention } from './handlers/retention.js'
 import { startDigests } from './handlers/digest.js'
+import { startMorningPush } from './handlers/morning.js'
 import { startHousekeeping } from './handlers/housekeeping.js'
 import { startSubscriptionPoll } from './handlers/subscriptions.js'
 import { watchFamilyPhotos } from './handlers/familyPhotos.js'
@@ -86,6 +87,8 @@ async function main() {
     startRetention(),
     startDigests(),
     startHousekeeping(),
+    // 운영실: the CEO's 08:00 summary push (behind the ceoMorningPush switch).
+    startMorningPush(),
     watchFamilyPhotos(),
     // Store subscriptions only end on the store's say-so, so they are polled.
     ...(process.env.PAYMENT_PROVIDER === 'revenuecat' ? [startSubscriptionPoll()] : []),

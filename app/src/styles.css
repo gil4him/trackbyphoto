@@ -2028,3 +2028,13 @@ html:not(.camera-live) .elder-cam { background: #000; }
 .hq-subs td .hq-tag { margin-left: 6px; }
 .hq-subs td .hq-tag:first-child { margin-left: 0; }
 .hq-banner .hq-tag { flex: none; }
+
+/* 오늘 · 스토어 리뷰 (D13): one line per review, the stars first, 답장 없음 at the end. */
+.hq-rev-list { display: flex; flex-direction: column; }
+.hq-rev { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.hq-rev:last-child { border-bottom: 0; }
+.hq-rev-stars { flex: none; font-size: 15px; letter-spacing: 1px; color: var(--accent-ink); white-space: nowrap; }
+.hq-rev-tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.hq-rev-tx b { font-size: 15px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hq-rev-tx small { font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hq-rev .hq-tag { flex: none; }

@@ -55,24 +55,36 @@ export function parseSalesReport(tsv: string, appId = ''): { units: number; byCo
   return { units, byCountry }
 }
 
-let key: KeyObject | null = null
-let jwt: { token: string; expiresAt: number } | null = null
+const keys = new Map<string, KeyObject>()
+const jwts = new Map<string, { token: string; expiresAt: number }>()
 const b64url = (b: Buffer | string) => Buffer.from(b).toString('base64url')
 
-/** An App Store Connect API token (ES256, 20 minutes), reused while fresh. */
-export function ascToken(): string {
+/** An App Store Connect API token (ES256, 20 minutes) for the key the two env
+ *  names point at, reused while fresh. The Sales key reads reports; reviews
+ *  (reviews/asc.ts) take an App Manager key under its own names. */
+export function ascTokenFor(keyIdEnv = 'ASC_KEY_ID', keyPathEnv = 'ASC_KEY_PATH'): string {
   const now = Math.floor(Date.now() / 1000)
-  if (jwt && jwt.expiresAt > now + 60) return jwt.token
+  const kid = env(keyIdEnv)
+  const fresh = jwts.get(kid)
+  if (fresh && fresh.expiresAt > now + 60) return fresh.token
+  let key = keys.get(kid)
   if (!key) {
-    const pem = readFileSync(env('ASC_KEY_PATH').replace(/^~(?=\/)/, homedir()), 'utf8')
+    const pem = readFileSync(env(keyPathEnv).replace(/^~(?=\/)/, homedir()), 'utf8')
     key = createPrivateKey(pem.replace(/\\n/g, '\n'))
+    keys.set(kid, key)
   }
-  const header = { alg: 'ES256', kid: env('ASC_KEY_ID'), typ: 'JWT' }
+  const header = { alg: 'ES256', kid, typ: 'JWT' }
   const payload = { iss: env('ASC_ISSUER_ID'), iat: now, exp: now + 1200, aud: 'appstoreconnect-v1' }
   const input = `${b64url(JSON.stringify(header))}.${b64url(JSON.stringify(payload))}`
   const signature = sign('sha256', Buffer.from(input), { key, dsaEncoding: 'ieee-p1363' })
-  jwt = { token: `${input}.${b64url(signature)}`, expiresAt: now + 1200 }
-  return jwt.token
+  const token = `${input}.${b64url(signature)}`
+  jwts.set(kid, { token, expiresAt: now + 1200 })
+  return token
+}
+
+/** The Sales key's token (installs report). */
+export function ascToken(): string {
+  return ascTokenFor()
 }
 
 export type DayFetch = { ok: true; units: number; byCountry: Record<string, number> } | { ok: false; notYet: true } | { ok: false; notYet: false; error: string }
