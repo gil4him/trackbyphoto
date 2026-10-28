@@ -366,3 +366,40 @@ export async function sharePairToKakao(text: string, url: string): Promise<'shar
   await navigator.clipboard.writeText(text)
   return 'copied'
 }
+
+// ────────────────────────────────────────────────────────────────────────────
+// 부모님 앱 업데이트 — the store link, for a phone that can't get the notice
+// ────────────────────────────────────────────────────────────────────────────
+
+export function buildStoreLinkMessage(patientName: string, url: string): string {
+  if (lang === 'en') {
+    const name = honorific(patientName.trim()) || 'your parent'
+    return `[Daylie] Please update the Daylie app on ${name}'s phone.\n${url}`
+  }
+  const who = patientName.trim() || '부모님'
+  return `[Daylie] ${honorific(who)} 휴대폰의 Daylie 앱을 업데이트해 주세요.\n${url}`
+}
+
+/** 링크 보내기: the store link through KakaoTalk or the share sheet (same
+ *  paths as the pairing link); 'copied' when it went to the clipboard. */
+export async function shareStoreLink(patientName: string, url: string): Promise<'shared' | 'copied'> {
+  const text = buildStoreLinkMessage(patientName, url)
+  if (lang !== 'en' && !Capacitor.isNativePlatform() && isKakaoConfigured()) {
+    try {
+      await shareToKakao(text, url)
+      return 'shared'
+    } catch (err) {
+      console.warn('[update] Kakao SDK share failed, using the share sheet', err)
+    }
+  }
+  if ((await Share.canShare()).value) {
+    try {
+      await Share.share({ title: tr('Daylie 앱 업데이트', 'Update the Daylie app'), text, dialogTitle: tr('링크 보내기', 'Send the link') })
+    } catch {
+      // Sheet closed without picking an app.
+    }
+    return 'shared'
+  }
+  await copyPairMessage(text)
+  return 'copied'
+}

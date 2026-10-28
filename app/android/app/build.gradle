@@ -10,7 +10,7 @@ android {
         // Store uploads pass a fresh, always-increasing code (fastlane:
         // -PversionCode=<minutes since 1970>); local builds fall back to 1.
         versionCode project.hasProperty('versionCode') ? project.versionCode.toInteger() : 1
-        versionName "1.0.2"
+        versionName "1.0.4"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

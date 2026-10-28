@@ -508,13 +508,14 @@ service cloud.firestore {
                          'adminMetrics', 'adminInbox', 'adminGrowth', 'adminSetFlag', 'adminSendCheckIn', 'adminRevenue', 'adminReviews',
                          'createManagedElder', 'createPairingLink', 'approvePairing', 'unlinkDevice', 'deleteManagedElder',
                          'pairDevice', 'completePairing', 'deleteMyAccount',
-                         'registerFcmToken', 'setChannels', 'setDigest', 'changePlan', 'searchAddress'
+                         'registerFcmToken', 'setChannels', 'setDigest', 'changePlan', 'searchAddress',
+                         'reportDevice', 'sendUpdateNudge'
                        ]
                     // An elder's phone, while its device is still linked,
-                    // makes one request: its push token (the worker checks
-                    // the device again). An anonymous session may only
-                    // redeem a pairing code.
-                    && (!elderSession() || (elderDeviceActive() && request.resource.data.type == 'registerFcmToken'))
+                    // makes two requests: its push token and its app version
+                    // (the worker checks the device again). An anonymous
+                    // session may only redeem a pairing code.
+                    && (!elderSession() || (elderDeviceActive() && request.resource.data.type in ['registerFcmToken', 'reportDevice']))
                     && (!anonSession() || request.resource.data.type in ['pairDevice', 'completePairing']);
       allow read, delete: if signedIn() && request.auth.uid == resource.data.uid;
       allow update: if false;

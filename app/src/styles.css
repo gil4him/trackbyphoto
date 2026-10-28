@@ -112,7 +112,7 @@ main { padding: 18px 22px calc(110px + var(--safe-bot)); }
 .day-tl { list-style: none; margin: 0; padding: 0; }
 .day-item { display: flex; gap: 10px; align-items: stretch; }
 .day-time { font-size: 15px; font-weight: 800; color: var(--muted); line-height: 1; padding-top: 12px; }
-.day-tl > li:first-child .day-tl > li:last-child .day-empty { min-height: 92px; display: grid; place-items: center; padding: 16px; background: var(--surface-dim); border: 2px solid var(--line); border-radius: 16px; color: var(--muted); font-size: 17px; }
+.day-empty { min-height: 92px; display: grid; place-items: center; padding: 16px; background: var(--surface-dim); border: 2px solid var(--line); border-radius: 16px; color: var(--muted); font-size: 17px; }
 .day-more { display: block; min-height: 48px; margin: 2px auto 12px; border: 0; background: none; padding: 12px 16px; font: inherit; font-size: 15px; font-weight: 700; color: var(--muted); cursor: pointer; }
 .home-day .fp-sent { margin-top: 8px; }
 /* 보낸 사진 at the end of the parent's day (A10): the header row carries the
@@ -654,6 +654,29 @@ nav.tabbar .tab.on .tab-label { color: var(--ink); }
 }
 .update-prompt:active { transform: translateX(-50%) scale(.97); }
 .update-go { color: #FFB84D; font-weight: 800; }
+/* A parent's phone behind the store: a pill at the top of every screen until
+   the app is updated (no close button). The camera's bubble moves below it. */
+.elder-update-prompt {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  top: calc(var(--safe-top) + 12px); z-index: 70;
+  display: inline-flex; align-items: center; gap: 10px;
+  background: var(--ink); color: #fff; border: none;
+  padding: 13px 20px; border-radius: 999px; cursor: pointer;
+  font: inherit; font-size: 17px; font-weight: 700; white-space: nowrap;
+  box-shadow: 0 12px 30px -8px rgba(0,0,0,.45);
+}
+.elder-update-prompt:active { transform: translateX(-50%) scale(.97); }
+.has-update main { padding-top: 64px; }
+.has-update .elder-cam-bubble { top: calc(var(--safe-top) + 76px); }
+/* Family's Settings: the parent's app version and what to do about it. */
+.app-status { margin-top: 6px; font-size: 13px; color: var(--ink-3); }
+.app-status-old { color: var(--ink); font-weight: 700; }
+.app-status-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.app-status-actions button {
+  border: 1px solid var(--line); background: transparent; color: var(--ink);
+  border-radius: 999px; padding: 6px 12px; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.app-status-actions button:disabled { opacity: .5; }
 nav.tabbar .tab .tab-avatar { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; }
 nav.tabbar .tab.on .tab-avatar { box-shadow: 0 0 0 2px var(--coral2); }
 
@@ -1867,7 +1890,6 @@ html:not(.camera-live) .elder-cam { background: #000; }
 .sheet-danger-btn.send-go:disabled { opacity: .45; }
 
 
-.day-tl 
 /* The floating calendar on 과거 and the parent's 내 사진: bottom-left, on the
    camera button's line; the date field covers it, invisible (CalendarFab). */
 .cal-fab-wrap {

@@ -159,6 +159,8 @@ export interface PushOpened {
   patientUid?: string
   memoId?: string
   digestId?: string
+  /** An app-update notice: the store page to open. */
+  storeUrl?: string
 }
 
 /**
@@ -171,7 +173,7 @@ export function onPushOpened(onOpen: (data: PushOpened) => void): () => void {
   const handle = FirebaseMessaging.addListener('notificationActionPerformed', (event) => {
     const data = (event.notification.data ?? {}) as Record<string, unknown>
     const text = (key: string) => (typeof data[key] === 'string' && data[key] ? (data[key] as string) : undefined)
-    onOpen({ type: text('type'), patientUid: text('patientUid'), memoId: text('memoId'), digestId: text('digestId') })
+    onOpen({ type: text('type'), patientUid: text('patientUid'), memoId: text('memoId'), digestId: text('digestId'), storeUrl: text('storeUrl') })
   })
   return () => { void handle.then((h) => h.remove()).catch(() => {}) }
 }
