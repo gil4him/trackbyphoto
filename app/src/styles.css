@@ -655,19 +655,32 @@ nav.tabbar .tab.on .tab-label { color: var(--ink); }
 .update-prompt:active { transform: translateX(-50%) scale(.97); }
 .update-go { color: #FFB84D; font-weight: 800; }
 /* A parent's phone behind the store: a pill at the top of every screen until
-   the app is updated (no close button). The camera's bubble moves below it. */
+   the app is updated (no close button). It may wrap to two lines on a narrow
+   phone; ElderApp sets --update-h to its height, and everything at the top
+   (the camera's bubble, the sticky back headers, the family photo viewer)
+   starts below it, so no back button is ever under the pill. */
 .elder-update-prompt {
   position: fixed; left: 50%; transform: translateX(-50%);
   top: calc(var(--safe-top) + 12px); z-index: 70;
-  display: inline-flex; align-items: center; gap: 10px;
+  display: inline-flex; flex-wrap: wrap; align-items: center; justify-content: center; column-gap: 10px;
+  width: max-content; max-width: calc(100% - 32px);
   background: var(--ink); color: #fff; border: none;
   padding: 13px 20px; border-radius: 999px; cursor: pointer;
-  font: inherit; font-size: 17px; font-weight: 700; white-space: nowrap;
+  font: inherit; font-size: 17px; font-weight: 700; line-height: 22px; text-align: center;
   box-shadow: 0 12px 30px -8px rgba(0,0,0,.45);
 }
 .elder-update-prompt:active { transform: translateX(-50%) scale(.97); }
-.has-update main { padding-top: 64px; }
-.has-update .elder-cam-bubble { top: calc(var(--safe-top) + 76px); }
+/* White, not orange: orange is never a text colour. */
+.elder-update-go { color: #fff; font-weight: 800; }
+.has-update { --update-h: 48px; }
+.has-update main { padding-top: calc(var(--update-h) + 16px); }
+.has-update .elder-cam-bubble { top: calc(var(--safe-top) + var(--update-h) + 28px); }
+.has-update .detail-head,
+.has-update .elder-records-head {
+  margin-top: calc(-16px - var(--update-h) - var(--safe-top));
+  padding-top: calc(var(--safe-top) + var(--update-h) + 20px);
+}
+.has-update .fp-view { padding-top: calc(var(--safe-top) + var(--update-h) + 24px); }
 /* Family's Settings: the parent's app version and what to do about it. */
 .app-status { margin-top: 6px; font-size: 13px; color: var(--ink-3); }
 .app-status-old { color: var(--ink); font-weight: 700; }

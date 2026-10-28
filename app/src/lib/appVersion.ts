@@ -51,6 +51,8 @@ export function appStatus(device: ElderDevice | undefined, latest: StoreVersions
   const version = device.app?.version
   // Phones from before 1.0.4 never report a version.
   if (!version) return { kind: 'unknown', platform }
+  // The store's version isn't known (yet): say nothing rather than "최신 버전".
+  if (!latest[platform]) return { kind: 'none' }
   return isBehind(version, latest[platform]) ? { kind: 'behind', platform, version } : { kind: 'current', platform, version }
 }
 
