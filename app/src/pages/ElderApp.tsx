@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { doc, onSnapshot } from 'firebase/firestore'
 import { db } from '../firebase'
 import { Home } from './Home'
@@ -120,6 +120,18 @@ export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn
   useIdleReturn(isSimple() && !revoked && (openNews !== null || photosOpen !== false || openId !== null || view === 'records'), backToCamera)
   // The store has a newer app: a banner on every screen until the phone is updated.
   const updateUrl = useElderAppUpdate(deviceId, !revoked)
+  // The banner's height (one or two lines) for the layout under it (styles.css --update-h).
+  const bannerRef = useRef<HTMLButtonElement>(null)
+  useLayoutEffect(() => {
+    const el = bannerRef.current
+    if (!el) return
+    const measure = () => el.parentElement?.style.setProperty('--update-h', `${el.offsetHeight}px`)
+    measure()
+    if (typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [updateUrl])
 
   const open = openId ? memos.find((m) => m.id === openId) ?? null : null
 
@@ -142,8 +154,8 @@ export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn
   return (
     <div className={updateUrl ? 'app elder-mode has-update' : 'app elder-mode'}>
       {updateUrl && (
-        <button type="button" className="elder-update-prompt" onClick={() => openStore(updateUrl)}>
-          {tr('새 버전이 나왔어요', 'A new version is out')} <span className="update-go">{tr('눌러서 업데이트', 'Tap to update')}</span>
+        <button type="button" ref={bannerRef} className="elder-update-prompt" onClick={() => openStore(updateUrl)}>
+          <span>{tr('새 버전이 나왔어요', 'A new version is out')}</span> <span className="elder-update-go">{tr('눌러서 업데이트', 'Tap to update')}</span>
         </button>
       )}
       <main>

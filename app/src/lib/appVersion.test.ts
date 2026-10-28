@@ -63,8 +63,9 @@ describe('what family see', () => {
     expect(appStatus(device({ app: { version: '1.0.3', platform: 'ios' } }), latest)).toEqual({ kind: 'behind', platform: 'ios', version: '1.0.3' })
     // Play has 1.0.3 already: the same version is current there.
     expect(appStatus(device({ platform: 'android', app: { version: '1.0.3', platform: 'android' } }), latest)).toEqual({ kind: 'current', platform: 'android', version: '1.0.3' })
-    // The store's version is unknown: never "old".
-    expect(appStatus(device({ app: { version: '1.0.3', platform: 'ios' } }), {})).toEqual({ kind: 'current', platform: 'ios', version: '1.0.3' })
+    // The store's version is unknown (still loading, or never written): neither "old" nor "최신 버전".
+    expect(appStatus(device({ app: { version: '1.0.3', platform: 'ios' } }), {})).toEqual({ kind: 'none' })
+    expect(appStatus(device({ platform: 'android', app: { version: '1.0.3', platform: 'android' } }), { ios: '1.0.4' })).toEqual({ kind: 'none' })
   })
 
   it('the link message names the parent', () => {
