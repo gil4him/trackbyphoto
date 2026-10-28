@@ -1,0 +1,27 @@
+{
+  "hosting": {
+    "site": "daylieai",
+    "public": "public",
+    "cleanUrls": true,
+    "trailingSlash": false,
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "redirects": [
+      { "source": "/privacy", "destination": "https://dayliesimple.web.app/privacy", "type": 301 },
+      { "source": "/terms", "destination": "https://dayliesimple.web.app/terms", "type": 301 },
+      { "source": "/delete-account", "destination": "https://dayliesimple.web.app/delete-account", "type": 301 },
+      { "source": "/app", "destination": "https://dayliesimple.web.app/", "type": 302 },
+      { "source": "/ios", "destination": "https://apps.apple.com/app/id6821605732", "type": 302 },
+      { "source": "/android", "destination": "https://play.google.com/store/apps/details?id=com.zymer.daylie", "type": 302 }
+    ],
+    "headers": [
+      {
+        "source": "**/*.@(jpg|png|svg|ico)",
+        "headers": [{ "key": "Cache-Control", "value": "public, max-age=604800" }]
+      },
+      {
+        "source": "/index.html",
+        "headers": [{ "key": "Cache-Control", "value": "public, max-age=300" }]
+      }
+    ]
+  }
+}

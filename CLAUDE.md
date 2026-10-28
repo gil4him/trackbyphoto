@@ -40,6 +40,7 @@
 - Before deploying, read the running commit (`~/daylie-worker-simple/DEPLOYED`, `~/trackbyphoto-worker/DEPLOYED`) and make sure your checkout contains it: `git merge-base --is-ancestor <deployed> HEAD`. If not, stop and ask: someone else's work would be lost.
 - After a deploy, verify from the worker log (`~/Library/Logs/daylie-worker-simple.log`, `~/Library/Logs/trackbyphoto-worker.log`) that the `[worker] starting` line shows the expected `deployedCommit` and features (e.g. `"weather":"WeatherKit"`), and tell the user what is running.
 - Production deploys (workers, Firebase, store submissions) are run by the user unless they say otherwise.
+- Landing site (www.daylieai.com): deploys from `landing/` with `cd landing && firebase deploy --only hosting --project daylie-simple-4df13` to Hosting site `daylieai`, separate from the app sites (`dayliesimple` etc.); it has no build step and never touches app/, simple/, workers or rules.
 
 ### Store readiness (owner decisions, 2026-10-27)
 - Launch Korea first on both stores; the US is a 1.1 item. US-1 (2026-10-27): the English legal pages (`simple/app/legal/en/`, served at `/en/privacy`, `/en/terms`, `/en/delete-account`, level with the Korean pages) and the en-US App Store / Play listings are on main; the Korean pages are the originals and the two must change together. Still to do for the US: the English UI (old branch `i18n-b`: `lib/lang.ts`, `tr()`, `strings.en.ts`), English memos in the worker prompt (needs the CEO's wording approval), en.lproj permission strings, English screenshots.
