@@ -32,6 +32,7 @@
 - Push to the parent's phone (type `app.update`, owner-approved wording): a phone that reported a version gets "새 버전이 나왔어요. 눌러서 업데이트해 주세요" (English parents: "A new version is out. Tap to update.") and a tap opens its store page; a phone that reported none gets "새 버전이 나왔어요. 앱스토어에서 업데이트해 주세요" / "…Play 스토어에서 업데이트해 주세요" (its tap only opens the app). Changing these wordings needs the owner's approval.
 - The parent's phone shows "새 버전이 나왔어요 · 눌러서 업데이트" at the top of every screen while it is behind; no close button, it goes away once updated.
 - firestore.rules: `reportDevice`, `sendUpdateNudge` added to the `requests` allow-list (owner-approved, 2026-10-27). privacy §2 lists 앱 버전 and the update notice (시행일 2026-10-28).
+- Release (owner, 2026-10-27): 1.0.3 is skipped in both stores; 1.0.4 (build 29885479) goes out instead, and its "What's New" carries 1.0.3's two calendar-fix lines before the update-notice line.
 
 ### Deploying
 - Never deploy uncommitted code. Order: commit → push to main (or merge the PR) → deploy from an up-to-date checkout of main, preferably a worktree from `origin/main`.
