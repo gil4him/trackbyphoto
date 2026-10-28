@@ -5,9 +5,9 @@
 | 주소 | 파일 | 언어 |
 |---|---|---|
 | `/` | `public/index.html` | 한국어 |
-| `/en/` | `public/en/index.html` | English |
+| `/en` | `public/en/index.html` | English |
 
-브라우저 언어가 한국어가 아닌 첫 방문자는 `/`에서 `/en/`으로 자동 이동하고, 헤더의 **English / 한국어** 버튼으로 고른 언어는 그 브라우저에 기억됩니다. 두 페이지는 `hreflang`으로 서로 연결돼 있어 검색엔진도 언어별로 보여 줍니다.
+브라우저 언어가 한국어가 아닌 첫 방문자는 `/`에서 `/en`으로 자동 이동하고, 헤더의 **English / 한국어** 버튼으로 고른 언어는 그 브라우저에 기억됩니다. 두 페이지는 `hreflang`으로 서로 연결돼 있어 검색엔진도 언어별로 보여 줍니다.
 빌드 과정이 없고, Firebase Hosting 사이트 `daylieai` (프로젝트 `daylie-simple-4df13`)에 올립니다.
 앱(`dayliesimple`)과는 별도 Hosting 사이트라서 앱 배포에 영향을 주지 않습니다.
 
