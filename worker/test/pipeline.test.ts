@@ -3,7 +3,7 @@
 
 import { describe, it, expect, beforeEach } from 'vitest'
 import { Timestamp } from 'firebase-admin/firestore'
-import { MAX_ATTEMPTS, MemoScheduler, prepareMemo, processMemo, type MemoDeps } from '../src/handlers/memo'
+import { MAX_ATTEMPTS, MemoScheduler, memoConcurrency, prepareMemo, processMemo, type MemoDeps } from '../src/handlers/memo'
 import { beat } from '../src/heartbeat'
 import { locateMemo } from '../src/handlers/place'
 import { processRequest } from '../src/handlers/requests'
@@ -317,7 +317,7 @@ describe('MemoScheduler', () => {
     const d = deps({
       loadPhoto: async (photoPath) => ({ photoUrl: PHOTO_URL, base64: async () => photoPath }),
       generate: async (args) => {
-        order.push((args as { imageBase64: string }).imageBase64.replace(/^photos\/p1\/|\.jpg$/g, ''))
+        order.push((args as { imageBase64: string }).imageBase64.replace(/^photos\/[^/]+\/|\.jpg$/g, ''))
         await new Promise<void>((r) => release.push(r))
         return { activity: '산책', memo: '공원 산책', scene: '', model: 'gemma4:e4b', cost: { promptTokens: 1, outputTokens: 1, totalUSD: 0 } }
       },
@@ -332,7 +332,7 @@ describe('MemoScheduler', () => {
     await seedPending('a')
     await seedPending('b')
     const { d, order, release, until } = gatedDeps()
-    const s = new MemoScheduler(d)
+    const s = new MemoScheduler(d, { concurrency: 1 })
     s.enqueue('a')
     s.enqueue('b')
     await until(async () => order.length > 0 && !!(await memo('b')).photoUrl)
@@ -350,7 +350,7 @@ describe('MemoScheduler', () => {
   it('writes new photos before memos that are being re-written', async () => {
     for (const id of ['first', 'old1', 'old2', 'new']) await seedPending(id)
     const { d, order, release, until } = gatedDeps()
-    const s = new MemoScheduler(d)
+    const s = new MemoScheduler(d, { concurrency: 1 })
     s.enqueue('first')
     s.enqueue('old1', true)
     s.enqueue('old2', true)
@@ -361,6 +361,134 @@ describe('MemoScheduler', () => {
     }
     await s.idle()
     expect(order).toEqual(['first', 'new', 'old1', 'old2'])
+  })
+
+  /** A memo of parent `p` (its photo in p's folder). */
+  const seedFor = (id: string, p: string) => seedPending(id, { patientUid: p, photoPath: `photos/${p}/${id}.jpg` })
+
+  it('writes up to N memos at once', async () => {
+    for (const [id, p] of [['a', 'p1'], ['b', 'p2'], ['c', 'p3']]) await seedFor(id, p)
+    const { d, order, release, until } = gatedDeps()
+    const s = new MemoScheduler(d, { concurrency: 2 })
+    s.enqueue('a', false, 'p1')
+    s.enqueue('b', false, 'p2')
+    s.enqueue('c', false, 'p3')
+    await until(async () => release.length === 2 && !!(await memo('c')).photoUrl)
+    expect(order).toEqual(['a', 'b'])
+    expect(s.waiting).toBe(3)
+    expect((await memo('c')).photoUrl).toBe(PHOTO_URL) // shown while it waits for a slot
+    release[0]()
+    await until(() => release.length === 3)
+    expect(order).toEqual(['a', 'b', 'c'])
+    release[1]()
+    release[2]()
+    await s.idle()
+    for (const id of ['a', 'b', 'c']) expect((await memo(id)).status).toBe('ready')
+    expect(s.waiting).toBe(0)
+  })
+
+  it('writes one memo per parent at a time', async () => {
+    await seedFor('a', 'p1')
+    await seedFor('b', 'p1')
+    await seedFor('c', 'p2')
+    const { d, order, release, until } = gatedDeps()
+    const s = new MemoScheduler(d, { concurrency: 3 })
+    s.enqueue('a', false, 'p1')
+    s.enqueue('b', false, 'p1')
+    s.enqueue('c', false, 'p2')
+    await until(() => release.length === 2)
+    await new Promise((r) => setTimeout(r, 100))
+    expect(order).toEqual(['a', 'c']) // b waits for a, though a slot is free
+    release[0]()
+    await until(() => release.length === 3)
+    expect(order).toEqual(['a', 'c', 'b'])
+    release[1]()
+    release[2]()
+    await s.idle()
+    for (const id of ['a', 'b', 'c']) expect((await memo(id)).status).toBe('ready')
+  })
+
+  it('still writes new photos before re-writes once the slots are full', async () => {
+    const ids: Array<[string, string]> = [['f1', 'p1'], ['f2', 'p2'], ['old1', 'p3'], ['old2', 'p4'], ['new', 'p5']]
+    for (const [id, p] of ids) await seedFor(id, p)
+    const { d, order, release, until } = gatedDeps()
+    const s = new MemoScheduler(d, { concurrency: 2 })
+    s.enqueue('f1', false, 'p1')
+    s.enqueue('f2', false, 'p2')
+    s.enqueue('old1', true, 'p3')
+    s.enqueue('old2', true, 'p4')
+    s.enqueue('new', false, 'p5')
+    await until(() => release.length === 2)
+    expect([...order].sort()).toEqual(['f1', 'f2'])
+    release[0]()
+    await until(() => release.length === 3)
+    expect(order[2]).toBe('new')
+    release[1]()
+    release[2]()
+    await until(() => release.length === 5)
+    release[3]()
+    release[4]()
+    await s.idle()
+    expect(order.slice(3).sort()).toEqual(['old1', 'old2']) // both re-writes, side by side
+  })
+
+  it('retries a failing memo while the others keep going', async () => {
+    await seedFor('bad', 'p1')
+    await seedFor('good', 'p2')
+    const d = deps({
+      generate: async (args) => {
+        if ((args as { imageBase64: string }).imageBase64 === 'bad') throw new LlmGenerationError('garbled')
+        return { activity: '산책', memo: '공원 산책', scene: '', model: 'gemma4:e4b', cost: { promptTokens: 1, outputTokens: 1, totalUSD: 0 } }
+      },
+      loadPhoto: async (photoPath) => ({ photoUrl: PHOTO_URL, base64: async () => photoPath.replace(/^photos\/[^/]+\/|\.jpg$/g, '') }),
+    })
+    const s = new MemoScheduler(d, { concurrency: 2 })
+    s.enqueue('bad', false, 'p1')
+    s.enqueue('good', false, 'p2')
+    await s.idle()
+    expect((await memo('good')).status).toBe('ready')
+    expect((await memo('bad')).status).toBe('pending')
+    expect(s.waiting).toBe(1) // 'bad' sits on its retry timer
+    s.stop()
+  })
+
+  it('frees the slot of a memo forgotten while it was being written', async () => {
+    await seedFor('a', 'p1')
+    await seedFor('b', 'p1')
+    const { d, release, until } = gatedDeps()
+    const s = new MemoScheduler(d, { concurrency: 2 })
+    s.enqueue('a', false, 'p1')
+    s.enqueue('b', false, 'p1')
+    await until(() => release.length === 1)
+    await db.doc('memos/a').delete()
+    s.forget('a')
+    release[0]()
+    await until(() => release.length === 2) // p1 is free again, so b runs
+    release[1]()
+    await s.idle()
+    expect((await memo('b')).status).toBe('ready')
+    expect(s.waiting).toBe(0)
+  })
+
+  it('keeps a guardian correction made while the model was writing', async () => {
+    await seedPending('m1')
+    const { d, release, until } = gatedDeps()
+    const s = new MemoScheduler(d, { concurrency: 1 })
+    s.enqueue('m1', false, 'p1')
+    await until(() => release.length === 1)
+    await db.doc('memos/m1').update({ humanEdited: true, memo: '직접 쓴 메모' })
+    release[0]()
+    await s.idle()
+    expect(await memo('m1')).toMatchObject({ status: 'ready', memo: '직접 쓴 메모' })
+  })
+
+  it('reads MEMO_CONCURRENCY as 1 to 8, default 3', () => {
+    expect(memoConcurrency({})).toBe(3)
+    expect(memoConcurrency({ MEMO_CONCURRENCY: '1' })).toBe(1)
+    expect(memoConcurrency({ MEMO_CONCURRENCY: '99' })).toBe(8)
+    expect(memoConcurrency({ MEMO_CONCURRENCY: '0' })).toBe(1)
+    expect(memoConcurrency({ MEMO_CONCURRENCY: 'abc' })).toBe(3)
+    expect(memoConcurrency({ MEMO_CONCURRENCY: '2.5' })).toBe(3)
   })
 })
 

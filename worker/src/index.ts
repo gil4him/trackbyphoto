@@ -17,6 +17,7 @@
  *   OLLAMA_BASE_URL / OLLAMA_MODEL  default http://localhost:11434 / gemma4:e4b
  *   KAKAO_REST_KEY                  optional, Korean reverse geocoding
  *   GEMINI_API_KEY                  optional, Gemini memos for those let through (llm/route.ts)
+ *   MEMO_CONCURRENCY                memos written at once, 1-8, default 3 (handlers/memo.ts)
  *   PAYMENT_PROVIDER                'revenuecat' for store subscriptions; default the stand-in
  *   REVENUECAT_SECRET_KEY           its REST key; without it no paid plan is confirmed
  *   WORKER_STATE_DIR                default ~/.trackbyphoto/state
@@ -31,7 +32,7 @@ import { join } from 'node:path'
 import { cert, initializeApp } from 'firebase-admin/app'
 import { logger } from './log.js'
 import { ollamaAvailable, resolveModel } from './llm/ollama.js'
-import { MemoScheduler, watchPendingMemos } from './handlers/memo.js'
+import { memoConcurrency, MemoScheduler, watchPendingMemos } from './handlers/memo.js'
 import { startDailyNotices } from './handlers/dailyNotice.js'
 import { edition } from './config.js'
 import { watchGeocodeRequests } from './handlers/place.js'
@@ -70,6 +71,7 @@ async function main() {
     cloud: geminiConfigured() ? 'configured (cloudMemo flag / admin_config/cloudLlm decide who)' : 'off',
     weather: weatherKitConfigured() ? 'WeatherKit' : 'off (no WEATHERKIT_* settings)',
     storeVersions: playConfigured() ? 'itunes+play' : 'itunes only',
+    memoConcurrency: memoConcurrency(),
     // scripts/install.sh records it; tells anyone reading the log what is running.
     deployedCommit: deployedCommit(),
   })

@@ -34,6 +34,7 @@ The worker only makes outbound connections. Ollama stays on `localhost`. When th
    ```sh
    KAKAO_REST_KEY=...          # better Korean place names (else OpenStreetMap)
    # OLLAMA_MODEL=gemma4:e4b   # default model when admin_config doesn't pick one
+   # MEMO_CONCURRENCY=3        # memos written at once, one per parent (local-model memos still take turns)
 
    # Digest delivery (all optional; without them the digest still arrives in the app):
    # SMTP_URL=smtps://user:app-password@smtp.gmail.com   # e-mail, any SMTP account
