@@ -1,6 +1,13 @@
 # Daylie 랜딩 페이지 — www.daylieai.com
 
-`public/` 안의 정적 파일이 사이트 전부입니다 (`index.html` + `assets/`).
+`public/` 안의 정적 파일이 사이트 전부입니다.
+
+| 주소 | 파일 | 언어 |
+|---|---|---|
+| `/` | `public/index.html` | 한국어 |
+| `/en/` | `public/en/index.html` | English |
+
+브라우저 언어가 한국어가 아닌 첫 방문자는 `/`에서 `/en/`으로 자동 이동하고, 헤더의 **English / 한국어** 버튼으로 고른 언어는 그 브라우저에 기억됩니다. 두 페이지는 `hreflang`으로 서로 연결돼 있어 검색엔진도 언어별로 보여 줍니다.
 빌드 과정이 없고, Firebase Hosting 사이트 `daylieai` (프로젝트 `daylie-simple-4df13`)에 올립니다.
 앱(`dayliesimple`)과는 별도 Hosting 사이트라서 앱 배포에 영향을 주지 않습니다.
 
@@ -49,8 +56,9 @@ firebase deploy --only hosting
 
 ## 스크린샷 교체
 
-`public/assets/*.jpg` 는 `app/fastlane/screenshots/ko/69-*.png` 를 600px 폭 JPG로 줄인 것입니다.
-앱 UI가 바뀌면 같은 이름으로 다시 만들어 넣고 배포하면 됩니다.
+한국어: `public/assets/*.jpg` ← `app/fastlane/screenshots/ko/69-*.png` (iPhone 6.9", 1320×2868)
+영어: `public/assets/en/*.jpg` ← `app/fastlane/screenshots/en-US/*.png (iPhone 6.9", gitignored; 현재는 1_Daylie_AI-local/us-wt 워크트리에 있음)` (1320×2868)
+모두 600px 폭 JPG로 줄인 것입니다. 앱 UI가 바뀌면 같은 이름으로 다시 만들어 넣고 배포하면 됩니다.
 
 | 파일 | 원본 |
 |---|---|
