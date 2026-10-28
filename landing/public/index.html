@@ -6,6 +6,9 @@
 <title>Daylie — 부모님이 찍으면 가족에게 바로</title>
 <meta name="description" content="부모님 휴대폰은 카메라 하나. 셔터를 누르면 사진이 가족에게 바로 전해지고, 가족은 사진과 장소, 그 순간의 짧은 일기를 보며 한마디를 보내요. iPhone · Android 무료.">
 <link rel="canonical" href="https://www.daylieai.com/">
+<link rel="alternate" hreflang="ko" href="https://www.daylieai.com/">
+<link rel="alternate" hreflang="en" href="https://www.daylieai.com/en">
+<link rel="alternate" hreflang="x-default" href="https://www.daylieai.com/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Daylie">
 <meta property="og:title" content="Daylie — 부모님이 찍으면 가족에게 바로">
@@ -49,6 +52,19 @@ details[open] .chev{transform:rotate(180deg)}
 }
 @media (max-width:520px){.trust{grid-template-columns:1fr}.phone2{display:none !important}}
 </style>
+<script>
+(function () {
+  try {
+    var saved = localStorage.getItem('daylie-lang');
+    var lang = (navigator.language || '').toLowerCase();
+    if (!saved && lang && lang.indexOf('ko') !== 0 && location.search.indexOf('lang=ko') === -1) {
+      location.replace('/en' + location.hash);
+      return;
+    }
+    localStorage.setItem('daylie-lang', 'ko');
+  } catch (e) {}
+})();
+</script>
 </head>
 <body>
 <div class="pagepad" style="font-family: 'Nanum Gothic', 'Apple SD Gothic Neo', -apple-system, system-ui, sans-serif; color: #2C3A33; background: #EAF6F0; width: 100%; word-break: keep-all">
@@ -65,7 +81,10 @@ details[open] .chev{transform:rotate(180deg)}
 <a href="#trust" style="text-decoration: none">안심 기능</a>
 <a href="#faq" style="text-decoration: none">자주 묻는 질문</a>
 </div>
+<div style="display: flex; align-items: center; gap: 12px">
+<a href="/en" lang="en" data-lang="en" aria-label="View in English" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 14px; border-radius: 22px; border: 2px solid #CFE3D8; background: #FFFFFF; font-size: 15px; font-weight: 700; text-decoration: none">English</a>
 <a href="#download" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 22px; border-radius: 22px; background: #FF8A1F; color: #2C3A33; font-size: 17px; font-weight: 800; text-decoration: none">무료로 받기</a>
+</div>
 </nav>
 </header>
 
@@ -289,6 +308,7 @@ details[open] .chev{transform:rotate(180deg)}
 <a href="https://dayliesimple.web.app/terms">이용약관</a>
 <a href="https://dayliesimple.web.app/delete-account">계정 삭제</a>
 <a href="mailto:gil4him@gmail.com">문의하기</a>
+<a href="/en" lang="en" data-lang="en">English</a>
 </div>
 <span>© 2026 Zymer, LLC</span>
 </div>
@@ -303,6 +323,9 @@ details[open] .chev{transform:rotate(180deg)}
 </div>
 <script>
 (function () {
+  document.querySelectorAll('a[data-lang]').forEach(function (a) {
+    a.addEventListener('click', function () { try { localStorage.setItem('daylie-lang', a.getAttribute('data-lang')); } catch (e) {} });
+  });
   var ua = navigator.userAgent || '';
   var ios = /iPhone|iPad|iPod/.test(ua);
   var android = /Android/.test(ua);
