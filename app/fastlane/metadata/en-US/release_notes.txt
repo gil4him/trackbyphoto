@@ -1,3 +1,1 @@
-· Fixed the calendar button on Before today, which could fill the whole screen.
-· The note shown when there are no photos today looks right again.
-· If your parent's phone has an old version of the app, Settings says so, and you can send an update notice or the store link.
+· Polished the plan screen.
