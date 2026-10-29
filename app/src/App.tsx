@@ -5,6 +5,8 @@ import { db } from './firebase'
 import { appleSignInAvailable, useAuth } from './hooks/useAuth'
 import { useLaunchUrl } from './hooks/useLaunchUrl'
 import { useFirstLaunchPairCode } from './hooks/useFirstLaunchPairCode'
+import { isSpentCode } from './lib/pairing'
+import { looksLikeElder } from './lib/elderSession'
 import { useMemos } from './hooks/useMemos'
 import { useMemoById } from './hooks/useMemoById'
 import { MemoOpening } from './components/MemoOpening'
@@ -142,11 +144,15 @@ function App() {
   const user = authUser && !authUser.isAnonymous ? authUser : null
   // Pairing screen: opened by a /pair link, or by "자녀에게 받은 연결 코드가 있어요".
   const [pairCode, setPairCode] = useState<string | null>(pairCodeFromUrl)
+  // A code this phone is done with, handed back by the phone (the link the
+  // app was once opened with, the referrer, the clipboard), is left alone: a
+  // connected parent's phone stays where it is.
+  const takePairCode = useCallback((code: string) => { if (!isSpentCode(code)) setPairCode(code) }, [])
   // …or by a /pair link that opened the native app.
-  useLaunchUrl(setPairCode)
+  useLaunchUrl(takePairCode)
   // …or, on the simple app's first launch, by the code of the link it was
   // installed from (Play referrer / copied link).
-  useFirstLaunchPairCode(isSimple() && ready && !authUser, setPairCode)
+  useFirstLaunchPairCode(isSimple() && ready && !authUser, takePairCode)
   // Simple edition, web: 연결하기 on the /pair page (only where the phone's
   // store has no app) links the phone in the browser (?web=1 keeps it across
   // a reload). An old ?web=1 address on a phone whose store has the app is
@@ -586,10 +592,11 @@ function App() {
           <main>
             <PairDevice
               initialCode={pairCode}
-              alreadyLinked={!!elder}
+              alreadyLinked={!!elder || looksLikeElder(authUser)}
               autoConnect={isSimple() && Capacitor.isNativePlatform()}
               onDone={closePair}
               onCancel={closePair}
+              onRescan={isSimple() && Capacitor.isNativePlatform() ? () => { closePair(); setParentMode(true) } : undefined}
             />
           </main>
         </div>
@@ -675,7 +682,9 @@ function App() {
           bigText={settings.bigText}
           onRelink={async () => {
             await signOut().catch(() => {})
-            setPairCode('')
+            // The parent's app: the QR camera (with 코드 입력 behind it).
+            if (isSimple() && Capacitor.isNativePlatform()) setParentMode(true)
+            else setPairCode('')
           }}
         />
       </ToastProvider>

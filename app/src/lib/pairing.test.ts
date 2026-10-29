@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 
 vi.mock('./worker', () => ({ callWorker: vi.fn() }))
 
-import { firstTimeOnly, pairCodeFromReferrer, pairCodeFromText } from './pairing'
+import { firstTimeOnly, isSpentCode, pairCodeFromReferrer, pairCodeFromText, rememberSpentCode } from './pairing'
 import { PUBLIC_ORIGIN } from './publicUrl'
 
 describe('pairCodeFromText — only our /pair links count', () => {
@@ -66,5 +66,41 @@ describe('pairCodeFromReferrer', () => {
     expect(pairCodeFromReferrer('c=ABC')).toBeNull()
     expect(pairCodeFromReferrer('c=ABCD-2345')).toBeNull()
     expect(pairCodeFromReferrer('c=ABCD23456789')).toBeNull()
+  })
+})
+
+describe('spent codes — never sent to the worker twice', () => {
+  const memory = () => {
+    const m = new Map<string, string>()
+    return { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => { m.set(k, v) } }
+  }
+
+  it('remembers a code this phone is done with, however it is written', () => {
+    const s = memory()
+    expect(isSpentCode('ABCD2345', s)).toBe(false)
+    rememberSpentCode('abcd-2345', s)
+    expect(isSpentCode('ABCD2345', s)).toBe(true)
+    expect(isSpentCode('abcd 2345', s)).toBe(true)
+    expect(isSpentCode('ABCD2346', s)).toBe(false)
+  })
+
+  it('keeps the newest 20, once each', () => {
+    const s = memory()
+    for (let i = 0; i < 25; i++) rememberSpentCode(`CODE${String(i).padStart(4, '0')}`, s)
+    rememberSpentCode('CODE0024', s)
+    expect(JSON.parse(s.getItem('tbp.pair.spent')!)).toHaveLength(20)
+    expect(isSpentCode('CODE0024', s)).toBe(true)
+    expect(isSpentCode('CODE0005', s)).toBe(true)
+    expect(isSpentCode('CODE0004', s)).toBe(false)
+  })
+
+  it('ignores short codes, and unreadable storage means "not spent"', () => {
+    const s = memory()
+    rememberSpentCode('ABC', s)
+    expect(s.getItem('tbp.pair.spent')).toBeNull()
+    const broken = { getItem: () => { throw new Error('blocked') }, setItem: () => { throw new Error('blocked') } }
+    expect(() => rememberSpentCode('ABCD2345', broken)).not.toThrow()
+    expect(isSpentCode('ABCD2345', broken)).toBe(false)
+    expect(isSpentCode('ABCD2345', undefined)).toBe(false)
   })
 })

@@ -6,9 +6,7 @@ import {
   GoogleAuthProvider,
   OAuthProvider,
   onAuthStateChanged,
-  signInAnonymously,
   signInWithCredential,
-  signInWithCustomToken,
   signInWithEmailAndPassword,
   signInWithPopup,
   signInWithRedirect,
@@ -17,6 +15,7 @@ import {
 } from 'firebase/auth'
 import { auth } from '../firebase'
 import { accountGone, forgetAccountKeys } from '../lib/account'
+import { resolveElderSession, type ElderSession } from '../lib/elderSession'
 import { claimLocalCache, dropLocalCache } from '../lib/localCache'
 import { outbox } from '../lib/outboxBackend'
 import { voiceOutbox } from '../lib/voiceOutbox'
@@ -58,32 +57,9 @@ async function nativeGoogleSignIn() {
  *  an app with Google sign-in must offer it too). */
 export const appleSignInAvailable = isNative && Capacitor.getPlatform() === 'ios'
 
-/** An elder phone linked by a pairing code: a worker-minted custom token
- *  carrying { elder: true, deviceId }. */
-export interface ElderSession {
-  deviceId: string
-}
-
-async function readElderSession(u: User): Promise<ElderSession | null> {
-  try {
-    const { claims } = await u.getIdTokenResult()
-    return claims.elder === true ? { deviceId: String(claims.deviceId ?? '') } : null
-  } catch (err) {
-    console.warn('[auth] could not read token claims', err)
-    return null
-  }
-}
-
-/** Anonymous sign-in, used only to redeem a pairing code with the worker. */
-export async function signInForPairing(): Promise<void> {
-  if (auth.currentUser?.isAnonymous) return
-  await signInAnonymously(auth)
-}
-
-/** Switch to the elder session the worker minted. Persists like any sign-in. */
-export async function signInAsElder(customToken: string): Promise<void> {
-  await signInWithCustomToken(auth, customToken)
-}
+// A parent's phone (custom-token session) and the two pairing sign-ins live
+// in lib/elderSession; re-exported so callers keep their imports.
+export { signInForPairing, signInAsElder, type ElderSession } from '../lib/elderSession'
 
 /** How often an open app asks whether its account still exists. */
 const ALIVE_CHECK_MS = 5 * 60_000
@@ -134,7 +110,7 @@ export function useAuth() {
     const unsub = onAuthStateChanged(auth, async (u) => {
       // Another account's copy on this phone: the page starts again without it.
       if (u && !u.isAnonymous && await claimLocalCache(u.uid)) return
-      const session = u && !u.isAnonymous ? await readElderSession(u) : null
+      const session = u && !u.isAnonymous ? await resolveElderSession(u) : null
       setElder(session)
       setUser(u)
       setReady(true)
