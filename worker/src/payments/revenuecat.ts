@@ -15,7 +15,7 @@
 
 import { logger } from '../log.js'
 import { PLAN_TIERS, type PlanTier } from '../plans.js'
-import type { PaymentProvider, PaymentRequest, PaymentResult } from './index.js'
+import type { PaymentProvider, PaymentRequest, PaymentResult, PeriodType } from './index.js'
 
 /** A tier anyone can buy. Free is never a store product. */
 export type PaidTier = Exclude<PlanTier, 'free'>
@@ -39,11 +39,17 @@ export interface EntitlementState {
   /** The card was refused; the store is retrying. */
   billingIssue: boolean
   refunded: boolean
+  /** The subscription's period (free trial, intro price, full price); null
+   *  when RevenueCat did not say. */
+  periodType?: PeriodType | null
 }
 
 export interface SubscriberState {
   entitlements: Partial<Record<PlanTier, EntitlementState>>
 }
+
+const PERIOD_TYPES: readonly PeriodType[] = ['trial', 'intro', 'normal']
+const asPeriodType = (v: unknown): PeriodType | null => (PERIOD_TYPES.includes(v as PeriodType) ? (v as PeriodType) : null)
 
 const asDate = (iso: unknown): Date | null => {
   if (typeof iso !== 'string') return null
@@ -72,6 +78,7 @@ export function toSubscriberState(json: unknown): SubscriberState {
       graceUntil: asDate(ent.grace_period_expires_date),
       billingIssue: !!sub?.billing_issues_detected_at,
       refunded: !!sub?.refunded_at,
+      periodType: asPeriodType(sub?.period_type),
     }
   }
   return { entitlements }
@@ -143,7 +150,7 @@ export function revenueCatPayments(doFetch: typeof fetch = fetch): PaymentProvid
       if (found === 'unknown-subscriber') return { ok: false, provider, reason: 'not entitled' }
       const ent = found.entitlements[req.to]
       if (!ent || ent.refunded || !entitlementActive(ent)) return { ok: false, provider, reason: 'not entitled' }
-      return { ok: true, provider, reference: ent.productId, productId: ent.productId, expiresAt: ent.expiresAt }
+      return { ok: true, provider, reference: ent.productId, productId: ent.productId, expiresAt: ent.expiresAt, periodType: ent.periodType ?? null }
     },
   }
 }

@@ -99,7 +99,7 @@ export interface UserSettings {
   memoStyle?: MemoStyle
   /** The patient's plan. Written only by the worker (changePlan); missing means free. */
   /** Written only by the worker (changePlan, the subscription poll). `payment` names who pays and until when. */
-  plan?: { tier: PlanTier; status?: 'active' | 'grace' | string; since?: Timestamp; payment?: { provider: string; reference?: string; payerUid?: string; expiresAt?: Timestamp | null } }
+  plan?: { tier: PlanTier; status?: 'active' | 'grace' | string; since?: Timestamp; payment?: { provider: string; reference?: string; payerUid?: string; expiresAt?: Timestamp | null; periodType?: 'trial' | 'intro' | 'normal' | null; trialEndsAt?: Timestamp | null } }
   /** When the digest of this person's day goes out (worker-owned; setDigest). */
   digest?: DigestSettings
   /** 'managed' when a family member registered this elder (부모님 등록하기):
@@ -258,7 +258,7 @@ export interface PlanEntitlements {
  *  A tier the doc leaves out is not offered. */
 export type Plans = Partial<Record<PlanTier, PlanEntitlements>> & {
   fairUse: { photosPerDay: number | null }
-  flags: Partial<Record<'reactions' | 'voiceReplies' | 'digest' | 'emailDigest' | 'pushFamily' | 'usageCaps' | 'retentionJob' | 'messengerFree' | 'trailMap' | 'planSheet' | 'familyPhotos' | 'cloudMemo' | 'payments', boolean>>
+  flags: Partial<Record<'reactions' | 'voiceReplies' | 'digest' | 'emailDigest' | 'pushFamily' | 'usageCaps' | 'retentionJob' | 'messengerFree' | 'trailMap' | 'planSheet' | 'familyPhotos' | 'cloudMemo' | 'payments' | 'planNudges', boolean>>
   /** Who may use the plan sheet while `planSheet` is still off (the owner, testing purchases). */
   planSheetAllow?: string[]
 }

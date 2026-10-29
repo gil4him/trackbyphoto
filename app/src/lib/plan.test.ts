@@ -1,7 +1,8 @@
 // What the plan sheet says. The plan contents below are made up for the tests.
 import { describe, it, expect } from 'vitest'
 import {
-  albumMonths, daysUntilOldestGoes, fromTier, keptFor, offered, planLines, reasonLine, shortensKeeping, suggestedTier,
+  albumMonths, daysUntilOldestGoes, fromTier, keptFor, monthlyPrice, offered, planDate, planLines, reasonLine, shortensKeeping, suggestedTier,
+  TRIAL_DAYS, trialOffers, trialStatus,
 } from './plan'
 import { PLANS } from './plan.fixture'
 import type { Plans, Reaction } from '../types'
@@ -161,5 +162,41 @@ describe('a table that offers three plans', () => {
   it('never promises KakaoTalk when no plan includes it', () => {
     const flags = { ...PLANS.flags, digest: true }
     for (const t of offered(THREE)) expect(planLines(THREE[t]!, '어머니', flags).join(' ')).not.toContain('카카오톡')
+  })
+})
+
+describe('the free trial', () => {
+  const at = (ms: number) => ({ toMillis: () => ms })
+  const NOV11 = new Date(2026, 10, 11, 9).getTime()
+
+  it('offers only a two-week store trial, on paid tiers, with the bare monthly price', () => {
+    expect(TRIAL_DAYS).toBe(14)
+    expect(trialOffers({
+      plus: { price: '₩4,400', trialDays: 14 },
+      family: { price: '₩7,700', trialDays: null },
+      basic: { price: '₩2,200', trialDays: 7 },
+    })).toEqual({ plus: '₩4,400' })
+    expect(trialOffers({})).toEqual({})
+  })
+
+  it('writes dates as the sheet does', () => {
+    expect(planDate(NOV11, 'ko')).toBe('11월 11일')
+    expect(planDate(NOV11, 'en')).toBe('November 11')
+  })
+
+  it("prices without '/월': the store's, else the table label trimmed", () => {
+    expect(monthlyPrice('₩4,400', '₩9,999/월')).toBe('₩4,400')
+    expect(monthlyPrice(undefined, '₩4,400/월')).toBe('₩4,400')
+    expect(monthlyPrice(undefined, '$4.99/mo')).toBe('$4.99')
+    expect(monthlyPrice(undefined, undefined)).toBeNull()
+  })
+
+  it('says when paying starts only while the plan is in its trial', () => {
+    expect(trialStatus({ periodType: 'trial', trialEndsAt: at(NOV11) }, '₩4,400')).toEqual({ date: '11월 11일', price: '₩4,400' })
+    expect(trialStatus({ periodType: 'trial', trialEndsAt: null, expiresAt: at(NOV11) }, '₩4,400')).toEqual({ date: '11월 11일', price: '₩4,400' })
+    expect(trialStatus({ periodType: 'normal', trialEndsAt: at(NOV11) }, '₩4,400')).toBeNull()
+    expect(trialStatus({ periodType: 'trial', trialEndsAt: at(NOV11) }, null)).toBeNull()
+    expect(trialStatus({ periodType: 'trial' }, '₩4,400')).toBeNull()
+    expect(trialStatus(undefined, '₩4,400')).toBeNull()
   })
 })

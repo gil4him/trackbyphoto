@@ -55,6 +55,12 @@ const KO = {
   planPaidByAnother: '다른 가족이 이미 이 부모님의 요금제를 구독 중이에요.',
   planCancelInStore: '구독은 스토어에서 해지해 주세요. 기간이 끝나면 Free로 돌아가요.',
   planUntil: (date: string) => `${date}까지 이용`,
+  planTrialPrice: (price: string) => `첫 2주 무료 · 그 뒤 ${price}/월`,
+  planTrialStart: (tier: string) => `${tier} 2주 무료로 시작`,
+  planTrialTerms: '무료 체험은 2주예요. 체험이 끝나면 매월 자동 결제되고, 끝나기 전에 스토어에서 해지하면 요금이 청구되지 않아요. 무료 체험은 스토어 계정당 한 번이에요.',
+  planTrialUntil: (date: string, price: string) => `무료 체험 중 · ${date}부터 ${price}/월 결제`,
+  planTrialSwitchHint: '체험 중에 다른 요금제로 바꾸면 체험이 끝나고 바로 결제될 수 있어요.',
+  planTrialStarted: (tier: string, date: string) => `${tier} 무료 체험을 시작했어요. ${date}까지 무료, 그 뒤 매월 결제돼요.`,
   voiceAlbum: '목소리 앨범',
   /** The parent's card: "민수가 사진을 보냈어요", "민수 외 1명이 사진 3장을 보냈어요". */
   familyPhotoCardNew: (name: string, others: number, count: number) =>
