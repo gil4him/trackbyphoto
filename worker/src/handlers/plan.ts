@@ -21,7 +21,10 @@
  * The parent is never told: no notice goes to their phone, and their
  * screens are the same on every plan. The family is told one thing, once:
  * when a plan that includes voice replies is chosen and the parent had
- * already left some, "지난 음성 답장 n개가 열렸어요".
+ * already left some, "지난 음성 답장 n개가 열렸어요". A purchase that starts
+ * the store's free trial is recorded as such (plan.payment.periodType,
+ * trialEndsAt), and with `planNudges` on the payer alone is told it started
+ * and when charging begins (trial.ts).
  *
  * Plan changes are open only while the `planSheet` flag is on.
  */
@@ -32,6 +35,7 @@ import { WorkerError, type Caller } from '../context.js'
 import { paymentProvider, stubPayments, type PaymentProvider } from '../payments/index.js'
 import { PLAN_TIERS, explicitTier, getPlans, planSheetOpenFor, tierOf, type PlanTier } from '../plans.js'
 import { isOwnerOrAdminCaregiver } from './caregiver.js'
+import { sendTrialNotice } from './trial.js'
 
 /** Where on the app the change was made: the sheet's four doors. Kept on the
  *  audit entry so the upgrade moments can be compared. */
@@ -47,6 +51,9 @@ export interface ChangePlanResult {
   changed: boolean
   /** Voice replies the family can now hear (0 when none were waiting). */
   unlockedVoices: number
+  /** When the store's free trial ends and charging starts (epoch ms); null
+   *  when this purchase is not in a trial. */
+  trialEndsAt: number | null
 }
 
 export async function changePlan(
@@ -72,7 +79,7 @@ export async function changePlan(
   const before = (await userRef.get()).data()
   if (!before) throw new WorkerError('not-found', 'no such account')
   // The same purchase again (two taps, a retried request): already done.
-  if (explicitTier(before) === tier) return { tier, changed: false, unlockedVoices: 0 }
+  if (explicitTier(before) === tier) return { tier, changed: false, unlockedVoices: 0, trialEndsAt: null }
   const from = tierOf(before)
 
   // Payments are live on their own flag, so the sheet and the stores can be
@@ -94,9 +101,12 @@ export async function changePlan(
   })
   if (!paid.ok) throw new WorkerError('payment-failed', paid.reason || 'the payment did not go through')
   const expiresAt = paid.expiresAt ? Timestamp.fromDate(paid.expiresAt) : null
+  const periodType = paid.periodType ?? null
+  // During the free trial the period's end is when charging starts.
+  const trialEndsAt = periodType === 'trial' ? expiresAt : null
   // Only a store purchase carries a product; the stand-in keeps its old shape.
   const payment = paid.productId
-    ? { provider: paid.provider, reference: paid.productId, payerUid: caller.uid, expiresAt }
+    ? { provider: paid.provider, reference: paid.productId, payerUid: caller.uid, expiresAt, periodType, trialEndsAt }
     : { provider: paid.provider, ...(paid.reference ? { reference: paid.reference } : {}) }
 
   const changed = await db.runTransaction(async (tx) => {
@@ -122,6 +132,8 @@ export async function changePlan(
         tier,
         productId: paid.productId,
         expiresAt,
+        periodType,
+        trialEndsAt,
         updatedAt: FieldValue.serverTimestamp(),
       })
     } else if (tier === 'free' && mine?.patientUid === patientUid) {
@@ -137,14 +149,19 @@ export async function changePlan(
     })
     return true
   })
-  if (!changed) return { tier, changed: false, unlockedVoices: 0 }
+  if (!changed) return { tier, changed: false, unlockedVoices: 0, trialEndsAt: null }
 
   let unlockedVoices = 0
   if (plans.flags.voiceReplies === true && plans[tier].voiceReplies === true && plans[from]?.voiceReplies !== true) {
     unlockedVoices = await announceUnlockedVoices(patientUid, (before.patientName as string) || '부모님', caller.uid)
   }
-  logger.info('[plan] changed', { patientUid, from, to: tier, by: caller.uid, provider: paid.provider, source, unlockedVoices })
-  return { tier, changed: true, unlockedVoices }
+  if (trialEndsAt && paid.productId) {
+    // Best effort: the plan is already in place whatever happens to the notice.
+    await sendTrialNotice({ kind: 'plan.trialStarted', payerUid: caller.uid, patientUid, tier, trialEndsAtMs: trialEndsAt.toMillis(), plans })
+      .catch((err) => logger.warn('[plan] trial notice failed', { patientUid, payerUid: caller.uid, err: String(err) }))
+  }
+  logger.info('[plan] changed', { patientUid, from, to: tier, by: caller.uid, provider: paid.provider, source, unlockedVoices, periodType })
+  return { tier, changed: true, unlockedVoices, trialEndsAt: trialEndsAt ? trialEndsAt.toMillis() : null }
 }
 
 /** What the store is already charging this payer for, if anything. */

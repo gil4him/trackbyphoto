@@ -12,6 +12,11 @@
  */
 
 import type { PlanTier } from '../plans.js'
+
+/** Which kind of store period a subscription is in (RevenueCat's
+ *  period_type): the free trial, a discounted introductory price, or the
+ *  full price. Null when the store did not say. */
+export type PeriodType = 'trial' | 'intro' | 'normal'
 import { revenueCatPayments } from './revenuecat.js'
 
 export interface PaymentRequest {
@@ -35,6 +40,9 @@ export interface PaymentResult {
   expiresAt?: Date | null
   /** The store product that was bought. */
   productId?: string
+  /** A store subscription's period; 'trial' means nothing is charged until
+   *  expiresAt. */
+  periodType?: PeriodType | null
 }
 
 export interface PaymentProvider {

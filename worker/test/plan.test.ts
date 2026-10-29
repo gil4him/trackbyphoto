@@ -47,7 +47,7 @@ beforeEach(async () => {
 
 describe('changePlan', () => {
   it('puts the parent on the plan, says who did it, and writes an audit entry', async () => {
-    expect(await changePlan(as('cg1'), { patientUid: 'p1', tier: 'basic' })).toEqual({ tier: 'basic', changed: true, unlockedVoices: 0 })
+    expect(await changePlan(as('cg1'), { patientUid: 'p1', tier: 'basic' })).toEqual({ tier: 'basic', changed: true, unlockedVoices: 0, trialEndsAt: null })
     const plan = (await user()).plan
     expect(plan).toMatchObject({ tier: 'basic', status: 'active', changedBy: 'cg1', payment: { provider: 'stub' } })
     expect(plan.since).toBeInstanceOf(Timestamp)
@@ -95,7 +95,7 @@ describe('changePlan', () => {
 
   it('does nothing when the parent is already on that plan', async () => {
     await changePlan(as('cg1'), { patientUid: 'p1', tier: 'basic' })
-    expect(await changePlan(as('cg1'), { patientUid: 'p1', tier: 'basic' })).toEqual({ tier: 'basic', changed: false, unlockedVoices: 0 })
+    expect(await changePlan(as('cg1'), { patientUid: 'p1', tier: 'basic' })).toEqual({ tier: 'basic', changed: false, unlockedVoices: 0, trialEndsAt: null })
     expect(await count('auditLogs', 'action', 'plan.change')).toBe(1)
   })
 
@@ -170,7 +170,7 @@ describe('paying for a plan through the store', () => {
     await live()
     const seen: PaymentRequest[] = []
     expect(await changePlan(as('cg1'), { patientUid: 'p1', tier: 'plus', paymentToken: 'cg1' }, { payments: store({}, seen) }))
-      .toEqual({ tier: 'plus', changed: true, unlockedVoices: 0 })
+      .toEqual({ tier: 'plus', changed: true, unlockedVoices: 0, trialEndsAt: null })
 
     const plan = (await user()).plan
     expect(plan).toMatchObject({ tier: 'plus', status: 'active', changedBy: 'cg1' })
@@ -251,7 +251,7 @@ describe('paying for a plan through the store', () => {
     await live()
     await changePlan(as('cg1'), { patientUid: 'p1', tier: 'plus', paymentToken: 'cg1' }, { payments: store() })
     expect(await changePlan(as('cg1'), { patientUid: 'p1', tier: 'plus', paymentToken: 'cg1' }, { payments: store() }))
-      .toEqual({ tier: 'plus', changed: false, unlockedVoices: 0 })
+      .toEqual({ tier: 'plus', changed: false, unlockedVoices: 0, trialEndsAt: null })
     expect(await count('auditLogs', 'action', 'plan.change')).toBe(1)
   })
 
@@ -264,6 +264,97 @@ describe('paying for a plan through the store', () => {
     expect(await refused(changePlan(as('solo'), { patientUid: 'solo', tier: 'plus' })))
       .toEqual(['failed-precondition', 'plan changes are not open yet'])
     expect((await user('solo')).plan).toBeUndefined()
+  })
+})
+
+// The store's 2-week free trial on Plus and Family (owner decision,
+// 2026-10-28): recorded on the plan, and only the payer is told.
+describe('a purchase that starts the free trial', () => {
+  const PRODUCT = 'daylie_plus_monthly'
+  // 2026-11-11 09:00 in Seoul.
+  const ENDS = new Date('2026-11-11T00:00:00Z')
+  const store = (res: Partial<PaymentResult> = {}) => ({
+    name: 'revenuecat',
+    confirm: async (req: PaymentRequest): Promise<PaymentResult> => {
+      if (req.to === 'free') return { ok: true, provider: 'revenuecat' }
+      return { ok: true, provider: 'revenuecat', reference: PRODUCT, productId: PRODUCT, expiresAt: ENDS, periodType: 'trial', ...res }
+    },
+  })
+  async function priced(flags: Record<string, boolean> = { planSheet: true, payments: true, planNudges: true }) {
+    await db.doc('admin_config/plans').set({
+      ...PLANS,
+      plus: { ...PLANS.plus, priceLabel: '₩4,400/월' },
+      family: { ...PLANS.family, priceLabel: '₩7,700/월' },
+      flags,
+    })
+    resetPlansCache()
+  }
+  const buy = (payments = store()) => changePlan(as('cg1'), { patientUid: 'p1', tier: 'plus', paymentToken: 'cg1' }, { payments })
+  const row = async () => (await db.doc('planPayments/cg1').get()).data()!
+
+  it('records the trial and when it ends on the plan and the payer\'s row, and returns it', async () => {
+    await priced()
+    expect(await buy()).toEqual({ tier: 'plus', changed: true, unlockedVoices: 0, trialEndsAt: ENDS.getTime() })
+    const payment = (await user()).plan.payment
+    expect(payment.periodType).toBe('trial')
+    expect(payment.trialEndsAt.toMillis()).toBe(ENDS.getTime())
+    expect(payment.expiresAt.toMillis()).toBe(ENDS.getTime())
+    expect((await row()).periodType).toBe('trial')
+    expect((await row()).trialEndsAt.toMillis()).toBe(ENDS.getTime())
+  })
+
+  it('tells the payer once that the trial started, and never the parent', async () => {
+    await priced()
+    await seedMembership('p1', 'cg2', { role: 'viewer' })
+    await buy()
+    expect(await notices('cg1')).toEqual([expect.objectContaining({
+      recipientUid: 'cg1',
+      patientUid: 'p1',
+      type: 'plan.trialStarted',
+      message: '어머니 Plus 무료 체험을 시작했어요. 11월 11일부터 매월 ₩4,400이 결제돼요. 체험 중 그만두시려면 스토어에서 해지해 주세요.',
+      read: false,
+    })])
+    expect((await db.doc('notifications/plan_trial_start_cg1_p1').get()).exists).toBe(true)
+    expect(await notices('p1')).toEqual([])
+    expect(await notices('cg2')).toEqual([])
+
+    // Back to Free once it ended, then the trial again: still the one notice.
+    await db.doc('planPayments/cg1').delete()
+    await db.doc('users/p1').update({ plan: { tier: 'free', status: 'active' } })
+    await buy()
+    expect(await notices('cg1')).toHaveLength(1)
+  })
+
+  it('addresses the parent as the app does, and in English for an English account', async () => {
+    await priced()
+    await db.doc('users/p1').update({ patientName: '영희' })
+    await buy()
+    expect((await notices('cg1'))[0].message).toMatch(/^영희님 Plus 무료 체험을 시작했어요\./)
+
+    await clearFirestore()
+    await priced()
+    await db.doc('users/p1').set({ patientName: '영희님', accountType: 'managed' })
+    await db.doc('users/cg1').set({ geoLang: 'en' })
+    await seedMembership('p1', 'cg1', { role: 'guardian' })
+    await buy()
+    expect((await notices('cg1'))[0].message).toBe("Your Plus free trial for 영희 has started. From November 11 you'll be billed ₩4,400 a month. To stop during the trial, cancel in the store.")
+  })
+
+  it('records the trial but tells nobody while planNudges is off', async () => {
+    await priced({ planSheet: true, payments: true })
+    expect((await buy()).trialEndsAt).toBe(ENDS.getTime())
+    expect((await user()).plan.payment.periodType).toBe('trial')
+    expect(await notices('cg1')).toEqual([])
+  })
+
+  it('records a paid purchase as normal, with no trial and no notice', async () => {
+    await priced()
+    expect((await buy(store({ periodType: 'normal' }))).trialEndsAt).toBeNull()
+    const payment = (await user()).plan.payment
+    expect(payment.periodType).toBe('normal')
+    expect(payment.trialEndsAt).toBeNull()
+    expect((await row()).trialEndsAt).toBeNull()
+    expect(await notices('cg1')).toEqual([])
   })
 })
 

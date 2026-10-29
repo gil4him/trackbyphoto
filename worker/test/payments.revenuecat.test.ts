@@ -68,9 +68,18 @@ describe('revenuecat confirm', () => {
       reference: 'daylie_plus_monthly',
       productId: 'daylie_plus_monthly',
       expiresAt: new Date(expires),
+      periodType: null,
     })
     // The payer's own uid is the app user id, and the key is a bearer token.
     expect(calls).toEqual([{ url: 'https://api.revenuecat.com/v1/subscribers/cg1', auth: 'Bearer sk_test' }])
+  })
+
+  it('says when the purchase is in the store\'s free trial', async () => {
+    const expires = iso(14 * DAY_MS)
+    const res = await revenueCatPayments(fakeFetch(200, subscriberJson('plus', expires, { period_type: 'trial' }))).confirm(buy())
+    expect(res).toMatchObject({ ok: true, productId: 'daylie_plus_monthly', expiresAt: new Date(expires), periodType: 'trial' })
+    const paid = await revenueCatPayments(fakeFetch(200, subscriberJson('family', expires, { period_type: 'normal' }))).confirm(buy('family'))
+    expect(paid.periodType).toBe('normal')
   })
 
   it('refuses when the entitlement has run out, or is for another tier', async () => {
@@ -128,6 +137,7 @@ describe('the subscriber JSON', () => {
           graceUntil: new Date(grace),
           billingIssue: true,
           refunded: true,
+          periodType: null,
         },
       },
     })
@@ -139,9 +149,17 @@ describe('the subscriber JSON', () => {
     const state = toSubscriberState(json)
     expect(Object.keys(state.entitlements)).toEqual(['basic'])
     expect(state.entitlements.basic).toEqual({
-      expiresAt: null, productId: 'daylie_basic_monthly', graceUntil: null, billingIssue: false, refunded: false,
+      expiresAt: null, productId: 'daylie_basic_monthly', graceUntil: null, billingIssue: false, refunded: false, periodType: null,
     })
     expect(entitlementActive(state.entitlements.basic!)).toBe(true)
+  })
+
+  it('reads the period type: trial, intro, normal, and nothing else', () => {
+    for (const period of ['trial', 'intro', 'normal'] as const) {
+      expect(toSubscriberState(subscriberJson('plus', iso(DAY_MS), { period_type: period })).entitlements.plus!.periodType).toBe(period)
+    }
+    expect(toSubscriberState(subscriberJson('plus', iso(DAY_MS), { period_type: 'prepaid' })).entitlements.plus!.periodType).toBeNull()
+    expect(toSubscriberState(subscriberJson('plus', iso(DAY_MS))).entitlements.plus!.periodType).toBeNull()
   })
 
   it('finds the Play subscription when the entitlement names its base plan', () => {
