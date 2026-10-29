@@ -40,8 +40,11 @@ In-app purchases (subscriptions):
   (monthly); Plus and Family are auto-renewing monthly subscriptions.
 · The sheet shows price, period and auto-renewal wording, links to the privacy
   policy and terms, "구독 관리" (manage subscription) and "구매 복원" (restore).
-· With a Sandbox account, tap "Plus 시작하기" or "Family 시작하기" to run the
-  purchase flow. A subscription extends how long that parent's photos are kept
+· Both subscriptions have a 2-week free trial for new subscribers
+  (introductory offer). Above the buttons the sheet states the trial length,
+  the price after it, auto-renewal, how to cancel and one trial per account.
+· With a Sandbox account, tap "Plus 2주 무료로 시작" or "Family 2주 무료로
+  시작" to run the purchase flow. A subscription extends how long that parent's photos are kept
   and how many family members can view them.
 
 AI photo memos:

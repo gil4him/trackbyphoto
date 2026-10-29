@@ -123,7 +123,7 @@ describe('what each page has to say', () => {
       expect(html).toContain('Daylie')
     }
     expect(privacy).toContain('2026년 10월 28일')
-    expect(terms).toContain('2026년 10월 28일')
+    expect(terms).toContain('2026년 11월 5일')
   })
 
   it('links to the other page and to the contact address', () => {
@@ -159,6 +159,12 @@ describe('what each page has to say', () => {
     for (const html of [privacy, read('en/privacy.html')]) {
       expect(html).toContain('OpenStreetMap Foundation')
     }
+  })
+
+  it('the terms state the 2-week free trial and that it turns into a paid plan (ko and en)', () => {
+    const enTerms = read('en/terms.html')
+    for (const s of ['2주 무료 체험', '스토어 계정당 한 번', '자동으로 결제', '요금이 청구되지 않습니다']) expect(terms, s).toContain(s)
+    for (const s of ['2-week free trial', 'one free trial per store account', 'charged automatically', 'nothing is charged']) expect(enTerms, s).toContain(s)
   })
 
   it('the terms cover the service, the family consent and the AI memos', () => {
@@ -232,7 +238,7 @@ describe('the English translations (/en/…)', () => {
 
   it('carry the same effective date, developer and contact as the Korean pages', () => {
     expect(en.privacy).toContain('October 28, 2026')
-    expect(en.terms).toContain('October 28, 2026')
+    expect(en.terms).toContain('November 5, 2026')
     for (const html of [en.privacy, en.terms]) {
       expect(html).toContain('Digioptics, LLC')
       expect(html).toContain('gil4him@gmail.com')
