@@ -42,8 +42,8 @@ export function ElderPairStartView({ phase, asking = false, onFamily, onEnterCod
       ) : (
         <>
           <div className="elder-pair-hint" role="status">
-            <span className="elder-pair-hint-title">{tr('가족이 보낸 링크를 누르거나 QR을 비춰주세요', 'Tap the link your family sent, or point at their QR code')}</span>
-            <span className="elder-pair-hint-sub">{tr('가족이 옆에 있다면 가족 휴대폰의 QR을 여기에 비춰요', "If your family is with you, point this at the QR code on their phone")}</span>
+            <span className="elder-pair-hint-title">{tr('자녀가 보낸 링크를 누르거나 QR을 비춰주세요', 'Tap the link your family sent, or point at their QR code')}</span>
+            <span className="elder-pair-hint-sub">{tr('자녀가 옆에 있다면 자녀 휴대폰의 QR을 여기에 비춰요', "If your family is with you, point this at the QR code on their phone")}</span>
           </div>
           <div className="elder-pair-frame" aria-hidden="true" />
         </>
@@ -53,9 +53,9 @@ export function ElderPairStartView({ phase, asking = false, onFamily, onEnterCod
 
       {/* A parent on her own: the link from the family, or its code. */}
       <div className="elder-pair-bar">
-        <p className="elder-pair-again">{tr('가족이 보낸 링크를 한 번 더 눌러주세요', 'Please tap the link your family sent once more')}</p>
+        <p className="elder-pair-again">{tr('자녀가 보낸 링크를 한 번 더 눌러주세요', 'Please tap the link your family sent once more')}</p>
         <button type="button" className="elder-pair-code" onClick={onEnterCode}>{tr('코드 입력', 'Enter code')}</button>
-        <button type="button" className="elder-pair-link" onClick={onFamily}>{tr('가족이에요', "I'm family")}</button>
+        <button type="button" className="elder-pair-link" onClick={onFamily}>{tr('자녀예요', "I'm family")}</button>
       </div>
     </div>
   )

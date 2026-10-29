@@ -15,7 +15,8 @@
 ### Parents never log in (owner decision, 2026-10-22)
 - A parent's phone is linked only by the family's QR/link (managed record, no Google/Apple account). Google/Apple/email sign-in is for family members. Adding a parent's own Google login was considered and declined.
 - A link stays until a family member taps 연결 해제, removes the parent, or deletes the account. Signing out never unlinks.
-- Simple edition: the sign-in note says "로그인은 가족용이에요. 부모님은 위의 ‘부모님 휴대폰이에요’를 눌러 주세요."; a signed-in account with no parent shows "부모님이신가요? 이 계정은 가족용이에요. 가족에게 받은 연결 링크로 들어오세요." with 부모님 휴대폰이에요 (signs out, opens the parent's way in).
+- Simple edition: the sign-in note says "로그인은 자녀용이에요. 부모님은 위의 ‘부모님 휴대폰이에요’를 눌러 주세요."; a signed-in account with no parent shows "부모님이신가요? 이 계정은 자녀용이에요. 자녀에게 받은 연결 링크로 들어오세요." with 부모님 휴대폰이에요 (signs out, opens the parent's way in).
+- 자녀 vs 가족 (owner decision, 2026-10-28): the one person who sets up and connects the parent's phone is **자녀** — the parent's start screen (자녀예요, 자녀가 보낸 링크, 자녀 휴대폰의 QR), the pairing/approval screens and their errors, the camera-permission line, the sign-in notes above, and the parent consent line "자녀 휴대폰에서 언제든 연결을 끊을 수 있어요." The group stays **가족**: 함께 보는 가족, 가족 초대, 가족 n명, who sent a photo (가족이 보낸 사진), the consent/제3자 제공 text, invites (a 며느리 or grandchild may join), 대표 가족, and the sign-in tagline. English is unchanged ("family"). The landing site and store listings may say 자녀 for the story.
 
 ### 운영실 (admin dashboard) — docs/admin/DAYLIE_ADMIN_DASHBOARD.md
 - Built one phase at a time (D0, D1, …); stop and report after each.

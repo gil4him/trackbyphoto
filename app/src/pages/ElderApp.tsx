@@ -142,7 +142,7 @@ export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn
           <section className="pair">
             <div className="signin-dot" />
             <h1 className="pair-title">{tr('연결이 해제되었어요', 'This phone was disconnected')}</h1>
-            <p className="pair-sub">{tr('가족에게 새 연결을 요청해 주세요.', 'Ask your family for a new link.')}</p>
+            <p className="pair-sub">{tr('자녀에게 새 연결을 요청해 주세요.', 'Ask your family for a new link.')}</p>
             <button className="pair-btn" onClick={onRelink}>{tr('새 코드 입력', 'Enter a new code')}</button>
           </section>
         </main>

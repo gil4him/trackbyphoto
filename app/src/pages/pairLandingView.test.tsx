@@ -31,7 +31,7 @@ describe('PairLandingView', () => {
       const html = render(kind, null)
       expect(html).not.toContain('앱 설치하기')
       expect(html).toContain('>연결하기</button>')
-      expect(html).toContain('휴대폰을 가족과')
+      expect(html).toContain('휴대폰을 자녀와')
     }
   })
 
@@ -49,7 +49,7 @@ describe('PairLandingView', () => {
     expect(render('other', null)).not.toContain('연결하기</button>')
   })
 
-  it('opened from 가족에게 받은 연결 코드가 있어요 (no link): install, then 코드 입력 in the app', () => {
+  it('opened from 자녀에게 받은 연결 코드가 있어요 (no link): install, then 코드 입력 in the app', () => {
     const html = renderToString(<PairLandingView code="" kind="ios" storeUrl="https://apps.apple.com/app/id1" onInstall={() => {}} onWebPair={() => {}} onBack={() => {}} />)
     expect(html).toContain('앱 설치하기')
     expect(html).toContain('설치 후 앱을 열고 ‘코드 입력’을 눌러 주세요.')

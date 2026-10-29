@@ -22,13 +22,13 @@ export function PairLandingView({ code, kind, storeUrl, onInstall, onWebPair, on
   onInstall: () => void
   /** Link this phone in the browser (only where its store has no app). */
   onWebPair?: () => void
-  /** Back to sign-in (opened from 가족에게 받은 연결 코드가 있어요, no link). */
+  /** Back to sign-in (opened from 자녀에게 받은 연결 코드가 있어요, no link). */
   onBack?: () => void
 }) {
   return (
     <section className="pair">
       <div className="signin-dot" />
-      <h1 className="pair-title">{storeUrl ? <>{tr('Daylie 앱으로', 'Connect with')}<br />{tr('연결해요', 'the Daylie app')}</> : <>{tr('휴대폰을 가족과', 'Connect this phone')}<br />{tr('연결해요', 'with your family')}</>}</h1>
+      <h1 className="pair-title">{storeUrl ? <>{tr('Daylie 앱으로', 'Connect with')}<br />{tr('연결해요', 'the Daylie app')}</> : <>{tr('휴대폰을 자녀와', 'Connect this phone')}<br />{tr('연결해요', 'with your family')}</>}</h1>
       {storeUrl ? (
         <>
           {kind === 'android' && code.length === 8 ? (

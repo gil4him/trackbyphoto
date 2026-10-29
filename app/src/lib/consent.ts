@@ -25,7 +25,7 @@ export const SIMPLE_CONSENT_DETAILS = [
   tr('찍은 사진과 찍은 시간, 찍은 곳의 이름을 저장해요.', 'Each photo is saved with the time and the name of the place.'),
   tr('사진마다 짧은 설명을 Google의 AI(Gemini)가 자동으로 써요.', "A short note for each photo is written automatically by Google's AI (Gemini)."),
   tr('연결된 가족만 볼 수 있어요.', 'Only your connected family can see them.'),
-  tr('가족 휴대폰에서 언제든 연결을 끊을 수 있어요.', 'Your family can disconnect this phone at any time from theirs.'),
+  tr('자녀 휴대폰에서 언제든 연결을 끊을 수 있어요.', 'Your family can disconnect this phone at any time from theirs.'),
 ]
 
 /** The family's consent on the parent's behalf (no voice replies here). */
