@@ -208,3 +208,48 @@ describe('the sheet with the store taking the money', () => {
     expect(planFailureLine(new Error('boom'))).toBe('잠시 후 다시 시도해 주세요')
   })
 })
+
+describe('the 2-week free trial', () => {
+  const TERMS = '무료 체험은 2주예요. 체험이 끝나면 매월 자동 결제되고, 끝나기 전에 스토어에서 해지하면 요금이 청구되지 않아요. 무료 체험은 스토어 계정당 한 번이에요.'
+  const live = (over: Partial<Parameters<typeof PlanSheetView>[0]> = {}) =>
+    sheet({ live: true, onRestore: noop, prices: { plus: '₩4,400/월', family: '₩7,700/월' }, ...over })
+
+  it('a payer offered the trial sees it on the card and the button, with the terms above the buy buttons', () => {
+    const out = live({ trials: { plus: '₩4,400' } })
+    const lines = text(out)
+    expect(lines).toContain('첫 2주 무료 · 그 뒤 ₩4,400/월')
+    expect(lines).toContain('Plus 2주 무료로 시작')
+    expect(lines).toContain('₩7,700/월')
+    expect(lines).toContain('Family 시작하기 ₩7,700/월')
+    expect(lines).toContain(TERMS)
+    expect(out.indexOf(TERMS)).toBeLessThan(out.indexOf('plan-go'))
+  })
+
+  it('without a trial offer: today\'s card, button and no terms', () => {
+    const lines = text(live())
+    expect(lines).toContain('Plus 시작하기 ₩4,400/월')
+    expect(lines.join(' ')).not.toContain('무료 체험')
+    expect(lines.join(' ')).not.toContain('2주 무료')
+  })
+
+  it('a family member who only looks sees no trial and no buy button', () => {
+    const out = live({ canChange: false, trials: { plus: '₩4,400' } })
+    expect(out).not.toContain('plan-go')
+    expect(out).not.toContain('2주 무료')
+    expect(out).not.toContain('무료 체험은 2주예요')
+    expect(text(out)).toContain('요금제는 대표 가족이나 관리자가 바꿀 수 있어요.')
+  })
+
+  it('during the trial: when paying starts instead of "…까지 이용", and what switching may do', () => {
+    const lines = text(live({ current: 'plus', until: '11월 11일', trial: { date: '11월 11일', price: '₩4,400' } }))
+    expect(lines).toContain('무료 체험 중 · 11월 11일부터 ₩4,400/월 결제')
+    expect(lines).toContain('체험 중에 다른 요금제로 바꾸면 체험이 끝나고 바로 결제될 수 있어요.')
+    expect(lines.join(' ')).not.toContain('까지 이용')
+  })
+
+  it('the trial card in PlanCards is never the current plan', () => {
+    const lines = text(renderToString(<PlanCards plans={PLANS} current="plus" patientName="어머니" canChange trials={{ plus: '₩4,400' }} prices={{ plus: '₩4,400/월' }} onChoose={noop} />))
+    expect(lines).toContain('₩4,400/월')
+    expect(lines.join(' ')).not.toContain('2주 무료')
+  })
+})
