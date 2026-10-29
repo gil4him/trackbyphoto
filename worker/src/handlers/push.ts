@@ -13,11 +13,21 @@
  * word, and the family's app-update notice (handlers/device.ts).
  *
  * A push carries the same one line as the in-app notice and a link into the
- * app, never the photo. Tokens FCM reports as gone are pruned. Everything
- * here is best effort: a failed push must never fail a memo or a reply.
+ * app, never the photo. Tokens FCM reports as gone are pruned. Any other
+ * failure (an invalid APNs key, say) is logged as '[push] not delivered'
+ * with FCM's codes: FCM accepts the batch either way, so without that line
+ * nothing in the log shows that no phone got the push. Everything here is
+ * best effort: a failed push must never fail a memo or a reply.
+ *
+ * Keeping a family member's tokens current: an app that got a new token
+ * sends the one it `replaces`, which is dropped. Each register stamps
+ * fcmSeen[token]; a token not registered again for STALE_TOKEN_DAYS (the app
+ * re-registers at least daily while used) is dropped the next time another
+ * device of that person registers. That clears the token a deleted app left
+ * behind, which FCM may go on accepting.
  */
 
-import { getFirestore, FieldValue } from 'firebase-admin/firestore'
+import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { getMessaging, type MulticastMessage } from 'firebase-admin/messaging'
 import { logger } from '../log.js'
 import { WorkerError as HttpsError, type Caller } from '../context.js'
@@ -27,6 +37,8 @@ import { APP_URL } from '../config.js'
 
 /** One person's devices: phone, tablet, a couple of browsers. */
 const MAX_TOKENS = 10
+/** A token not registered again for this long is a device that is gone. */
+export const STALE_TOKEN_DAYS = 60
 /** FCM's ways of saying a token will never work again. */
 const DEAD_TOKEN_CODES = new Set([
   'messaging/registration-token-not-registered',
@@ -42,9 +54,16 @@ export interface PushMessage {
   path?: string
 }
 
-/** Injected so tests run without FCM. Returns the tokens that are dead. */
+/** What FCM said about one batch: the tokens that are dead, and how many
+ *  sends failed for any other reason, by FCM's error code. */
+export interface SendResult {
+  dead: string[]
+  failed?: Record<string, number>
+}
+
+/** Injected so tests run without FCM. */
 export interface PushDeps {
-  send: (tokens: string[], message: PushMessage) => Promise<{ dead: string[] }>
+  send: (tokens: string[], message: PushMessage) => Promise<SendResult>
 }
 
 /**
@@ -71,7 +90,7 @@ export function fcmMessage(tokens: string[], message: PushMessage): MulticastMes
 export const defaultPushDeps: PushDeps = {
   send: async (tokens, message) => {
     const res = await getMessaging().sendEachForMulticast(fcmMessage(tokens, message))
-    return { dead: deadTokens(tokens, res.responses) }
+    return { dead: deadTokens(tokens, res.responses), failed: otherFailures(res.responses) }
   },
 }
 
@@ -99,6 +118,27 @@ export function deadTokens(tokens: string[], responses: Array<{ success: boolean
   return tokens.filter((_, i) => !responses[i]?.success && DEAD_TOKEN_CODES.has(responses[i]?.error?.code ?? ''))
 }
 
+/** Sends that failed for a reason other than a dead token, counted by code. */
+export function otherFailures(responses: Array<{ success: boolean; error?: { code: string } }>): Record<string, number> {
+  const failed: Record<string, number> = {}
+  for (const r of responses) {
+    const code = r.error?.code ?? 'unknown'
+    if (!r.success && !DEAD_TOKEN_CODES.has(code)) failed[code] = (failed[code] ?? 0) + 1
+  }
+  return failed
+}
+
+/** How many of `tokens` reached FCM's next hop, and a log line for the rest. */
+function delivered(tokens: string[], result: SendResult, context: Record<string, unknown>): number {
+  const failed = result.failed ?? {}
+  const failures = Object.values(failed).reduce((a, b) => a + b, 0)
+  if (failures > 0) logger.warn('[push] not delivered', { ...context, failed })
+  return Math.max(0, tokens.length - result.dead.length - failures)
+}
+
+/** The last characters of each token: enough to tell devices apart in the log. */
+const tails = (tokens: string[]) => tokens.map((t) => t.slice(-6))
+
 const pushDoc = (uid: string) => getFirestore().doc(`users/${uid}/private/push`)
 
 /** Push one message to each of these people's devices; returns how many
@@ -116,13 +156,18 @@ export async function pushToUsers(uids: string[], message: PushMessage, deps: Pu
       // The home-screen web app sets its icon badge from this, even while closed.
       const badge = await unreadCount(uid).catch(() => null)
       const own = badge == null ? message : { ...message, data: { ...message.data, badge: String(badge) } }
-      const { dead } = await deps.send(tokens, own)
+      const result = await deps.send(tokens, own)
+      const { dead } = result
       if (dead.length > 0) {
-        await pushDoc(uid).update({ fcmTokens: FieldValue.arrayRemove(...dead) })
+        await pushDoc(uid).set({
+          fcmTokens: FieldValue.arrayRemove(...dead),
+          fcmSeen: Object.fromEntries(dead.map((t) => [t, FieldValue.delete()])),
+        }, { merge: true })
         logger.info('[push] pruned dead tokens', { uid, pruned: dead.length })
       }
-      logger.info('[push] sent', { uid, devices: tokens.length - dead.length, type: message.data?.type })
-      if (tokens.length > dead.length) reached++
+      const devices = delivered(tokens, result, { uid, type: message.data?.type })
+      logger.info('[push] sent', { uid, devices, tokens: tails(tokens), type: message.data?.type })
+      if (devices > 0) reached++
     }
   } catch (err) {
     logger.warn('[push] failed', { err: String(err) })
@@ -158,14 +203,16 @@ export async function pushToElder(patientUid: string, message: PushMessage, deps
     if (tokens.length === 0) return 0
     const badge = await elderBadge(patientUid).catch(() => null)
     const own = badge == null ? message : { ...message, data: { ...message.data, badge: String(badge) } }
-    const { dead } = await deps.send(tokens, own)
+    const result = await deps.send(tokens, own)
+    const { dead } = result
     if (dead.length > 0) {
       const gone = Object.fromEntries(Object.entries(byDevice).filter(([, t]) => dead.includes(t)).map(([id]) => [id, FieldValue.delete()]))
       await ref.set({ elderTokens: gone }, { merge: true })
       logger.info('[push] pruned dead elder tokens', { patientUid, pruned: dead.length })
     }
-    logger.info('[push] sent to parent', { patientUid, devices: tokens.length - dead.length, type: message.data?.type })
-    return tokens.length > dead.length ? 1 : 0
+    const devices = delivered(tokens, result, { patientUid, type: message.data?.type })
+    logger.info('[push] sent to parent', { patientUid, devices, tokens: tails(tokens), type: message.data?.type })
+    return devices > 0 ? 1 : 0
   } catch (err) {
     logger.warn('[push] to parent failed', { patientUid, err: String(err) })
     return 0
@@ -193,8 +240,9 @@ export function requireFamilyAccount(caller: Caller): string {
   return caller.uid
 }
 
-/** Remember (or forget) one device's FCM token for the caller. */
-export async function registerFcmToken(caller: Caller, data: { token?: unknown; remove?: unknown; deviceId?: unknown }): Promise<{ ok: true }> {
+/** Remember (or forget) one device's FCM token for the caller. `replaces`:
+ *  the token this device had before, dropped (family accounts). */
+export async function registerFcmToken(caller: Caller, data: { token?: unknown; remove?: unknown; deviceId?: unknown; replaces?: unknown }): Promise<{ ok: true }> {
   const token = typeof data?.token === 'string' ? data.token : ''
   if (token.length < 20 || token.length > 4096) throw new HttpsError('invalid-argument', 'token required')
   // A parent's paired phone (its session is the parent's uid, with no e-mail)
@@ -211,13 +259,27 @@ export async function registerFcmToken(caller: Caller, data: { token?: unknown; 
   }
   const uid = requireFamilyAccount(caller)
 
+  const replaces = typeof data?.replaces === 'string' ? data.replaces : null
   const ref = pushDoc(uid)
   await getFirestore().runTransaction(async (tx) => {
-    const current = ((await tx.get(ref)).data()?.fcmTokens as string[] | undefined) ?? []
-    const without = current.filter((t) => t !== token)
+    const doc = (await tx.get(ref)).data() ?? {}
+    const current = (doc.fcmTokens as string[] | undefined) ?? []
+    const seenBefore = (doc.fcmSeen as Record<string, Timestamp> | undefined) ?? {}
+    const now = Timestamp.now()
+    const staleBefore = now.toMillis() - STALE_TOKEN_DAYS * 24 * 60 * 60 * 1000
+    const without = current.filter((t) => t !== token && t !== replaces)
+    // A device that registers clears its own gone tokens; a remove never
+    // sweeps, so an account is not emptied without a device registering.
+    const kept = data.remove === true ? without : without.filter((t) => {
+      const seen = seenBefore[t]
+      return !seen || seen.toMillis() >= staleBefore
+    })
     // Newest last; the oldest devices fall off the end of the allowance.
-    const next = data.remove === true ? without : [...without, token].slice(-MAX_TOKENS)
-    tx.set(ref, { fcmTokens: next, updatedAt: FieldValue.serverTimestamp() })
+    const next = data.remove === true ? kept : [...kept, token].slice(-MAX_TOKENS)
+    // Tokens from before fcmSeen are stamped now, so they age from today.
+    const fcmSeen = Object.fromEntries(next.map((t) => [t, t === token ? now : seenBefore[t] ?? now]))
+    // Merge: a parent's elderTokens may share this doc.
+    tx.set(ref, { fcmTokens: next, fcmSeen, updatedAt: FieldValue.serverTimestamp() }, { mergeFields: ['fcmTokens', 'fcmSeen', 'updatedAt'] })
   })
   return { ok: true }
 }

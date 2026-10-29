@@ -4,7 +4,7 @@
 import { history, resetSystemHistory } from '../src/systemHistory'
 import { describe, it, expect, beforeEach } from 'vitest'
 import { Timestamp } from 'firebase-admin/firestore'
-import { deadTokens, elderBadge, fcmMessage, openPath, pushToElder, pushToUsers, registerFcmToken, setChannels, type PushDeps, type PushMessage } from '../src/handlers/push'
+import { deadTokens, elderBadge, fcmMessage, openPath, otherFailures, pushToElder, pushToUsers, registerFcmToken, setChannels, STALE_TOKEN_DAYS, type PushDeps, type PushMessage } from '../src/handlers/push'
 import { revokeDevice } from '../src/handlers/pairing'
 import { processMemo, type MemoDeps } from '../src/handlers/memo'
 import { processReaction, type ReactionDeps } from '../src/handlers/reactions'
@@ -115,6 +115,30 @@ describe('pushToUsers', () => {
     await registerFcmToken(KID, { token: TOKEN(1) })
     await expect(pushToUsers(['cg1'], MSG, { send: async () => { throw new Error('fcm down') } })).resolves.toBe(0)
   })
+
+  it('does not count a push FCM could not pass on (a bad APNs key) as reaching anyone', async () => {
+    await registerFcmToken(KID, { token: TOKEN(1) })
+    const badKey: PushDeps = { send: async () => ({ dead: [], failed: { 'messaging/third-party-auth-error': 1 } }) }
+    expect(await pushToUsers(['cg1'], MSG, badKey)).toBe(0)
+    expect(await tokensOf('cg1')).toEqual([TOKEN(1)]) // the token is fine; the key is not
+  })
+
+  it('forgets when a pruned token was last seen', async () => {
+    await registerFcmToken(KID, { token: TOKEN('gone') })
+    await pushToUsers(['cg1'], MSG, fcm([TOKEN('gone')]))
+    expect((await db.doc('users/cg1/private/push').get()).data()?.fcmSeen).toEqual({})
+  })
+})
+
+describe('otherFailures', () => {
+  it('counts failed sends by code, leaving out dead tokens', () => {
+    expect(otherFailures([
+      { success: true },
+      { success: false, error: { code: 'messaging/third-party-auth-error' } },
+      { success: false, error: { code: 'messaging/third-party-auth-error' } },
+      { success: false, error: { code: 'messaging/registration-token-not-registered' } },
+    ])).toEqual({ 'messaging/third-party-auth-error': 2 })
+  })
 })
 
 describe('deadTokens', () => {
@@ -143,6 +167,37 @@ describe('registerFcmToken', () => {
     await registerFcmToken(KID, { token: TOKEN(1) })
     await registerFcmToken(KID, { token: TOKEN(1), remove: true })
     expect(await tokensOf('cg1')).toEqual([])
+  })
+
+  it('drops the token a device names as the one it replaces', async () => {
+    await registerFcmToken(KID, { token: TOKEN('laptop') })
+    await registerFcmToken(KID, { token: TOKEN('old') })
+    await registerFcmToken(KID, { token: TOKEN('new'), replaces: TOKEN('old') })
+    expect(await tokensOf('cg1')).toEqual([TOKEN('laptop'), TOKEN('new')])
+    await registerFcmToken(KID, { token: TOKEN('new'), replaces: TOKEN('new') }) // itself: kept
+    await registerFcmToken(KID, { token: TOKEN('new'), replaces: TOKEN('unknown') })
+    expect(await tokensOf('cg1')).toEqual([TOKEN('laptop'), TOKEN('new')])
+  })
+
+  it('drops a token not registered for 60 days when another device registers, never on its own', async () => {
+    const old = Timestamp.fromMillis(Date.now() - (STALE_TOKEN_DAYS + 1) * 24 * 60 * 60 * 1000)
+    const recent = Timestamp.fromMillis(Date.now() - 24 * 60 * 60 * 1000)
+    await db.doc('users/cg1/private/push').set({
+      fcmTokens: [TOKEN('deleted-app'), TOKEN('tablet'), TOKEN('from-before')],
+      fcmSeen: { [TOKEN('deleted-app')]: old, [TOKEN('tablet')]: recent },
+    })
+    await registerFcmToken(KID, { token: TOKEN('tablet'), remove: true })
+    expect(await tokensOf('cg1')).toEqual([TOKEN('deleted-app'), TOKEN('from-before')]) // a remove never sweeps
+    await registerFcmToken(KID, { token: TOKEN('phone') })
+    expect(await tokensOf('cg1')).toEqual([TOKEN('from-before'), TOKEN('phone')]) // unstamped ones age from now
+    const seen = (await db.doc('users/cg1/private/push').get()).data()?.fcmSeen
+    expect(Object.keys(seen).sort()).toEqual([TOKEN('from-before'), TOKEN('phone')].sort())
+  })
+
+  it('leaves a parent phone\'s token on the same doc alone', async () => {
+    await db.doc('users/cg1/private/push').set({ elderTokens: { d1: TOKEN('e1') } })
+    await registerFcmToken(KID, { token: TOKEN(1) })
+    expect((await db.doc('users/cg1/private/push').get()).data()?.elderTokens).toEqual({ d1: TOKEN('e1') })
   })
 
   it('refuses a pairing-only session and a missing token', async () => {
