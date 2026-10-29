@@ -253,8 +253,8 @@ describe('Home with no parent yet (simple edition)', () => {
   it('tells a parent who signed in by mistake that the account is for family, with a way out', () => {
     const out = renderToString(<ConnectParentCard onOpen={() => {}} onImParent={() => {}} />)
     expect(out).toContain('엄마 연결하기')
-    expect(out).toContain('부모님이신가요? 이 계정은 가족용이에요.')
-    expect(out).toContain('가족에게 받은 연결 링크로 들어오세요.')
+    expect(out).toContain('부모님이신가요? 이 계정은 자녀용이에요.')
+    expect(out).toContain('자녀에게 받은 연결 링크로 들어오세요.')
     expect(out).toContain('부모님 휴대폰이에요')
   })
 })

@@ -106,7 +106,7 @@ export function SignIn({ onGoogle, onApple, onEmail, invited, onEnterCode, paren
         </button>
       ) : (
         <button className="signin-code-btn" onClick={onEnterCode}>
-          {tr('가족에게 받은 연결 코드가 있어요', 'I have a link code from my family')}
+          {tr('자녀에게 받은 연결 코드가 있어요', 'I have a link code from my family')}
         </button>
       ))}
 
@@ -114,7 +114,7 @@ export function SignIn({ onGoogle, onApple, onEmail, invited, onEnterCode, paren
         {invited
           ? tr('가족초대를 받으셨어요. 로그인하면 바로 참여할 수 있어요.', 'You have a family invitation. Sign in and you can join right away.')
           : parentButton
-            ? tr('로그인은 가족용이에요. 부모님은 위의 ‘부모님 휴대폰이에요’를 눌러 주세요.', 'Sign-in is for family. Parents: tap ‘This is my parent\'s phone’ above.')
+            ? tr('로그인은 자녀용이에요. 부모님은 위의 ‘부모님 휴대폰이에요’를 눌러 주세요.', 'Sign-in is for family. Parents: tap ‘This is my parent\'s phone’ above.')
             : tr('가족과 메모를 공유하기 위해 로그인해 주세요. 사진과 메모는 본인 계정에만 저장됩니다.', 'Sign in to share memos with your family. Photos and memos are kept in your own account only.')}
       </p>
       {onEmail && (emailOpen ? (

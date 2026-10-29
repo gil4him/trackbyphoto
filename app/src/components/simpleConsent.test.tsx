@@ -18,7 +18,7 @@ describe('SimpleConsent', () => {
   it('shows the details when asked', () => {
     const html = renderToString(<SimpleConsent caregivers={jieun} initialOpen onAccept={() => {}} />)
     expect(html).toContain('연결된 가족만 볼 수 있어요.')
-    expect(html).toContain('가족 휴대폰에서 언제든 연결을 끊을 수 있어요.')
+    expect(html).toContain('자녀 휴대폰에서 언제든 연결을 끊을 수 있어요.')
     expect(html).not.toContain('자세한 내용 보기')
   })
 

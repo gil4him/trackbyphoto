@@ -55,11 +55,11 @@ function errorMessage(err: unknown): string {
   switch (code) {
     case 'unavailable': return WORKER_OFFLINE_MESSAGE
     case 'not-found':
-    case 'invalid-argument': return tr('코드가 맞지 않아요. 가족이 보낸 코드를 다시 확인해 주세요.', "That code doesn't match. Please check the code your family sent.")
-    case 'failed-precondition': return tr('이미 사용된 코드예요. 가족에게 새 연결을 요청해 주세요.', 'This code was already used. Please ask your family for a new link.')
-    case 'deadline-exceeded': return tr('코드 사용 기간이 지났어요. 가족에게 새 연결을 요청해 주세요.', 'This code has expired. Please ask your family for a new link.')
+    case 'invalid-argument': return tr('코드가 맞지 않아요. 자녀가 보낸 코드를 다시 확인해 주세요.', "That code doesn't match. Please check the code your family sent.")
+    case 'failed-precondition': return tr('이미 사용된 코드예요. 자녀에게 새 연결을 요청해 주세요.', 'This code was already used. Please ask your family for a new link.')
+    case 'deadline-exceeded': return tr('코드 사용 기간이 지났어요. 자녀에게 새 연결을 요청해 주세요.', 'This code has expired. Please ask your family for a new link.')
     case 'resource-exhausted': return tr('시도가 너무 많았어요. 10분 뒤에 다시 해 주세요.', 'Too many tries. Please try again in 10 minutes.')
-    case 'permission-denied': return tr('연결이 거절되었어요. 가족에게 문의해 주세요.', 'The link was declined. Please ask your family.')
+    case 'permission-denied': return tr('연결이 거절되었어요. 자녀에게 문의해 주세요.', 'The link was declined. Please ask your family.')
     default: return tr('연결하지 못했어요. 잠시 후 다시 시도해 주세요.', "Couldn't connect. Please try again in a moment.")
   }
 }
@@ -153,7 +153,7 @@ export function PairDevice({ initialCode, alreadyLinked = false, autoConnect = f
         }
       } else if (status === 'denied' || status === 'expired') {
         unsub()
-        setError(status === 'denied' ? tr('가족이 연결을 거절했어요.', 'Your family declined the link.') : tr('요청 시간이 지났어요. 가족에게 새 연결을 요청해 주세요.', 'The request timed out. Please ask your family for a new link.'))
+        setError(status === 'denied' ? tr('자녀가 연결을 거절했어요.', 'Your family declined the link.') : tr('요청 시간이 지났어요. 자녀에게 새 연결을 요청해 주세요.', 'The request timed out. Please ask your family for a new link.'))
         setStep('error')
       }
     }, (err) => console.warn('[pair] watch failed', err))
@@ -239,7 +239,7 @@ export function PairDevice({ initialCode, alreadyLinked = false, autoConnect = f
 
       {step === 'confirm' && (
         <>
-          <h1 className="pair-title">{tr('휴대폰을 가족과', 'Connect this phone')}<br />{tr('연결할까요?', 'with your family?')}</h1>
+          <h1 className="pair-title">{tr('휴대폰을 자녀와', 'Connect this phone')}<br />{tr('연결할까요?', 'with your family?')}</h1>
           <p className="pair-sub">{tr('아래 버튼을 한 번 눌러주세요.', 'Tap the button below once.')}</p>
           <button className="pair-btn" onClick={connect}>{tr('연결하기', 'Connect')}</button>
           <button className="signin-secondary" onClick={cancel}>{tr('나중에', 'Later')}</button>
@@ -248,7 +248,7 @@ export function PairDevice({ initialCode, alreadyLinked = false, autoConnect = f
 
       {step === 'enter' && (
         <>
-          <h1 className="pair-title">{tr('가족에게 받은', 'Enter the code')}<br />{tr('코드를 넣어주세요', 'your family sent')}</h1>
+          <h1 className="pair-title">{tr('자녀에게 받은', 'Enter the code')}<br />{tr('코드를 넣어주세요', 'your family sent')}</h1>
           <input
             className="pair-code-input"
             value={code}
@@ -272,7 +272,7 @@ export function PairDevice({ initialCode, alreadyLinked = false, autoConnect = f
         <>
           <h1 className="pair-title">{tr('부모님 휴대폰에서', 'Please open this')}<br />{tr('열어주세요', "on your parent's phone")}</h1>
           <p className="pair-sub">
-            {tr('지금 이 휴대폰은 가족 계정', 'This phone is signed in to a family account')} ({auth.currentUser?.email}){tr('으로 로그인되어 있어요.', '.')}
+            {tr('지금 이 휴대폰은 자녀 계정', 'This phone is signed in to a family account')} ({auth.currentUser?.email}){tr('으로 로그인되어 있어요.', '.')}
             {tr('이 링크는 부모님 휴대폰을 연결하는 링크예요.', "This link is for connecting your parent's phone.")}
           </p>
           <button className="signin-secondary" onClick={onCancel}>{tr('취소', 'Cancel')}</button>
@@ -295,8 +295,8 @@ export function PairDevice({ initialCode, alreadyLinked = false, autoConnect = f
 
       {step === 'waiting' && (
         <>
-          <h1 className="pair-title">{tr('가족의 승인을', 'Waiting for your family')}<br />{tr('기다리고 있어요', 'to approve')}</h1>
-          <p className="pair-sub">{tr('가족 휴대폰에 승인 요청을 보냈어요. 이 화면을 켜 두세요.', "We sent an approval request to your family's phone. Keep this screen open.")}</p>
+          <h1 className="pair-title">{tr('자녀의 승인을', 'Waiting for your family')}<br />{tr('기다리고 있어요', 'to approve')}</h1>
+          <p className="pair-sub">{tr('자녀 휴대폰에 승인 요청을 보냈어요. 이 화면을 켜 두세요.', "We sent an approval request to your family's phone. Keep this screen open.")}</p>
           <button className="signin-secondary" onClick={cancel}>{tr('취소', 'Cancel')}</button>
         </>
       )}

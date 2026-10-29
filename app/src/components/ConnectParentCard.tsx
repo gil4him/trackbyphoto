@@ -16,7 +16,7 @@ export function ConnectParentCard({ onOpen, onImParent }: { onOpen: () => void; 
       <button type="button" className="connect-btn" onClick={onOpen}>{tr('엄마 연결하기', "Link Mom's phone")}</button>
       {onImParent && (
         <div className="connect-parent">
-          <p className="connect-parent-msg">{tr('부모님이신가요? 이 계정은 가족용이에요.', 'Are you the parent? This account is for family.')}<br />{tr('가족에게 받은 연결 링크로 들어오세요.', 'Please come in with the link your family sent you.')}</p>
+          <p className="connect-parent-msg">{tr('부모님이신가요? 이 계정은 자녀용이에요.', 'Are you the parent? This account is for family.')}<br />{tr('자녀에게 받은 연결 링크로 들어오세요.', 'Please come in with the link your family sent you.')}</p>
           <button type="button" className="signin-code-btn" onClick={onImParent}>{tr('부모님 휴대폰이에요', "This is my parent's phone")}</button>
         </div>
       )}

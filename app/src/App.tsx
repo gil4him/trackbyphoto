@@ -140,7 +140,7 @@ function App() {
   // An anonymous session exists only while a phone redeems a pairing code;
   // everywhere else it counts as signed out.
   const user = authUser && !authUser.isAnonymous ? authUser : null
-  // Pairing screen: opened by a /pair link, or by "가족에게 받은 코드가 있어요".
+  // Pairing screen: opened by a /pair link, or by "자녀에게 받은 연결 코드가 있어요".
   const [pairCode, setPairCode] = useState<string | null>(pairCodeFromUrl)
   // …or by a /pair link that opened the native app.
   useLaunchUrl(setPairCode)
@@ -155,7 +155,7 @@ function App() {
     && new URLSearchParams(window.location.search).get('web') === '1'
     && !(isSimple() && inStore(storeKind(navigator.userAgent))))
   // Simple edition: 부모님 휴대폰이에요 on sign-in opens the pairing camera
-  // (ElderPairStart) in the app; 가족이에요 there comes back.
+  // (ElderPairStart) in the app; 자녀예요 there comes back.
   const [parentMode, setParentMode] = useState(false)
   // Simple edition: 엄마 연결하기 opened from Home (ConnectParentCard).
   const [connectingParent, setConnectingParent] = useState(false)
@@ -552,7 +552,7 @@ function App() {
 
   // The simple edition is a store app: on the web, a /pair link first helps
   // the parent's phone install it (PairLanding); only where the phone's store
-  // has no app does it link right here in the browser (webPair). 가족에게 받은
+  // has no app does it link right here in the browser (webPair). 자녀에게 받은
   // 연결 코드가 있어요 on a phone with the app in its store also asks to
   // install (then 코드 입력 in the app); on a computer it opens the code screen.
   const typedOnPhoneWithStore = pairCode === '' && inStore(storeKind(navigator.userAgent))
