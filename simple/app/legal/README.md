@@ -46,6 +46,10 @@ What the pages say as of 2026-10-27 (store readiness review, blockers 1–3):
   collected item; subscription records are kept 5 years (전자상거래법). terms
   제9조 covers plans, monthly auto-renewal, cancelling in the store, 청약철회 /
   refunds through Apple/Google, what happens when a plan ends, price changes.
+  Since 2026-11-05 it also has the 2-week 무료 체험 item (one per store
+  account, auto-charge after, cancel before the end, an in-app reminder about
+  3 days before). Only the terms changed, so terms (ko + en) carry 시행일
+  2026-11-05 while privacy keeps 2026-10-28.
 - A parent's linked phone registers for push since 1.0.1 (photos and words
   from family only); both pages say so. Since 1.0.4 (시행일 2026-10-28) it
   also reports its app version, and family may send it an app-update notice;
