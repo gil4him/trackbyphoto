@@ -54,6 +54,12 @@ export const EN: Strings = {
   planPaidByAnother: "Another family member already subscribes to this parent's plan.",
   planCancelInStore: 'Please cancel the subscription in the store. When the period ends, the plan returns to Free.',
   planUntil: (date: string) => `Available until ${date}`,
+  planTrialPrice: (price: string) => `First 2 weeks free · then ${price}/mo`,
+  planTrialStart: (tier: string) => `Start ${tier} free for 2 weeks`,
+  planTrialTerms: "The free trial lasts 2 weeks. After it ends you're billed monthly; cancel in the store before it ends and nothing is charged. One free trial per store account.",
+  planTrialUntil: (date: string, price: string) => `Free trial · ${price}/mo from ${date}`,
+  planTrialSwitchHint: 'Switching plans during the trial may end it and bill you right away.',
+  planTrialStarted: (tier: string, date: string) => `Your ${tier} free trial has started. Free until ${date}, then billed monthly.`,
   familyPhotoReplyText: 'Reply in writing',
   familyPhotoSentList: 'Sent photos',
 }

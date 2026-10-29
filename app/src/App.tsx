@@ -759,6 +759,13 @@ function App() {
       setPlanSheet({ kind: 'retention', message: n.message })
       return
     }
+    // The free-trial notices (plan.trialStarted/Ending/Ended) open that parent's plan sheet.
+    if (n.type.startsWith('plan.') && planOn) {
+      if (isSimple()) { openPlansFor(n.patientUid); return }
+      if (!here) onSwitchPatient(n.patientUid)
+      setPlanSheet({ kind: 'settings' })
+      return
+    }
     // The parent answered a photo: the sent list on that parent's home.
     if (n.type.startsWith('familyPhoto.')) {
       if (!here) onSwitchPatient(n.patientUid)

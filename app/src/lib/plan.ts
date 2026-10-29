@@ -56,6 +56,50 @@ export function keptFor(days: number | null): string {
   return days >= 365 && days % 365 === 0 ? `${days / 365}년` : `${days}일`
 }
 
+/** The free trial the plan sheet speaks of: two weeks, as the stores'
+ *  introductory offers are set up and as S.planTrialTerms says. */
+export const TRIAL_DAYS = 14
+
+/**
+ * The tiers whose card offers this payer the free trial, each with the
+ * store's monthly price ("₩4,400"). Only an offer of exactly TRIAL_DAYS
+ * counts: the sheet's words promise two weeks, so anything else is left
+ * unsaid rather than described wrongly.
+ */
+export function trialOffers(offers: Partial<Record<PlanTier, { price: string; trialDays: number | null }>>): Partial<Record<PlanTier, string>> {
+  const out: Partial<Record<PlanTier, string>> = {}
+  for (const [t, o] of Object.entries(offers) as [PlanTier, { price: string; trialDays: number | null }][]) {
+    if (t !== 'free' && o.price && o.trialDays === TRIAL_DAYS) out[t] = o.price
+  }
+  return out
+}
+
+/** A plan-sheet date: "11월 11일", "November 11". */
+export function planDate(ms: number, language: 'ko' | 'en' = lang === 'en' ? 'en' : 'ko'): string {
+  return new Date(ms).toLocaleDateString(language === 'en' ? 'en-US' : 'ko-KR', { month: 'long', day: 'numeric' })
+}
+
+/** A monthly price without its "/월": the store's own, else the plans
+ *  table's label ("₩4,400/월" → "₩4,400"). Null when neither says. */
+export function monthlyPrice(storePrice: string | undefined, priceLabel: string | undefined): string | null {
+  const p = storePrice || priceLabel?.replace(/\s*\/\s*(월|mo|month)$/i, '')
+  return p ? p.trim() : null
+}
+
+type Millis = { toMillis: () => number } | null | undefined
+
+/**
+ * While the parent's plan is in its free trial (plan.payment.periodType
+ * 'trial', from the store via the worker): the day paying starts and what it
+ * will cost, for S.planTrialUntil. Null outside a trial, or when the day or
+ * price is unknown.
+ */
+export function trialStatus(payment: { periodType?: string | null; trialEndsAt?: Millis; expiresAt?: Millis } | undefined, price: string | null): { date: string; price: string } | null {
+  if (payment?.periodType !== 'trial' || !price) return null
+  const ends = payment.trialEndsAt?.toMillis?.() ?? payment.expiresAt?.toMillis?.()
+  return ends ? { date: planDate(ends), price } : null
+}
+
 /**
  * The lines on one plan's card. `flags` keeps a card from promising
  * something that isn't switched on yet.

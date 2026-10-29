@@ -15,6 +15,9 @@ export interface ChangePlanResult {
   changed: boolean
   /** Voice replies the family can now hear. */
   unlockedVoices: number
+  /** When the free trial this purchase started ends (epoch ms); null when it
+   *  started none. Workers older than the trial leave it out. */
+  trialEndsAt: number | null
 }
 
 /** Put a parent on a plan. `live`: the store takes the payment first; the

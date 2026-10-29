@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { fmtTime, relativeDateLabel } from '../util'
-import { isFamilyEvent } from '../lib/noticeKinds'
+import { isAlertRow, isFamilyEvent } from '../lib/noticeKinds'
 import { tr } from '../lib/lang'
 import type { AppNotification } from '../types'
 
@@ -17,6 +17,7 @@ const ICONS: Array<[prefix: string, icon: string]> = [
   ['recipient.', '👪'],
   ['settings.', '⚙️'],
   ['retention.', '🗓️'],
+  ['plan.', '🎁'],
   ['digest.', '🌙'],
   ['checkin.', '🕊️'],
   ['daily.', '🌙'],
@@ -47,8 +48,8 @@ function Row({ n, onOpen }: { n: AppNotification; onOpen: (n: AppNotification) =
 export function NotificationList({ items, onOpen, grouped = false }: { items: AppNotification[]; onOpen: (n: AppNotification) => void; grouped?: boolean }) {
   const [systemOpen, setSystemOpen] = useState(false)
   if (items.length === 0) return <div className="empty"><div>{tr('아직 알림이 없어요.', 'No alerts yet.')}</div></div>
-  const shown = grouped ? items.filter((n) => isFamilyEvent(n.type)) : items
-  const system = grouped ? items.filter((n) => !isFamilyEvent(n.type)) : []
+  const shown = grouped ? items.filter((n) => isAlertRow(n.type)) : items
+  const system = grouped ? items.filter((n) => !isAlertRow(n.type)) : []
   const systemUnread = system.filter((n) => !n.read).length
   return (
     <ul className="ntf-list">

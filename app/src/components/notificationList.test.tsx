@@ -3,7 +3,7 @@
 import { describe, it, expect } from 'vitest'
 import { renderToString } from 'react-dom/server'
 import { NotificationList } from './NotificationList'
-import { isFamilyEvent } from '../lib/noticeKinds'
+import { isAlertRow, isFamilyEvent } from '../lib/noticeKinds'
 import type { AppNotification } from '../types'
 
 const n = (id: string, type: string, read = false) => ({
@@ -41,6 +41,20 @@ describe('NotificationList', () => {
     expect(out).toContain('연결 기록 ›')
     expect(out.indexOf('d 메시지')).toBeLessThan(out.indexOf('연결 기록'))
     expect(out).toContain('ntf-group-row unread')
+  })
+
+  it('free-trial notices about a plan stand on their own with 🎁, not folded into 연결 기록', () => {
+    for (const t of ['plan.trialStarted', 'plan.trialEnding', 'plan.trialEnded']) expect(isAlertRow(t)).toBe(true)
+    expect(isAlertRow('device.pair')).toBe(false)
+    const trial = [n('t1', 'plan.trialStarted'), n('t2', 'plan.trialEnding', true), n('t3', 'plan.trialEnded', true), n('e', 'device.pair')]
+    const out = renderToString(<NotificationList items={trial} onOpen={() => {}} grouped />).replace(/<!-- -->/g, '')
+    const group = out.indexOf('연결 기록')
+    for (const id of ['t1', 't2', 't3']) {
+      expect(out).toContain(`${id} 메시지`)
+      expect(out.indexOf(`${id} 메시지`)).toBeLessThan(group)
+    }
+    expect(out.split('🎁').length - 1).toBe(3)
+    expect(out).not.toContain('e 메시지')
   })
 
   it('nothing yet: one line', () => {
