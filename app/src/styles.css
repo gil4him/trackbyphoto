@@ -420,6 +420,7 @@ main { padding: 18px 22px calc(110px + var(--safe-bot)); }
 
 .detail-memo { font-size: 22px; font-weight: 800; letter-spacing: -.3px; margin: 6px 2px 10px; line-height: 1.4; }
 
+.d-funline { margin: 8px 0 0; font-size: 14px; line-height: 1.5; color: var(--ink-2); word-break: keep-all; overflow-wrap: anywhere; }
 .detail-meta { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 2px 18px; }
 
 .detail-section {

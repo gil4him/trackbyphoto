@@ -35,6 +35,7 @@ export const FLAGS: FlagInfo[] = [
   { key: 'messengerFree', name: '무료 메신저 요약' },
   { key: 'voiceReplies', name: '음성 답장' },
   { key: 'memoDiary', name: '메모 일기 모드', note: '비교 스크립트용이에요. 메모를 쓸 때는 쓰지 않아요' },
+  { key: 'memoFunLine', name: '메모 아래 재미있는 한 줄', note: '모두에게 켜요. 꺼져 있어도 admin_config/funLine 명단의 계정은 받아요' },
   { key: 'payments', name: '앱 결제',
     confirm: { on: '앱에서 실제 구독 결제를 받기 시작해요. 스토어 상품과 RevenueCat 설정이 끝났는지 먼저 확인해 주세요.', off: '앱에서 새 결제를 받지 않아요. 이미 낸 구독은 스토어에서 계속돼요.' } },
   { key: 'planNudges', name: '체험 알림 (체험 시작·종료 3일 전·종료)' },

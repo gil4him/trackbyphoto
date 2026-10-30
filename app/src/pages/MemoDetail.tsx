@@ -366,6 +366,7 @@ export function MemoDetail({ memo, onBack, readOnly = false, canRotate = false, 
             {body
               ? <p className="d-scene">{body}</p>
               : <p className="d-scene muted">{memo.memo ? tr('설명이 아직 없어요.', 'No description yet.') : waitingText}</p>}
+            {memo.funLine && <p className="d-funline">{memo.funLine}</p>}
           </>
         )}
       </div>

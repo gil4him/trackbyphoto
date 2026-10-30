@@ -37,6 +37,8 @@ export interface Memo {
   photoUrl: string         // public download URL
   /** The ~480px copy for lists (worker thumbs.ts); missing on photos it hasn't reached. */
   thumbUrl?: string
+  /** One playful line under the memo, from counted facts (worker handlers/funLine.ts); on few photos. */
+  funLine?: string
   /** 사진 돌리기: clockwise degrees asked for but not yet baked into the
    *  stored photo (a pending request; the worker's handlers/rotate.ts clears
    *  it). Screens show the photo turned by it until then. */
@@ -267,7 +269,7 @@ export interface PlanEntitlements {
  *  A tier the doc leaves out is not offered. */
 export type Plans = Partial<Record<PlanTier, PlanEntitlements>> & {
   fairUse: { photosPerDay: number | null }
-  flags: Partial<Record<'reactions' | 'voiceReplies' | 'digest' | 'emailDigest' | 'pushFamily' | 'usageCaps' | 'retentionJob' | 'messengerFree' | 'trailMap' | 'planSheet' | 'familyPhotos' | 'cloudMemo' | 'payments' | 'planNudges' | 'absenceNudges' | 'pendingLinkNudges', boolean>>
+  flags: Partial<Record<'reactions' | 'voiceReplies' | 'digest' | 'emailDigest' | 'pushFamily' | 'usageCaps' | 'retentionJob' | 'messengerFree' | 'trailMap' | 'planSheet' | 'familyPhotos' | 'cloudMemo' | 'payments' | 'planNudges' | 'absenceNudges' | 'pendingLinkNudges' | 'memoFunLine', boolean>>
   /** Who may use the plan sheet while `planSheet` is still off (the owner, testing purchases). */
   planSheetAllow?: string[]
 }
