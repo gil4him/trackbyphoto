@@ -1,7 +1,6 @@
 import { ref, deleteObject } from 'firebase/storage'
 import { collection, deleteDoc, doc, getDocs, query, where } from 'firebase/firestore'
 import { Capacitor } from '@capacitor/core'
-import { Camera, CameraResultType, CameraSource } from '@capacitor/camera'
 import { OnDeviceVision, type VisionTags } from 'on-device-vision'
 import { db, storage } from '../firebase'
 import { findFix, recentFix } from './location'
@@ -12,31 +11,9 @@ export type { VisionTags }
 
 const isNative = Capacitor.isNativePlatform()
 
-/**
- * Open the native iOS camera (via Capacitor) and return the captured photo as
- * a File plus the local path that Apple Vision can analyze. Only call this on
- * a native platform — on web we still use the <input type="file" capture>
- * approach from Home.tsx.
- */
-export async function captureNativePhoto(): Promise<{ file: File; path: string }> {
-  const photo = await Camera.getPhoto({
-    source: CameraSource.Camera,
-    resultType: CameraResultType.Uri,
-    quality: 85,
-    // Also keep a copy in the Photos app like a normal camera shot. The first
-    // save asks for Photos "add" permission (NSPhotoLibraryAddUsageDescription);
-    // if it's declined the save is skipped and the upload still proceeds.
-    saveToGallery: true,
-  })
-  if (!photo.webPath) throw new Error('camera returned no path')
-  const res = await fetch(photo.webPath)
-  const blob = await res.blob()
-  const ext = (photo.format || 'jpg').toLowerCase()
-  const file = new File([blob], `photo.${ext}`, { type: blob.type || 'image/jpeg' })
-  // Prefer the file:// path for Vision; webPath works as a fallback because
-  // the Swift loader knows how to unwrap _capacitor_file_ URLs.
-  return { file, path: photo.path || photo.webPath }
-}
+// The camera itself (open it, read its answer) lives in phoneCamera.ts;
+// Home still imports it from here.
+export { captureNativePhoto } from './phoneCamera'
 
 /**
  * Run Apple Vision on a captured photo (native iOS only; null on web). The

@@ -2,10 +2,12 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { App as CapApp } from '@capacitor/app'
 import { captureSampleBlob, startPreview, stopPreview } from '../lib/cameraPreview'
 import { startQrScan } from '../lib/qrScan'
-import type { CameraPhase } from './ElderCamera'
 import { ASK_CAMERA_TO_LINK, cameraPermission } from '../lib/permissions'
 import { ElderAsk } from '../components/ElderAsk'
 import { tr } from '../lib/lang'
+
+/** The pairing viewfinder's state: starting, live, or refused by the phone. */
+export type CameraPhase = 'starting' | 'live' | 'denied'
 
 /**
  * The simple edition's first screen on a phone that isn't linked yet: the

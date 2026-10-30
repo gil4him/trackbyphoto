@@ -67,9 +67,9 @@
 
     <!-- @capacitor/camera saveToGallery: Android 10+ saves through MediaStore
          with no permission; only Android 9 and older need storage access.
-         CAMERA: the simple edition's in-app viewfinder (camera-preview) needs
-         it. Since it is declared, the full edition's system-camera intent asks
-         for it once too.
+         CAMERA: the QR pairing viewfinder (camera-preview) needs it. Since it
+         is declared, the system-camera intent the parent's 사진 찍기 and the
+         full edition use asks for it once too.
          No READ_MEDIA_IMAGES: we never read the gallery (Play restricts it). -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="29" />

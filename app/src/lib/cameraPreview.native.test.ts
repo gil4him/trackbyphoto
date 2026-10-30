@@ -1,11 +1,10 @@
-// The native start options: the parent camera stores shots to a file; the
-// pairing screen asks it not to.
+// The native start options of the pairing viewfinder: storing to file by
+// default, or not (the pairing screen asks it not to).
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const plugin = vi.hoisted(() => ({
   start: vi.fn(async () => {}),
   stop: vi.fn(async () => {}),
-  flip: vi.fn(async () => {}),
 }))
 vi.mock('@capacitor-community/camera-preview', () => ({ CameraPreview: plugin }))
 vi.mock('@capacitor/core', () => ({ Capacitor: { isNativePlatform: () => true, convertFileSrc: (p: string) => p } }))
@@ -15,7 +14,7 @@ vi.stubGlobal('document', {
   documentElement: { classList: { add: (c: string) => classes.add(c), remove: (c: string) => classes.delete(c) } },
 })
 
-import { flipCamera, startPreview, stopPreview } from './cameraPreview'
+import { startPreview, stopPreview } from './cameraPreview'
 
 describe('native preview options', () => {
   beforeEach(async () => {
@@ -34,13 +33,5 @@ describe('native preview options', () => {
   it('can start without storing to file (pairing)', async () => {
     await startPreview('cam', { storeToFile: false })
     expect(plugin.start).toHaveBeenCalledWith(expect.objectContaining({ storeToFile: false }))
-  })
-
-  it('flips the running camera in place', async () => {
-    await startPreview('cam')
-    expect(await flipCamera()).toBe('front')
-    expect(plugin.flip).toHaveBeenCalledTimes(1)
-    expect(plugin.stop).not.toHaveBeenCalled()
-    await flipCamera()
   })
 })

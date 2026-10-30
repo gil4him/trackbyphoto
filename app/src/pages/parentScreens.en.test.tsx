@@ -9,7 +9,7 @@ vi.mock('../lib/lang', async (importOriginal) => ({
   legalPath: (name: string) => `/en/${name}`,
 }))
 vi.mock('../firebase', () => ({ db: {}, auth: {}, storage: {} }))
-vi.mock('../lib/cameraPreview', () => ({ startPreview: vi.fn(), stopPreview: vi.fn(), capturePhoto: vi.fn(), flipCamera: vi.fn(), resetFacing: vi.fn() }))
+vi.mock('../lib/cameraPreview', () => ({ startPreview: vi.fn(), stopPreview: vi.fn() }))
 vi.mock('../lib/capture', () => ({ savePhoto: vi.fn() }))
 vi.mock('../lib/location', () => ({ warmUpLocation: vi.fn(), askLocation: vi.fn() }))
 vi.mock('../lib/reactions', () => ({ markRead: vi.fn(), COMMENT_MAX: 60 }))
@@ -36,13 +36,13 @@ const none = () => {}
 describe('the parent screens in English', () => {
   it('the camera: live, with a family message, sent, failed, and without a camera', () => {
     for (const out of [
-      html(<ElderCameraView phase="live" busy={false} overlay={null} news={null} onShutter={none} onDismissNews={none} onOpenRecords={none} onRetry={none} />),
-      html(<ElderCameraView phase="live" busy={false} overlay={null} news={{ state: 'new', item: comment, unreadIds: ['r1'] }} onShutter={none} onDismissNews={none} onOpenRecords={none} onRetry={none} />),
-      html(<ElderCameraView phase="live" busy={false} overlay={{ ok: true, text: 'Sent to Jamie ♥' }} news={null} onShutter={none} onDismissNews={none} onOpenRecords={none} onRetry={none} />),
-      html(<ElderCameraView phase="denied" busy={false} overlay={null} news={null} onShutter={none} onDismissNews={none} onOpenRecords={none} onRetry={none} />),
-      html(<ElderCameraView phase="live" busy={false} overlay={null} news={null} ask={ASK_CAMERA} askNext="Turn on camera" onShutter={none} onDismissNews={none} onOpenRecords={none} onRetry={none} />),
+      html(<ElderCameraView busy={false} overlay={null} news={null} onShutter={none} onDismissNews={none} onOpenRecords={none} onRetry={none} />),
+      html(<ElderCameraView busy={false} overlay={null} news={{ state: 'new', item: comment, unreadIds: ['r1'] }} onShutter={none} onDismissNews={none} onOpenRecords={none} onRetry={none} />),
+      html(<ElderCameraView busy={false} overlay={{ ok: true, text: 'Sent to Jamie ♥' }} news={null} onShutter={none} onDismissNews={none} onOpenRecords={none} onRetry={none} />),
+      html(<ElderCameraView denied busy={false} overlay={null} news={null} onShutter={none} onDismissNews={none} onOpenRecords={none} onRetry={none} />),
+      html(<ElderCameraView busy={false} overlay={null} news={null} ask={ASK_CAMERA} askNext="Turn on camera" onShutter={none} onDismissNews={none} onOpenRecords={none} onRetry={none} />),
     ]) expect(out).not.toMatch(HANGUL)
-    expect(html(<ElderCameraView phase="live" busy={false} overlay={null} news={null} onShutter={none} onDismissNews={none} onOpenRecords={none} onRetry={none} />))
+    expect(html(<ElderCameraView busy={false} overlay={null} news={null} onShutter={none} onDismissNews={none} onOpenRecords={none} onRetry={none} />))
       .toContain('aria-label="Take a photo"')
   })
 

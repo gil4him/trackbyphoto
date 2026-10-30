@@ -4,7 +4,7 @@ import { renderToString } from 'react-dom/server'
 
 vi.mock('../lib/edition', () => ({ isSimple: () => true, EDITION: 'simple' }))
 vi.mock('../firebase', () => ({ db: {}, auth: {}, storage: {} }))
-vi.mock('../lib/cameraPreview', () => ({ startPreview: vi.fn(), stopPreview: vi.fn(), capturePhoto: vi.fn() }))
+vi.mock('../lib/cameraPreview', () => ({ startPreview: vi.fn(), stopPreview: vi.fn() }))
 vi.mock('../lib/capture', () => ({ savePhoto: vi.fn(), captureNativePhoto: vi.fn(), isNativeApp: false }))
 vi.mock('../lib/location', () => ({ warmUpLocation: vi.fn() }))
 vi.mock('../lib/reactions', () => ({ markRead: vi.fn() }))
@@ -28,12 +28,12 @@ const render = () => renderToString(
 ).replace(/<!-- -->/g, '')
 
 describe('ElderApp (simple)', () => {
-  it('opens on the camera, not the home screen', () => {
+  it('opens on the 사진 찍기 screen, not the home screen', () => {
     const out = render()
-    expect(out).toContain('elder-cam-shutter')
+    expect(out).toContain('elder-launch-shutter')
     expect(out).toContain('내 사진')
     expect(out).not.toContain('오늘 가족 소식이 아직 없어요')
-    // The camera screen is the camera: no floating camera button on it.
+    // The first screen is the shutter: no floating camera button on it.
     expect(out).not.toContain('cam-fab')
   })
 })
