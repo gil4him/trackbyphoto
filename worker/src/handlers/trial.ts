@@ -105,7 +105,8 @@ export async function sendTrialNotice(req: TrialNoticeRequest): Promise<boolean>
   const lang = (await resolveGeoLang(payerUid)) === 'en' ? 'en' : 'ko'
   const raw = await elderName(patientUid)
   // English drops 님 (CLAUDE.md, English); Korean says it as the app does (엄마, 영희님).
-  const name = lang === 'en' ? raw.replace(/\s*님$/, '') || 'your parent' : addressed(raw)
+  // No name on file reads as 부모님, which in English is "your parent".
+  const name = lang === 'en' ? (raw === '부모님' ? 'your parent' : raw.replace(/\s*님$/, '') || 'your parent') : addressed(raw)
   const message = TRIAL_TEXT[lang][kind]({ name, tier: tierName(tier), date: trialDate(trialEndsAtMs, lang), price: price ?? '' })
 
   const db = getFirestore()

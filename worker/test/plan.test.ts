@@ -338,6 +338,15 @@ describe('a purchase that starts the free trial', () => {
     await seedMembership('p1', 'cg1', { role: 'guardian' })
     await buy()
     expect((await notices('cg1'))[0].message).toBe("Your Plus free trial for 영희 has started. From November 11 you'll be billed ₩4,400 a month. To stop during the trial, cancel in the store.")
+
+    // No name on file: 부모님 in Korean, "your parent" in English (never "부모").
+    await clearFirestore()
+    await priced()
+    await db.doc('users/p1').set({ accountType: 'managed' })
+    await db.doc('users/cg1').set({ geoLang: 'en' })
+    await seedMembership('p1', 'cg1', { role: 'guardian' })
+    await buy()
+    expect((await notices('cg1'))[0].message).toMatch(/^Your Plus free trial for your parent has started\./)
   })
 
   it('records the trial but tells nobody while planNudges is off', async () => {
