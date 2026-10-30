@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { User } from 'firebase/auth'
 import { addDoc, collection, doc, serverTimestamp, updateDoc } from 'firebase/firestore'
 import { db } from '../firebase'
@@ -47,6 +47,9 @@ interface Props {
   /** The patient whose data is currently being viewed. May be the signed-in
    *  user (self path) or another patient the user is caregiving for. */
   activePatientUid: string
+  /** Opened from a phone notice: start at this parent's device list. */
+  focusDevices?: boolean
+  onDevicesFocused?: () => void
   /** True when activePatientUid === user.uid. Drives whether to show the
    *  가족 관리 section (only the patient can invite family to their own
    *  account). */
@@ -90,11 +93,19 @@ const MEMO_STYLES: [MemoStyle, string][] = [['plain', tr('담백하게', 'Plain'
 /** Each language in its own name, so anyone can find theirs. */
 const LANGS: [Lang, string][] = [['ko', '한국어'], ['en', 'English']]
 
-export function Settings({ settings, onChange, user, onSignOut, activePatientUid, isSelf, onSwitchPatient, myRole, voiceRollout = false, reactionsRollout = false, digestRollout = false, weeklyIncluded = false, weeklyFrom = null, people = [], familyPhotosRollout = false, onOpenPlans, onOpenPlansFor, planName, familyLimit = null, pushRollout = false }: Props) {
+export function Settings({ settings, onChange, user, onSignOut, activePatientUid, focusDevices = false, onDevicesFocused, isSelf, onSwitchPatient, myRole, voiceRollout = false, reactionsRollout = false, digestRollout = false, weeklyIncluded = false, weeklyFrom = null, people = [], familyPhotosRollout = false, onOpenPlans, onOpenPlansFor, planName, familyLimit = null, pushRollout = false }: Props) {
   const toast = useToast()
   // A family-managed elder (부모님 등록하기): family runs 가족 관리 and
   // 기기 관리 for them, since the elder's phone has no settings at all.
   const isManaged = settings.accountType === 'managed'
+  // Opened from a phone notice: start at the device list, once.
+  const devicesRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!focusDevices) return
+    devicesRef.current?.scrollIntoView({ block: 'start' })
+    onDevicesFocused?.()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusDevices])
   const [registering, setRegistering] = useState(false)
 
   // ─── caregiver-share state ───────────────────────────────────────────────
@@ -548,7 +559,7 @@ export function Settings({ settings, onChange, user, onSignOut, activePatientUid
             </>
           )}
           {isManaged && !isSelf && canManageHere && (
-            <ElderDevices patientUid={activePatientUid} patientName={settings.patientName} />
+            <div ref={devicesRef} className="jump-target"><ElderDevices patientUid={activePatientUid} patientName={settings.patientName} /></div>
           )}
           {!isSelf && canManageHere && (
             <>
@@ -766,7 +777,7 @@ export function Settings({ settings, onChange, user, onSignOut, activePatientUid
       )}
 
       {isManaged && !isSelf && canManageHere && (
-        <ElderDevices patientUid={activePatientUid} patientName={settings.patientName} />
+        <div ref={devicesRef} className="jump-target"><ElderDevices patientUid={activePatientUid} patientName={settings.patientName} /></div>
       )}
 
       {familyPhotosRollout && isManaged && !isSelf && canManageHere && (() => {
