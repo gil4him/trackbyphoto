@@ -76,6 +76,14 @@ describe('지도에서 보기', () => {
 })
 
 
+describe('MemoDetail 재미있는 한 줄', () => {
+  const html = (m: Memo) => renderToString(<ToastProvider><MemoDetail memo={m} onBack={() => {}} /></ToastProvider>)
+  it('shows it under the memo when the photo has one, and nothing otherwise', () => {
+    expect(html({ ...memo, scene: '장면', funLine: '칙필레 다음은 칼국수' } as Memo)).toContain('<p class="d-funline">칙필레 다음은 칼국수</p>')
+    expect(html({ ...memo, scene: '장면' } as Memo)).not.toContain('d-funline')
+  })
+})
+
 describe('MemoDetail 사진 돌리기', () => {
   const html = (props: { canRotate?: boolean; readOnly?: boolean; m?: Memo } = {}) =>
     renderToString(<ToastProvider><MemoDetail memo={props.m ?? memo} onBack={() => {}} canRotate={props.canRotate} readOnly={props.readOnly} /></ToastProvider>)

@@ -51,6 +51,7 @@ import { homeHintFor, localOffsetMin, localTimeHint, resolveGeoLang, resolveHome
 import { KOREAN_DAYS } from '../llm/context.js'
 import { sunTimes } from '../llm/moment.js'
 import { weatherAt } from '../weather.js'
+import { addFunLine, type FunLineArgs } from './funLine.js'
 import type { PromptHints } from '../llm/prompt.js'
 import { openPath, pushToUsers, type PushMessage } from './push.js'
 import { accountPhotoSafely } from './usage.js'
@@ -89,6 +90,8 @@ export interface MemoDeps {
   generate: (args: MemoArgs) => Promise<V2Result>
   /** Push the new-photo notice to family devices (default: handlers/push). */
   push?: (uids: string[], message: PushMessage) => Promise<unknown>
+  /** The playful line after the memo (handlers/funLine.ts). */
+  funLine?: (args: FunLineArgs) => Promise<void>
 }
 
 export const defaultMemoDeps: MemoDeps = {
@@ -173,6 +176,33 @@ async function nearbyPlace(memoId: string, patientUid: string, takenAt: Date | u
   }
 }
 
+/** Where to look up the weather of a photo without a location: the location of
+ *  this person's photo closest in time on the same local day (owner decision,
+ *  2026-10-30). Null when none has one; then the memo goes without weather. */
+async function sameDaySpot(memoId: string, patientUid: string, takenAt: Date, offsetMin: number): Promise<{ lat: number; lng: number } | null> {
+  const dayOf = (d: Date) => new Date(d.getTime() + offsetMin * 60_000).toISOString().slice(0, 10)
+  try {
+    const snap = await getFirestore().collection('memos')
+      .where('patientUid', '==', patientUid)
+      .where('takenAt', '>=', new Date(takenAt.getTime() - 86_400_000))
+      .where('takenAt', '<=', new Date(takenAt.getTime() + 86_400_000))
+      .get()
+    let best: { lat: number; lng: number } | null = null
+    let bestGap = Infinity
+    for (const d of snap.docs) {
+      const m = d.data()
+      const at = m.takenAt?.toDate?.() as Date | undefined
+      if (d.id === memoId || !at || typeof m.lat !== 'number' || typeof m.lng !== 'number' || dayOf(at) !== dayOf(takenAt)) continue
+      const gap = Math.abs(at.getTime() - takenAt.getTime())
+      if (gap < bestGap) { best = { lat: m.lat, lng: m.lng }; bestGap = gap }
+    }
+    return best
+  } catch (err) {
+    logger.warn('[memo] same-day location lookup failed', { memoId, err: String(err) })
+    return null
+  }
+}
+
 const WEEKDAYS = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일']
 const WEEKDAYS_EN = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 /** The public holidays in KOREAN_DAYS worth remembering, in English. The
@@ -215,9 +245,11 @@ export async function momentHintsFor(args: {
   const { memoId, patientUid, takenAt, lat, lng } = args
   if (!takenAt) return {}
   const out: Pick<PromptHints, 'dayHint' | 'sunHint' | 'todayHint' | 'weather'> = {}
-  // Only at the photo's own spot: home's weather would be wrong on a trip.
-  const weather = lat != null && lng != null ? weatherAt(lat, lng, takenAt) : Promise.resolve(null)
   const offset = await localOffsetMin(patientUid, lat, lng, args.tzOffsetMin)
+  // At the photo's own spot, or else where that day's closest photo was; never
+  // at home just because it is home, which would be wrong on a trip.
+  const weatherSpot = lat != null && lng != null ? { lat, lng } : await sameDaySpot(memoId, patientUid, takenAt, offset)
+  const weather = weatherSpot ? weatherAt(weatherSpot.lat, weatherSpot.lng, takenAt) : Promise.resolve(null)
   const local = new Date(takenAt.getTime() + offset * 60_000)
   const dayKey = local.toISOString().slice(0, 10)
   const holiday = KOREAN_DAYS[dayKey]
@@ -523,6 +555,23 @@ export async function processMemo(memoId: string, attempt: number, deps: MemoDep
       await bumpAdminCounters({ category: activity, memoSource, model: llmModel, geminiCost: llmCost })
     } catch (err) {
       logger.warn('[admin-counters] failed to bump', { err: String(err) })
+    }
+  }
+
+  // 재미있는 한 줄: an addition after the memo is done, once per photo. It reads
+  // the finished memo and writes only its own field; failing changes nothing.
+  const shotAt = data.takenAt?.toDate?.() as Date | undefined
+  if (firstCompletion && !humanEdited && shotAt && !STUB_MEMOS.has(memo)) {
+    try {
+      await (deps.funLine ?? addFunLine)({
+        memoId,
+        patientUid,
+        current: { at: shotAt, activity, memo, scene, place: located ? place : '', lat, lng },
+        offsetMin: await localOffsetMin(patientUid, lat, lng, data.tzOffsetMin as number | undefined),
+        lang: await resolveGeoLang(patientUid),
+      })
+    } catch (err) {
+      logger.warn('[funLine] failed', { memoId, err: String(err) })
     }
   }
 
