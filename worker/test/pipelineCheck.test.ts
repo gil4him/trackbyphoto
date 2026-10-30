@@ -34,7 +34,7 @@ function family() {
       return { ...w, model: 'fake', cost: { promptTokens: 1, outputTokens: 1, totalUSD: 0 } }
     },
     push: async (uids, message) => { pushes.push({ uids, message }); return uids.length },
-    funLine: (args) => addFunLine(args, async (prompt) => { asks.push(prompt); return `농담${asks.length}호` }),
+    funLine: (args) => addFunLine(args, async (prompt) => { asks.push(prompt); return `농담${'가나다라'[asks.length - 1]}호` }),
   }
   return { asks, pushes, queue, deps }
 }
@@ -62,8 +62,8 @@ describe('a photo through the whole path', () => {
     await shoot('a', '2026-10-20T15:00')
     expect(await processMemo('a', 1, f.deps)).toBe('done')
     const m = await memo('a')
-    expect(m).toMatchObject({ status: 'ready', ...CHICK, place: 'La Habra, 미국', weather: { label: '맑음' }, funLine: '농담1호' })
-    expect(f.asks[0]).toContain('Daylie에 남긴 엄마의 첫 사진')
+    expect(m).toMatchObject({ status: 'ready', ...CHICK, place: 'La Habra, 미국', weather: { label: '맑음' }, funLine: '엄마의 첫 사진이에요. 농담가호' })
+    expect(f.asks[0]).toContain('엄마의 첫 사진')
     expect(f.pushes.filter((p) => p.message.data?.type === 'photo.new')).toHaveLength(1)
   })
 
@@ -75,10 +75,10 @@ describe('a photo through the whole path', () => {
     await processMemo('b', 1, f.deps)
     expect(weatherAt).toHaveBeenLastCalledWith(LA_HABRA.lat, LA_HABRA.lng, at('2026-10-20T18:00'))
     const b = await memo('b')
-    expect(b).toMatchObject({ weather: { label: '맑음' }, place: '', funLine: '농담2호' })
+    expect(b).toMatchObject({ weather: { label: '맑음' }, place: '', funLine: '칙필레 다음은 칼국수. 농담나호' })
     expect(b.lat).toBeNull()
     expect(b.address ?? '').toBe('')
-    expect(f.asks[1]).toContain('지난번 식사 기록은 칙필레, 이번은 칼국수')
+    expect(f.asks[1]).toContain('칙필레 다음은 칼국수.')
   })
 
   it('the first photo of a day without a location has no weather yet, and still finishes', async () => {
@@ -111,7 +111,7 @@ describe('a photo through the whole path', () => {
     f.queue.push({ activity: '식사', memo: '다시 쓴 메모', scene: '다시 쓴 장면.' })
     expect(await processMemo('a', 1, f.deps)).toBe('done')
     const a = await memo('a')
-    expect(a).toMatchObject({ memo: '다시 쓴 메모', funLine: '농담1호' })
+    expect(a).toMatchObject({ memo: '다시 쓴 메모', funLine: '엄마의 첫 사진이에요. 농담가호' })
     expect(f.asks).toHaveLength(1)
   })
 
@@ -174,7 +174,7 @@ describe('with rotation', () => {
     await processMemo('a', 1, f.deps)
     await db.doc('memos/a').update({ rotation: 90, turned: 90 })
     expect(await rotateMemo('a', rotateDeps)).toBe('done')
-    expect(await memo('a')).toMatchObject({ ...CHICK, funLine: '농담1호', turned: 90, photoUrl: 'https://example.test/photo.jpg?token=new' })
+    expect(await memo('a')).toMatchObject({ ...CHICK, funLine: '엄마의 첫 사진이에요. 농담가호', turned: 90, photoUrl: 'https://example.test/photo.jpg?token=new' })
     expect((await memo('a')).rotation).toBeUndefined()
   })
 
