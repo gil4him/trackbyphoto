@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { App as CapApp } from '@capacitor/app'
 import { Haptics, ImpactStyle } from '@capacitor/haptics'
-import { capturePhoto, flipCamera, resetFacing, startPreview, stopPreview } from '../lib/cameraPreview'
 import { savePhoto } from '../lib/capture'
-import { keepInPhotos } from '../lib/gallery'
+import { PARENT_CAMERA, captureNativePhoto, photoFromResult } from '../lib/phoneCamera'
+import { restoredPhoto, takeAndSend, type Overlay } from '../lib/elderShot'
 import { askLocation, warmUpLocation } from '../lib/location'
 import { ASK_CAMERA, ASK_LOCATION, ASK_NOTIFY, cameraPermission, locationPermission, notificationPermission } from '../lib/permissions'
 import { enableElderPush, refreshElderPush } from '../lib/push'
-import { appStateAction } from '../lib/cameraState'
 import { ElderAsk } from '../components/ElderAsk'
 import { ElderInstallButton } from '../components/ElderInstallButton'
 import { MemoThumb } from '../components/MemoThumb'
@@ -20,31 +19,31 @@ import type { ElderNews } from '../lib/reactionsModel'
 import type { Memo, Reaction } from '../types'
 import { tr } from '../lib/lang'
 
+export type { Overlay }
+
 /**
- * The simple edition's parent screen: the phone is a camera. Opening the app
- * (or coming back to it) shows the rear viewfinder straight away; one big
- * shutter sends the photo to family. Above it floats the newest heart or
- * comment from family until tapped; a small 내 사진 opens today's photos.
- * Nothing else — no settings, prices, limits or warnings.
- * simple/Daylie-v3-Simple-Core.md §2.
+ * The simple edition's parent screen (owner decision, 2026-10-30): one big
+ * 사진 찍기 button that opens the phone's own camera — its full quality,
+ * zoom, flash and night mode, pixels upright, a copy in Photos — and sends
+ * the photo to family on return. Above it floats the newest heart or comment
+ * from family until tapped; a small 내 사진 opens today's photos. Nothing
+ * else — no settings, prices, limits or warnings.
+ * (The in-app viewfinder of simple/Daylie-v3-Simple-Core.md §2 was replaced
+ * because its plugin capped quality; see CLAUDE.md "Photo lists".)
  */
 
-/** Where the web build puts its <video>; native draws behind the page. */
-const FEED_ID = 'elder-cam-feed'
 const OVERLAY_MS = 1500
 
-export type CameraPhase = 'starting' | 'live' | 'denied'
 /** The plain-sentence screens, in the order the phone's questions come. */
 type Ask = 'camera' | 'location' | 'notify'
-export type Overlay = { ok: true; text: string } | { ok: false; text: string; sub: string }
 
-export function ElderCameraView({ phase, busy, overlay, news, photos = null, recent = null, ask = null, askNext, corner = null, onShutter, onDismissNews, onOpenRecords, onRetry, onOpenPhotos = () => {}, onAskNext = () => {}, onFlip = () => {} }: {
-  phase: CameraPhase
+export function ElderCameraView({ busy, denied = false, overlay, news, photos = null, recent = null, ask = null, askNext, corner = null, onShutter, onDismissNews, onOpenRecords, onRetry, onOpenPhotos = () => {}, onAskNext = () => {} }: {
+  busy: boolean
+  /** The phone refused the camera: say so, with a big retry. */
+  denied?: boolean
   /** The parent's newest photo, shown in the 내 사진 circle; null before the first one. */
   recent?: Memo | null
-  /** Switch between the back and front camera. */
-  onFlip?: () => void
-  /** Above the camera-switch button: the web's 아이콘 만들기. */
+  /** Next to 내 사진: the web's 아이콘 만들기. */
   corner?: ReactNode
   /** "민수가 사진을 보냈어요" while a photo from family is new (lit), the dim
    *  "가족 사진 다시 보기" whenever there are photos at all, else null. */
@@ -55,7 +54,6 @@ export function ElderCameraView({ phase, busy, overlay, news, photos = null, rec
   /** The button under the sentence: 카메라 켜기 for the camera, 다음 otherwise. */
   askNext?: string
   onAskNext?: () => void
-  busy: boolean
   overlay: Overlay | null
   news: ElderNews | null
   onShutter: () => void
@@ -68,18 +66,15 @@ export function ElderCameraView({ phase, busy, overlay, news, photos = null, rec
   const item = (!photos || !photos.lit) && news?.state === 'new' ? news.item : null
   const photoBubble = photos && (photos.lit || !item) ? photos : null
   return (
-    // with-bar: the viewfinder ends where the black control bar starts (A11).
-    <div className={`elder-cam${ask ? '' : ' with-bar'}`}>
-      <div id={FEED_ID} className="elder-cam-feed" />
-
-      {photoBubble && (
+    <div className="elder-launch">
+      {!ask && photoBubble && (
         <button type="button" className={`elder-cam-bubble${photoBubble.lit ? '' : ' dim'}`} onClick={onOpenPhotos}>
           <span className="elder-cam-bubble-icon" aria-hidden="true">🖼️</span>
           <span className="elder-cam-bubble-body"><span>{photoBubble.line}</span></span>
         </button>
       )}
 
-      {item && (
+      {!ask && item && (
         <button type="button" className="elder-cam-bubble" onClick={onDismissNews}>
           <span className="elder-cam-bubble-icon" aria-hidden="true">{item.kind === 'comment' ? '💬' : '❤️'}</span>
           <span className="elder-cam-bubble-body">
@@ -89,7 +84,9 @@ export function ElderCameraView({ phase, busy, overlay, news, photos = null, rec
         </button>
       )}
 
-      {phase === 'denied' && (
+      {ask && <ElderAsk text={ask} next={askNext} onNext={onAskNext} />}
+
+      {!ask && denied && (
         <div className="elder-cam-denied" role="alert">
           <p className="elder-cam-denied-title">{tr('카메라를 사용할 수 없어요', "Can't use the camera")}</p>
           <p className="elder-cam-denied-sub">{tr('설정에서 카메라를 허용해 주세요', 'Please allow the camera in Settings')}</p>
@@ -97,61 +94,52 @@ export function ElderCameraView({ phase, busy, overlay, news, photos = null, rec
         </div>
       )}
 
+      {/* The one thing to do: a giant shutter in the middle of the screen. */}
+      {!ask && !denied && (
+        <button
+          type="button"
+          className="elder-launch-shutter"
+          aria-label={tr('사진 찍기', 'Take a photo')}
+          disabled={busy}
+          onClick={onShutter}
+        >
+          <span className="elder-launch-ring" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 8.5A2.5 2.5 0 0 1 6.5 6h2l1.3-2h4.4L15.5 6h2A2.5 2.5 0 0 1 20 8.5v8a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 16.5z" />
+              <circle cx="12" cy="12.5" r="3.5" />
+            </svg>
+          </span>
+          <span className="elder-launch-label">{tr('사진 찍기', 'Take a photo')}</span>
+        </button>
+      )}
+
       {overlay && (
         <div className={`elder-cam-overlay ${overlay.ok ? 'ok' : 'fail'}`} role="status">
           {/* "지은에게 보냈어요 ♥": the heart in the brand's orange, never on a line of its own. */}
           {overlay.ok && overlay.text.endsWith('♥')
-            ? <span>{overlay.text.slice(0, -1).trimEnd()}{'\u00a0'}<span className="elder-cam-heart" aria-hidden="true">♥</span></span>
+            ? <span>{overlay.text.slice(0, -1).trimEnd()}{' '}<span className="elder-cam-heart" aria-hidden="true">♥</span></span>
             : <span>{overlay.text}</span>}
           {!overlay.ok && <span className="elder-cam-overlay-sub">{overlay.sub}</span>}
         </div>
       )}
 
-      {ask && <ElderAsk text={ask} next={askNext} onNext={onAskNext} />}
-
-      {/* The black bar, as on the iPhone's camera: 내 사진 · shutter · 전환,
-          three circles on one centre line, a label under each (A11). */}
-      {!ask && <div className="elder-cam-bar">
-        <div className="elder-cam-row">
-          <button type="button" className="elder-cam-records" onClick={onOpenRecords}>
-            <span className="elder-cam-circle elder-cam-recent" aria-hidden="true">
-              {recent
-                ? <MemoThumb memo={recent} />
-                : (
-                  <svg className="elder-cam-recent-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="3" y="5" width="18" height="14" rx="3" />
-                    <circle cx="9" cy="10" r="1.6" />
-                    <path d="M21 16l-5-5-8 8" />
-                  </svg>
-                )}
-            </span>
-            <span className="elder-cam-label">{tr('내 사진', 'My photos')}</span>
-          </button>
-          <button
-            type="button"
-            className="elder-cam-shutter"
-            aria-label={tr('사진 찍기', 'Take a photo')}
-            disabled={phase !== 'live' || busy}
-            onClick={onShutter}
-          >
-            <span className="elder-cam-circle elder-cam-ring" aria-hidden="true" />
-            <span className="elder-cam-label">{tr('사진 찍기', 'Take a photo')}</span>
-          </button>
-          <span className="elder-cam-bar-side">
-            {corner}
-            <button type="button" className="elder-cam-flip" aria-label={tr('카메라 전환', 'Switch camera')} disabled={phase !== 'live' || busy} onClick={onFlip}>
-              <span className="elder-cam-circle elder-cam-flip-circle" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M4 9a8 8 0 0 1 14-3l2 2" />
-                  <path d="M20 4v4h-4" />
-                  <path d="M20 15a8 8 0 0 1-14 3l-2-2" />
-                  <path d="M4 20v-4h4" />
+      {/* The bottom row: 내 사진 on the left, the web's 아이콘 만들기 on the right. */}
+      {!ask && <div className="elder-launch-row">
+        <button type="button" className="elder-launch-records" onClick={onOpenRecords}>
+          <span className="elder-launch-recent" aria-hidden="true">
+            {recent
+              ? <MemoThumb memo={recent} />
+              : (
+                <svg className="elder-launch-recent-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="5" width="18" height="14" rx="3" />
+                  <circle cx="9" cy="10" r="1.6" />
+                  <path d="M21 16l-5-5-8 8" />
                 </svg>
-              </span>
-              <span className="elder-cam-label">{tr('전환', 'Flip')}</span>
-            </button>
+              )}
           </span>
-        </div>
+          <span className="elder-launch-label">{tr('내 사진', 'My photos')}</span>
+        </button>
+        {corner && <span className="elder-launch-side">{corner}</span>}
       </div>}
     </div>
   )
@@ -172,8 +160,8 @@ export function ElderCamera({ uid, deviceId, reactions, photos = null, recent = 
   /** A family member's message was tapped: open 가족 소식 to answer it. */
   onOpenNews?: (news: OpenNews) => void
 }) {
-  const [phase, setPhase] = useState<CameraPhase>('starting')
   const [busy, setBusy] = useState(false)
+  const [denied, setDenied] = useState(false)
   const [overlay, setOverlay] = useState<Overlay | null>(null)
   // Hidden as soon as it's tapped, before the read stamps come back.
   const [dismissed, setDismissed] = useState<string[]>([])
@@ -181,6 +169,7 @@ export function ElderCamera({ uid, deviceId, reactions, photos = null, recent = 
   const { caregivers } = useMemberships(uid, { withPatients: false })
   const toName = sentToName(caregivers)
   const alive = useRef(true)
+  const busyRef = useRef(false)
   // The plain-sentence screen before the phone's camera / location question.
   const [ask, setAsk_] = useState<Ask | null>(null)
   const asking = useRef<Ask | null>(null)
@@ -188,9 +177,8 @@ export function ElderCamera({ uid, deviceId, reactions, photos = null, recent = 
     asking.current = a
     setAsk_(a)
   }, [])
-  // From the parent's tap under the plain sentence until the camera or the
-  // location answers: the phone's own question may be up (appStateAction).
-  const phoneAsking = useRef(false)
+  // The location and notification questions follow the camera's once.
+  const chained = useRef(false)
 
   // After location: family news on the icon. The plain sentence first if the
   // phone hasn't asked; already allowed → just keep the token current.
@@ -203,9 +191,11 @@ export function ElderCamera({ uid, deviceId, reactions, photos = null, recent = 
     })
   }, [deviceId, setAsk])
 
-  // Once the camera is on: location next — its plain sentence first if the
-  // phone hasn't asked yet, else just start locating for the first shot.
-  const afterLive = useCallback(() => {
+  // Once the camera is allowed: location next — its plain sentence first if
+  // the phone hasn't asked yet, else just start locating for the next shot.
+  const afterCamera = useCallback(() => {
+    if (chained.current) return
+    chained.current = true
     void locationPermission().then((s) => {
       if (!alive.current) return
       if (s === 'prompt') setAsk('location')
@@ -213,89 +203,69 @@ export function ElderCamera({ uid, deviceId, reactions, photos = null, recent = 
     })
   }, [setAsk, afterLocation])
 
-  // Only sets state once the camera answers, so the mount effect may call it.
-  const launch = useCallback(() => {
-    startPreview(FEED_ID)
-      .then(() => {
-        if (!alive.current) return
-        setPhase('live')
-        afterLive()
-      })
-      .catch((err) => {
-        console.warn('[ElderCamera] preview failed', err)
-        if (alive.current) setPhase('denied')
-      })
-      .finally(() => { phoneAsking.current = false })
-  }, [afterLive])
-  const restart = useCallback(() => {
-    setPhase('starting')
-    launch()
-  }, [launch])
-
-  // Viewfinder on while the screen is open and the app is in front: on mount,
-  // and again whenever the app comes back (on web, @capacitor/app reports
-  // tab visibility the same way). Off in the background and on leaving.
-  useEffect(() => {
-    alive.current = true
-    // The camera's plain sentence first if the phone hasn't asked yet.
-    // Always the back camera on open and on coming back (A9).
-    resetFacing()
-    void cameraPermission().then((s) => {
-      if (!alive.current) return
-      if (s === 'prompt') setAsk('camera')
-      else launch()
-    })
-    const sub = CapApp.addListener('appStateChange', ({ isActive }) => {
-      const action = appStateAction(isActive, phoneAsking.current, asking.current === 'camera')
-      if (action === 'stop') void stopPreview()
-      else if (action === 'restart') { resetFacing(); restart() }
-    })
-    return () => {
-      alive.current = false
-      void sub.then((h) => h.remove())
-      void stopPreview()
-    }
-  }, [launch, restart, setAsk])
-
-  const onAskNext = () => {
-    if (asking.current === 'camera') {
-      setAsk(null)
-      phoneAsking.current = true
-      restart() // the phone asks now; launch clears the flag once it answers
-    } else if (asking.current === 'location') {
-      setAsk(null)
-      phoneAsking.current = true
-      // Denial is fine: photos then just have no place.
-      void askLocation().finally(() => { phoneAsking.current = false; if (alive.current) afterLocation() })
-    } else if (asking.current === 'notify' && deviceId) {
-      setAsk(null)
-      phoneAsking.current = true
-      // Denial is fine too: the news still waits on the camera screen.
-      void enableElderPush(deviceId).catch((err) => console.warn('[ElderCamera] push not enabled', err)).finally(() => { phoneAsking.current = false })
-    }
-  }
-
-  const onShutter = async () => {
-    if (busy || phase !== 'live') return
+  /** One shot: the phone's camera (or a photo it handed back later), then the family. */
+  const shoot = useCallback(async (take: () => Promise<{ file: File; path?: string }>) => {
+    if (busyRef.current) return
+    busyRef.current = true
     setBusy(true)
     void Haptics.impact({ style: ImpactStyle.Medium }).catch(() => {})
-    let result: Overlay
-    try {
-      const { file, nativePath } = await capturePhoto()
-      void keepInPhotos(nativePath) // a copy in the phone's photos too
-      await savePhoto({ uid, file, nativePath })
-      result = { ok: true, text: tr(`${toName}에게 보냈어요 ♥`, `Sent to ${toName} ♥`) }
-    } catch (err) {
-      console.error('[ElderCamera] capture failed', err)
-      result = { ok: false, text: tr('사진을 저장하지 못했어요', "Couldn't save the photo"), sub: tr('다시 한 번 찍어 주세요', 'Please take it once more') }
-    }
+    // A fix ready for the photo, when the phone already allows location.
+    void locationPermission().then((s) => { if (s === 'granted') warmUpLocation() })
+    const result = await takeAndSend({ uid, toName, take, save: savePhoto })
     if (!alive.current) return
+    if (result === 'cancelled' || result === 'denied') {
+      if (result === 'denied') setDenied(true)
+      busyRef.current = false
+      setBusy(false)
+      afterCamera()
+      return
+    }
+    setDenied(false)
     setOverlay(result)
     setTimeout(() => {
       if (!alive.current) return
       setOverlay(null)
+      busyRef.current = false
       setBusy(false)
+      afterCamera()
     }, OVERLAY_MS)
+  }, [uid, toName, afterCamera])
+
+  useEffect(() => {
+    alive.current = true
+    // The camera's plain sentence first if the phone hasn't asked yet.
+    void cameraPermission().then((s) => {
+      if (!alive.current) return
+      if (s === 'prompt') setAsk('camera')
+      else afterCamera()
+    })
+    // Android may kill the app behind its camera; the photo comes back here.
+    const sub = CapApp.addListener('appRestoredResult', (ev) => {
+      const photo = restoredPhoto(ev)
+      if (photo) void shoot(() => photoFromResult(photo))
+    })
+    return () => {
+      alive.current = false
+      void sub.then((h) => h.remove())
+    }
+  }, [afterCamera, setAsk, shoot])
+
+  const onShutter = () => { void shoot(() => captureNativePhoto(PARENT_CAMERA)) }
+
+  const onAskNext = () => {
+    if (asking.current === 'camera') {
+      setAsk(null)
+      // The phone asks for the camera as it opens; the first shot is the answer.
+      onShutter()
+    } else if (asking.current === 'location') {
+      setAsk(null)
+      // Denial is fine: photos then just have no place.
+      void askLocation().finally(() => { if (alive.current) afterLocation() })
+    } else if (asking.current === 'notify' && deviceId) {
+      setAsk(null)
+      // Denial is fine too: the news still waits on this screen.
+      void enableElderPush(deviceId).catch((err) => console.warn('[ElderCamera] push not enabled', err))
+    }
   }
 
   const shown = news?.state === 'new' && news.unreadIds.every((id) => dismissed.includes(id)) ? null : news
@@ -310,19 +280,18 @@ export function ElderCamera({ uid, deviceId, reactions, photos = null, recent = 
 
   return (
     <ElderCameraView
-      phase={phase}
       busy={busy}
+      denied={denied}
       overlay={overlay}
       news={shown}
-      onShutter={() => void onShutter()}
+      onShutter={onShutter}
       onDismissNews={onDismissNews}
       onOpenRecords={onOpenRecords}
-      onRetry={restart}
+      onRetry={() => { setDenied(false); onShutter() }}
       photos={photos}
       recent={recent}
       corner={<ElderInstallButton compact />}
-      onFlip={() => { void flipCamera().catch((err) => console.warn('[ElderCamera] flip failed', err)) }}
-      onOpenPhotos={() => { void stopPreview(); onOpenPhotos?.() }}
+      onOpenPhotos={() => onOpenPhotos?.()}
       ask={ask === 'camera' ? ASK_CAMERA : ask === 'location' ? ASK_LOCATION : ask === 'notify' ? ASK_NOTIFY : null}
       askNext={ask === 'camera' ? tr('카메라 켜기', 'Turn on camera') : tr('다음', 'Next')}
       onAskNext={onAskNext}

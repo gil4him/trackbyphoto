@@ -10,7 +10,7 @@ vi.mock('@capacitor/app', () => ({ App: { addListener: vi.fn(async () => ({ remo
 vi.mock('@capacitor/clipboard', () => ({ Clipboard: { read: vi.fn(async () => ({ value: '' })) } }))
 
 import { ElderPairStartView } from './ElderPairStart'
-import type { CameraPhase } from './ElderCamera'
+import type { CameraPhase } from './ElderPairStart'
 
 const render = (phase: CameraPhase) => renderToString(
   <ElderPairStartView phase={phase} onFamily={() => {}} onEnterCode={() => {}} onRetry={() => {}} />,

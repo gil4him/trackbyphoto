@@ -2,17 +2,18 @@ import { Capacitor } from '@capacitor/core'
 import { CameraPreview } from '@capacitor-community/camera-preview'
 
 /**
- * The live viewfinder of the simple edition's parent screen (ElderCamera).
+ * The live viewfinder that looks for the family's QR on a phone that isn't
+ * linked yet (pages/ElderPairStart.tsx). Photos are no longer taken here:
+ * the parent's screen opens the phone's own camera (lib/capture.ts,
+ * owner decision 2026-10-30).
  *
- * One owner for the camera: start, stop and capture all go through here, so
- * nothing double-starts it (Android rejects a second start) and step 2's QR
- * pairing (ElderPairStart) samples frames from the same preview with
- * captureSampleBlob.
+ * One owner for the camera: start and stop go through here, so nothing
+ * double-starts it (Android rejects a second start); the pairing screen
+ * samples frames from the running preview with captureSampleBlob.
  *
  * Native (iOS/Android): the plugin draws the camera BEHIND the web view
  * (toBack), so while it runs the page must be transparent — `camera-live` on
- * <html> does that (styles.css). Shots are written to a file, so the path can
- * go to Apple Vision through savePhoto just like the system camera's did.
+ * <html> does that (styles.css).
  * Web: the plugin puts a getUserMedia <video> into the given parent element.
  */
 
@@ -23,27 +24,22 @@ export const WEB_VIDEO_CLASS = 'elder-cam-video'
 
 let running = false
 let starting: Promise<void> | null = null
-/** Which camera shows: the back one first; flipCamera switches. */
-let facing: 'rear' | 'front' = 'rear'
-let lastStart: { parentId: string; opts: PreviewOptions } | null = null
 
 export interface PreviewOptions {
-  /** Native only. true (default): shots are written to a file for savePhoto.
-   *  The pairing screen never takes photos, so it passes false — then iOS
-   *  also hands frame samples back as base64 instead of temp files. */
+  /** Native only. false (the pairing screen): iOS hands frame samples back
+   *  as base64 instead of temp files. Defaults to true. */
   storeToFile?: boolean
 }
 
 export async function startPreview(parentId: string, opts: PreviewOptions = {}): Promise<void> {
   if (running) return
   if (starting) return starting
-  lastStart = { parentId, opts }
   starting = (async () => {
     if (isNative) {
       document.documentElement.classList.add(LIVE_CLASS)
       try {
         await CameraPreview.start({
-          position: facing,
+          position: 'rear',
           toBack: true,
           storeToFile: opts.storeToFile ?? true,
           disableAudio: true,
@@ -55,7 +51,7 @@ export async function startPreview(parentId: string, opts: PreviewOptions = {}):
         throw err
       }
     } else {
-      await CameraPreview.start({ parent: parentId, className: WEB_VIDEO_CLASS, position: facing, disableAudio: true })
+      await CameraPreview.start({ parent: parentId, className: WEB_VIDEO_CLASS, position: 'rear', disableAudio: true })
     }
     running = true
   })()
@@ -79,41 +75,8 @@ export async function stopPreview(): Promise<void> {
   }
 }
 
-/**
- * Switch between the back and front camera. The phone app flips the running
- * preview; a browser can't, so the preview restarts facing the other way.
- */
-export async function flipCamera(): Promise<'rear' | 'front'> {
-  facing = facing === 'rear' ? 'front' : 'rear'
-  if (isNative && running) {
-    await CameraPreview.flip()
-  } else if (lastStart) {
-    const { parentId, opts } = lastStart
-    await stopPreview()
-    await startPreview(parentId, opts)
-  }
-  return facing
-}
-
-/** The next start faces the back camera again (on app open and resume). */
-export function resetFacing(): void {
-  facing = 'rear'
-}
-
 export function isPreviewRunning(): boolean {
   return running
-}
-
-/** Take a full-quality photo from the running preview. */
-export async function capturePhoto(): Promise<{ file: File; nativePath?: string }> {
-  const { value } = await CameraPreview.capture({ quality: 90 })
-  if (isNative) {
-    // storeToFile: `value` is the path of the JPEG the plugin wrote.
-    const res = await fetch(Capacitor.convertFileSrc(value))
-    const blob = await res.blob()
-    return { file: new File([blob], 'photo.jpg', { type: 'image/jpeg' }), nativePath: value }
-  }
-  return { file: base64ToFile(value, 'photo.jpg', 'image/jpeg') }
 }
 
 /** A small, quick frame of the running preview, for QR scanning. */

@@ -4,7 +4,7 @@ import { renderToString } from 'react-dom/server'
 
 vi.mock('../lib/edition', () => ({ isSimple: () => false, EDITION: 'full' }))
 vi.mock('../firebase', () => ({ db: {}, auth: {}, storage: {} }))
-vi.mock('../lib/cameraPreview', () => ({ startPreview: vi.fn(), stopPreview: vi.fn(), capturePhoto: vi.fn() }))
+vi.mock('../lib/cameraPreview', () => ({ startPreview: vi.fn(), stopPreview: vi.fn() }))
 vi.mock('../lib/capture', () => ({ savePhoto: vi.fn(), captureNativePhoto: vi.fn(), isNativeApp: false }))
 vi.mock('../lib/location', () => ({ warmUpLocation: vi.fn() }))
 vi.mock('../lib/reactions', () => ({ markRead: vi.fn() }))
