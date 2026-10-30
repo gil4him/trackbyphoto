@@ -43,6 +43,15 @@ describe('NotificationList', () => {
     expect(out).toContain('ntf-group-row unread')
   })
 
+  it('a parent absent for a day is a family event; unaccepted link and invite reminders stand on their own', () => {
+    expect(isFamilyEvent('absence.family')).toBe(true)
+    for (const t of ['pairing.pending', 'invite.pending']) {
+      expect(isFamilyEvent(t)).toBe(false)
+      expect(isAlertRow(t)).toBe(true)
+    }
+    expect(isAlertRow('pairing.create')).toBe(false)
+  })
+
   it('free-trial notices about a plan stand on their own with 🎁, not folded into 연결 기록', () => {
     for (const t of ['plan.trialStarted', 'plan.trialEnding', 'plan.trialEnded']) expect(isAlertRow(t)).toBe(true)
     expect(isAlertRow('device.pair')).toBe(false)
