@@ -37,17 +37,25 @@ describe('chooseFact', () => {
     expect(fact(history, meal('2026-10-03T12:00', '식당에서 칼국수를 드셨어요'))).toBe('지난번 식사 기록은 칙필레, 이번은 칼국수')
   })
   it('does not compare a thing with itself', () => {
-    expect(fact([m('2026-10-01T12:00'), meal('2026-10-02T12:00', '칙필레 매장에 다녀오셨어요')], meal('2026-10-05T12:00', '칙필레 매장에 다녀오셨어요'))).toBeNull()
+    expect(fact([m('2026-10-01T12:00'), meal('2026-10-02T12:00', '칙필레 매장에 다녀오셨어요')], meal('2026-10-05T12:00', '칙필레 매장에 다녀오셨어요'))).not.toContain('지난번')
+  })
+  it('the first photo of a day always has something to say; a later one need not', () => {
+    expect(fact(daily([1, 3]), m('2026-10-06T09:00'))).toBe('오늘의 첫 사진이에요 (화요일 09:00)')
+    expect(fact([...daily([1, 3]), m('2026-10-06T08:00')], m('2026-10-06T09:00'))).toBeNull()
+  })
+  it('counts an activity at round numbers, this month only', () => {
+    const rests = [m('2026-09-30T12:00', { activity: '휴식' }), m('2026-10-02T12:00', { activity: '휴식' }), m('2026-10-04T12:00', { activity: '휴식' })]
+    expect(fact(rests, m('2026-10-06T12:00', { activity: '휴식' }))).toBe('이번 달 휴식 기록 3번째예요')
   })
   it('never on a hospital photo, nor comparing with one', () => {
     expect(fact([], m('2026-10-01T12:00', { memo: '병원 접수처에 방문하셨어요' }))).toBeNull()
     expect(fact([m('2026-10-01T12:00')], m('2026-10-02T12:00', { scene: '낮에 병원을 다녀오신 뒤 귀가하셨어요' }))).toBeNull()
-    expect(fact([meal('2026-10-01T12:00', '서울약국에서 쉬셨어요')], meal('2026-10-05T12:00', '식당에서 칼국수를 드셨어요'))).toBeNull()
+    expect(fact([meal('2026-10-01T12:00', '서울약국에서 쉬셨어요')], meal('2026-10-05T12:00', '식당에서 칼국수를 드셨어요'))).not.toContain('약국')
   })
   it('streak milestones, on the first photo of the day only', () => {
     expect(fact(daily([1, 2]), m('2026-10-03T09:00'))).toBe('3일 연속으로 사진을 남겼어요')
-    expect(fact(daily([1, 2, 3]), m('2026-10-04T09:00'))).toBeNull()
-    expect(fact(daily([1, 3]), m('2026-10-04T09:00'))).toBeNull()
+    expect(fact(daily([1, 2, 3]), m('2026-10-04T09:00'))).not.toContain('연속')
+    expect(fact(daily([1, 3]), m('2026-10-04T09:00'))).not.toContain('연속')
     expect(fact([...daily([1, 2]), m('2026-10-03T08:00')], m('2026-10-03T09:00'))).toBeNull()
   })
   it('uses the person\'s local day', () => {
@@ -63,8 +71,8 @@ describe('chooseFact', () => {
     const five = daily([1, 3, 5, 7, 9])
     expect(fact(five, m('2026-10-12T05:13'))).toContain('가장 이른 시각이에요 (05:13)')
     expect(fact(five, m('2026-10-12T22:26'))).toContain('가장 늦은 시각이에요 (22:26)')
-    expect(fact(five, m('2026-10-12T08:00'))).toBeNull()
-    expect(fact(daily([1, 3]), m('2026-10-12T05:13'))).toBeNull()
+    expect(fact(five, m('2026-10-12T08:00'))).toContain('오늘의 첫 사진')
+    expect(fact(daily([1, 3]), m('2026-10-12T05:13'))).toContain('오늘의 첫 사진')
   })
   it('the busiest day needs real history', () => {
     const big = [...daily([1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21]), m('2026-10-23T09:00'), m('2026-10-23T10:00'), m('2026-10-23T11:00')]
@@ -78,9 +86,9 @@ describe('chooseFact', () => {
     const history = [m('2026-10-01T12:00', lib), m('2026-10-03T12:00', lib), m('2026-10-04T12:00')]
     const home = { lat: 33.9, lng: -117.9 }
     expect(fact(history, m('2026-10-06T12:00', lib), { home })).toBe('웨스트코비나 도서관 기록이 3번째예요')
-    expect(fact(history, m('2026-10-06T12:00', lib))).toBeNull() // no saved home
-    expect(fact(history, m('2026-10-06T12:00', lib), { home: { lat: 34, lng: -118 } })).toBeNull() // that is home
-    expect(fact(history.slice(0, 1).concat(history[2]), m('2026-10-06T12:00', lib), { home })).toBeNull() // second visit
+    expect(fact(history, m('2026-10-06T12:00', lib))).not.toContain('번째') // no saved home
+    expect(fact(history, m('2026-10-06T12:00', lib), { home: { lat: 34, lng: -118 } })).not.toContain('번째') // that is home
+    expect(fact(history.slice(0, 1).concat(history[2]), m('2026-10-06T12:00', lib), { home })).not.toContain('번째') // second visit
   })
   it('one line a day; a comparison may be the second, never the third', () => {
     const line = { funLine: '먼저 한 줄' }
@@ -96,6 +104,7 @@ describe('lineOk', () => {
     expect(lineOk('칙필레 다음은 칼국수. 식단에 국경이 없어요.', 'f', [])).toBe(true)
     expect(lineOk('가'.repeat(41), 'f', [])).toBe(false)
     expect(lineOk('시작이 아주 맛있네요!', 'f', [])).toBe(false)
+    expect(lineOk('새벽 공기가 차갑겠어요', 'f', [])).toBe(false)
     expect(lineOk('', 'f', [])).toBe(false)
   })
   it('rejects a joke told lately, whatever its particle', () => {

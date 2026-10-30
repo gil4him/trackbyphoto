@@ -176,3 +176,14 @@ describe('the third plain sentence, for family news on the icon', () => {
     expect(html).not.toContain('사진 찍기')
   })
 })
+
+describe('the month\'s count', () => {
+  const view = (monthLine: string | null, denied = false) => renderToString(
+    <ElderCameraView busy={false} denied={denied} overlay={null} news={null} monthLine={monthLine} onShutter={() => {}} onDismissNews={() => {}} onOpenRecords={() => {}} onRetry={() => {}} />,
+  )
+  it('shows under 사진 찍기, and not when the camera is refused', () => {
+    expect(view('이번 달 12일째 기록 중')).toContain('<div class="elder-launch-month">이번 달 12일째 기록 중</div>')
+    expect(view('이번 달 12일째 기록 중', true)).not.toContain('elder-launch-month')
+    expect(view(null)).not.toContain('elder-launch-month')
+  })
+})

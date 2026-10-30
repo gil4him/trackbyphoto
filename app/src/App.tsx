@@ -9,6 +9,7 @@ import { isSpentCode } from './lib/pairing'
 import { looksLikeElder } from './lib/elderSession'
 import { useMemos } from './hooks/useMemos'
 import { useMemoById } from './hooks/useMemoById'
+import { useMonthDaysLine } from './hooks/useMonthDays'
 import { MemoOpening } from './components/MemoOpening'
 import { useMemberships } from './hooks/useMemberships'
 import { useOutboxSync } from './hooks/useOutbox'
@@ -224,6 +225,7 @@ function App() {
   // A parent's linked phone updates itself; family gets the prompt below.
   useReloadOnReturn(!!elder)
   const { memos } = useMemos(activePatientUid || undefined)
+  const monthLine = useMonthDaysLine(isSimple() && activePatientUid && activePatientUid !== user?.uid ? activePatientUid : null)
   // Right after a switch, never the previous person's settings (their name on
   // this person's page): what this phone last knew of this one, until theirs arrive.
   const settings = useMemo<UserSettings>(() => {
@@ -1001,6 +1003,7 @@ function App() {
                   notifications={bannerNotices.filter((n) => n.patientUid === activePatientUid)}
                   onDismissNotification={dismissNotification}
                   onOpenNotification={openNotice}
+                  monthLine={monthLine}
                   topCard={undefined}
                 />
               ) : isSimple() && isSelf && people.length > 0 ? (

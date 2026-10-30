@@ -103,7 +103,7 @@ function DayMap({ stops, home, away, onOpen, keys }: { stops: TrailStop[]; home:
  * and words are given on each photo, and 사진 보내기 is the link on the
  * 보낸 사진 header at the end (`sentPhotos`).
  */
-export function ParentDayHome({ parentName, memos, byMemo, home, onOpen, onYesterday, onOpenTrail, notifications = [], onDismissNotification, onOpenNotification, topCard, sentPhotos, now = new Date(), keys = MAP_KEYS }: {
+export function ParentDayHome({ parentName, memos, byMemo, home, onOpen, onYesterday, onOpenTrail, notifications = [], onDismissNotification, onOpenNotification, monthLine, topCard, sentPhotos, now = new Date(), keys = MAP_KEYS }: {
   parentName: string
   memos: Memo[]
   /** Hearts and words per memo (the reactions feed), when rolled out. */
@@ -119,6 +119,8 @@ export function ParentDayHome({ parentName, memos, byMemo, home, onOpen, onYeste
   notifications?: AppNotification[]
   onDismissNotification?: (id: string) => void
   onOpenNotification?: (n: AppNotification) => void
+  /** "이번 달 12일째 기록 중" (hooks/useMonthDays.ts). */
+  monthLine?: string | null
   /** A one-off card above the header (family's 알림 켜기). */
   topCard?: React.ReactNode
   /** 보낸 사진 with its header row (SentFamilyPhotos, headed), kept under the day. */
@@ -144,6 +146,7 @@ export function ParentDayHome({ parentName, memos, byMemo, home, onOpen, onYeste
         <div className="h-eyebrow">{dayEyebrow(now)}</div>
         <h1 className="day-title">{tr(`${who}의 하루`, `${who}'s day`)}</h1>
         <div className="day-caption">{dayCaption(todays.length, farthestKm(todays, home), placeVisits(stops).length)}</div>
+        {monthLine && <div className="day-month">{monthLine}</div>}
       </header>
 
       {stops.length > 0 && <DayMap stops={stops} home={nearHome} away={summary.away} onOpen={() => onOpenTrail?.(now)} keys={keys} />}
