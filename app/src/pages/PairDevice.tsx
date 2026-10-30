@@ -2,14 +2,15 @@ import { useEffect, useRef, useState } from 'react'
 import { addDoc, collection, doc, onSnapshot, serverTimestamp } from 'firebase/firestore'
 import { signOut } from 'firebase/auth'
 import { auth, db } from '../firebase'
-import { signInAsElder, signInForPairing } from '../hooks/useAuth'
+import { looksLikeElder, PairingBlockedError, signInAsElder, signInForPairing } from '../lib/elderSession'
 import { useMemberships } from '../hooks/useMemberships'
 import { isSimple } from '../lib/edition'
 import { sentToName } from '../lib/people'
 import { SIMPLE_CONSENT_VERSION, simpleConsentText } from '../lib/consent'
 import { tr } from '../lib/lang'
 import { SimpleConsent } from '../components/SimpleConsent'
-import { WorkerError, WORKER_OFFLINE_MESSAGE } from '../lib/worker'
+import { WorkerError } from '../lib/worker'
+import { isTerminalPairError, pairErrorMessage } from '../lib/pairErrors'
 import {
   afterConnect,
   currentInstallPath,
@@ -20,10 +21,12 @@ import {
 } from '../lib/install'
 import {
   completePairing,
+  isSpentCode,
   MANAGED_CONSENT_VERSION,
   normalizePairCode,
   pairDevice,
   PAIR_CODE_LEN,
+  rememberSpentCode,
   type PairResult,
 } from '../lib/pairing'
 
@@ -40,6 +43,13 @@ import {
  * follows 확인, and on an iPhone the icon is added first and the connection
  * is finished from it. None of this touches the code: it is still used once,
  * by the phone that ends up connected.
+ *
+ * A phone that is already a parent's phone never pairs again from here: a
+ * link Android hands back when the app is restored, or a QR held up a second
+ * time, is simply left (looksLikeElder, lib/elderSession). A code this phone
+ * is done with (lib/pairing isSpentCode) is answered without the worker, and
+ * a final answer — used, expired, declined — offers a new code, never 다시 시도
+ * with the same one.
  */
 
 type Step =
@@ -50,21 +60,7 @@ type Step =
 
 const NOTICE_TEXT = tr('가족이 내 사진과 기록(시간·장소)을 함께 볼 수 있어요.', 'Your family can see your photos and their records (time and place).')
 
-function errorMessage(err: unknown): string {
-  const code = err instanceof WorkerError ? err.code : ''
-  switch (code) {
-    case 'unavailable': return WORKER_OFFLINE_MESSAGE
-    case 'not-found':
-    case 'invalid-argument': return tr('코드가 맞지 않아요. 자녀가 보낸 코드를 다시 확인해 주세요.', "That code doesn't match. Please check the code your family sent.")
-    case 'failed-precondition': return tr('이미 사용된 코드예요. 자녀에게 새 연결을 요청해 주세요.', 'This code was already used. Please ask your family for a new link.')
-    case 'deadline-exceeded': return tr('코드 사용 기간이 지났어요. 자녀에게 새 연결을 요청해 주세요.', 'This code has expired. Please ask your family for a new link.')
-    case 'resource-exhausted': return tr('시도가 너무 많았어요. 10분 뒤에 다시 해 주세요.', 'Too many tries. Please try again in 10 minutes.')
-    case 'permission-denied': return tr('연결이 거절되었어요. 자녀에게 문의해 주세요.', 'The link was declined. Please ask your family.')
-    default: return tr('연결하지 못했어요. 잠시 후 다시 시도해 주세요.', "Couldn't connect. Please try again in a moment.")
-  }
-}
-
-export function PairDevice({ initialCode, alreadyLinked = false, autoConnect = false, onDone, onCancel }: {
+export function PairDevice({ initialCode, alreadyLinked = false, autoConnect = false, onDone, onCancel, onRescan }: {
   initialCode: string
   /** This phone is already connected as a parent's phone. */
   alreadyLinked?: boolean
@@ -73,29 +69,46 @@ export function PairDevice({ initialCode, alreadyLinked = false, autoConnect = f
   autoConnect?: boolean
   onDone: () => void
   onCancel: () => void
+  /** Back to the QR camera for a new code (the parent's app); without it,
+   *  a finished code offers typing one. */
+  onRescan?: () => void
 }) {
   const [code, setCode] = useState(normalizePairCode(initialCode))
   // An iPhone's home-screen icon keeps the link it was added from, so it
-  // opens here every time: once connected, go straight on to the app.
-  const [linkedAtOpen] = useState(alreadyLinked)
+  // opens here every time: once connected, go straight on to the app. So does
+  // a parent's phone whose session is plain to see even when its token could
+  // not be refreshed (the claims read failed, so `alreadyLinked` is false).
+  const [linkedAtOpen] = useState(alreadyLinked || looksLikeElder(auth.currentUser))
   useEffect(() => {
     if (linkedAtOpen) onDone()
     // Only on opening.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-  const [step, setStep] = useState<Step>(() => {
+  const [opening] = useState(() => {
     const u = auth.currentUser
-    return pairStart({
-      familySignedIn: !!u && !u.isAnonymous,
+    const start = pairStart({
+      familySignedIn: !!u && !u.isAnonymous && !looksLikeElder(u),
       hasCode: normalizePairCode(initialCode).length === PAIR_CODE_LEN,
       path: currentInstallPath(),
     })
+    // A code this phone is done with: the answer is known, so give it without
+    // asking the worker (and without connecting by itself).
+    const spent = start === 'confirm' && isSpentCode(initialCode)
+    return {
+      step: spent ? ('error' as Step) : start,
+      error: spent ? pairErrorMessage(new WorkerError('failed-precondition', 'spent here'), { spentHere: true }) : '',
+      terminal: spent,
+    }
   })
+  const [step, setStep] = useState<Step>(opening.step)
   const externalUrl = step === 'open-browser' ? externalBrowserUrl(window.location.href, navigator.userAgent) : null
   useEffect(() => {
     if (step === 'add-ios') keepThisPageForHomeScreen()
   }, [step])
-  const [error, setError] = useState('')
+  const [error, setError] = useState(opening.error)
+  // A final answer (used, expired, declined): the same code can never work,
+  // so the error screen offers a new one instead of 다시 시도.
+  const [terminal, setTerminal] = useState(opening.terminal)
   const [pairingId, setPairingId] = useState<string | null>(null)
   // The parent's uid once connected: the simple edition's 확인 names the
   // family member who will see the photos.
@@ -108,6 +121,8 @@ export function PairDevice({ initialCode, alreadyLinked = false, autoConnect = f
       setStep('waiting')
       return
     }
+    // Done with this code, whatever happens to the sign-in from here.
+    rememberSpentCode(code)
     await signInAsElder(res.customToken)
     setElderUid(auth.currentUser?.uid)
     setStep('notice')
@@ -120,10 +135,21 @@ export function PairDevice({ initialCode, alreadyLinked = false, autoConnect = f
       await signInForPairing()
       await finish(await pairDevice(code))
     } catch (err) {
+      // Already a parent's phone (a replayed link): nothing to do here.
+      if (err instanceof PairingBlockedError && err.kind === 'linked') { onDone(); return }
       console.error('[pair] failed', err)
-      setError(errorMessage(err))
+      const final = isTerminalPairError(err)
+      setError(pairErrorMessage(err, { spentHere: final && isSpentCode(code) }))
+      if (final) rememberSpentCode(code)
+      setTerminal(final)
       setStep('error')
     }
+  }
+
+  const enterByHand = () => {
+    setCode('')
+    setTerminal(false)
+    setStep('enter')
   }
 
   const autoStarted = useRef(false)
@@ -148,12 +174,17 @@ export function PairDevice({ initialCode, alreadyLinked = false, autoConnect = f
         try {
           await finish(await completePairing(pairingId))
         } catch (err) {
-          setError(errorMessage(err))
+          const final = isTerminalPairError(err)
+          setError(pairErrorMessage(err))
+          if (final) rememberSpentCode(code)
+          setTerminal(final)
           setStep('error')
         }
       } else if (status === 'denied' || status === 'expired') {
         unsub()
+        rememberSpentCode(code)
         setError(status === 'denied' ? tr('자녀가 연결을 거절했어요.', 'Your family declined the link.') : tr('요청 시간이 지났어요. 자녀에게 새 연결을 요청해 주세요.', 'The request timed out. Please ask your family for a new link.'))
+        setTerminal(true)
         setStep('error')
       }
     }, (err) => console.warn('[pair] watch failed', err))
@@ -272,7 +303,7 @@ export function PairDevice({ initialCode, alreadyLinked = false, autoConnect = f
         <>
           <h1 className="pair-title">{tr('부모님 휴대폰에서', 'Please open this')}<br />{tr('열어주세요', "on your parent's phone")}</h1>
           <p className="pair-sub">
-            {tr('지금 이 휴대폰은 자녀 계정', 'This phone is signed in to a family account')} ({auth.currentUser?.email}){tr('으로 로그인되어 있어요.', '.')}
+            {tr('지금 이 휴대폰은 자녀 계정', 'This phone is signed in to a family account')}{auth.currentUser?.email ? ` (${auth.currentUser.email})` : ''}{tr('으로 로그인되어 있어요.', '.')}
             {tr('이 링크는 부모님 휴대폰을 연결하는 링크예요.', "This link is for connecting your parent's phone.")}
           </p>
           <button className="signin-secondary" onClick={onCancel}>{tr('취소', 'Cancel')}</button>
@@ -337,8 +368,25 @@ export function PairDevice({ initialCode, alreadyLinked = false, autoConnect = f
         <>
           <h1 className="pair-title">{tr('연결하지 못했어요', "Couldn't connect")}</h1>
           <p className="pair-sub">{error}</p>
-          <button className="pair-btn" onClick={() => setStep(code.length === PAIR_CODE_LEN ? 'confirm' : 'enter')}>{tr('다시 시도', 'Try again')}</button>
-          <button className="signin-secondary" onClick={() => { setCode(''); setStep('enter') }}>{tr('코드 직접 입력', 'Enter the code by hand')}</button>
+          {terminal ? (
+            // This code is finished: on to a new one, never the same again.
+            onRescan ? (
+              <>
+                <button className="pair-btn" onClick={onRescan}>{tr('QR 다시 비추기', 'Scan the QR again')}</button>
+                <button className="signin-secondary" onClick={enterByHand}>{tr('코드 직접 입력', 'Enter the code by hand')}</button>
+              </>
+            ) : (
+              <>
+                <button className="pair-btn" onClick={enterByHand}>{tr('코드 직접 입력', 'Enter the code by hand')}</button>
+                <button className="signin-secondary" onClick={cancel}>{tr('나중에', 'Later')}</button>
+              </>
+            )
+          ) : (
+            <>
+              <button className="pair-btn" onClick={() => setStep(code.length === PAIR_CODE_LEN ? 'confirm' : 'enter')}>{tr('다시 시도', 'Try again')}</button>
+              <button className="signin-secondary" onClick={enterByHand}>{tr('코드 직접 입력', 'Enter the code by hand')}</button>
+            </>
+          )}
         </>
       )}
     </section>

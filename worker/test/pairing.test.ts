@@ -112,11 +112,13 @@ describe('first-time pairing', () => {
     expect(await count('auditLogs', 'action', 'device.pair')).toBe(1)
   })
 
-  it('codes are single use', async () => {
+  it('codes are single use, and a used one says so', async () => {
     const patientUid = await registerElder()
     const { code } = await createPairingLink(FAMILY, { patientUid })
     await pairDevice(ANON('anon1'), { code, device: DEVICE })
-    await expect(pairDevice(ANON('anon2'), { code, device: DEVICE })).rejects.toThrow(/already used/)
+    await expect(pairDevice(ANON('anon2'), { code, device: DEVICE })).rejects.toMatchObject({
+      code: 'failed-precondition', message: expect.stringMatching(/already used/), details: { status: 'used' },
+    })
   })
 
   it('expired codes are rejected', async () => {
@@ -127,11 +129,13 @@ describe('first-time pairing', () => {
     await expect(pairDevice(ANON('anon1'), { code, device: DEVICE })).rejects.toThrow(/expired/)
   })
 
-  it('a new link cancels the previous one', async () => {
+  it('a new link cancels the previous one, which then reads as expired (not "used")', async () => {
     const patientUid = await registerElder()
     const first = await createPairingLink(FAMILY, { patientUid })
     await createPairingLink(FAMILY, { patientUid })
-    await expect(pairDevice(ANON('anon1'), { code: first.code, device: DEVICE })).rejects.toThrow(/already used/)
+    await expect(pairDevice(ANON('anon1'), { code: first.code, device: DEVICE })).rejects.toMatchObject({
+      code: 'deadline-exceeded', message: expect.stringMatching(/expired/), details: { status: 'expired' },
+    })
   })
 
   it('throttles repeated wrong codes', async () => {
@@ -215,6 +219,10 @@ describe('re-linking an account that already has a phone', () => {
     if (res.status !== 'awaiting-approval') throw new Error('expected approval wait')
     await approvePairing(FAMILY, { pairingId: res.pairingId, approve: false })
     await expect(completePairing(ANON('anon2'), { pairingId: res.pairingId })).rejects.toThrow(/denied/)
+    // The same code tried again is reported as declined, not as "used".
+    await expect(pairDevice(ANON('anon2'), { code, device: DEVICE })).rejects.toMatchObject({
+      code: 'permission-denied', details: { status: 'denied' },
+    })
   })
 
   it('in-person QR re-link skips approval', async () => {

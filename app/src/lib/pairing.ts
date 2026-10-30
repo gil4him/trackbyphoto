@@ -77,6 +77,37 @@ export function firstTimeOnly(key: string, storage: Pick<Storage, 'getItem' | 's
   return true
 }
 
+// Codes this phone has finished with: redeemed here, or reported dead by the
+// worker (used, expired, declined). A link Android hands back when the app is
+// restored, an old QR held up again, or the clipboard must never send one of
+// these again — on 2026-10-29 a connected phone spent a day retrying its own
+// code and could only ever hear 이미 사용된 코드예요.
+const SPENT_KEY = 'tbp.pair.spent'
+const SPENT_MAX = 20
+type SpentStorage = Pick<Storage, 'getItem' | 'setItem'> | undefined
+
+function spentCodes(storage: SpentStorage): string[] {
+  try {
+    const list: unknown = JSON.parse(storage?.getItem(SPENT_KEY) ?? '[]')
+    return Array.isArray(list) ? list.filter((c): c is string => typeof c === 'string') : []
+  } catch {
+    return []
+  }
+}
+
+/** Remember a code this phone is done with (newest first, the last 20). */
+export function rememberSpentCode(code: string, storage: SpentStorage = globalThis.localStorage): void {
+  const c = normalizePairCode(code)
+  if (c.length !== PAIR_CODE_LEN) return
+  const list = [c, ...spentCodes(storage).filter((x) => x !== c)].slice(0, SPENT_MAX)
+  try { storage?.setItem(SPENT_KEY, JSON.stringify(list)) } catch { /* storage blocked */ }
+}
+
+/** Whether this phone is done with the code. Unreadable storage: no. */
+export function isSpentCode(code: string, storage: SpentStorage = globalThis.localStorage): boolean {
+  return spentCodes(storage).includes(normalizePairCode(code))
+}
+
 /** "ABCD EFGH" — easier to read out over the phone. */
 export function formatPairCode(code: string): string {
   return code.length === PAIR_CODE_LEN ? `${code.slice(0, 4)} ${code.slice(4)}` : code

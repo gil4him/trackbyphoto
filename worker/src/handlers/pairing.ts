@@ -447,7 +447,11 @@ export async function pairDevice(caller: Caller, data: { code?: string; device?:
   if (p.status === 'awaiting-approval' && p.claimedBy === callerUid) {
     return { status: 'awaiting-approval', pairingId: ref.id }
   }
-  if (p.status !== 'pending') throw new HttpsError('failed-precondition', 'code already used')
+  // A code that is finished says which way, so the phone can tell the parent
+  // whether to use the newer link or ask for one (and never retry this one).
+  if (p.status === 'expired') throw new HttpsError('deadline-exceeded', 'code expired', { status: 'expired' })
+  if (p.status === 'denied') throw new HttpsError('permission-denied', 'link declined', { status: 'denied' })
+  if (p.status !== 'pending') throw new HttpsError('failed-precondition', 'code already used', { status: p.status })
   if (p.expiresAt.toMillis() < Date.now()) {
     await ref.update({ status: 'expired' })
     throw new HttpsError('deadline-exceeded', 'code expired')
