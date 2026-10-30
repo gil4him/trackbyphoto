@@ -5,7 +5,7 @@ import {
   type Point, type Size,
 } from '../lib/photoZoom'
 import { tr } from '../lib/lang'
-import { useSettledPhoto } from '../hooks/useSettledPhoto'
+import { usePinnedPhoto } from '../hooks/usePinnedPhoto'
 
 /**
  * The photo on its own page (owner decision, 2026-10-30): pinch, double-tap
@@ -15,8 +15,8 @@ import { useSettledPhoto } from '../hooks/useSettledPhoto'
  * says the photo stands turned away from the shot, so the button shows ↺
  * (the next tap turns it back).
  *
- * When `src` changes to a replaced file (a baked rotation), the old file
- * stays up, turned, until the new one has loaded (hooks/useSettledPhoto.ts).
+ * A saved rotation never reloads the picture on screen: the file that first
+ * loaded stays up, turned (hooks/usePinnedPhoto.ts).
  * Until the photo and its box are measured (and when rendered on the
  * server), the photo is drawn as before: full width, at most 75vh tall.
  * Remount it (`key`) to reset the zoom; ↻ resets it too.
@@ -32,12 +32,10 @@ export function ZoomPhoto({ src: wantedSrc, rotation: wanted, turned = false, ca
   const boxRef = useRef<HTMLDivElement>(null)
   const [width, setWidth] = useState(0)
   const [maxH, setMaxH] = useState(0)
-  const photo = useSettledPhoto(wantedSrc, wanted)
+  const photo = usePinnedPhoto(wantedSrc, wanted)
   const src = photo.src
   const rotation = photo.rotation
-  const [imgNatural, setNatural] = useState<Size | null>(null)
-  // A swapped-in file's size is known before its <img> fires onLoad.
-  const natural = photo.size ?? imgNatural
+  const [natural, setNatural] = useState<Size | null>(null)
   const [scale, setScale] = useState(1)
   const [pan, setPan] = useState<Point>({ x: 0, y: 0 })
 
@@ -182,6 +180,7 @@ export function ZoomPhoto({ src: wantedSrc, rotation: wanted, turned = false, ca
         src={src}
         alt={alt}
         draggable={false}
+        onError={photo.repin}
         onLoad={(e) => {
           const el = e.currentTarget
           if (el.naturalWidth && el.naturalHeight) setNatural({ w: el.naturalWidth, h: el.naturalHeight })

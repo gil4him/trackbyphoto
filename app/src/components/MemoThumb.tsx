@@ -4,7 +4,7 @@ import { storage } from '../firebase'
 import { categoryThumbClass } from '../lib/categoryStyle'
 import { listPhoto } from '../lib/listPhoto'
 import { pendingRotation, rotateStyle } from '../lib/photoRotate'
-import { useSettledPhoto } from '../hooks/useSettledPhoto'
+import { usePinnedPhoto } from '../hooks/usePinnedPhoto'
 import type { Memo } from '../types'
 
 /**
@@ -29,13 +29,13 @@ export function MemoThumb({ memo, showLocation = false }: { memo: Memo; showLoca
       .catch(() => { /* leave the gradient fallback in place */ })
     return () => { alive = false }
   }, [small, memo.photoPath])
-  // A replaced file (a baked rotation) swaps in only once loaded: no blank tile.
-  const photo = useSettledPhoto(url, pendingRotation(memo))
+  // A saved rotation never reloads the tile: the first file stays up, turned.
+  const photo = usePinnedPhoto(url, pendingRotation(memo))
 
   return (
     <div className={`tl-thumb ${url ? '' : categoryThumbClass(memo.activity)}`}>
       {/* A thumbnail that won't load (removed by hand, say) gives way to the full photo. */}
-      {url && photo.src && <img src={photo.src} alt="" style={rotateStyle(photo.rotation)} onError={() => { if (memo.photoUrl && url !== memo.photoUrl) setUrl(memo.photoUrl) }} />}
+      {url && photo.src && <img src={photo.src} alt="" style={rotateStyle(photo.rotation)} onError={() => { if (memo.photoUrl && url !== memo.photoUrl) setUrl(memo.photoUrl); photo.repin() }} />}
       {showLocation && memo.place && <span className="rt-loc">{memo.place}</span>}
     </div>
   )
