@@ -26,7 +26,7 @@ beforeEach(async () => { await clearFirestore() })
 describe('dailyNoticeText', () => {
   it('counts the day\'s photos, or says there are none yet', () => {
     expect(dailyNoticeText('엄마', 3)).toBe('오늘 엄마님의 사진 3장')
-    expect(dailyNoticeText('엄마', 0)).toBe('오늘 아직 엄마님의 사진이 없어요')
+    expect(dailyNoticeText('엄마', 0)).toBe('오늘 아직 엄마님의 사진이 없어요. 전화 한 통 드려 보시는 건 어때요?')
     expect(dailyNoticeText('부모님', 1)).toBe('오늘 부모님의 사진 1장')
   })
 })
@@ -73,7 +73,7 @@ describe('runDailyNotices', () => {
     await seedMembership('p1', 'cg1')
     const { deps } = fakes()
     await runDailyNotices(EVENING, deps)
-    expect((await notices('cg1'))[0]).toMatchObject({ type: 'daily.no_photo', message: '오늘 아직 엄마님의 사진이 없어요', photoCount: 0 })
+    expect((await notices('cg1'))[0]).toMatchObject({ type: 'daily.no_photo', message: '오늘 아직 엄마님의 사진이 없어요. 전화 한 통 드려 보시는 건 어때요?', photoCount: 0 })
   })
 
   it('needs no digest flag or plan, and follows the parent\'s own hour and zone', async () => {
@@ -92,6 +92,65 @@ describe('runDailyNotices', () => {
     await seedMembership('p1', 'cg1')
     const { deps } = fakes()
     await runDailyNotices(EVENING, deps)
-    expect((await notices('cg1'))[0].message).toBe('오늘 아직 부모님의 사진이 없어요')
+    expect((await notices('cg1'))[0].message).toBe('오늘 아직 부모님의 사진이 없어요. 전화 한 통 드려 보시는 건 어때요?')
+  })
+
+  describe('an empty day on the parent\'s lock screen', () => {
+    const PARENT = '가족이 오늘 사진을 기다리고 있어요. 눌러서 사진 한 장 남겨 주세요'
+    function withParent() {
+      const f = fakes()
+      const elder: Array<{ uid: string; message: PushMessage }> = []
+      return { ...f, elder, deps: { ...f.deps, pushElder: async (uid: string, message: PushMessage) => { elder.push({ uid, message }); return 1 } } }
+    }
+
+    it('each side gets its own words, once a day', async () => {
+      await patient()
+      await seedMembership('p1', 'cg1')
+      const { pushes, elder, deps } = withParent()
+      await runDailyNotices(EVENING, deps)
+      await runDailyNotices(EVENING, deps)
+      expect(pushes.map((p) => p.message.body)).toEqual(['오늘 아직 엄마님의 사진이 없어요. 전화 한 통 드려 보시는 건 어때요?'])
+      expect(pushes[0].uids).toEqual(['cg1'])
+      expect(elder).toHaveLength(1)
+      expect(elder[0].uid).toBe('p1')
+      expect(elder[0].message).toMatchObject({ body: PARENT, data: { type: 'daily.no_photo', patientUid: 'p1' } })
+      expect(await notices('p1')).toHaveLength(0)
+    })
+
+    it('says nothing to the parent on a day with a photo', async () => {
+      await patient()
+      await seedMembership('p1', 'cg1')
+      await photo('a', KST('2026-10-03T09:00:00'))
+      const { elder, deps } = withParent()
+      await runDailyNotices(EVENING, deps)
+      expect(elder).toHaveLength(0)
+    })
+
+    it('is skipped when the absence reminder went out today, not when it was yesterday', async () => {
+      await patient()
+      await seedMembership('p1', 'cg1')
+      const state = db.doc('users/p1/private/absenceNudge')
+      await state.set({ lastSentAt: Timestamp.fromDate(KST('2026-10-03T10:00:00')) })
+      const today = withParent()
+      await runDailyNotices(EVENING, today.deps)
+      expect(today.elder).toHaveLength(0)
+      expect(today.pushes).toHaveLength(1) // the family still hears
+
+      await clearFirestore()
+      await patient()
+      await seedMembership('p1', 'cg1')
+      await state.set({ lastSentAt: Timestamp.fromDate(KST('2026-10-02T10:00:00')) })
+      const yesterday = withParent()
+      await runDailyNotices(EVENING, yesterday.deps)
+      expect(yesterday.elder).toHaveLength(1)
+    })
+
+    it('a parent whose phone can\'t be reached doesn\'t stop the family\'s notice', async () => {
+      await patient()
+      await seedMembership('p1', 'cg1')
+      const { pushes, deps } = fakes()
+      await runDailyNotices(EVENING, { ...deps, pushElder: async () => { throw new Error('no phone') } })
+      expect(pushes).toHaveLength(1)
+    })
   })
 })
