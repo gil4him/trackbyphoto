@@ -258,6 +258,21 @@ describe('processMemo', () => {
     expect(m.photoUrl).toBe(PHOTO_URL)
   })
 
+  it("keeps a photo link that changed while the model wrote (a photo turned meanwhile)", async () => {
+    await seedPending('m1')
+    const d = deps()
+    const generate = d.generate
+    d.generate = async (args) => {
+      await db.doc('memos/m1').update({ photoUrl: 'https://example.test/turned.jpg?token=new', thumbUrl: 'https://example.test/turned.thumb.jpg?token=new' })
+      return generate(args)
+    }
+    expect(await processMemo('m1', 1, d)).toBe('done')
+    const m = await memo('m1')
+    expect(m.status).toBe('ready')
+    expect(m.photoUrl).toBe('https://example.test/turned.jpg?token=new')
+    expect(m.thumbUrl).toBe('https://example.test/turned.thumb.jpg?token=new')
+  })
+
   it('marks error when the photo is missing or outside the owner folder', async () => {
     await seedPending('m1')
     await processMemo('m1', 1, deps({ loadPhoto: async () => null }))

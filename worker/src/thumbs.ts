@@ -2,9 +2,10 @@
 // loads tens of KB per photo instead of the camera's megabytes. The full
 // photo is only fetched on its own page.
 //
-// Photos never change, so the original and its thumbnail are both marked to
-// be kept by the phone for a year (PHOTO_CACHE): after the first look the
-// phone shows them from its own storage.
+// Photos never change in place (a rotated photo is rewritten under a new
+// link, handlers/rotate.ts), so the original and its thumbnail are both
+// marked to be kept by the phone for a year (PHOTO_CACHE): after the first
+// look the phone shows them from its own storage.
 
 import { randomUUID } from 'node:crypto'
 import sharp from 'sharp'
@@ -55,14 +56,55 @@ export async function ensureThumb(photoPath: string, original?: Buffer): Promise
     const [has] = await source.exists()
     if (!has) return null
     const bytes = original ?? (await source.download())[0]
-    await thumb.save(await makeThumb(bytes), {
-      resumable: false,
-      contentType: 'image/jpeg',
-      metadata: { cacheControl: PHOTO_CACHE, metadata: { firebaseStorageDownloadTokens: randomUUID() } },
-    })
+    await writeThumb(photoPath, bytes)
   }
   await markKept(photoPath)
   return downloadLink(thumb.name)
+}
+
+/** Write (or overwrite) a photo's thumbnail from its bytes, under a fresh download token. */
+export async function writeThumb(photoPath: string, original: Buffer): Promise<void> {
+  await getStorage().bucket().file(thumbPathFor(photoPath)).save(await makeThumb(original), {
+    resumable: false,
+    contentType: 'image/jpeg',
+    metadata: { cacheControl: PHOTO_CACHE, metadata: { firebaseStorageDownloadTokens: randomUUID() } },
+  })
+}
+
+/**
+ * Remake a photo's thumbnail from new bytes (a rotated photo), always
+ * overwriting. The fresh token makes a new link, so phones that kept the old
+ * thumbnail for a year (PHOTO_CACHE) fetch the new one.
+ */
+export async function remakeThumb(photoPath: string, original: Buffer): Promise<string> {
+  await writeThumb(photoPath, original)
+  const link = await downloadLink(thumbPathFor(photoPath))
+  if (!link) throw new Error(`thumbnail missing after write: ${photoPath}`)
+  return link
+}
+
+/**
+ * Turn a photo upright (its EXIF orientation), then `deg` more degrees
+ * clockwise. The output is a plain JPEG with no orientation tag.
+ */
+export async function rotateJpeg(original: Buffer, deg: number): Promise<Buffer> {
+  return sharp(original).rotate().rotate(deg).jpeg({ quality: 90 }).toBuffer()
+}
+
+/**
+ * Replace a stored photo's bytes (a rotated photo). The new download token
+ * kills the old link: the original is cached by phones for a year
+ * (PHOTO_CACHE), so only a new link shows the new bytes. Returns the new link.
+ */
+export async function replacePhoto(photoPath: string, bytes: Buffer): Promise<string> {
+  await getStorage().bucket().file(photoPath).save(bytes, {
+    resumable: false,
+    contentType: 'image/jpeg',
+    metadata: { cacheControl: PHOTO_CACHE, metadata: { firebaseStorageDownloadTokens: randomUUID() } },
+  })
+  const link = await downloadLink(photoPath)
+  if (!link) throw new Error(`photo missing after write: ${photoPath}`)
+  return link
 }
 
 /** Delete a photo's thumbnail alongside it; a missing one is fine. */
