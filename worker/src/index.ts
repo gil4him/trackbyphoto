@@ -57,6 +57,8 @@ import { deployedCommit } from './deployed.js'
 const STORAGE_BUCKET = process.env.FIREBASE_STORAGE_BUCKET || 'trackbyphoto-app.firebasestorage.app'
 const STATE_DIR = process.env.WORKER_STATE_DIR || join(homedir(), '.trackbyphoto', 'state')
 
+const SHUTDOWN_WAIT_MS = 15_000
+
 async function main() {
   // Load the key file as an explicit credential so custom tokens (phone
   // pairing) are signed locally; application-default credentials would sign
@@ -111,17 +113,28 @@ async function main() {
     purgeStaleRequests().catch((err) => logger.warn('[request] purge failed', { err: String(err) }))
   }, 3600 * 1000)
 
-  const shutdown = (signal: string) => {
+  let stopping = false
+  const shutdown = async (signal: string) => {
+    if (stopping) return
+    stopping = true
     logger.info('[worker] shutting down', { signal })
     clearInterval(purgeTimer)
     scheduler.stop()
     reactions.stop()
     unsubs.forEach((u) => u())
+    // A deploy must not cut off a photo between its memo and its alert: the memo
+    // is marked notified first, so that alert would never go out. launchd waits
+    // 20 seconds; a memo still running after this one is written again next start.
+    await Promise.race([
+      Promise.all([scheduler.settled(), reactions.settled()]),
+      new Promise((r) => setTimeout(r, SHUTDOWN_WAIT_MS)),
+    ])
     cache.flush()
+    logger.info('[worker] stopped', { signal, waiting: scheduler.waiting })
     process.exit(0)
   }
-  process.on('SIGTERM', () => shutdown('SIGTERM'))
-  process.on('SIGINT', () => shutdown('SIGINT'))
+  process.on('SIGTERM', () => void shutdown('SIGTERM'))
+  process.on('SIGINT', () => void shutdown('SIGINT'))
   logger.info('[worker] listening')
 }
 

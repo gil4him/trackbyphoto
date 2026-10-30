@@ -362,6 +362,25 @@ describe('MemoScheduler', () => {
     expect(s.waiting).toBe(0)
   })
 
+  it('after stop, finishes the memo in hand and leaves the queue for the next start', async () => {
+    await seedPending('a')
+    await seedPending('b')
+    const { d, order, release, until } = gatedDeps()
+    const s = new MemoScheduler(d, { concurrency: 1 })
+    s.enqueue('a')
+    s.enqueue('b')
+    await until(() => order.length > 0)
+    s.stop()
+    let settled = false
+    void s.settled().then(() => { settled = true })
+    await new Promise((r) => setTimeout(r, 100))
+    expect(settled).toBe(false) // the memo and its alert are still on their way
+    release[0]()
+    await until(() => settled)
+    expect((await memo('a')).status).toBe('ready')
+    expect((await memo('b')).status).toBe('pending')
+  })
+
   it('writes new photos before memos that are being re-written', async () => {
     for (const id of ['first', 'old1', 'old2', 'new']) await seedPending(id)
     const { d, order, release, until } = gatedDeps()

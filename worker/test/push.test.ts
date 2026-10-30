@@ -1,7 +1,7 @@
 // Family push: who gets one, token upkeep, and the on/off setting.
 // FCM is an injected fake; Firestore is the emulator.
 
-import { history, resetSystemHistory } from '../src/systemHistory'
+import { history, pushHealth, resetSystemHistory } from '../src/systemHistory'
 import { describe, it, expect, beforeEach } from 'vitest'
 import { Timestamp } from 'firebase-admin/firestore'
 import { deadTokens, elderBadge, fcmMessage, openPath, otherFailures, pushToElder, pushToUsers, registerFcmToken, setChannels, STALE_TOKEN_DAYS, type PushDeps, type PushMessage } from '../src/handlers/push'
@@ -36,6 +36,7 @@ const TOKEN = (n: number | string) => `token-${n}-${'x'.repeat(30)}`
 
 beforeEach(async () => {
   await clearFirestore()
+  resetSystemHistory()
   resetPlansCache()
   resetHomeCache()
   setTravelGeocoder(async () => ({ place: '', address: '' }))
@@ -113,7 +114,7 @@ describe('pushToUsers', () => {
 
   it('never throws, even when FCM does', async () => {
     await registerFcmToken(KID, { token: TOKEN(1) })
-    await expect(pushToUsers(['cg1'], MSG, { send: async () => { throw new Error('fcm down') } })).resolves.toBe(0)
+    await expect(pushToUsers(['cg1'], MSG, { retryMs: 0, send: async () => { throw new Error('fcm down') } })).resolves.toBe(0)
   })
 
   it('does not count a push FCM could not pass on (a bad APNs key) as reaching anyone', async () => {
@@ -121,6 +122,63 @@ describe('pushToUsers', () => {
     const badKey: PushDeps = { send: async () => ({ dead: [], failed: { 'messaging/third-party-auth-error': 1 } }) }
     expect(await pushToUsers(['cg1'], MSG, badKey)).toBe(0)
     expect(await tokensOf('cg1')).toEqual([TOKEN(1)]) // the token is fine; the key is not
+  })
+
+  it('tries a brief FCM failure once more, for the tokens that failed', async () => {
+    await registerFcmToken(KID, { token: TOKEN(1) })
+    await registerFcmToken(KID, { token: TOKEN(2) })
+    const batches: string[][] = []
+    const flaky: PushDeps = {
+      retryMs: 0,
+      send: async (tokens) => {
+        batches.push(tokens)
+        return batches.length === 1 ? { dead: [], brief: [TOKEN(2)] } : { dead: [] }
+      },
+    }
+    expect(await pushToUsers(['cg1'], MSG, flaky)).toBe(1)
+    expect(batches).toEqual([[TOKEN(1), TOKEN(2)], [TOKEN(2)]])
+    expect(pushHealth().failAt).toBeNull()
+  })
+
+  it('tries a batch that threw once more, and no more than that', async () => {
+    await registerFcmToken(KID, { token: TOKEN(1) })
+    let calls = 0
+    const once: PushDeps = { retryMs: 0, send: async () => { if (++calls === 1) throw new Error('fcm down'); return { dead: [] } } }
+    expect(await pushToUsers(['cg1'], MSG, once)).toBe(1)
+    calls = 0
+    const down: PushDeps = { retryMs: 0, send: async () => { calls++; throw new Error('fcm down') } }
+    expect(await pushToUsers(['cg1'], MSG, down)).toBe(0)
+    expect(calls).toBe(2)
+  })
+
+  it('one person failing does not stop the others', async () => {
+    await registerFcmToken(KID, { token: TOKEN('kid') })
+    await registerFcmToken({ uid: 'cg2', email: 'b@example.com', name: '수진' }, { token: TOKEN('other') })
+    const got: string[] = []
+    const deps: PushDeps = { retryMs: 0, send: async (tokens) => {
+      if (tokens[0] === TOKEN('kid')) throw new Error('bad batch')
+      got.push(tokens[0]); return { dead: [] }
+    } }
+    expect(await pushToUsers(['cg1', 'cg2'], MSG, deps)).toBe(1)
+    expect(got).toEqual([TOKEN('other')])
+  })
+
+  it('a send FCM accepts shows the phone is still there, so another device registering keeps it', async () => {
+    await registerFcmToken(KID, { token: TOKEN('phone') })
+    const old = Timestamp.fromMillis(Date.now() - 90 * 86_400_000)
+    await db.doc('users/cg1/private/push').set({ fcmSeen: { [TOKEN('phone')]: old } }, { merge: true })
+    await pushToUsers(['cg1'], MSG, fcm())
+    await registerFcmToken(KID, { token: TOKEN('tablet') })
+    expect(await tokensOf('cg1')).toEqual([TOKEN('phone'), TOKEN('tablet')])
+  })
+
+  it('remembers how pushes have been going, for the heartbeat', async () => {
+    await registerFcmToken(KID, { token: TOKEN(1) })
+    await pushToUsers(['cg1'], MSG, fcm())
+    expect(pushHealth().okAt).toEqual(expect.any(Number))
+    expect(pushHealth().failAt).toBeNull()
+    await pushToUsers(['cg1'], MSG, { send: async () => ({ dead: [], failed: { 'messaging/third-party-auth-error': 1 } }) })
+    expect(pushHealth()).toMatchObject({ failCode: 'messaging/third-party-auth-error', failAt: expect.any(Number) })
   })
 
   it('forgets when a pruned token was last seen', async () => {

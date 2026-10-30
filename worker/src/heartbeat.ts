@@ -4,13 +4,15 @@
  * Once a minute the worker stamps system/worker with the time, whether the
  * model answers, and how many memos are waiting. The app reads it so that a
  * photo whose memo can't be written yet says so ("서버가 쉬는 중이에요")
- * instead of showing "메모 작성 중…" for hours while the Mac mini is off.
+ * instead of showing "메모 작성 중…" for hours while the Mac mini is off. The
+ * 운영실 and the watchdog outside this machine (worker/scripts/watchdog.mjs)
+ * read it too, including how pushes have been going.
  */
 
 import { getFirestore, FieldValue } from 'firebase-admin/firestore'
 import { logger } from './log.js'
 import { ollamaAvailable } from './llm/ollama.js'
-import { recordBeat } from './systemHistory.js'
+import { pushHealth, recordBeat } from './systemHistory.js'
 
 const EVERY_MS = 60_000
 
@@ -27,6 +29,7 @@ export async function beat(deps: HeartbeatDeps): Promise<void> {
     lastSeen: FieldValue.serverTimestamp(),
     modelUp,
     waiting,
+    push: pushHealth(),
   })
   // The 운영실's last 60 minutes (memory only).
   recordBeat({ at: Date.now(), modelUp, waiting })
