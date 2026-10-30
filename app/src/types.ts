@@ -41,6 +41,9 @@ export interface Memo {
    *  stored photo (a pending request; the worker's handlers/rotate.ts clears
    *  it). Screens show the photo turned by it until then. */
   rotation?: number
+  /** How the stored photo stands against the shot: 90 once ↻ has turned it,
+   *  absent as taken. ↻ is a toggle between the two (lib/photoRotate.ts). */
+  turned?: number
   /** When the worker last baked a rotation into the stored photo. */
   rotatedAt?: Timestamp
   takenAt: Timestamp

@@ -21,6 +21,18 @@ export function pendingRotation(memo: Pick<Memo, 'rotation'>): Quarter {
   return typeof memo.rotation === 'number' ? quarter(memo.rotation) : 0
 }
 
+/** Whether ↻ has turned the stored photo away from how it was shot. */
+export function isTurned(memo: Pick<Memo, 'turned'>): boolean {
+  return memo.turned === 90
+}
+
+/** ↻ is a toggle (owner decision, 2026-10-30): as shot → 90° clockwise →
+ *  back again; nothing cycles through four positions. From the way the
+ *  photo stands now, the turn to write and how it will stand afterwards. */
+export function toggleTurn(turned: boolean): { deg: 90 | -90; turned: boolean } {
+  return turned ? { deg: -90, turned: false } : { deg: 90, turned: true }
+}
+
 /** A w×h picture turned by deg: its footprint (sides swap on a quarter turn). */
 export function rotatedSize(w: number, h: number, deg: number): { w: number; h: number } {
   const q = quarter(deg)

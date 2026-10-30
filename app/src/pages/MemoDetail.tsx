@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { doc, increment, updateDoc } from 'firebase/firestore'
+import { deleteField, doc, increment, updateDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useToast } from '../components/Toast'
 import { deleteMemo } from '../lib/capture'
@@ -19,7 +19,7 @@ import { SendSheet, type SendTarget } from '../components/SendSheet'
 import { SEND_HINT_KEY, hintSeen, markHintSeen } from '../lib/hints'
 import { tr } from '../lib/lang'
 import { ZoomPhoto } from '../components/ZoomPhoto'
-import { pendingRotation, quarter } from '../lib/photoRotate'
+import { isTurned, pendingRotation, quarter, toggleTurn } from '../lib/photoRotate'
 
 // 'stored-only' has no badge on purpose: nothing says a step was skipped.
 const SOURCE_BADGES: Partial<Record<MemoSource, { label: string; tone: 'good' | 'neutral' | 'warn' }>> = {
@@ -169,34 +169,53 @@ export function MemoDetail({ memo, onBack, readOnly = false, canRotate = false, 
       setSharing(false)
     }
   }
-  // 사진 돌리기: each tap turns the photo 90° clockwise here at once; taps
-  // made within 1.2 s go to the memo together (memos.rotation, a pending
-  // request the worker bakes into the stored photo, handlers/rotate.ts).
-  const [localTurns, setLocalTurns] = useState(0)
+  // 사진 돌리기 is a toggle (owner decision, 2026-10-30): one tap turns the
+  // photo 90° clockwise, the next turns it back; nothing cycles. The photo
+  // turns here at once; taps within 1.2 s settle together (two cancel out)
+  // and the odd one goes to the memo: memos.rotation (a pending request the
+  // worker bakes into the stored photo, handlers/rotate.ts) and memos.turned
+  // (how the stored photo now stands against the shot).
+  const [localTaps, setLocalTaps] = useState(0)
   const unsent = useRef(0)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // `sent`: what this page wrote but Firestore has not echoed yet, so the
+  // picture never jumps back in between. Any change to the memo's own
+  // fields (the echo, or a turn made elsewhere) takes over from it.
+  const [seen, setSeen] = useState({ rotation: memo.rotation, turned: memo.turned, sent: 0 })
+  if (memo.rotation !== seen.rotation || memo.turned !== seen.turned) {
+    setSeen({ rotation: memo.rotation, turned: memo.turned, sent: 0 })
+  }
+  // How the stored photo stands once what was sent lands.
+  const standing = isTurned(memo) !== (seen.sent !== 0)
+  const standingRef = useRef(standing)
+  useEffect(() => { standingRef.current = standing })
   const memoId = memo.id
   const showToast = toast.show // stable; the context object is not
   const flushTurns = useCallback(() => {
     if (timer.current) { clearTimeout(timer.current); timer.current = null }
     const n = unsent.current
-    if (!n) return
     unsent.current = 0
-    setLocalTurns(0)
-    updateDoc(doc(db, 'memos', memoId), { rotation: increment(90 * n) }).catch((err) => {
+    setLocalTaps(0)
+    if (n % 2 === 0) return
+    const next = toggleTurn(standingRef.current)
+    setSeen((s) => ({ ...s, sent: s.sent + next.deg }))
+    updateDoc(doc(db, 'memos', memoId), { rotation: increment(next.deg), turned: next.turned ? 90 : deleteField() }).catch((err) => {
+      // Firestore undoes its local copy of a refused write, which resets `sent`.
       console.error('[rotate] failed', err)
       showToast(tr('사진을 돌리지 못했어요 · 잠시 후 다시 시도해 주세요', "Couldn't rotate the photo · Please try again in a moment"))
     })
   }, [memoId, showToast])
   const turn = () => {
     unsent.current += 1
-    setLocalTurns((n) => n + 1)
+    setLocalTaps((n) => n + 1)
     if (timer.current) clearTimeout(timer.current)
     timer.current = setTimeout(flushTurns, 1200)
   }
   // Leaving the page sends the taps still waiting.
   useEffect(() => flushTurns, [flushTurns])
-  const rotation = quarter(pendingRotation(memo) + 90 * localTurns)
+  const tapped = localTaps % 2 === 1
+  const rotation = quarter(pendingRotation(memo) + seen.sent + (tapped ? (standing ? -90 : 90) : 0))
+  const turnedNow = standing !== tapped
 
   const onShare = () => passOn(() => sharePhoto(memo, rotation))
 
@@ -289,7 +308,7 @@ export function MemoDetail({ memo, onBack, readOnly = false, canRotate = false, 
       {/* Photo header — falls back to a category-tinted gradient if no
           image yet (still uploading) so the review screen never goes blank. */}
       {memo.photoUrl
-        ? <ZoomPhoto key={memo.photoUrl} src={memo.photoUrl} rotation={rotation} canRotate={canRotate} onRotate={turn} />
+        ? <ZoomPhoto key={memo.id} src={memo.photoUrl} rotation={rotation} turned={turnedNow} canRotate={canRotate} onRotate={turn} />
         : (
           <div className={`detail-photo ${grad}`}>
             <div className="detail-photo-empty">{tr('사진을 불러오는 중…', 'Loading the photo…')}</div>
