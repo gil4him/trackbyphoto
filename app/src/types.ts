@@ -37,6 +37,12 @@ export interface Memo {
   photoUrl: string         // public download URL
   /** The ~480px copy for lists (worker thumbs.ts); missing on photos it hasn't reached. */
   thumbUrl?: string
+  /** 사진 돌리기: clockwise degrees asked for but not yet baked into the
+   *  stored photo (a pending request; the worker's handlers/rotate.ts clears
+   *  it). Screens show the photo turned by it until then. */
+  rotation?: number
+  /** When the worker last baked a rotation into the stored photo. */
+  rotatedAt?: Timestamp
   takenAt: Timestamp
   lat: number | null
   lng: number | null

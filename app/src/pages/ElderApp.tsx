@@ -179,7 +179,7 @@ export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn
           />
         ) : open ? (
           <div className="elder-scroll">
-            <MemoDetail memo={open} onBack={() => setOpenId(null)} readOnly rx={rx} />
+            <MemoDetail memo={open} onBack={() => setOpenId(null)} readOnly canRotate rx={rx} />
             <CameraFab label={tr('카메라로 돌아가기', 'Back to camera')} onClick={backToCamera} />
           </div>
         ) : view === 'records' ? (

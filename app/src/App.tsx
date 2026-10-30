@@ -67,6 +67,8 @@ import { useSentByMe } from './hooks/useSentByMe'
 import { SentPhotoSheet } from './components/SentRow'
 import { sendFamilyPhoto } from './lib/familyPhotos'
 import { photoBlob } from './lib/photoShare'
+import { rotateBlob } from './lib/image'
+import { pendingRotation } from './lib/photoRotate'
 
 // Pages most visits never open load when first needed, so the first screen
 // (sign-in, the /pair page, the parent's camera) downloads less. Shortly
@@ -890,12 +892,16 @@ function App() {
                 memo={selectedMemo}
                 onBack={closeMemo}
                 rx={rx}
+                // 사진 돌리기: one's own photos, and a parent's for admin and guardian
+                // (firestore.rules lets them update memos; viewers cannot).
+                canRotate={ownPage || myRole === 'admin' || myRole === 'guardian'}
                 sendTo={ownPage && familyPhotosFlag && people.length > 0 && selectedMemo.patientUid === user.uid ? {
                   targets: async () => (await sendableParents()).map((t) => ({
                     ...t, sent: sentByMe.some((f) => f.patientUid === t.uid && f.fromMemoId === selectedMemo.id),
                   })),
                   send: async (uids, caption) => {
-                    const file = await photoBlob(selectedMemo.photoUrl)
+                    // A rotation still being saved goes along turned (photoRotate.ts).
+                    const file = await rotateBlob(await photoBlob(selectedMemo.photoUrl), pendingRotation(selectedMemo))
                     for (const uid of uids) {
                       await sendFamilyPhoto({ patientUid: uid, sender: { uid: user.uid, name: user.displayName || selfLabel }, file, caption, fromMemoId: selectedMemo.id })
                     }

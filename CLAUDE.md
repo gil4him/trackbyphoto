@@ -41,6 +41,13 @@
 - **12시간 미수락** (`pendingLinkNudges`): a parent connect link (`pairings`, onboard, still pending) or a family invite (`invites`, unused) made 12–24 h ago reminds the person who made it exactly once (notice + push; ids `pairing_pending_{id}`, `invite_pending_{sha}`). Connect link: "{이름} 휴대폰이 아직 연결되지 않았어요. 전화로 도와드리거나 설정에서 링크를 다시 보내 주세요" / EN "{name}'s phone isn't connected yet. Help them over the phone, or send the link again from Settings." Family invite: "보내신 가족 초대를 아직 아무도 받지 않았어요. 초대 코드는 24시간만 쓸 수 있으니 한 번 더 알려 주세요" / EN "Nobody has accepted your family invite yet. The code works for 24 hours, so you may want to remind them." Tapping either opens that parent's 설정. Links the family replaced with a new one and 1 h re-link codes get no reminder.
 - {이름} is how the family addresses the parent (엄마, 영희님; English drops 님). Changing any of these wordings, windows or recipients needs the owner's approval. privacy §2 (알림 정보) lists the parent-phone absence reminder (시행일 2026-11-05, ko + en).
 
+### 사진 돌리기·확대 (owner decision, 2026-10-30)
+- Zoom is view only: pinch, double-tap (1× ↔ 2.5×, up to 4×) and pan on a photo's own page (`components/ZoomPhoto.tsx`); nothing is saved.
+- **↻** (bottom-right over the photo) turns it 90° clockwise per tap and the turn is **saved for everyone**: the worker (`worker/src/handlers/rotate.ts`) rewrites the stored original (upright, JPEG quality 90) and the thumbnail under new download links, so every app version, shared copies and the AI see it upright. `memos.rotation` is a pending request (clockwise degrees not yet baked, `increment(90·n)` from the app), cleared by the worker with a `rotatedAt` stamp; screens turn the photo with CSS only while it is pending.
+- Who may turn a photo: the parent's own phone, the family's admin and guardian (what firestore.rules already allows for memo updates); viewers cannot. A rules change to widen this was declined.
+- Copy: button `aria-label` "사진 돌리기" / "Rotate photo"; failure toast "사진을 돌리지 못했어요 · 잠시 후 다시 시도해 주세요" / "Couldn't rotate the photo · Please try again in a moment"; no success toast. Changing these needs the owner's approval.
+- firestore.rules and the privacy text are unchanged.
+
 ### Deploying
 - Never deploy uncommitted code. Order: commit → push to main (or merge the PR) → deploy from an up-to-date checkout of main, preferably a worktree from `origin/main`.
 - `worker/scripts/install.sh` and `simple/worker/install-simple.sh` enforce this (`--check` runs the guard alone; `FORCE_DEPLOY=1` only in emergencies, and tell the user).

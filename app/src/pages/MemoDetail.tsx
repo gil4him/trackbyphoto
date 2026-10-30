@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { doc, updateDoc } from 'firebase/firestore'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { doc, increment, updateDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useToast } from '../components/Toast'
 import { deleteMemo } from '../lib/capture'
@@ -18,6 +18,8 @@ import { honorific } from '../lib/people'
 import { SendSheet, type SendTarget } from '../components/SendSheet'
 import { SEND_HINT_KEY, hintSeen, markHintSeen } from '../lib/hints'
 import { tr } from '../lib/lang'
+import { ZoomPhoto } from '../components/ZoomPhoto'
+import { pendingRotation, quarter } from '../lib/photoRotate'
 
 // 'stored-only' has no badge on purpose: nothing says a step was skipped.
 const SOURCE_BADGES: Partial<Record<MemoSource, { label: string; tone: 'good' | 'neutral' | 'warn' }>> = {
@@ -41,6 +43,8 @@ const BODY_MAX = 200
  * sentences, then the place. Family can correct the text by hand or ask the
  * worker to write it again from the photo.
  * `readOnly` (an elder's linked phone): no delete, no edit.
+ * `canRotate` (the parent's own phone, the family's admin and guardian;
+ * independent of readOnly): ↻ on the photo, saved for everyone.
  * The header holds back, the date and ⋯, which opens the actions (공유하기,
  * 수정, 다시 쓰기, 삭제) in a sheet.
  */
@@ -51,7 +55,7 @@ export interface SendTo {
   send: (uids: string[], caption: string) => Promise<void>
 }
 
-export function MemoDetail({ memo, onBack, readOnly = false, rx, sendTo }: { memo: Memo; onBack: () => void; readOnly?: boolean; rx?: ReactionsContext; /** A family member's own photo: 부모님께 보내기. */ sendTo?: SendTo }) {
+export function MemoDetail({ memo, onBack, readOnly = false, canRotate = false, rx, sendTo }: { memo: Memo; onBack: () => void; readOnly?: boolean; /** ↻ 사진 돌리기 (owner decision, 2026-10-30). */ canRotate?: boolean; rx?: ReactionsContext; /** A family member's own photo: 부모님께 보내기. */ sendTo?: SendTo }) {
   const toast = useToast()
   const [draftTitle, setDraftTitle] = useState('')
   const [draftBody, setDraftBody] = useState('')
@@ -165,7 +169,36 @@ export function MemoDetail({ memo, onBack, readOnly = false, rx, sendTo }: { mem
       setSharing(false)
     }
   }
-  const onShare = () => passOn(() => sharePhoto(memo))
+  // 사진 돌리기: each tap turns the photo 90° clockwise here at once; taps
+  // made within 1.2 s go to the memo together (memos.rotation, a pending
+  // request the worker bakes into the stored photo, handlers/rotate.ts).
+  const [localTurns, setLocalTurns] = useState(0)
+  const unsent = useRef(0)
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const memoId = memo.id
+  const showToast = toast.show // stable; the context object is not
+  const flushTurns = useCallback(() => {
+    if (timer.current) { clearTimeout(timer.current); timer.current = null }
+    const n = unsent.current
+    if (!n) return
+    unsent.current = 0
+    setLocalTurns(0)
+    updateDoc(doc(db, 'memos', memoId), { rotation: increment(90 * n) }).catch((err) => {
+      console.error('[rotate] failed', err)
+      showToast(tr('사진을 돌리지 못했어요 · 잠시 후 다시 시도해 주세요', "Couldn't rotate the photo · Please try again in a moment"))
+    })
+  }, [memoId, showToast])
+  const turn = () => {
+    unsent.current += 1
+    setLocalTurns((n) => n + 1)
+    if (timer.current) clearTimeout(timer.current)
+    timer.current = setTimeout(flushTurns, 1200)
+  }
+  // Leaving the page sends the taps still waiting.
+  useEffect(() => flushTurns, [flushTurns])
+  const rotation = quarter(pendingRotation(memo) + 90 * localTurns)
+
+  const onShare = () => passOn(() => sharePhoto(memo, rotation))
 
   // 부모님께 보내기: whom it may go to, then the photo alone to the ones picked.
   const [targets, setTargets] = useState<SendTarget[] | null>(null)
@@ -255,11 +288,13 @@ export function MemoDetail({ memo, onBack, readOnly = false, rx, sendTo }: { mem
 
       {/* Photo header — falls back to a category-tinted gradient if no
           image yet (still uploading) so the review screen never goes blank. */}
-      <div className={`detail-photo ${memo.photoUrl ? 'has-img' : grad}`}>
-        {memo.photoUrl
-          ? <img src={memo.photoUrl} alt="" />
-          : <div className="detail-photo-empty">{tr('사진을 불러오는 중…', 'Loading the photo…')}</div>}
-      </div>
+      {memo.photoUrl
+        ? <ZoomPhoto key={memo.photoUrl} src={memo.photoUrl} rotation={rotation} canRotate={canRotate} onRotate={turn} />
+        : (
+          <div className={`detail-photo ${grad}`}>
+            <div className="detail-photo-empty">{tr('사진을 불러오는 중…', 'Loading the photo…')}</div>
+          </div>
+        )}
 
       <div className="detail-memo">
         {memo.memo || (serverDown ? tr('메모를 기다리는 중이에요', 'Waiting for the memo') : tr('메모 작성 중…', 'Writing the memo…'))}

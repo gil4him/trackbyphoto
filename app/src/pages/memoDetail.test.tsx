@@ -75,3 +75,32 @@ describe('지도에서 보기', () => {
   })
 })
 
+
+describe('MemoDetail 사진 돌리기', () => {
+  const html = (props: { canRotate?: boolean; readOnly?: boolean; m?: Memo } = {}) =>
+    renderToString(<ToastProvider><MemoDetail memo={props.m ?? memo} onBack={() => {}} canRotate={props.canRotate} readOnly={props.readOnly} /></ToastProvider>)
+
+  it('shows ↻ to those who may turn the photo, also on the parent\'s read-only page', () => {
+    expect(html({ canRotate: true })).toContain('aria-label="사진 돌리기"')
+    expect(html({ canRotate: true, readOnly: true })).toContain('aria-label="사진 돌리기"')
+  })
+
+  it('has no ↻ for everyone else', () => {
+    expect(html()).not.toContain('사진 돌리기')
+    expect(html({ readOnly: true })).not.toContain('사진 돌리기')
+  })
+
+  it('draws the photo as before, turned while a rotation is pending', () => {
+    expect(html()).toContain('<img src="https://example.test/m1.jpg" alt=""')
+    expect(html()).not.toContain('rotate(')
+    expect(html({ m: { ...memo, rotation: 90 } as Memo })).toContain('style="transform:rotate(90deg)"')
+    expect(html({ m: { ...memo, rotation: 450 } as Memo })).toContain('style="transform:rotate(90deg)"')
+  })
+
+  it('leaves the ⋯ actions as they were', () => {
+    const withRotate = html({ canRotate: true })
+    const without = html()
+    expect(withRotate.includes('aria-label="더보기"')).toBe(without.includes('aria-label="더보기"'))
+    expect(html({ canRotate: true, readOnly: true }).includes('aria-label="더보기"')).toBe(html({ readOnly: true }).includes('aria-label="더보기"'))
+  })
+})
