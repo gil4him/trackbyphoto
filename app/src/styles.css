@@ -981,7 +981,7 @@ nav.tabbar .tab.on .tab-avatar { box-shadow: 0 0 0 2px var(--coral2); }
   flex: 1; min-width: 0; min-height: 48px; display: flex; align-items: center; gap: 8px; padding: 8px 4px 8px 14px;
   border: none; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer;
 }
-.notice-card-msg { flex: 1; min-width: 0; font-size: 15px; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.notice-card-msg { flex: 1; min-width: 0; font-size: 15px; line-height: 1.4; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; word-break: keep-all; overflow-wrap: anywhere; }
 .notice-card-count {
   flex: none; min-width: 24px; height: 24px; padding: 0 7px; border-radius: 12px; background: var(--accent); color: #fff;
   font-size: 14px; font-weight: 700; line-height: 24px; text-align: center;
