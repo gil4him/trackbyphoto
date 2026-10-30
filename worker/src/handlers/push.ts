@@ -10,7 +10,8 @@
  * A parent's paired phone registers its token against its device record
  * (the only request an elder session may make besides reportDevice,
  * firestore.rules). It is pushed only a photo from family, a family heart or
- * word, and the family's app-update notice (handlers/device.ts).
+ * word, the family's app-update notice (handlers/device.ts) and the once-a-day
+ * reminder when the phone hasn't opened Daylie for a day (handlers/nudges.ts).
  *
  * A push carries the same one line as the in-app notice and a link into the
  * app, never the photo. Tokens FCM reports as gone are pruned. Any other
@@ -191,7 +192,8 @@ export async function elderBadge(patientUid: string): Promise<number> {
 /**
  * One message to a parent's paired phones (the tokens registerFcmToken keeps
  * per device), carrying the icon number. Only a photo from family, a
- * family heart or word, and the family's app-update notice ever call this.
+ * family heart or word, the family's app-update notice and the absence
+ * reminder (handlers/nudges.ts) ever call this.
  * Returns how many phones it reached. Never throws.
  */
 export async function pushToElder(patientUid: string, message: PushMessage, deps: PushDeps = defaultPushDeps): Promise<number> {

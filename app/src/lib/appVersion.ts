@@ -81,13 +81,16 @@ export function openStore(url: string | null | undefined): void {
 }
 
 const REPORTED_KEY = 'tbp.device.reported'
-const DAY_MS = 24 * 60 * 60 * 1000
+/** The worker reads the last report as "last opened" (its 24 h absence
+ *  reminder), so a phone in use reports once an hour. Before 1.0.5 it was once
+ *  a day, which the worker allows for by version. */
+const REPORT_EVERY_MS = 60 * 60 * 1000
 
-/** Report again on a new version, or once a day to keep the record fresh. */
+/** Report again on a new version, or once an hour while the app is in use. */
 export function shouldReport(stored: string | null, version: string, now: number): boolean {
   if (!stored) return true
   const [v, at] = stored.split(':')
-  return v !== version || !(now - Number(at) < DAY_MS)
+  return v !== version || !(now - Number(at) < REPORT_EVERY_MS)
 }
 
 export function lastReported(): string | null {

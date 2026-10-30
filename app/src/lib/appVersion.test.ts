@@ -28,10 +28,12 @@ describe('versions', () => {
     expect(isBehind('1.0.3', undefined)).toBe(false)
   })
 
-  it('reports a new version at once, the same one once a day', () => {
+  it('reports a new version at once, the same one once an hour', () => {
+    const HOUR = 60 * 60 * 1000
     expect(shouldReport(null, '1.0.3', 0)).toBe(true)
     expect(shouldReport(`1.0.3:${DAY}`, '1.0.3', DAY + 1000)).toBe(false)
-    expect(shouldReport(`1.0.3:${DAY}`, '1.0.3', 2 * DAY + 1)).toBe(true)
+    expect(shouldReport(`1.0.3:${DAY}`, '1.0.3', DAY + HOUR - 1)).toBe(false)
+    expect(shouldReport(`1.0.3:${DAY}`, '1.0.3', DAY + HOUR)).toBe(true)
     expect(shouldReport(`1.0.3:${DAY}`, '1.0.4', DAY + 1000)).toBe(true)
     expect(shouldReport('garbage', '1.0.3', DAY)).toBe(true)
   })

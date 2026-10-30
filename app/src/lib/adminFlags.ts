@@ -38,6 +38,8 @@ export const FLAGS: FlagInfo[] = [
   { key: 'payments', name: '앱 결제',
     confirm: { on: '앱에서 실제 구독 결제를 받기 시작해요. 스토어 상품과 RevenueCat 설정이 끝났는지 먼저 확인해 주세요.', off: '앱에서 새 결제를 받지 않아요. 이미 낸 구독은 스토어에서 계속돼요.' } },
   { key: 'planNudges', name: '체험 알림 (체험 시작·종료 3일 전·종료)' },
+  { key: 'absenceNudges', name: '부모님 24시간 미접속 알림', note: '부모님 휴대폰에 사진 한 장 부탁, 가족에게 안부 알림 (09–21시, 하루 한 번)' },
+  { key: 'pendingLinkNudges', name: '12시간 미수락 연결·초대 알림', note: '연결 링크·가족 초대를 보낸 사람에게 한 번 (09–21시)' },
   { key: 'ceoMorningPush', name: '아침 8시 요약 푸시', note: '매일 8시(서울)에 어제 요약을 운영자 휴대폰으로 보내요' },
 ]
 

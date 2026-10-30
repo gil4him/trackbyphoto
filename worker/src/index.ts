@@ -34,6 +34,7 @@ import { logger } from './log.js'
 import { ollamaAvailable, resolveModel } from './llm/ollama.js'
 import { memoConcurrency, MemoScheduler, watchPendingMemos } from './handlers/memo.js'
 import { startDailyNotices } from './handlers/dailyNotice.js'
+import { startNudges } from './handlers/nudges.js'
 import { edition } from './config.js'
 import { watchGeocodeRequests } from './handlers/place.js'
 import { purgeStaleRequests, requeueInterruptedRequests, watchRequests } from './handlers/requests.js'
@@ -99,8 +100,9 @@ async function main() {
     watchFamilyPhotos(),
     // Store subscriptions only end on the store's say-so, so they are polled.
     ...(process.env.PAYMENT_PROVIDER === 'revenuecat' ? [startSubscriptionPoll()] : []),
-    // Simple edition: one notice a day instead of one per photo.
-    ...(edition() === 'simple' ? [startDailyNotices()] : []),
+    // Simple edition: one notice a day instead of one per photo, and the
+    // 24 h absence / 12 h unaccepted-link reminders (behind their flags).
+    ...(edition() === 'simple' ? [startDailyNotices(), startNudges()] : []),
   ]
   const purgeTimer = setInterval(() => {
     purgeStaleRequests().catch((err) => logger.warn('[request] purge failed', { err: String(err) }))

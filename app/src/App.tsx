@@ -29,7 +29,7 @@ import { ToastProvider } from './components/Toast'
 import { PatientSwitcher } from './components/PatientSwitcher'
 import { Home, ParentDayHome } from './pages/Home'
 import { useParentsMemos } from './hooks/useParentsMemos'
-import { isFamilyEvent } from './lib/noticeKinds'
+import { isFamilyEvent, isPendingReminder } from './lib/noticeKinds'
 import { Today } from './pages/Today'
 import { SignIn } from './pages/SignIn'
 import { AcceptInvite, PENDING_INVITE_KEY } from './pages/AcceptInvite'
@@ -781,8 +781,9 @@ function App() {
       setTab('home')
       return
     }
-    // "언니·오빠도 함께 받아보세요" leads to 가족초대.
-    if (n.type === 'family.invite_prompt') {
+    // "언니·오빠도 함께 받아보세요" leads to 가족초대; an unaccepted connect link
+    // or family invite leads to where they are sent again (기기 관리 / 가족 초대).
+    if (n.type === 'family.invite_prompt' || isPendingReminder(n.type)) {
       if (!here) onSwitchPatient(n.patientUid)
       setTab('settings')
       return
