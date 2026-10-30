@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { pendingRotation, quarter, rotateStyle, rotatedSize } from './photoRotate'
+import { isTurned, pendingRotation, quarter, rotateStyle, rotatedSize, toggleTurn } from './photoRotate'
 
 describe('photo rotation', () => {
   it('reads a pending rotation as a clockwise quarter turn', () => {
@@ -23,5 +23,14 @@ describe('photo rotation', () => {
     expect(rotateStyle(0)).toBeUndefined()
     expect(rotateStyle(90)).toEqual({ transform: 'rotate(90deg)' })
     expect(rotateStyle(540)).toEqual({ transform: 'rotate(180deg)' })
+  })
+
+  it('↻ toggles: as shot → 90° clockwise → back again', () => {
+    expect(isTurned({})).toBe(false)
+    expect(isTurned({ turned: 90 })).toBe(true)
+    expect(toggleTurn(false)).toEqual({ deg: 90, turned: true })
+    expect(toggleTurn(true)).toEqual({ deg: -90, turned: false })
+    // The turn back is a pending 270° clockwise for the worker and the screen.
+    expect(quarter(toggleTurn(true).deg)).toBe(270)
   })
 })

@@ -90,6 +90,11 @@ describe('MemoDetail 사진 돌리기', () => {
     expect(html({ readOnly: true })).not.toContain('사진 돌리기')
   })
 
+  it('is a toggle: ↻ as shot, ↺ once turned (the next tap turns it back)', () => {
+    expect(html({ canRotate: true })).toContain('>↻</button>')
+    expect(html({ canRotate: true, m: { ...memo, turned: 90 } as Memo })).toContain('>↺</button>')
+  })
+
   it('draws the photo as before, turned while a rotation is pending', () => {
     expect(html()).toContain('<img src="https://example.test/m1.jpg" alt=""')
     expect(html()).not.toContain('rotate(')

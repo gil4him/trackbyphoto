@@ -5,20 +5,26 @@ import {
   type Point, type Size,
 } from '../lib/photoZoom'
 import { tr } from '../lib/lang'
+import { useSettledPhoto } from '../hooks/useSettledPhoto'
 
 /**
  * The photo on its own page (owner decision, 2026-10-30): pinch, double-tap
  * and pan to look closer (view only, nothing saved), and ↻ for those who may
  * turn it (`canRotate`). `rotation` is how far the photo still has to be
- * turned on screen (a rotation not yet saved into the stored photo).
+ * turned on screen (a rotation not yet saved into the stored photo); `turned`
+ * says the photo stands turned away from the shot, so the button shows ↺
+ * (the next tap turns it back).
  *
+ * When `src` changes to a replaced file (a baked rotation), the old file
+ * stays up, turned, until the new one has loaded (hooks/useSettledPhoto.ts).
  * Until the photo and its box are measured (and when rendered on the
  * server), the photo is drawn as before: full width, at most 75vh tall.
  * Remount it (`key`) to reset the zoom; ↻ resets it too.
  */
-export function ZoomPhoto({ src, rotation, canRotate, onRotate, alt = '' }: {
+export function ZoomPhoto({ src: wantedSrc, rotation: wanted, turned = false, canRotate, onRotate, alt = '' }: {
   src: string
   rotation: number
+  turned?: boolean
   canRotate: boolean
   onRotate: () => void
   alt?: string
@@ -26,7 +32,12 @@ export function ZoomPhoto({ src, rotation, canRotate, onRotate, alt = '' }: {
   const boxRef = useRef<HTMLDivElement>(null)
   const [width, setWidth] = useState(0)
   const [maxH, setMaxH] = useState(0)
-  const [natural, setNatural] = useState<Size | null>(null)
+  const photo = useSettledPhoto(wantedSrc, wanted)
+  const src = photo.src
+  const rotation = photo.rotation
+  const [imgNatural, setNatural] = useState<Size | null>(null)
+  // A swapped-in file's size is known before its <img> fires onLoad.
+  const natural = photo.size ?? imgNatural
   const [scale, setScale] = useState(1)
   const [pan, setPan] = useState<Point>({ x: 0, y: 0 })
 
@@ -189,7 +200,7 @@ export function ZoomPhoto({ src, rotation, canRotate, onRotate, alt = '' }: {
           aria-label={tr('사진 돌리기', 'Rotate photo')}
           onPointerDown={(e) => e.stopPropagation()}
           onClick={() => { apply(1, { x: 0, y: 0 }); onRotate() }}
-        >↻</button>
+        >{turned ? '↺' : '↻'}</button>
       )}
     </div>
   )
