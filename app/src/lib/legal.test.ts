@@ -122,7 +122,7 @@ describe('what each page has to say', () => {
       expect(html).toContain('name="viewport"')
       expect(html).toContain('Daylie')
     }
-    expect(privacy).toContain('2026년 10월 28일')
+    expect(privacy).toContain('2026년 11월 5일')
     expect(terms).toContain('2026년 11월 5일')
   })
 
@@ -237,7 +237,7 @@ describe('the English translations (/en/…)', () => {
   })
 
   it('carry the same effective date, developer and contact as the Korean pages', () => {
-    expect(en.privacy).toContain('October 28, 2026')
+    expect(en.privacy).toContain('November 5, 2026')
     expect(en.terms).toContain('November 5, 2026')
     for (const html of [en.privacy, en.terms]) {
       expect(html).toContain('Digioptics, LLC')
