@@ -438,11 +438,13 @@ export async function processMemo(memoId: string, attempt: number, deps: MemoDep
   humanEdited = humanEdited || latest.get('humanEdited') === true
 
   // Skip the interpretive fields when a guardian has already corrected the
-  // memo. photoUrl + place/address are still safe to refresh (they're factual).
+  // memo. place/address are still safe to refresh (they're factual). The
+  // photo's links are only filled in when missing: a photo turned meanwhile
+  // (handlers/rotate.ts) has new links, and the ones resolved above are dead.
   const firstCompletion = !data.notifiedAt
-  const thumbUrl = data.thumbUrl ? null : await thumbOf(photo, memoId)
+  const thumbUrl = data.thumbUrl || latest.get('thumbUrl') ? null : await thumbOf(photo, memoId)
   const update: Record<string, unknown> = {
-    photoUrl: photo.photoUrl,
+    ...(latest.get('photoUrl') ? {} : { photoUrl: photo.photoUrl }),
     ...(thumbUrl ? { thumbUrl } : {}),
     status: 'ready',
     // Sent by older app builds; never used (see header).

@@ -37,6 +37,7 @@ import { startDailyNotices } from './handlers/dailyNotice.js'
 import { startNudges } from './handlers/nudges.js'
 import { edition } from './config.js'
 import { watchGeocodeRequests } from './handlers/place.js'
+import { watchRotations } from './handlers/rotate.js'
 import { purgeStaleRequests, requeueInterruptedRequests, watchRequests } from './handlers/requests.js'
 import { SettingsCache, watchUserSettings } from './handlers/audit.js'
 import { ReactionScheduler, watchReactions } from './handlers/reactions.js'
@@ -86,6 +87,8 @@ async function main() {
   const unsubs = [
     watchPendingMemos(scheduler),
     watchGeocodeRequests(),
+    // 사진 돌리기: bake a turned photo into the stored file (both editions).
+    watchRotations(),
     watchReactions(reactions),
     watchRequests(),
     watchUserSettings(cache),

@@ -4,6 +4,7 @@ import { Directory, Filesystem } from '@capacitor/filesystem'
 import { fmtDate, fmtTime } from '../util'
 import { tr } from './lang'
 import type { Memo } from '../types'
+import { rotateBlob } from './image'
 
 /**
  * 공유하기 on a photo (MemoDetail's ⋯, family only, simple edition).
@@ -54,9 +55,11 @@ export function downloadBlob(blob: Blob, name: string): void {
   setTimeout(() => URL.revokeObjectURL(url), 10_000)
 }
 
-/** 'cancelled' when the sheet was closed without picking anything. */
-export async function sharePhoto(memo: Memo): Promise<'shared' | 'downloaded' | 'cancelled'> {
-  const blob = await photoBlob(memo.photoUrl)
+/** 'cancelled' when the sheet was closed without picking anything.
+ *  `turn`: a rotation not yet saved into the stored photo (photoRotate.ts). */
+export async function sharePhoto(memo: Memo, turn = 0): Promise<'shared' | 'downloaded' | 'cancelled'> {
+  const stored = await photoBlob(memo.photoUrl)
+  const blob = turn ? await rotateBlob(stored, turn) : stored
   const name = photoFileName(memo)
   const text = photoShareText(memo)
   if (Capacitor.isNativePlatform()) {

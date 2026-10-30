@@ -34,3 +34,38 @@ export async function shrinkPhoto(file: Blob): Promise<Blob> {
     URL.revokeObjectURL(url)
   }
 }
+
+/** A photo turned deg clockwise (0/90/180/270), upright first, as a JPEG:
+ *  what a share or a re-send carries while a rotation is still being saved
+ *  (lib/photoRotate.ts). The photo itself when deg is 0 or turning fails. */
+export async function rotateBlob(blob: Blob, deg: number): Promise<Blob> {
+  const q = ((Math.round(deg / 90) * 90) % 360 + 360) % 360
+  if (!q) return blob
+  const url = URL.createObjectURL(blob)
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const el = new Image()
+      el.onload = () => resolve(el)
+      el.onerror = () => reject(new Error('image decode failed'))
+      el.src = url
+    })
+    const w = img.naturalWidth
+    const h = img.naturalHeight
+    const side = q === 90 || q === 270
+    const canvas = document.createElement('canvas')
+    canvas.width = side ? h : w
+    canvas.height = side ? w : h
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return blob
+    ctx.translate(canvas.width / 2, canvas.height / 2)
+    ctx.rotate((q * Math.PI) / 180)
+    ctx.drawImage(img, -w / 2, -h / 2)
+    const out = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.92))
+    return out ?? blob
+  } catch (err) {
+    console.warn('[image] could not turn the photo; sending it as stored', err)
+    return blob
+  } finally {
+    URL.revokeObjectURL(url)
+  }
+}

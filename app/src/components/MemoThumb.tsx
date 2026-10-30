@@ -3,6 +3,7 @@ import { ref, getDownloadURL } from 'firebase/storage'
 import { storage } from '../firebase'
 import { categoryThumbClass } from '../lib/categoryStyle'
 import { listPhoto } from '../lib/listPhoto'
+import { pendingRotation, rotateStyle } from '../lib/photoRotate'
 import type { Memo } from '../types'
 
 /**
@@ -31,7 +32,7 @@ export function MemoThumb({ memo, showLocation = false }: { memo: Memo; showLoca
   return (
     <div className={`tl-thumb ${url ? '' : categoryThumbClass(memo.activity)}`}>
       {/* A thumbnail that won't load (removed by hand, say) gives way to the full photo. */}
-      {url && <img src={url} alt="" onError={() => { if (memo.photoUrl && url !== memo.photoUrl) setUrl(memo.photoUrl) }} />}
+      {url && <img src={url} alt="" style={rotateStyle(pendingRotation(memo))} onError={() => { if (memo.photoUrl && url !== memo.photoUrl) setUrl(memo.photoUrl) }} />}
       {showLocation && memo.place && <span className="rt-loc">{memo.place}</span>}
     </div>
   )
