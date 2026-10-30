@@ -18,6 +18,7 @@ import { useMemberships } from '../hooks/useMemberships'
 import type { ElderNews } from '../lib/reactionsModel'
 import type { Memo, Reaction } from '../types'
 import { tr } from '../lib/lang'
+import { useMonthDaysLine } from '../hooks/useMonthDays'
 
 export type { Overlay }
 
@@ -37,7 +38,9 @@ const OVERLAY_MS = 1500
 /** The plain-sentence screens, in the order the phone's questions come. */
 type Ask = 'camera' | 'location' | 'notify'
 
-export function ElderCameraView({ busy, denied = false, overlay, news, photos = null, recent = null, ask = null, askNext, corner = null, onShutter, onDismissNews, onOpenRecords, onRetry, onOpenPhotos = () => {}, onAskNext = () => {} }: {
+export function ElderCameraView({ busy, denied = false, overlay, news, photos = null, recent = null, ask = null, askNext, corner = null, onShutter, onDismissNews, onOpenRecords, onRetry, onOpenPhotos = () => {}, onAskNext = () => {}, monthLine = null }: {
+  /** "이번 달 12일째 기록 중" (hooks/useMonthDays.ts). */
+  monthLine?: string | null
   busy: boolean
   /** The phone refused the camera: say so, with a big retry. */
   denied?: boolean
@@ -124,6 +127,8 @@ export function ElderCameraView({ busy, denied = false, overlay, news, photos = 
       )}
 
       {/* The bottom row: 내 사진 on the left, the web's 아이콘 만들기 on the right. */}
+      {!ask && !denied && monthLine && <div className="elder-launch-month">{monthLine}</div>}
+
       {!ask && <div className="elder-launch-row">
         <button type="button" className="elder-launch-records" onClick={onOpenRecords}>
           <span className="elder-launch-recent" aria-hidden="true">
@@ -166,6 +171,7 @@ export function ElderCamera({ uid, deviceId, reactions, photos = null, recent = 
   // Hidden as soon as it's tapped, before the read stamps come back.
   const [dismissed, setDismissed] = useState<string[]>([])
   const news = useElderNews(reactions, uid)
+  const monthLine = useMonthDaysLine(uid)
   const { caregivers } = useMemberships(uid, { withPatients: false })
   const toName = sentToName(caregivers)
   const alive = useRef(true)
@@ -280,6 +286,7 @@ export function ElderCamera({ uid, deviceId, reactions, photos = null, recent = 
 
   return (
     <ElderCameraView
+      monthLine={monthLine}
       busy={busy}
       denied={denied}
       overlay={overlay}

@@ -61,6 +61,11 @@ describe("ParentDayHome (simple edition: the parent's day)", () => {
     </ToastProvider>,
   ).replace(/<!-- -->/g, '')
 
+  it('shows the month\'s count when there is one', () => {
+    expect(render({ monthLine: '이번 달 12일째 기록 중' })).toContain('<div class="day-month">이번 달 12일째 기록 중</div>')
+    expect(render()).not.toContain('day-month')
+  })
+
   it('header: the date, 엄마의 하루, the count and how far from home', () => {
     const memos = [dayMemo('b', 15, 30, { lat: 37.518 }), dayMemo('a', 9, 5), dayMemo('old', 10, 0, { takenAt: at(10, 0, -1) })]
     const out = render({ memos, home: { lat: 37.5, lng: 127.0 } })

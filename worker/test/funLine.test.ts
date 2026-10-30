@@ -39,6 +39,13 @@ describe('chooseFact', () => {
   it('does not compare a thing with itself', () => {
     expect(fact([m('2026-10-01T12:00'), meal('2026-10-02T12:00', '칙필레 매장에 다녀오셨어요')], meal('2026-10-05T12:00', '칙필레 매장에 다녀오셨어요'))).toBeNull()
   })
+  it('a day\'s first photo with nothing worth saying gets no line', () => {
+    expect(fact(daily([1, 3]), m('2026-10-06T09:00'))).toBeNull()
+  })
+  it('counts an activity at round numbers, this month only', () => {
+    const rests = [m('2026-09-30T12:00', { activity: '휴식' }), m('2026-10-02T12:00', { activity: '휴식' }), m('2026-10-04T12:00', { activity: '휴식' })]
+    expect(fact(rests, m('2026-10-06T12:00', { activity: '휴식' }))).toBe('이번 달 휴식 기록 3번째예요')
+  })
   it('never on a hospital photo, nor comparing with one', () => {
     expect(fact([], m('2026-10-01T12:00', { memo: '병원 접수처에 방문하셨어요' }))).toBeNull()
     expect(fact([m('2026-10-01T12:00')], m('2026-10-02T12:00', { scene: '낮에 병원을 다녀오신 뒤 귀가하셨어요' }))).toBeNull()
@@ -96,6 +103,8 @@ describe('lineOk', () => {
     expect(lineOk('칙필레 다음은 칼국수. 식단에 국경이 없어요.', 'f', [])).toBe(true)
     expect(lineOk('가'.repeat(41), 'f', [])).toBe(false)
     expect(lineOk('시작이 아주 맛있네요!', 'f', [])).toBe(false)
+    expect(lineOk('새벽 공기가 차갑겠어요', 'f', [])).toBe(false)
+    expect(lineOk('한식에서 노선 변경인가요?', 'f', [])).toBe(false)
     expect(lineOk('', 'f', [])).toBe(false)
   })
   it('rejects a joke told lately, whatever its particle', () => {

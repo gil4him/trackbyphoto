@@ -5,8 +5,9 @@
  * failure here only means a photo without the line.
  *
  * The fact comes first and is counted here from the account's own photos, so
- * the model cannot get a number wrong; the model only words it. Most photos
- * have no fact worth a line and get none. Korean only for now: English wording
+ * the model cannot get a number wrong; the model only words it. A photo with
+ * nothing worth saying gets no line, so some days have none: a plain "first
+ * photo of the day" line was tried and dropped (owner, 2026-10-30). Korean only for now: English wording
  * has not been approved. Behind `memoFunLine`, or admin_config/funLine
  * ({ allow: [uid] }) to try it on one family first.
  */
@@ -40,6 +41,7 @@ const HISTORY = 300
 const DAILY = 1
 const DAILY_COMPARED = 2
 const HOME_RADIUS_KM = 0.3
+const ACTIVITY_COUNTS = new Set([3, 5, 10, 15, 20, 30])
 export const MAX_LINE = 40
 
 /** What a meal or shop photo was about: the food, or the named place. '' when vague. */
@@ -103,10 +105,14 @@ export function chooseFact(args: { history: FunMemo[]; current: FunMemo; offsetM
     const same = history.filter((m) => m.place === current.place)
     if (same.length >= 2 && dayOf(same[same.length - 1]) !== day) return `${subject} 기록이 ${same.length + 1}번째예요`
   }
+  if (current.activity && current.activity !== '기타') {
+    const nth = history.filter((m) => m.activity === current.activity && dayOf(m).slice(0, 7) === day.slice(0, 7)).length + 1
+    if (ACTIVITY_COUNTS.has(nth)) return `이번 달 ${current.activity} 기록 ${nth}번째예요`
+  }
   return null
 }
 
-const FEELINGS = /맛있|즐거|행복|기쁘|부지런|열정|달인|출석왕|역사적|든든/
+const FEELINGS = /맛있|즐거|행복|기쁘|부지런|열정|달인|출석왕|역사적|든든|한식|양식|차갑|춥|덥|피곤|힘드|졸리/
 
 /** The joke of a line: the words of its last sentence, without their particle. */
 function jokeWords(line: string): string[] {
@@ -145,6 +151,7 @@ export function funLinePrompt(memo: string, fact: string, recent: string[]): str
 - 해요체, ${MAX_LINE}자 이내, 가벼운 농담 하나. 문장은 최대 두 개.
 - 건강, 나이, 외모, 자책, 다른 가족과의 비교는 쓰지 마세요.
 - 그 사람의 감정, 취향, 열정, 앞으로 일어날 일을 짐작하지 마세요. 평범하다고 놀리지 마세요.
+- 날씨, 온도, 몸 상태는 말하지 마세요. 사진 메모와 사실에 없는 장소나 음식, 메뉴 종류를 덧붙이지 마세요.
 - 영어 주소를 그대로 쓰지 말고 메모에 나온 한국어 이름을 쓰세요.
 - 예시를 그대로 베끼지 말고, 사진 메모의 내용으로 새로 쓰세요. '맛있', '즐거', '행복', '부지런', '열정'처럼 느낌을 말하는 단어는 쓰지 마세요.
 ${recent.length ? `- 최근에 쓴 줄과 같은 농담을 쓰지 마세요: ${recent.join(' / ')}\n` : ''}예시: ${EXAMPLES.join(' / ')}

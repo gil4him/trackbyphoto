@@ -91,6 +91,7 @@ main { padding: 18px 22px calc(110px + var(--safe-bot)); }
    time and an orange dot on a 2px line, and one compact card per photo. */
 .home-day { display: block; }
 .day-head { margin: 2px 0 14px; }
+.day-month { margin-top: 4px; font-size: 14px; font-weight: 600; color: var(--accent-ink, var(--ink-2)); }
 .day-title { margin: 2px 0 4px; font-size: 34px; font-weight: 800; letter-spacing: -.6px; line-height: 1.2; }
 .day-caption { font-size: 15px; color: var(--muted); }
 /* 다녀온 곳 on the parent's day (A13): the route drawn small under the
@@ -1344,6 +1345,7 @@ button.rx-voice.locked { width: 100%; padding: 10px 12px; border: 2px solid var(
 .elder-launch-ring svg { width: 84px; height: 84px; display: block; }
 .elder-launch-shutter:active:not(:disabled) .elder-launch-ring { transform: scale(.94); }
 .elder-launch-shutter:disabled { opacity: .55; }
+.elder-launch-month { text-align: center; font-size: 17px; font-weight: 600; color: var(--ink-2); }
 .elder-launch-label { font-size: 28px; font-weight: 800; line-height: 1.2; white-space: nowrap; }
 /* The bottom row: 내 사진 (the newest photo in a circle; a photos glyph before
    the first one) on the left, the browser's 아이콘 만들기 on the right. */

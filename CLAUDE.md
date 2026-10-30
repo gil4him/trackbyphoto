@@ -49,9 +49,12 @@
 
 ### 재미있는 한 줄 (owner decision, 2026-10-30)
 - One playful line **in addition to** the memo, shown smaller and lighter under the scene on the photo's page (`memos.funLine`, `worker/src/handlers/funLine.ts`). The memo (title, scene, memory diary prompt) is not changed by it, and it runs after the memo is done, once per photo; a failure only means no line.
-- The fact is counted in code from the account's own photos and Gemini only words it: comparison with the last named meal or shop, first photo, streaks of 3/5/7/10…, first shop or café of the month, earliest or latest time, the month's busiest day, third visit or more to a place. At most one line a day, a comparison may be a second. Most photos get none.
+- The fact is counted in code from the account's own photos and Gemini only words it: comparison with the last named meal or shop, first photo, streaks of 3/5/7/10…, first shop or café of the month, earliest or latest time, the month's busiest day, third visit or more to a place. Also a count of an activity this month at round numbers (3, 5, 10…). At most one line a day, a comparison may be a second. A photo with nothing worth saying gets none, so some days have no line: a plain "오늘의 첫 사진" line was tried and dropped as too flat (owner, 2026-10-30).
 - Never on hospital, pharmacy, funeral and similar photos. Place counts only with a saved home and away from it. No invented feelings, no joke repeated from the last ten lines, at most 40 characters; otherwise no line. The prompt's examples are the owner's approved samples; changing the prompt needs the owner's approval. Korean only for now.
 - Behind `memoFunLine` (off), or `admin_config/funLine` `{ allow: [uid] }` to try it on one family first.
+
+### 이번 달 기록 일수 (owner decision, 2026-10-30)
+- "이번 달 {n}일째 기록 중" / "{n} days of photos this month", from the second day: on the parent's home under 사진 찍기, and on the family's view of a parent's day. It counts days with a photo this month, so a missed day takes nothing away. Nothing anywhere mentions a broken run or warns about losing one; an unbroken run appears only as a celebration in the playful line. `hooks/useMonthDays.ts`.
 
 ### 날씨 (owner decision, 2026-10-30)
 - A photo without a location uses the location of that person's closest photo of the same local day to look up real weather for the memo; with none, no weather. Never home's weather by default, and the photo's own place and address stay empty. The memo prompt is unchanged.
