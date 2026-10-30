@@ -2,7 +2,7 @@
 // memo is left alone. The model is an injected fake; Firestore is the emulator.
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { Timestamp } from 'firebase-admin/firestore'
-import { addFunLine, chooseFact, lineOk, resetFunLineCache, subjectOf, wordFunLine, type FunMemo } from '../src/handlers/funLine'
+import { addFunLine, chooseFact, jokeOk, resetFunLineCache, subjectOf, wordFunLine, type FunMemo } from '../src/handlers/funLine'
 import { resetPlansCache } from '../src/plans'
 import { db, clearFirestore } from './setup'
 
@@ -29,12 +29,12 @@ describe('chooseFact', () => {
   const meal = (when: string, memo: string, over: Partial<FunMemo> = {}) => m(when, { activity: '식사', memo, ...over })
 
   it('first photo, with the parent\'s name when there is one', () => {
-    expect(fact([], m('2026-10-01T12:00'), { name: '엄마' })).toBe('Daylie에 남긴 엄마의 첫 사진이에요')
-    expect(fact([], m('2026-10-01T12:00'))).toBe('Daylie에 남긴 첫 사진이에요')
+    expect(fact([], m('2026-10-01T12:00'), { name: '엄마' })).toBe('엄마의 첫 사진이에요.')
+    expect(fact([], m('2026-10-01T12:00'))).toBe('첫 사진이에요.')
   })
   it('compares with the last named meal, skipping vague ones', () => {
     const history = [meal('2026-10-01T12:00', '칙필레 매장에 다녀오셨어요'), meal('2026-10-02T12:00', '가족과 함께 저녁 식사를 하셨어요')]
-    expect(fact(history, meal('2026-10-03T12:00', '식당에서 칼국수를 드셨어요'))).toBe('지난번 식사 기록은 칙필레, 이번은 칼국수')
+    expect(fact(history, meal('2026-10-03T12:00', '식당에서 칼국수를 드셨어요'))).toBe('칙필레 다음은 칼국수.')
   })
   it('does not compare a thing with itself', () => {
     expect(fact([m('2026-10-01T12:00'), meal('2026-10-02T12:00', '칙필레 매장에 다녀오셨어요')], meal('2026-10-05T12:00', '칙필레 매장에 다녀오셨어요'))).toBeNull()
@@ -44,7 +44,7 @@ describe('chooseFact', () => {
   })
   it('counts an activity at round numbers, this month only', () => {
     const rests = [m('2026-09-30T12:00', { activity: '휴식' }), m('2026-10-02T12:00', { activity: '휴식' }), m('2026-10-04T12:00', { activity: '휴식' })]
-    expect(fact(rests, m('2026-10-06T12:00', { activity: '휴식' }))).toBe('이번 달 휴식 기록 3번째예요')
+    expect(fact(rests, m('2026-10-06T12:00', { activity: '휴식' }))).toBe('이번 달 휴식 기록 3번째예요.')
   })
   it('never on a hospital photo, nor comparing with one', () => {
     expect(fact([], m('2026-10-01T12:00', { memo: '병원 접수처에 방문하셨어요' }))).toBeNull()
@@ -52,7 +52,7 @@ describe('chooseFact', () => {
     expect(fact([meal('2026-10-01T12:00', '서울약국에서 쉬셨어요')], meal('2026-10-05T12:00', '식당에서 칼국수를 드셨어요'))).toBeNull()
   })
   it('streak milestones, on the first photo of the day only', () => {
-    expect(fact(daily([1, 2]), m('2026-10-03T09:00'))).toBe('3일 연속으로 사진을 남겼어요')
+    expect(fact(daily([1, 2]), m('2026-10-03T09:00'))).toBe('3일 연속으로 사진을 남기셨어요.')
     expect(fact(daily([1, 2, 3]), m('2026-10-04T09:00'))).toBeNull()
     expect(fact(daily([1, 3]), m('2026-10-04T09:00'))).toBeNull()
     expect(fact([...daily([1, 2]), m('2026-10-03T08:00')], m('2026-10-03T09:00'))).toBeNull()
@@ -64,12 +64,12 @@ describe('chooseFact', () => {
   })
   it('first shop or café of the month', () => {
     const old = [m('2026-09-01T12:00', { activity: '쇼핑' }), m('2026-10-09T12:00')]
-    expect(fact(old, m('2026-10-20T12:00', { activity: '쇼핑' }))).toBe('이번 달 첫 쇼핑 기록이에요')
+    expect(fact(old, m('2026-10-20T12:00', { activity: '쇼핑' }))).toBe('이번 달 첫 쇼핑 기록이에요.')
   })
   it('earliest and latest only with some history, and only at real extremes', () => {
     const five = daily([1, 3, 5, 7, 9])
-    expect(fact(five, m('2026-10-12T05:13'))).toContain('가장 이른 시각이에요 (05:13)')
-    expect(fact(five, m('2026-10-12T22:26'))).toContain('가장 늦은 시각이에요 (22:26)')
+    expect(fact(five, m('2026-10-12T05:13'))).toBe('지금까지 중 가장 이른 시각의 사진이에요.')
+    expect(fact(five, m('2026-10-12T22:26'))).toBe('지금까지 중 가장 늦은 시각의 사진이에요.')
     expect(fact(five, m('2026-10-12T08:00'))).toBeNull()
     expect(fact(daily([1, 3]), m('2026-10-12T05:13'))).toBeNull()
   })
@@ -77,14 +77,14 @@ describe('chooseFact', () => {
     const big = [...daily([1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21]), m('2026-10-23T09:00'), m('2026-10-23T10:00'), m('2026-10-23T11:00')]
     const today = ['08:00', '09:00', '10:00'].map((t) => m(`2026-10-25T${t}`))
     // A comparison or an earlier line would take the slot; none here.
-    expect(fact([...big, ...today], m('2026-10-25T13:00'))).toBe('이번 달 가장 사진이 많은 날이 됐어요 (오늘 4장)')
+    expect(fact([...big, ...today], m('2026-10-25T13:00'))).toBe('지금까지 사진이 가장 많은 날이에요. 오늘 4장째!')
     expect(fact([...big, ...today.slice(0, 2)], m('2026-10-25T13:00'))).toBeNull()
   })
   it('place counts: third visit on, a saved home, and never at home', () => {
     const lib = { place: '도서관 · 웨스트코비나', lat: 34, lng: -118, memo: '웨스트코비나 도서관에서 시간을 보내셨어요' }
     const history = [m('2026-10-01T12:00', lib), m('2026-10-03T12:00', lib), m('2026-10-04T12:00')]
     const home = { lat: 33.9, lng: -117.9 }
-    expect(fact(history, m('2026-10-06T12:00', lib), { home })).toBe('웨스트코비나 도서관 기록이 3번째예요')
+    expect(fact(history, m('2026-10-06T12:00', lib), { home })).toBe('이곳에서 남긴 사진이 3번째예요.')
     expect(fact(history, m('2026-10-06T12:00', lib))).toBeNull() // no saved home
     expect(fact(history, m('2026-10-06T12:00', lib), { home: { lat: 34, lng: -118 } })).toBeNull() // that is home
     expect(fact(history.slice(0, 1).concat(history[2]), m('2026-10-06T12:00', lib), { home })).toBeNull() // second visit
@@ -98,31 +98,54 @@ describe('chooseFact', () => {
   })
 })
 
-describe('lineOk', () => {
-  it('rejects long lines and made-up feelings', () => {
-    expect(lineOk('칙필레 다음은 칼국수. 식단에 국경이 없어요.', 'f', [])).toBe(true)
-    expect(lineOk('가'.repeat(41), 'f', [])).toBe(false)
-    expect(lineOk('시작이 아주 맛있네요!', 'f', [])).toBe(false)
-    expect(lineOk('새벽 공기가 차갑겠어요', 'f', [])).toBe(false)
-    expect(lineOk('한식에서 노선 변경인가요?', 'f', [])).toBe(false)
-    expect(lineOk('', 'f', [])).toBe(false)
+describe('jokeOk', () => {
+  it('rejects long jokes and made-up feelings', () => {
+    expect(jokeOk('식단에 국경이 없어요.', '칙필레 다음은 칼국수.', [])).toBe(true)
+    expect(jokeOk('가'.repeat(46), 'f', [])).toBe(true)
+    expect(jokeOk('가'.repeat(47), 'f', [])).toBe(false)
+    expect(jokeOk('시작이 아주 맛있네요!', 'f', [])).toBe(false)
+    expect(jokeOk('새벽 공기가 차갑겠어요', 'f', [])).toBe(false)
+    expect(jokeOk('한식에서 노선 변경인가요?', 'f', [])).toBe(false)
+    expect(jokeOk('', 'f', [])).toBe(false)
+  })
+  it('rejects a joke that counts again or says the subject keeps happening', () => {
+    const f = '3일 연속으로 사진을 남기셨어요.'
+    expect(jokeOk('벌써 세 번이나 모이셨네요!', f, [])).toBe(false)
+    expect(jokeOk('3일 연속 양치네요.', f, [])).toBe(false)
+    expect(jokeOk('오늘도 양치 인증이에요.', f, [])).toBe(false)
+    expect(jokeOk('매일 양치를 챙기시네요.', f, [])).toBe(false)
+    expect(jokeOk('차 안이 전용 포토존이에요.', f, [])).toBe(false)
+    expect(jokeOk('실내 체질인가 봐요.', f, [])).toBe(false)
+    expect(jokeOk('이 정도면 개근상이에요.', f, [])).toBe(true)
+    expect(jokeOk('이쯤 되면 단골이에요.', f, [])).toBe(false)
+    expect(jokeOk('이쯤 되면 단골이에요.', '이곳에서 남긴 사진이 3번째예요.', [])).toBe(true)
+  })
+  it('rejects a joke about looks', () => {
+    expect(jokeOk('미모가 더 선명해 보여요.', '재성이의 첫 사진이에요.', [])).toBe(false)
+    expect(jokeOk('조명이 사진발을 잘 받았네요.', '엄마의 첫 사진이에요.', [])).toBe(false)
+  })
+  it('one sentence only', () => {
+    expect(jokeOk('개근상이에요. 축하드려요.', 'f', [])).toBe(false)
   })
   it('rejects a joke told lately, whatever its particle', () => {
-    const recent = ['지난번은 칙필레, 이번엔 칼국수네요. 식단에 국경이 없어요.']
-    expect(lineOk('칼국수에서 케인스로. 메뉴판의 국경을 넘으셨네요.', 'f', recent)).toBe(false)
-    expect(lineOk('칼국수에서 케인스로. 메뉴판이 넓어졌어요.', 'f', recent)).toBe(true)
+    const recent = ['칙필레 다음은 칼국수. 식단에 국경이 없어요.']
+    expect(jokeOk('메뉴판의 국경을 넘으셨네요.', 'f', recent)).toBe(false)
+    expect(jokeOk('메뉴판이 넓어졌어요.', 'f', recent)).toBe(true)
   })
   it('the fact\'s own words may repeat', () => {
-    expect(lineOk('도서관 세 번째. 도서관 단골 예약이에요.', '도서관 기록이 3번째예요', ['첫날. 도서관 사랑이에요.'])).toBe(true)
+    expect(jokeOk('도서관 사랑이에요.', '도서관 기록이에요.', ['첫날. 도서관 이야기.'])).toBe(true)
   })
 })
 
 describe('wordFunLine', () => {
+  it('shows the fact word for word and adds the joke', async () => {
+    expect(await wordFunLine('양치하셨어요', '3일 연속으로 사진을 남기셨어요.', [], async () => '이 정도면 개근상이에요.')).toBe('3일 연속으로 사진을 남기셨어요. 이 정도면 개근상이에요.')
+  })
   it('tries again, then gives up with no line', async () => {
     const ask = vi.fn().mockResolvedValueOnce('맛있는 하루예요').mockResolvedValueOnce('좋은 기록이에요')
-    expect(await wordFunLine('메모', '사실', [], ask)).toBe('좋은 기록이에요')
+    expect(await wordFunLine('메모', '사실.', [], ask)).toBe('사실. 좋은 기록이에요')
     const bad = vi.fn().mockResolvedValue('맛있는 하루예요')
-    expect(await wordFunLine('메모', '사실', [], bad)).toBe('')
+    expect(await wordFunLine('메모', '사실.', [], bad)).toBe('')
     expect(bad).toHaveBeenCalledTimes(3)
   })
 })
@@ -144,14 +167,14 @@ describe('addFunLine', () => {
     await flag(true)
     await addFunLine(args(), ask)
     const d = (await db.doc('memos/m1').get()).data()!
-    expect(d.funLine).toBe('첫 페이지를 여셨어요')
+    expect(d.funLine).toBe('첫 사진이에요. 첫 페이지를 여셨어요')
     expect(d).toMatchObject({ memo: '공원 산책', scene: '장면', status: 'ready' })
   })
   it('the allowlist lets one family in while the flag is off', async () => {
     await flag(false)
     await db.doc('admin_config/funLine').set({ allow: ['p1'] })
     await addFunLine(args(), ask)
-    expect((await db.doc('memos/m1').get()).get('funLine')).toBe('첫 페이지를 여셨어요')
+    expect((await db.doc('memos/m1').get()).get('funLine')).toBe('첫 사진이에요. 첫 페이지를 여셨어요')
   })
   it('skips English accounts, which have no approved wording', async () => {
     await flag(true)
