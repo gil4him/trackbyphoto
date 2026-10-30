@@ -25,7 +25,7 @@ import { setFaviconBadge } from './lib/favicon'
 import { setAppBadge } from './lib/appBadge'
 import { Tabs, type TabKey } from './components/Tabs'
 import { tabFromUrl } from './lib/tabFromUrl'
-import { ToastProvider } from './components/Toast'
+import { ToastProvider, useToast } from './components/Toast'
 import { PatientSwitcher } from './components/PatientSwitcher'
 import { Home, ParentDayHome } from './pages/Home'
 import { useParentsMemos } from './hooks/useParentsMemos'
@@ -57,6 +57,7 @@ import { PushNudge } from './components/PushNudge'
 import type { AppNotification } from './types'
 import { openFromUrl, parseOpen, type OpenTarget } from './lib/openFromUrl'
 import { noticesSeen, type NoticeView } from './lib/noticeViews'
+import { staleNotices } from './lib/noticeCard'
 import { usePageVisible } from './hooks/usePageVisible'
 import { entitlements, flagOn, planSheetOpenFor } from './lib/plans'
 import { byMemo } from './lib/reactionsModel'
@@ -167,6 +168,8 @@ function App() {
   const [parentMode, setParentMode] = useState(false)
   // Simple edition: 엄마 연결하기 opened from Home (ConnectParentCard).
   const [connectingParent, setConnectingParent] = useState(false)
+  const [focusDevices, setFocusDevices] = useState(false)
+  const [noticeGone, setNoticeGone] = useState(0)
   // The digest page: opened by a /digest/{id} link (push, e-mail, message) or
   // from the 알림 list.
   const [digestId, setDigestId] = useState<string | null>(() => (typeof window === 'undefined' ? null : digestIdFromPath(window.location.pathname)))
@@ -535,9 +538,18 @@ function App() {
   const noticeView: NoticeView = !user || elder || !visible ? { kind: 'other' }
     : digestId ? { kind: 'digest', digestId }
     : selectedMemo ? { kind: 'memo', patientUid: selectedMemo.patientUid, memoId: selectedMemo.id }
+    : tab === 'home' && isSimple() && activePatientUid && activePatientUid !== user.uid ? { kind: 'day', patientUid: activePatientUid }
     : tab === 'home' || tab === 'today' ? { kind: tab, patientUid: activePatientUid || user.uid }
     : { kind: 'other' }
-  const seenIds = noticesSeen(noticeView, notifications).join(',')
+  // A "no photo yet" that stopped being true goes by itself (lib/noticeCard.ts).
+  const latestPhotoMs = (uid: string) => {
+    const list = uid === activePatientUid ? memos : parentsMemos[uid] ?? []
+    return list.reduce((latest, m) => Math.max(latest, m.takenAt?.toMillis?.() ?? 0), 0)
+  }
+  const seenIds = [
+    ...noticesSeen(noticeView, notifications),
+    ...(user && !elder && visible ? staleNotices(notifications, new Date(), latestPhotoMs) : []),
+  ].join(',')
   useEffect(() => {
     for (const id of seenIds ? seenIds.split(',') : []) dismissNotification(id)
     // dismissNotification is a plain write; seenIds already says what changed.
@@ -762,7 +774,12 @@ function App() {
   const openNotice = (n: AppNotification) => {
     if (n.digestId) { setDigestId(n.digestId); return }
     const reachable = n.patientUid === user.uid || patients.some((p) => p.patientUid === n.patientUid)
-    if (!reachable) return
+    // Removed from that family since: clear it and say so, rather than a dead tap.
+    if (!reachable) {
+      dismissNotification(n.id)
+      setNoticeGone((k) => k + 1)
+      return
+    }
     const here = n.patientUid === (activePatientUid || user.uid)
     // "사진이 지워져요" is one of the plan sheet's four doors.
     if (n.type === 'retention.expiring' && planOn) {
@@ -787,6 +804,13 @@ function App() {
     // or family invite leads to where they are sent again (기기 관리 / 가족 초대).
     if (n.type === 'family.invite_prompt' || isPendingReminder(n.type)) {
       if (!here) onSwitchPatient(n.patientUid)
+      setTab('settings')
+      return
+    }
+    // A phone linked, unlinked or asking to link: that parent's device list.
+    if (n.type.startsWith('device.')) {
+      if (!here) onSwitchPatient(n.patientUid)
+      setFocusDevices(true)
       setTab('settings')
       return
     }
@@ -864,6 +888,7 @@ function App() {
             {tr('새 버전이 있어요', 'A new version is ready')} <span className="update-go">{tr('새로고침', 'Refresh')}</span>
           </button>
         )}
+        <NoticeGoneToast count={noticeGone} />
         <main>
           {people.length > 0 && !selectedMemo && !memoOpening && !openNews && !digestId && !trail && !voiceAlbum && (
             <PatientSwitcher
@@ -973,8 +998,9 @@ function App() {
                   onOpen={setSelectedMemoId}
                   onYesterday={openYesterday}
                   onOpenTrail={trailOn ? openDayTrail : undefined}
-                  notifications={bannerNotices}
+                  notifications={bannerNotices.filter((n) => n.patientUid === activePatientUid)}
                   onDismissNotification={dismissNotification}
+                  onOpenNotification={openNotice}
                   topCard={undefined}
                 />
               ) : isSimple() && isSelf && people.length > 0 ? (
@@ -988,7 +1014,7 @@ function App() {
                   onYesterday={openYesterday}
                 />
               ) : (
-                <Home uid={activePatientUid || user.uid} patientName={settings.patientName} greetingName={isSelf ? selfLabel : settings.patientName} memos={memos} onOpenAsk={openAsk} onOpen={setSelectedMemoId} canCapture={isSelf} notifications={bannerNotices} onDismissNotification={dismissNotification} topCard={isSimple() && isSelf && !membershipsLoading && patients.length === 0 ? <ConnectParentCard onOpen={() => setConnectingParent(true)} onImParent={signOutToParent} /> : pushOn && patients.length > 0 && !isSimple() ? <PushNudge /> : undefined} canSendPhoto={!!sendToParent} sentPhotos={familyPhotosOn && !isSelf ? <SentFamilyPhotos photos={familyPhotos} myUid={user.uid} /> : undefined} connectOnly={isSimple() && isSelf && !membershipsLoading && patients.length === 0} simple={isSimple()} parents={dashOn ? people.map((p) => ({ uid: p.patientUid, name: p.name, color: people.length > 1 ? colorOf[p.patientUid] : undefined, memos: parentsMemos[p.patientUid] ?? [], unread: notifications.find((n) => n.patientUid === p.patientUid && isFamilyEvent(n.type)) })) : undefined} onOpenParent={(uid) => { onSwitchPatient(uid); setTab('home') }} />
+                <Home uid={activePatientUid || user.uid} patientName={settings.patientName} greetingName={isSelf ? selfLabel : settings.patientName} memos={memos} onOpenAsk={openAsk} onOpen={setSelectedMemoId} canCapture={isSelf} notifications={bannerNotices} onDismissNotification={dismissNotification} onOpenNotification={openNotice} topCard={isSimple() && isSelf && !membershipsLoading && patients.length === 0 ? <ConnectParentCard onOpen={() => setConnectingParent(true)} onImParent={signOutToParent} /> : pushOn && patients.length > 0 && !isSimple() ? <PushNudge /> : undefined} canSendPhoto={!!sendToParent} sentPhotos={familyPhotosOn && !isSelf ? <SentFamilyPhotos photos={familyPhotos} myUid={user.uid} /> : undefined} connectOnly={isSimple() && isSelf && !membershipsLoading && patients.length === 0} simple={isSimple()} parents={dashOn ? people.map((p) => ({ uid: p.patientUid, name: p.name, color: people.length > 1 ? colorOf[p.patientUid] : undefined, memos: parentsMemos[p.patientUid] ?? [], unread: notifications.find((n) => n.patientUid === p.patientUid && isFamilyEvent(n.type)) })) : undefined} onOpenParent={(uid) => { onSwitchPatient(uid); setTab('home') }} />
               ))}
               {connectingParent && (
                 <RegisterElder
@@ -1008,6 +1034,8 @@ function App() {
                   memos={memos}
                   activePatientUid={activePatientUid || user.uid}
                   isSelf={isSelf}
+                  focusDevices={focusDevices}
+                  onDevicesFocused={() => setFocusDevices(false)}
                   onSwitchPatient={(uid) => { onSwitchPatient(uid); setTab('home') }}
                   myRole={myRole}
                   people={people}
@@ -1070,6 +1098,16 @@ function App() {
 }
 
 /** Opens what a tapped push points at, once whose records the person follows is known. */
+/** Says a notice can no longer be opened, inside the toast provider. */
+function NoticeGoneToast({ count }: { count: number }) {
+  const toast = useToast()
+  const show = toast.show // stable; the context object is not
+  useEffect(() => {
+    if (count) show(tr('더 이상 볼 수 없는 알림이에요', "This notice can't be opened anymore"))
+  }, [count, show])
+  return null
+}
+
 function PushOpener({ pushed, ready, onOpen }: { pushed: PushOpened | null; ready: boolean; onOpen: (p: PushOpened) => void }) {
   useEffect(() => {
     if (pushed && ready) onOpen(pushed)

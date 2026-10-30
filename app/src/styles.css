@@ -962,7 +962,33 @@ nav.tabbar .tab.on .tab-avatar { box-shadow: 0 0 0 2px var(--coral2); }
 .cg-role-seg button { font-size: 15px; padding: 8px 6px; }
 
 /* Elder safeguard notices (§8) — gentle, dismissible row at the top of Home. */
-.notice-stack { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+/* One floating card (owner decision, 2026-10-30), components/NoticeCard.tsx:
+   stays under the account bar while the page scrolls; more notices peek out
+   behind it. `top` is set from the bar's real height. */
+.notice-float { position: sticky; top: calc(var(--safe-top) + 8px); z-index: 30; margin-bottom: 14px; }
+.notice-float.stacked { margin-bottom: 22px; }
+.notice-float.stacked::before, .notice-float.stacked::after {
+  content: ""; position: absolute; border-radius: 14px; background: var(--accent-tint); border: 2px solid var(--accent-line);
+}
+.notice-float.stacked::before { left: 8px; right: 8px; top: 8px; bottom: -6px; z-index: -1; }
+.notice-float.stacked::after { left: 16px; right: 16px; top: 16px; bottom: -11px; z-index: -2; opacity: .7; }
+.notice-card {
+  display: flex; align-items: center; background: var(--accent-tint); border: 2px solid var(--accent-line); border-radius: 14px;
+  color: var(--ink); box-shadow: var(--shadow); touch-action: pan-y; user-select: none; -webkit-user-select: none;
+  transition: transform .15s ease, opacity .15s ease;
+}
+.notice-card-open {
+  flex: 1; min-width: 0; min-height: 48px; display: flex; align-items: center; gap: 8px; padding: 8px 4px 8px 14px;
+  border: none; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer;
+}
+.notice-card-msg { flex: 1; min-width: 0; font-size: 15px; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.notice-card-count {
+  flex: none; min-width: 24px; height: 24px; padding: 0 7px; border-radius: 12px; background: var(--accent); color: #fff;
+  font-size: 14px; font-weight: 700; line-height: 24px; text-align: center;
+}
+.notice-card .notice-x { margin: 0; }
+.notice-sheet-row { font-weight: 500; line-height: 1.4; }
+.jump-target { scroll-margin-top: calc(var(--safe-top) + 72px); }
 .notice { display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: var(--accent-tint); border: 2px solid var(--accent-line); border-radius: 14px; color: var(--ink); }
 .notice-msg { flex: 1; font-size: 15px; line-height: 1.4; }
 .notice-x { flex: none; width: 48px; height: 48px; margin: -12px -14px -12px 0; border: none; border-radius: 12px; background: none; color: var(--ink-2); font-size: 17px; cursor: pointer; }

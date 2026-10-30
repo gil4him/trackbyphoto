@@ -28,6 +28,10 @@ describe('noticesSeen', () => {
   it('a parent\'s 사진 tab: the evening photo count', () => {
     expect(noticesSeen({ kind: 'today', patientUid: 'mom' }, all)).toEqual(['evening'])
   })
+  it('a parent\'s day: what is already on it, for that parent only', () => {
+    expect(noticesSeen({ kind: 'day', patientUid: 'mom' }, [...all, n('none', 'daily.no_photo')])).toEqual(['photo1', 'photo2', 'fpReply', 'evening'])
+    expect(noticesSeen({ kind: 'day', patientUid: 'dad' }, all)).toEqual(['dadPhoto'])
+  })
   it('a digest: its own notice', () => {
     expect(noticesSeen({ kind: 'digest', digestId: 'd1' }, all)).toEqual(['digest'])
   })

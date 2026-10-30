@@ -12,7 +12,8 @@ import { PatientCard } from '../components/PatientCard'
 import { latestActivity, type ParentSummary } from '../lib/dashboard'
 import { useWorkerStatus } from '../hooks/useWorkerStatus'
 import { clock, dayCaption, dayEyebrow, farthestKm, memosOnDay } from '../lib/memoViews'
-import { addressed, honorific } from '../lib/people'
+import { honorific } from '../lib/people'
+import { NoticeCard } from '../components/NoticeCard'
 import { tr } from '../lib/lang'
 import { AWAY_KM, placeVisits, samePlaceRuns, trailStops, trailSummary, type LatLng, type TrailStop } from '../lib/trail'
 import { MAP_KEYS, KAKAO_IN_FRAME, pickProvider, type MapKeys } from '../lib/map'
@@ -31,22 +32,6 @@ import type { Memo, AppNotification, Reaction } from '../types'
  * recent upload finishes processing (caregiver sees the result without
  * having to leave the home screen).
  */
-function Notices({ notifications, onDismiss, parentName }: { notifications: AppNotification[]; onDismiss?: (id: string) => void; parentName?: string }) {
-  if (notifications.length === 0) return null
-  return (
-    <div className="notice-stack" role="status" aria-label={tr('가족 활동 알림', 'Family activity alerts')}>
-      {notifications.map((n) => (
-        <div key={n.id} className="notice">
-          <span className="notice-msg">{parentName ? addressed(n.message, parentName) : n.message}</span>
-          {onDismiss && (
-            <button className="notice-x" aria-label={tr('알림 지우기', 'Dismiss alert')} onClick={() => onDismiss(n.id)}>✕</button>
-          )}
-        </div>
-      ))}
-    </div>
-  )
-}
-
 /**
  * 다녀온 곳 on the parent's day (A13): the route drawn small under the
  * caption, 150px tall, with one pill that opens the full page — the whole
@@ -118,7 +103,7 @@ function DayMap({ stops, home, away, onOpen, keys }: { stops: TrailStop[]; home:
  * and words are given on each photo, and 사진 보내기 is the link on the
  * 보낸 사진 header at the end (`sentPhotos`).
  */
-export function ParentDayHome({ parentName, memos, byMemo, home, onOpen, onYesterday, onOpenTrail, notifications = [], onDismissNotification, topCard, sentPhotos, now = new Date(), keys = MAP_KEYS }: {
+export function ParentDayHome({ parentName, memos, byMemo, home, onOpen, onYesterday, onOpenTrail, notifications = [], onDismissNotification, onOpenNotification, topCard, sentPhotos, now = new Date(), keys = MAP_KEYS }: {
   parentName: string
   memos: Memo[]
   /** Hearts and words per memo (the reactions feed), when rolled out. */
@@ -133,6 +118,7 @@ export function ParentDayHome({ parentName, memos, byMemo, home, onOpen, onYeste
   onOpenTrail?: (day: Date) => void
   notifications?: AppNotification[]
   onDismissNotification?: (id: string) => void
+  onOpenNotification?: (n: AppNotification) => void
   /** A one-off card above the header (family's 알림 켜기). */
   topCard?: React.ReactNode
   /** 보낸 사진 with its header row (SentFamilyPhotos, headed), kept under the day. */
@@ -152,7 +138,7 @@ export function ParentDayHome({ parentName, memos, byMemo, home, onOpen, onYeste
   const who = honorific(parentName)
   return (
     <section className="page home-day" aria-label={tr(`${who}의 하루`, `${who}'s day`)}>
-      <Notices notifications={notifications} onDismiss={onDismissNotification} parentName={parentName} />
+      <NoticeCard notifications={notifications} onDismiss={onDismissNotification} onOpen={onOpenNotification} parentName={parentName} />
       {topCard}
       <header className="day-head">
         <div className="h-eyebrow">{dayEyebrow(now)}</div>
@@ -181,7 +167,7 @@ export function ParentDayHome({ parentName, memos, byMemo, home, onOpen, onYeste
   )
 }
 
-export function Home({ uid, patientName, greetingName, memos, onOpenAsk, onOpen, canCapture = true, notifications = [], onDismissNotification, recordsLabel, newsCard, topCard, canSendPhoto = false, sentPhotos, connectOnly = false, simple = false, parents = [], onOpenParent, now }: { /** The parent's 가족 소식 card, shown under the buttons. */ newsCard?: React.ReactNode; /** A one-off card above the greeting (family's 알림 켜기). */ topCard?: React.ReactNode; /** Family on a parent's home: the floating camera button sends the parent a photo. */ canSendPhoto?: boolean; /** Family: what has been sent, with the parent's answers. */ sentPhotos?: React.ReactNode; /** Simple edition, no parent yet: only `topCard` (엄마 연결하기), centred. */ connectOnly?: boolean; /** Simple edition: the family dashboard (A10) — one card per parent and one's own photos today; no 사진 찍기 / 지난 기록 buttons and no notice banner (the cards carry 새 소식). */ simple?: boolean; /** Simple edition: the connected parents, for the cards. */ parents?: ParentSummary[]; /** A card tapped: that parent's day. */ onOpenParent?: (uid: string) => void; /** Injected in tests. */ now?: Date; recordsLabel?: boolean; uid: string; patientName: string; greetingName: string; memos: Memo[]; onOpenAsk: () => void; onOpen: (id: string) => void; canCapture?: boolean; notifications?: AppNotification[]; onDismissNotification?: (id: string) => void }) {
+export function Home({ uid, patientName, greetingName, memos, onOpenAsk, onOpen, canCapture = true, notifications = [], onDismissNotification, onOpenNotification, recordsLabel, newsCard, topCard, canSendPhoto = false, sentPhotos, connectOnly = false, simple = false, parents = [], onOpenParent, now }: { /** The parent's 가족 소식 card, shown under the buttons. */ newsCard?: React.ReactNode; /** A one-off card above the greeting (family's 알림 켜기). */ topCard?: React.ReactNode; /** Family on a parent's home: the floating camera button sends the parent a photo. */ canSendPhoto?: boolean; /** Family: what has been sent, with the parent's answers. */ sentPhotos?: React.ReactNode; /** Simple edition, no parent yet: only `topCard` (엄마 연결하기), centred. */ connectOnly?: boolean; /** Simple edition: the family dashboard (A10) — one card per parent and one's own photos today; no 사진 찍기 / 지난 기록 buttons and no notice banner (the cards carry 새 소식). */ simple?: boolean; /** Simple edition: the connected parents, for the cards. */ parents?: ParentSummary[]; /** A card tapped: that parent's day. */ onOpenParent?: (uid: string) => void; /** Injected in tests. */ now?: Date; recordsLabel?: boolean; uid: string; patientName: string; greetingName: string; memos: Memo[]; onOpenAsk: () => void; onOpen: (id: string) => void; canCapture?: boolean; notifications?: AppNotification[]; onOpenNotification?: (n: AppNotification) => void; onDismissNotification?: (id: string) => void }) {
   const toast = useToast()
   const capture = useCapture(uid)
   const lastReadyId = useRef<string | null>(null)
@@ -215,7 +201,7 @@ export function Home({ uid, patientName, greetingName, memos, onOpenAsk, onOpen,
   if (connectOnly) {
     return (
       <section className="page home connect-only" aria-label={tr(`${who}의 홈`, `${who}'s home`)}>
-        {!simple && <Notices notifications={notifications} onDismiss={onDismissNotification} />}
+        {!simple && <NoticeCard notifications={notifications} onDismiss={onDismissNotification} onOpen={onOpenNotification} />}
         {topCard}
       </section>
     )
@@ -258,7 +244,7 @@ export function Home({ uid, patientName, greetingName, memos, onOpenAsk, onOpen,
 
   return (
     <section className="page home" aria-label={tr(`${who}의 홈`, `${who}'s home`)}>
-      <Notices notifications={notifications} onDismiss={onDismissNotification} />
+      <NoticeCard notifications={notifications} onDismiss={onDismissNotification} onOpen={onOpenNotification} />
 
       {topCard}
 
