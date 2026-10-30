@@ -5,9 +5,9 @@
  * failure here only means a photo without the line.
  *
  * The fact comes first and is counted here from the account's own photos, so
- * the model cannot get a number wrong; the model only words it. The first
- * photo of a day always gets a line (owner, 2026-10-30), later ones only for a
- * comparison. Korean only for now: English wording
+ * the model cannot get a number wrong; the model only words it. A photo with
+ * nothing worth saying gets no line, so some days have none: a plain "first
+ * photo of the day" line was tried and dropped (owner, 2026-10-30). Korean only for now: English wording
  * has not been approved. Behind `memoFunLine`, or admin_config/funLine
  * ({ allow: [uid] }) to try it on one family first.
  */
@@ -42,7 +42,6 @@ const DAILY = 1
 const DAILY_COMPARED = 2
 const HOME_RADIUS_KM = 0.3
 const ACTIVITY_COUNTS = new Set([3, 5, 10, 15, 20, 30])
-const WEEKDAYS = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일']
 export const MAX_LINE = 40
 
 /** What a meal or shop photo was about: the food, or the named place. '' when vague. */
@@ -110,11 +109,10 @@ export function chooseFact(args: { history: FunMemo[]; current: FunMemo; offsetM
     const nth = history.filter((m) => m.activity === current.activity && dayOf(m).slice(0, 7) === day.slice(0, 7)).length + 1
     if (ACTIVITY_COUNTS.has(nth)) return `이번 달 ${current.activity} 기록 ${nth}번째예요`
   }
-  if (today.length === 0) return `오늘의 첫 사진이에요 (${WEEKDAYS[new Date(`${day}T00:00:00Z`).getUTCDay()]} ${time})`
   return null
 }
 
-const FEELINGS = /맛있|즐거|행복|기쁘|부지런|열정|달인|출석왕|역사적|든든|차갑|춥|덥|피곤|힘드|졸리/
+const FEELINGS = /맛있|즐거|행복|기쁘|부지런|열정|달인|출석왕|역사적|든든|한식|양식|차갑|춥|덥|피곤|힘드|졸리/
 
 /** The joke of a line: the words of its last sentence, without their particle. */
 function jokeWords(line: string): string[] {
