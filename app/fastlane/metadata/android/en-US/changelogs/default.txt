@@ -1,1 +1,4 @@
-· Polished the plan screen.
+· Sharper photos with your phone's own camera.
+· Zoom in and rotate photos.
+· A parent's photos are grouped for a calmer view.
+· Settings now shows when alerts are off.

@@ -13,9 +13,10 @@ The app is a pair of phones.
    menu.
 2) The parent's phone never creates an account. It is linked once, by scanning
    the QR code the family phone shows or by tapping a link the family sends.
-   After that the app shows only a camera viewfinder. Having no menus, no
-   settings and no sign-out on the parent's phone is intentional: an elderly
-   parent presses one large button and the photo reaches the family. "내 사진"
+   After that the app shows one large 사진 찍기 ("take a photo") button, which
+   opens the phone's own camera. Having no menus, no settings and no sign-out
+   on the parent's phone is intentional: an elderly parent presses one large
+   button, takes the photo, and it reaches the family. "내 사진"
    (my photos) at the bottom-left shows their own photos; a family member's
    message pops up at the top and opens a reply screen when tapped.
 

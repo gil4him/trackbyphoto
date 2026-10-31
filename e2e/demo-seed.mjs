@@ -40,13 +40,13 @@ const DEMO_COMMENT = EN ? 'Mom, nice walk today!' : '엄마 산책 잘하셨어�
 const FIRST_COMMENT = EN ? 'Mom, what a nice day for a walk! 😊' : '엄마 오늘 날씨 좋았네요! 산책 잘하셨어요 😊'
 const FIRST_CAPTION = EN ? "Mom, let's go to Green Lake this weekend!" : '엄마, 주말에 한강 같이 가요!'
 const CAPTIONS = EN
-  ? ["Dad, let's have dinner together tonight", 'A drawing from your grandchild', '', "Let's go this weekend"]
-  : ['아빠, 오늘 저녁 같이 먹어요', '손주가 그린 그림이에요', '', '주말에 같이 가요']
+  ? ["Let's have dinner together tonight", 'A drawing from your grandchild', '', "Let's go this weekend"]
+  : ['오늘 저녁 같이 먹어요', '손주가 그린 그림이에요', '', '주말에 같이 가요']
 /** The title a photo gets when no model wrote one (memoSource 'stub'). */
 const STUB_MEMO = EN ? 'Took a photo' : '사진을 남겼어요'
 
 const MEMOS_KO = [
-  { day: 1, at: '15:10', file: 'photo3.jpg', lat: 37.5480, lng: 127.0745, place: '어린이대공원 · 능동, 광진구', address: '서울 광진구 능동로 216', activity: '자연', memo: '초록 나무가 가득한 공원', scene: '키 큰 나무 두 그루 사이로 넓은 잔디밭이 펼쳐져 있어요. 햇살이 따뜻한 오후예요.' },
+  { day: 1, at: '15:10', file: 'photo3.jpg', lat: 37.5480, lng: 127.0745, place: '어린이대공원 · 능동, 광진구', address: '서울 광진구 능동로 216', activity: '자연', memo: '어린이대공원에 다녀오셨어요', scene: '맑고 따뜻한 오후, 어린이대공원을 걸으며 사진을 남기셨어요.' },
   { day: 1, at: '18:20', file: 'photo1.jpg', lat: 37.5096, lng: 127.1040, place: '석촌호수 · 잠실동, 송파구', address: '서울 송파구 잠실로 148', activity: '산책', memo: '노을 지는 호숫가 산책', scene: '하늘이 주황빛으로 물들 무렵 호숫가 길을 걸으셨어요. 나무 사이로 해가 지고 있어요.' },
   { day: 2, at: '11:05', file: 'photo2.jpg', lat: 37.5178, lng: 127.0866, place: '한강공원 잠실지구 · 잠실동, 송파구', address: '서울 송파구 한가람로 65', activity: '휴식', memo: '한강공원에서 쉬어 가기', scene: '잔디밭 옆 산책로에서 잠시 쉬셨어요. 하늘이 맑고 바람이 시원해 보여요.' },
   { day: 3, at: '08:30', file: 'photo0.jpg', lat: 37.5207, lng: 127.1214, place: '올림픽공원 · 방이동, 송파구', address: '서울 송파구 올림픽로 424', activity: '산책', memo: '올림픽공원 아침 산책', scene: '맑은 하늘 아래 흙길을 따라 걸으셨어요. 양옆으로 나무가 서 있어요.' },
@@ -54,7 +54,7 @@ const MEMOS_KO = [
 
 // The same four days in Seattle, WA.
 const MEMOS_EN = [
-  { day: 1, at: '15:10', file: 'photo3.jpg', lat: 47.6386, lng: -122.2960, place: 'Washington Park Arboretum · Madison Park, Seattle', address: '2300 Arboretum Dr E, Seattle, WA', activity: '자연', memo: 'Tall trees at the Arboretum', scene: 'A warm afternoon, with sunlight on the wide lawn between the trees.' },
+  { day: 1, at: '15:10', file: 'photo3.jpg', lat: 47.6386, lng: -122.2960, place: 'Washington Park Arboretum · Madison Park, Seattle', address: '2300 Arboretum Dr E, Seattle, WA', activity: '자연', memo: 'A walk at the Arboretum', scene: 'A clear, warm afternoon. You walked through the Arboretum and stopped for a photo.' },
   { day: 1, at: '18:20', file: 'photo1.jpg', lat: 47.6295, lng: -122.3600, place: 'Kerry Park · Queen Anne, Seattle', address: '211 W Highland Dr, Seattle, WA', activity: '산책', memo: 'Took a photo at Kerry Park', scene: 'The sky turned orange over the water as the sun went down.' },
   { day: 2, at: '11:05', file: 'photo2.jpg', lat: 47.6097, lng: -122.3425, place: 'Pike Place Market · Downtown, Seattle', address: '85 Pike St, Seattle, WA', activity: '휴식', memo: 'Lunch at Pike Place Market', scene: 'A clear, breezy noon, sitting a while by the market.' },
   { day: 3, at: '08:30', file: 'photo0.jpg', lat: 47.6805, lng: -122.3281, place: 'Green Lake Park · Green Lake, Seattle', address: '7201 E Green Lake Dr N, Seattle, WA', activity: '산책', memo: 'Walked around Green Lake in the morning', scene: 'A clear, cool Monday morning, starting the day with a lap around the lake.' },
