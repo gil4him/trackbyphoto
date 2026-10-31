@@ -46,12 +46,17 @@ describe('내 하루', () => {
     expect(out).not.toContain('day-dot')
   })
 
-  it("two of a parent's photos in a row fold into one row; anything between them keeps them apart", () => {
+  it("a parent's photos that aren't new fold into one row, even with one's own between them; a new one stays out", () => {
     const mom = (id: string, h: number) => ({ memo: memo(id, at(h), { patientUid: 'mom' }), name: '엄마', color: 'red' })
     const folded = render({ parents: [mom('a', 12), mom('b', 11)] })
     expect(folded).toContain('엄마</b> · 사진 2장')
-    const apart = render({ memos: [memo('mine', at(11, 30))], parents: [mom('a', 12), mom('b', 11)] })
-    expect(apart).not.toContain('사진 2장')
+    const between = render({ memos: [memo('mine', at(11, 30))], parents: [mom('a', 12), mom('b', 11)] })
+    expect(between).toContain('엄마</b> · 사진 2장')
+    const arrivedNow = { createdAt: { toMillis: () => Date.now() + 60_000 } } as unknown as Partial<Memo>
+    const fresh = { memo: memo('c', at(13), { patientUid: 'mom', ...arrivedNow }), name: '엄마', color: 'red' }
+    const withNew = render({ parents: [fresh, mom('a', 12), mom('b', 11)] })
+    expect(withNew).toContain('엄마</b> · 사진 2장')
+    expect(withNew).toContain('diary-thumb')
   })
 
   it('an empty day says so, with 어제 보기', () => {

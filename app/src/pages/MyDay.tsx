@@ -3,7 +3,8 @@ import { DayCard } from '../components/DayCard'
 import { ParentGroupRow, ParentRow, SentDiaryRow } from '../components/DiaryRows'
 import { useWorkerStatus } from '../hooks/useWorkerStatus'
 import { clock, dayEyebrow, memosOnDay } from '../lib/memoViews'
-import { collapseParents, diaryEntries, myDayCaption, type ParentMemo } from '../lib/diary'
+import { collapseParents, diaryEntries, isNewParentPhoto, myDayCaption, type ParentMemo } from '../lib/diary'
+import { useParentsSeenAt } from '../hooks/useParentsSeenAt'
 import { tr } from '../lib/lang'
 import type { SentEntry } from './Today'
 import type { Memo } from '../types'
@@ -33,7 +34,8 @@ export function MyDay({ memos, parents, sent, onOpen, onOpenParentMemo, onOpenSe
   now?: Date
 }) {
   const mine = memosOnDay(memos, now)
-  const rows = collapseParents(diaryEntries(mine, parents, sent))
+  const seenAt = useParentsSeenAt()
+  const rows = collapseParents(diaryEntries(mine, parents, sent), (p) => isNewParentPhoto(p.memo, seenAt))
   const serverDown = useWorkerStatus(mine.some((m) => m.status === 'pending')) === 'down'
   const timeOf = (m: Memo) => clock(m.takenAt.toDate())
   return (

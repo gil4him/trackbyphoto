@@ -5,7 +5,8 @@ import { MemoRow } from '../components/MemoRow'
 import { ReceivedRow } from '../components/ReceivedRow'
 import { DayCard } from '../components/DayCard'
 import { ParentGroupRow, ParentRow, SentDiaryRow } from '../components/DiaryRows'
-import { collapseParents, type ParentMemo } from '../lib/diary'
+import { collapseParents, isNewParentPhoto, type ParentMemo } from '../lib/diary'
+import { useParentsSeenAt } from '../hooks/useParentsSeenAt'
 import { useOutbox } from '../hooks/useOutbox'
 import { useWorkerStatus } from '../hooks/useWorkerStatus'
 import type { OutboxItem } from '../lib/outbox'
@@ -58,6 +59,7 @@ export function Today({ memos, onOpen, uid, rx, onOpenTrail, onOpenVoiceAlbum, f
   const waiting = before ? [] : outbox
   // While a memo is waiting, check the memo server is actually up.
   const serverDown = useWorkerStatus(memos.some((m) => m.status === 'pending')) === 'down'
+  const seenAt = useParentsSeenAt()
 
   // Group recent shots by calendar day, newest day first. `memos` already
   // arrives ordered by takenAt desc (useMemos), so iterating in order keeps
@@ -133,7 +135,7 @@ export function Today({ memos, onOpen, uid, rx, onOpenTrail, onOpenVoiceAlbum, f
               )}
             </div>
             <DayCard label={dayHeading(g.date)}>
-              {collapseParents(g.entries).map((e) => {
+              {collapseParents(g.entries, (p) => isNewParentPhoto(p.memo, seenAt)).map((e) => {
                 const time = clock(new Date(e.at))
                 if (e.kind === 'received') return <ReceivedRow key={`f-${e.photo.id}`} photo={e.photo} onOpen={(id) => onOpenReceived?.(id)} />
                 if (e.kind === 'parent') return <ParentRow key={`p-${e.item.memo.id}`} item={e.item} onOpen={(m) => onOpenParentMemo?.(m)} time={time} />
