@@ -509,7 +509,7 @@ service cloud.firestore {
                          'createManagedElder', 'createPairingLink', 'approvePairing', 'unlinkDevice', 'deleteManagedElder',
                          'pairDevice', 'completePairing', 'deleteMyAccount',
                          'registerFcmToken', 'setChannels', 'setDigest', 'changePlan', 'searchAddress',
-                         'reportDevice', 'sendUpdateNudge'
+                         'reportDevice', 'sendUpdateNudge', 'logGrowthEvent'
                        ]
                     // An elder's phone, while its device is still linked,
                     // makes two requests: its push token and its app version

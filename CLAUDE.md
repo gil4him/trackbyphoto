@@ -67,6 +67,13 @@
 - Copy: button `aria-label` "사진 돌리기" / "Rotate photo"; failure toast "사진을 돌리지 못했어요 · 잠시 후 다시 시도해 주세요" / "Couldn't rotate the photo · Please try again in a moment"; no success toast. Changing these needs the owner's approval.
 - firestore.rules and the privacy text are unchanged.
 
+### 1.0.5 리뷰 요청·알리기 (owner decision, 2026-10-30, simple edition)
+- Review prompt (`lib/reviewPrompt.ts`, plugin `@capacitor-community/in-app-review`): family side only, native API directly with no pre-screen, when a family member opens a parent's 5th photo or the parent first replies, on accounts at least 3 days old, at most once in 90 days (`users/{uid}.lastReviewAskAt`, stamped by the worker). Flag `reviewPrompt` in `admin_config/plans`, default on (the one exception to flags shipping off: only an explicit false turns it off).
+- Pairing message for the store app, word for word: "{name}, 이 링크 한 번만 눌러 주세요 😊 / 사진 찍으면 제가 바로 볼 수 있어요. / 설치가 끝나면 이 링크를 한 번 더 눌러 주세요. / {link}", where {name} is the name the family registered, addressed as the app does (엄마, 아빠, 영희님), not always 엄마 (owner, 2026-10-30). The English message is unchanged.
+- 가족·친구에게 알리기: a row in the family's own Settings and a one-time card on 내 하루 after the 3rd photo; both open the share sheet with "요즘 엄마 안부 이걸로 해. / 엄마는 카메라만 누르면 되고, 난 엄마가 오늘 어디 갔는지 사진으로 봐. / 무료야 → https://www.daylieai.com". Hidden on English accounts (owner, 2026-10-30) until an English message is approved. The card reads "사진이 잘 오고 있어요. 주변에도 알려 보세요." (approved 2026-10-30). Parent screens unchanged. Changing these wordings needs the owner's approval.
+- Website name (owner, 2026-10-30): the Korean page of www.daylieai.com uses 데일리 and the English page Daylie; not 오늘하루, which is trademarked. Korean title "데일리 — 부모님 안부 사진 앱 | 셔터 한 번으로 가족에게".
+- `review_prompt_shown` and `share_tapped` are counted on `admin_daily` through the worker's `logGrowthEvent`; a parent's phone may not send it.
+
 ### Deploying
 - Never deploy uncommitted code. Order: commit → push to main (or merge the PR) → deploy from an up-to-date checkout of main, preferably a worktree from `origin/main`.
 - `worker/scripts/install.sh` and `simple/worker/install-simple.sh` enforce this (`--check` runs the guard alone; `FORCE_DEPLOY=1` only in emergencies, and tell the user).

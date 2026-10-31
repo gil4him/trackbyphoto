@@ -56,6 +56,7 @@ import {
 
 import { registerFcmToken, setChannels } from './push.js'
 import { reportDevice, sendUpdateNudge } from './device.js'
+import { logGrowthEvent } from './growth.js'
 import { setDigest } from './digest.js'
 import { changePlan } from './plan.js'
 import { searchAddress } from './geo.js'
@@ -98,6 +99,7 @@ export const HANDLERS: Record<string, Handler> = {
   deleteMyAccount,
   registerFcmToken,
   reportDevice,
+  logGrowthEvent,
   sendUpdateNudge,
   setChannels,
   setDigest,

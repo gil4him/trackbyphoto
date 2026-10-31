@@ -12,6 +12,8 @@ import { WorkerError } from '../../lib/worker'
 import { useToast } from '../../components/Toast'
 
 /** `refreshKey`: bumped by 새로고침; read the switches and the log again. */
+const isOn = (f: FlagInfo, flags: Record<string, boolean>) => flags[f.key] ?? f.defaultOn === true
+
 export function FlagsView({ refreshKey = 0 }: { refreshKey?: number }) {
   const toast = useToast()
   const [flags, setFlags] = useState<Record<string, boolean> | null>(null)
@@ -54,7 +56,7 @@ export function FlagsView({ refreshKey = 0 }: { refreshKey?: number }) {
 
   const tap = (f: FlagInfo) => {
     if (!flags) return
-    const on = flags[f.key] !== true
+    const on = !isOn(f, flags)
     if (f.confirm) setAsking({ f, on })
     else void flip(f, on)
   }
@@ -77,7 +79,7 @@ export function FlagsView({ refreshKey = 0 }: { refreshKey?: number }) {
                   <code>{f.key}</code>
                   {f.note && <small>{f.note}</small>}
                 </div>
-                <button type="button" className="hq-sw" role="switch" aria-checked={flags[f.key] === true} aria-label={f.name}
+                <button type="button" className="hq-sw" role="switch" aria-checked={isOn(f, flags)} aria-label={f.name}
                   disabled={busy !== null || asking !== null} onClick={() => tap(f)} />
               </div>
               {/* The second look, right under the switch that was tapped. */}

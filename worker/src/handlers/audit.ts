@@ -46,7 +46,7 @@ const RECIPIENTS_KEY = 'recipients'
 // Written only by the worker (rules stop clients from touching them), and
 // audited by the request that changes them. A plan change or a day counter
 // must never reach the elder as "가족이 설정을 바꿨어요".
-const WORKER_KEYS = new Set(['plan', 'dayCounters', 'channels', 'digest'])
+const WORKER_KEYS = new Set(['plan', 'dayCounters', 'channels', 'digest', 'lastReviewAskAt'])
 
 function recipientKey(r: Recipient): string {
   return `${r.name} ${r.phone}`

@@ -879,6 +879,7 @@ describe('managed elder sessions', () => {
     await assertSucceeds(setDoc(doc(elderDb(), 'requests', 'r5'), elderReq('reportDevice', { deviceId: 'dev1', ...version })))
     await assertFails(setDoc(doc(elderDb('dev2'), 'requests', 'r6'), elderReq('reportDevice', { deviceId: 'dev2', ...version })))
     await assertFails(setDoc(doc(elderDb(), 'requests', 'r7'), elderReq('sendUpdateNudge', { patientUid: ELDER })))
+    await assertFails(setDoc(doc(elderDb(), 'requests', 'r8'), elderReq('logGrowthEvent', { event: 'share_tapped' })))
   })
 
   it('anonymous session may only redeem a pairing code', async () => {
