@@ -35,11 +35,12 @@ a{color:#2C3A33}a:hover{color:#4F6A5E}
 .steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px}
 .sides{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px}
 .trust{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:24px}
+.manage{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px}
 .mcta{display:none}
 details summary{list-style:none;cursor:pointer}
 details summary::-webkit-details-marker{display:none}
 details[open] .chev{transform:rotate(180deg)}
-@media (max-width:960px){.trust{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:960px){.trust,.manage{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:860px){
 .hero,.steps,.sides{grid-template-columns:1fr}
 .h1{font-size:40px !important}
@@ -50,7 +51,7 @@ details[open] .chev{transform:rotate(180deg)}
 .qrrow{display:none !important}
 .pagepad{padding-bottom:88px}
 }
-@media (max-width:520px){.trust{grid-template-columns:1fr}.phone2{display:none !important}}
+@media (max-width:520px){.trust,.manage{grid-template-columns:1fr}.phone2{display:none !important}}
 </style>
 </head>
 <body>
@@ -125,8 +126,8 @@ details[open] .chev{transform:rotate(180deg)}
 <img src="../assets/en/family-pair-qr.jpg" alt="Family's screen: 'Connect Mom's phone' with a QR code and a Send the link button" style="width: 180px; border-radius: 22px; border: 6px solid #2C3A33">
 </div>
 <span style="display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 999px; background: #FF8A1F; font-size: 19px; font-weight: 800">1</span>
-<h3 style="margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.3px">Connect</h3>
-<p style="margin: 0; font-size: 17px; line-height: 1.6; color: #4F6A5E">Show the QR code on your phone and let your parent's camera see it. Far away? Send the link by message — they tap it once.</p>
+<h3 style="margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.3px">You start, then invite</h3>
+<p style="margin: 0; font-size: 17px; line-height: 1.6; color: #4F6A5E">Install Daylie on your phone and add your parent in Settings. Send them the link — they just tap Get, and the app connects to you by itself when they open it.</p>
 </div>
 <div style="display: flex; flex-direction: column; gap: 14px; padding: 28px; border-radius: 20px; background: #EAF6F0; border: 2px solid #CFE3D8">
 <div style="display: flex; justify-content: center; padding: 8px 0 12px">
@@ -190,7 +191,44 @@ details[open] .chev{transform:rotate(180deg)}
 </div>
 </section>
 
-<section id="trust" style="padding: 96px 0; background: #FFFFFF; border-top: 2px solid #CFE3D8; border-bottom: 2px solid #CFE3D8">
+<section id="manage" style="padding: 96px 0; background: #FFFFFF; border-top: 2px solid #CFE3D8; border-bottom: 2px solid #CFE3D8">
+<div class="wrap" style="display: flex; flex-direction: column; gap: 48px">
+<div style="display: flex; flex-direction: column; gap: 12px; text-align: center; align-items: center">
+<span style="font-size: 15px; font-weight: 700; color: #4F6A5E">Managed for them</span>
+<h2 class="h2" style="margin: 0; font-size: 40px; line-height: 1.2; font-weight: 800; letter-spacing: -0.8px">You handle the settings, so they don't have to</h2>
+<p style="margin: 0; font-size: 19px; line-height: 1.6; color: #4F6A5E; max-width: 640px">Your parent never needs to open a settings screen. Everything is changed from your phone.</p>
+</div>
+<div class="manage">
+<div style="display: flex; flex-direction: column; gap: 12px; padding: 28px; border-radius: 20px; background: #EAF6F0; border: 2px solid #CFE3D8">
+<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#FF8A1F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"></circle><path d="M3.5 12h17"></path><path d="M12 3.5c2.5 2.6 3.6 5.4 3.6 8.5s-1.1 5.9-3.6 8.5c-2.5-2.6-3.6-5.4-3.6-8.5s1.1-5.9 3.6-8.5z"></path></svg>
+<h3 style="margin: 0; font-size: 21px; font-weight: 800; letter-spacing: -0.3px">Their language</h3>
+<p style="margin: 0; font-size: 17px; line-height: 1.65; color: #4F6A5E">Korean or English — their screens and notifications follow.</p>
+</div>
+<div style="display: flex; flex-direction: column; gap: 12px; padding: 28px; border-radius: 20px; background: #EAF6F0; border: 2px solid #CFE3D8">
+<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#FF8A1F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11l8-6.5 8 6.5"></path><path d="M6 9.5V19.5h12V9.5"></path><path d="M10 19.5v-5h4v5"></path></svg>
+<h3 style="margin: 0; font-size: 21px; font-weight: 800; letter-spacing: -0.3px">Home location</h3>
+<p style="margin: 0; font-size: 17px; line-height: 1.65; color: #4F6A5E">Set it once, and days out of the house are written up as trips.</p>
+</div>
+<div style="display: flex; flex-direction: column; gap: 12px; padding: 28px; border-radius: 20px; background: #EAF6F0; border: 2px solid #CFE3D8">
+<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#FF8A1F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="3" width="10" height="18" rx="2.5"></rect><path d="M11 17.5h2"></path></svg>
+<h3 style="margin: 0; font-size: 21px; font-weight: 800; letter-spacing: -0.3px">A new phone</h3>
+<p style="margin: 0; font-size: 17px; line-height: 1.65; color: #4F6A5E">Switching phones? One QR scan connects the new one.</p>
+</div>
+<div style="display: flex; flex-direction: column; gap: 12px; padding: 28px; border-radius: 20px; background: #EAF6F0; border: 2px solid #CFE3D8">
+<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#FF8A1F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"></path><path d="M19.5 4.5v4h-4"></path><path d="M12 8.5v4l2.5 1.5"></path></svg>
+<h3 style="margin: 0; font-size: 21px; font-weight: 800; letter-spacing: -0.3px">App updates</h3>
+<p style="margin: 0; font-size: 17px; line-height: 1.65; color: #4F6A5E">See which version their phone runs, and send a reminder when it falls behind.</p>
+</div>
+<div style="display: flex; flex-direction: column; gap: 12px; padding: 28px; border-radius: 20px; background: #EAF6F0; border: 2px solid #CFE3D8">
+<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#FF8A1F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8.5" r="3"></circle><path d="M3.5 19c.6-3 2.8-4.8 5.5-4.8s4.9 1.8 5.5 4.8"></path><circle cx="16.5" cy="9.5" r="2.4"></circle><path d="M16 14.3c2.3.1 4 1.6 4.5 4.2"></path></svg>
+<h3 style="margin: 0; font-size: 21px; font-weight: 800; letter-spacing: -0.3px">Who can see</h3>
+<p style="margin: 0; font-size: 17px; line-height: 1.65; color: #4F6A5E">Invite siblings, and choose who can manage and who can only view.</p>
+</div>
+</div>
+</div>
+</section>
+
+<section id="trust" style="padding: 96px 0">
 <div class="wrap" style="display: flex; flex-direction: column; gap: 48px">
 <div style="display: flex; flex-direction: column; gap: 12px; text-align: center; align-items: center">
 <span style="font-size: 15px; font-weight: 700; color: #4F6A5E">Privacy</span>
@@ -221,30 +259,34 @@ details[open] .chev{transform:rotate(180deg)}
 </div>
 </section>
 
-<section id="faq" style="padding: 96px 0">
+<section id="faq" style="padding: 96px 0; background: #FFFFFF; border-top: 2px solid #CFE3D8; border-bottom: 2px solid #CFE3D8">
 <div class="wrap" style="display: flex; flex-direction: column; gap: 40px; max-width: 820px">
 <div style="display: flex; flex-direction: column; gap: 12px; text-align: center; align-items: center">
 <span style="font-size: 15px; font-weight: 700; color: #4F6A5E">FAQ</span>
 <h2 class="h2" style="margin: 0; font-size: 40px; line-height: 1.2; font-weight: 800; letter-spacing: -0.8px">Questions?</h2>
 </div>
 <div style="display: flex; flex-direction: column; gap: 12px">
-<details style="padding: 0 24px; border-radius: 20px; background: #FFFFFF; border: 2px solid #CFE3D8">
+<details style="padding: 0 24px; border-radius: 20px; background: #EAF6F0; border: 2px solid #CFE3D8">
 <summary style="display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 64px; font-size: 19px; font-weight: 700">Does my parent need an account?<svg class="chev" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2C3A33" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M6 9l6 6 6-6"></path></svg></summary>
 <p style="margin: 0 0 22px; font-size: 17px; line-height: 1.6; color: #4F6A5E">No. Your parent never makes an ID or a password. Their phone connects by seeing the QR code on your phone, or by tapping the link you send.</p>
 </details>
-<details style="padding: 0 24px; border-radius: 20px; background: #FFFFFF; border: 2px solid #CFE3D8">
+<details style="padding: 0 24px; border-radius: 20px; background: #EAF6F0; border: 2px solid #CFE3D8">
+<summary style="display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 64px; font-size: 19px; font-weight: 700">Can I install the app on my parent's phone for them?<svg class="chev" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2C3A33" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M6 9l6 6 6-6"></path></svg></summary>
+<p style="margin: 0 0 22px; font-size: 17px; line-height: 1.7; color: #4F6A5E">Neither iPhone nor Android lets anyone install an app on another person's phone remotely. Instead, the link you send opens the install screen right away — your parent taps Get once, and when they open the app it connects to you by itself.</p>
+</details>
+<details style="padding: 0 24px; border-radius: 20px; background: #EAF6F0; border: 2px solid #CFE3D8">
 <summary style="display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 64px; font-size: 19px; font-weight: 700">We live far apart. Can we still connect?<svg class="chev" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2C3A33" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M6 9l6 6 6-6"></path></svg></summary>
 <p style="margin: 0 0 22px; font-size: 17px; line-height: 1.6; color: #4F6A5E">Yes. Tap “Send the link” on your phone and send it by text message. Your parent taps it once; it takes them through installing the app and connecting.</p>
 </details>
-<details style="padding: 0 24px; border-radius: 20px; background: #FFFFFF; border: 2px solid #CFE3D8">
+<details style="padding: 0 24px; border-radius: 20px; background: #EAF6F0; border: 2px solid #CFE3D8">
 <summary style="display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 64px; font-size: 19px; font-weight: 700">Does location have to be allowed?<svg class="chev" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2C3A33" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M6 9l6 6 6-6"></path></svg></summary>
 <p style="margin: 0 0 22px; font-size: 17px; line-height: 1.6; color: #4F6A5E">No. Location is used only to name the place a photo was taken. If it's not allowed, photos are still sent to the family.</p>
 </details>
-<details style="padding: 0 24px; border-radius: 20px; background: #FFFFFF; border: 2px solid #CFE3D8">
+<details style="padding: 0 24px; border-radius: 20px; background: #EAF6F0; border: 2px solid #CFE3D8">
 <summary style="display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 64px; font-size: 19px; font-weight: 700">Who writes the short diary under each photo?<svg class="chev" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2C3A33" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M6 9l6 6 6-6"></path></svg></summary>
 <p style="margin: 0 0 22px; font-size: 17px; line-height: 1.6; color: #4F6A5E">Google's AI (Gemini) writes it from what's in the photo. Photos are sent only to write the note and are not used for AI training.</p>
 </details>
-<details style="padding: 0 24px; border-radius: 20px; background: #FFFFFF; border: 2px solid #CFE3D8">
+<details style="padding: 0 24px; border-radius: 20px; background: #EAF6F0; border: 2px solid #CFE3D8">
 <summary style="display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 64px; font-size: 19px; font-weight: 700">How much does it cost?<svg class="chev" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2C3A33" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M6 9l6 6 6-6"></path></svg></summary>
 <p style="margin: 0 0 22px; font-size: 17px; line-height: 1.6; color: #4F6A5E">The basics are free. To keep photos longer and let more family members see them, you can subscribe to the Plus or Family plan in the app. They are monthly subscriptions and can be cancelled at any time in your store's subscription settings.</p>
 </details>
@@ -252,7 +294,7 @@ details[open] .chev{transform:rotate(180deg)}
 </div>
 </section>
 
-<section id="download" style="padding: 32px 0 112px">
+<section id="download" style="padding: 96px 0 112px">
 <div class="wrap">
 <div style="display: flex; flex-direction: column; align-items: center; gap: 24px; text-align: center; padding: 64px 24px; border-radius: 32px; background: #FFF0DC; border: 2px solid #FFD9A6">
 <img src="../assets/icon.png" alt="Daylie app icon" style="width: 96px; height: 96px; border-radius: 22px">
