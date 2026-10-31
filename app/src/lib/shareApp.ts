@@ -27,6 +27,16 @@ export async function shareApp(): Promise<'shared' | 'copied'> {
   return 'copied'
 }
 
+/** Who the Today card names: the parent with the most photos today, or null
+ *  on a day with none (the card would otherwise read 0장). */
+export function shareCardSubject(parentsToday: { name: string }[]): { name: string; count: number } | null {
+  const counts = new Map<string, number>()
+  for (const { name } of parentsToday) counts.set(name, (counts.get(name) ?? 0) + 1)
+  let best: { name: string; count: number } | null = null
+  for (const [name, count] of counts) if (!best || count > best.count) best = { name, count }
+  return best
+}
+
 const cardKey = (uid: string) => `tbp.shareCard.${uid}`
 
 export function shareCardDone(uid: string): boolean {
