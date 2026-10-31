@@ -1037,7 +1037,8 @@ function App() {
                   onOpenParentMemo={openParentMemo}
                   onOpenSent={setOpenSent}
                   onYesterday={openYesterday}
-                  topCard={<>{pushOn && patients.length > 0 && <PushNudge />}{lang !== 'en' && parentItems.length >= 3 && <ShareAppCard uid={user.uid} />}</>}
+                  topCard={pushOn && patients.length > 0 ? <PushNudge /> : undefined}
+                  afterDay={lang !== 'en' && parentItems.length >= 3 ? <ShareAppCard uid={user.uid} parentsToday={parentItems.filter((p) => p.memo.takenAt.toDate().getTime() >= dayStart.getTime())} /> : undefined}
                 />
               ) : (
                 <Home uid={activePatientUid || user.uid} patientName={settings.patientName} greetingName={isSelf ? selfLabel : settings.patientName} memos={memos} onOpenAsk={openAsk} onOpen={setSelectedMemoId} canCapture={isSelf} notifications={bannerNotices} onDismissNotification={dismissNotification} onOpenNotification={openNotice} topCard={isSimple() && isSelf && !membershipsLoading && patients.length === 0 ? <ConnectParentCard onOpen={() => setConnectingParent(true)} onImParent={signOutToParent} /> : pushOn && patients.length > 0 ? <PushNudge /> : undefined} canSendPhoto={!!sendToParent} sentPhotos={familyPhotosOn && !isSelf ? <SentFamilyPhotos photos={familyPhotos} myUid={user.uid} /> : undefined} connectOnly={isSimple() && isSelf && !membershipsLoading && patients.length === 0} simple={isSimple()} parents={dashOn ? people.map((p) => ({ uid: p.patientUid, name: p.name, color: people.length > 1 ? colorOf[p.patientUid] : undefined, memos: parentsMemos[p.patientUid] ?? [], unread: notifications.find((n) => n.patientUid === p.patientUid && isFamilyEvent(n.type)) })) : undefined} onOpenParent={(uid) => { onSwitchPatient(uid); setTab('home') }} />

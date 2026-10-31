@@ -11,7 +11,7 @@ vi.mock('@capacitor/share', () => ({ Share: { canShare: h.canShare, share: h.sha
 vi.mock('./share', () => ({ copyPairMessage: h.copy }))
 vi.mock('./worker', () => ({ callWorker: h.callWorker }))
 
-import { markShareCardDone, shareApp, shareCardDone, SHARE_APP_TEXT } from './shareApp'
+import { markShareCardDone, shareApp, shareCardDone, shareCardSubject, SHARE_APP_TEXT } from './shareApp'
 
 describe('shareApp', () => {
   beforeEach(() => {
@@ -52,5 +52,14 @@ describe('the Today card', () => {
     markShareCardDone('a')
     expect(shareCardDone('a')).toBe(true)
     expect(shareCardDone('b')).toBe(false)
+  })
+})
+
+describe('shareCardSubject', () => {
+  it('names the parent with the most photos today', () => {
+    expect(shareCardSubject([{ name: '엄마' }, { name: '아빠' }, { name: '엄마' }])).toEqual({ name: '엄마', count: 2 })
+  })
+  it('is null on a day with no photos', () => {
+    expect(shareCardSubject([])).toBeNull()
   })
 })

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useToast } from './Toast'
-import { markShareCardDone, shareApp, shareCardDone } from '../lib/shareApp'
+import { markShareCardDone, shareApp, shareCardDone, shareCardSubject } from '../lib/shareApp'
 
 const LABEL = '가족·친구에게 알리기'
 
@@ -22,14 +22,15 @@ export function ShareAppRow() {
 }
 
 /** The Today card, once the 3rd photo has arrived. Gone for good after a tap or 닫기. */
-export function ShareAppCard({ uid }: { uid: string }) {
+export function ShareAppCard({ uid, parentsToday }: { uid: string; parentsToday: { name: string }[] }) {
   const share = useShareApp()
   const [done, setDone] = useState(() => shareCardDone(uid))
-  if (done) return null
+  const subject = shareCardSubject(parentsToday)
+  if (done || !subject) return null
   const finish = () => { markShareCardDone(uid); setDone(true) }
   return (
     <div className="share-app-card">
-      <p className="share-app-msg">사진이 잘 오고 있어요.<br />주변에도 알려 보세요.</p>
+      <p className="share-app-msg">{subject.name} 사진이 벌써 {subject.count}장 왔어요.<br />부모님 안부가 궁금한 친구에게도 알려 주세요.</p>
       <div className="share-app-actions">
         <button type="button" className="share-app-close" onClick={finish}>닫기</button>
         <button type="button" className="share-app-btn" onClick={() => { finish(); void share() }}>{LABEL}</button>
