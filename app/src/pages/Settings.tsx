@@ -26,6 +26,7 @@ import type { PlanReason } from '../lib/plan'
 import { S } from '../lib/strings'
 import type { PlanTier } from '../types'
 import { isSimple } from '../lib/edition'
+import { ShareAppRow } from '../components/ShareApp'
 import { defaultTextReplies } from '../lib/textReplies'
 import { LegalLinks } from '../components/LegalLinks'
 import { PUBLIC_ORIGIN } from '../lib/publicUrl'
@@ -659,6 +660,12 @@ export function Settings({ settings, onChange, user, onSignOut, activePatientUid
             </div>
           )
         })()}
+
+        {isSimple() && isSelf && lang !== 'en' && (
+          <div className="sect">
+            <ShareAppRow />
+          </div>
+        )}
 
         <div className="sect">
           <SectLab>{tr('도움말·약관', 'Help & terms')}</SectLab>

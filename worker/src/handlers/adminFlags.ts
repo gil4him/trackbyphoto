@@ -8,7 +8,7 @@
 
 import { getFirestore } from 'firebase-admin/firestore'
 import { WorkerError, type Caller } from '../context.js'
-import { PLAN_FLAGS, resetPlansCache, type PlanFlag } from '../plans.js'
+import { DEFAULT_ON_FLAGS, PLAN_FLAGS, resetPlansCache, type PlanFlag } from '../plans.js'
 import { requireAdmin } from './admin.js'
 import { adminLog } from './adminPeople.js'
 
@@ -21,7 +21,8 @@ export async function adminSetFlag(caller: Caller, data: { flag?: unknown; on?: 
   const ref = getFirestore().doc('admin_config/plans')
   const from = await getFirestore().runTransaction(async (tx) => {
     const snap = await tx.get(ref)
-    const was = snap.get(`flags.${flag}`) === true
+    const stored = snap.get(`flags.${flag}`)
+    const was = stored === undefined ? DEFAULT_ON_FLAGS.includes(flag as PlanFlag) : stored === true
     if (was === on) return null
     if (snap.exists) tx.update(ref, { [`flags.${flag}`]: on })
     else tx.set(ref, { flags: { [flag]: on } }, { merge: true })

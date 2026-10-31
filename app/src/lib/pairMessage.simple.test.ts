@@ -22,12 +22,14 @@ describe('simple pairing message', () => {
 
   it('with the app in a store: install, then tap the same link again', () => {
     const text = buildPairMessage('엄마', 'https://dayliesimple.web.app/pair?c=ABCD2345', 'ABCD2345', 24)
-    expect(text).toContain('[Daylie] 엄마 휴대폰을 연결해요.')
-    expect(text).toContain('앱을 설치해 주세요. (24시간 유효)')
-    expect(text).toContain('https://dayliesimple.web.app/pair?c=ABCD2345')
-    expect(text).toContain('설치 후 이 링크를 한 번 더 눌러주세요.')
-    expect(text.split('\n')).toContain('연결 코드: ABCD 2345')
-    expect(text).toContain("앱에서 '코드 입력'을 눌러 주세요")
+    expect(text).toBe('엄마, 이 링크 한 번만 눌러 주세요 😊\n사진 찍으면 제가 바로 볼 수 있어요.\n설치가 끝나면 이 링크를 한 번 더 눌러 주세요.\nhttps://dayliesimple.web.app/pair?c=ABCD2345')
+  })
+
+  it('opens with the name the family registered', () => {
+    const line = (name: string) => buildPairMessage(name, 'https://x/pair', 'ABCD2345', 24).split('\n')[0]
+    expect(line('아빠')).toBe('아빠, 이 링크 한 번만 눌러 주세요 😊')
+    expect(line('영희')).toBe('영희님, 이 링크 한 번만 눌러 주세요 😊')
+    expect(line('  ')).toBe('부모님, 이 링크 한 번만 눌러 주세요 😊')
   })
 })
 

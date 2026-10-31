@@ -269,7 +269,7 @@ export interface PlanEntitlements {
  *  A tier the doc leaves out is not offered. */
 export type Plans = Partial<Record<PlanTier, PlanEntitlements>> & {
   fairUse: { photosPerDay: number | null }
-  flags: Partial<Record<'reactions' | 'voiceReplies' | 'digest' | 'emailDigest' | 'pushFamily' | 'usageCaps' | 'retentionJob' | 'messengerFree' | 'trailMap' | 'planSheet' | 'familyPhotos' | 'cloudMemo' | 'payments' | 'planNudges' | 'absenceNudges' | 'pendingLinkNudges' | 'memoFunLine', boolean>>
+  flags: Partial<Record<'reactions' | 'voiceReplies' | 'digest' | 'emailDigest' | 'pushFamily' | 'usageCaps' | 'retentionJob' | 'messengerFree' | 'trailMap' | 'planSheet' | 'familyPhotos' | 'cloudMemo' | 'payments' | 'planNudges' | 'absenceNudges' | 'pendingLinkNudges' | 'reviewPrompt' | 'memoFunLine', boolean>>
   /** Who may use the plan sheet while `planSheet` is still off (the owner, testing purchases). */
   planSheetAllow?: string[]
 }

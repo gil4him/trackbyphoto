@@ -318,13 +318,10 @@ export function buildPairMessage(patientName: string, url: string, code: string,
     // The simple edition is an app from the store: the link page installs it,
     // and a second tap of the same link opens the app and connects.
     return [
-      `[Daylie] ${honorific(who)} 휴대폰을 연결해요.`,
-      `아래 링크를 눌러 Daylie 앱을 설치해 주세요. (${hours}시간 유효)`,
+      `${honorific(who)}, 이 링크 한 번만 눌러 주세요 😊`,
+      '사진 찍으면 제가 바로 볼 수 있어요.',
+      '설치가 끝나면 이 링크를 한 번 더 눌러 주세요.',
       url,
-      '설치 후 이 링크를 한 번 더 눌러주세요.',
-      '',
-      `연결 코드: ${code.slice(0, 4)} ${code.slice(4)}`,
-      "(직접 넣을 때는 앱에서 '코드 입력'을 눌러 주세요)",
     ].join('\n')
   }
   return [

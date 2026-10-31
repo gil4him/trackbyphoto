@@ -184,6 +184,17 @@ main { padding: 18px 22px calc(110px + var(--safe-bot)); }
   background: var(--surface); border: 2px solid var(--line); border-radius: var(--radius-card);
   display: flex; flex-direction: column; align-items: center; gap: 16px;
 }
+.share-app-card {
+  margin: 0 0 14px; padding: 16px; background: var(--surface);
+  border: 1px solid var(--line); border-radius: var(--radius-card);
+  display: flex; flex-direction: column; gap: 12px;
+}
+.share-app-msg { margin: 0; font-size: 16px; line-height: 1.45; color: var(--ink); word-break: keep-all; }
+.share-app-actions { display: flex; gap: 8px; }
+.share-app-btn, .share-app-close { min-height: 48px; border-radius: var(--radius-btn); font: inherit; font-size: 16px; font-weight: 700; cursor: pointer; }
+.share-app-btn { flex: 1; border: 0; background: var(--accent); color: var(--ink); }
+.share-app-btn:active { background: var(--accent-pressed); }
+.share-app-close { padding: 0 16px; border: 1px solid var(--line); background: none; color: var(--ink-2); }
 .connect-icon { font-size: 44px; line-height: 1; }
 .connect-msg { margin: 0; font-size: 17px; line-height: 1.5; color: var(--ink); word-break: keep-all; }
 .connect-btn {

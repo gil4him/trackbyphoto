@@ -50,7 +50,7 @@ import { digestIdFromPath } from './lib/digest'
 import { TIER_NAME, fromTier, type PlanReason } from './lib/plan'
 import { homeFor } from './lib/trail'
 import { deviceGeoLang, relativeDateLabel } from './util'
-import { applyAccountLang, tr } from './lib/lang'
+import { applyAccountLang, lang, tr } from './lib/lang'
 import { disablePush, onPushOpened, refreshPush, type PushOpened } from './lib/push'
 import { configurePayments } from './lib/payments'
 import { arrivalNow, noteArrivalRef } from './lib/arrival'
@@ -61,6 +61,8 @@ import { noticesSeen, type NoticeView } from './lib/noticeViews'
 import { staleNotices } from './lib/noticeCard'
 import { usePageVisible } from './hooks/usePageVisible'
 import { entitlements, flagOn, planSheetOpenFor } from './lib/plans'
+import { askForReviewIfDue, isParentReply, noteParentPhotoOpened, noteParentReply } from './lib/reviewPrompt'
+import { ShareAppCard } from './components/ShareApp'
 import { byMemo } from './lib/reactionsModel'
 import type { ReactionsContext } from './components/Reactions'
 import type { Memo, UserSettings } from './types'
@@ -469,6 +471,21 @@ function App() {
     setVoiceAlbum(false)
     setSendTarget(null)
   }
+  // The store's review prompt, family side only (lib/reviewPrompt.ts).
+  useEffect(() => {
+    if (!user || elder || !selectedMemo || selectedMemo.patientUid === user.uid) return
+    noteParentPhotoOpened(user.uid, selectedMemo.id)
+    void askForReviewIfDue(user, plans)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.uid, elder, selectedMemo?.id])
+  const parentReplied = notifications.some(isParentReply)
+  useEffect(() => {
+    if (!user || elder || !parentReplied) return
+    noteParentReply(user.uid)
+    void askForReviewIfDue(user, plans)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.uid, elder, parentReplied])
+
   const openParentMemo = (memo: Memo) => {
     if (!user) return
     setMemoReturnTo(activePatientUid || user.uid)
@@ -1015,6 +1032,7 @@ function App() {
                   onOpenParentMemo={openParentMemo}
                   onOpenSent={setOpenSent}
                   onYesterday={openYesterday}
+                  topCard={lang !== 'en' && parentItems.length >= 3 ? <ShareAppCard uid={user.uid} /> : undefined}
                 />
               ) : (
                 <Home uid={activePatientUid || user.uid} patientName={settings.patientName} greetingName={isSelf ? selfLabel : settings.patientName} memos={memos} onOpenAsk={openAsk} onOpen={setSelectedMemoId} canCapture={isSelf} notifications={bannerNotices} onDismissNotification={dismissNotification} onOpenNotification={openNotice} topCard={isSimple() && isSelf && !membershipsLoading && patients.length === 0 ? <ConnectParentCard onOpen={() => setConnectingParent(true)} onImParent={signOutToParent} /> : pushOn && patients.length > 0 && !isSimple() ? <PushNudge /> : undefined} canSendPhoto={!!sendToParent} sentPhotos={familyPhotosOn && !isSelf ? <SentFamilyPhotos photos={familyPhotos} myUid={user.uid} /> : undefined} connectOnly={isSimple() && isSelf && !membershipsLoading && patients.length === 0} simple={isSimple()} parents={dashOn ? people.map((p) => ({ uid: p.patientUid, name: p.name, color: people.length > 1 ? colorOf[p.patientUid] : undefined, memos: parentsMemos[p.patientUid] ?? [], unread: notifications.find((n) => n.patientUid === p.patientUid && isFamilyEvent(n.type)) })) : undefined} onOpenParent={(uid) => { onSwitchPatient(uid); setTab('home') }} />

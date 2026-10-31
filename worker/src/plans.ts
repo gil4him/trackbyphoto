@@ -37,8 +37,10 @@ export interface PlanEntitlements {
 }
 
 /** Rollout switches. Everything ships off and is turned on per feature. */
-export const PLAN_FLAGS = ['reactions', 'voiceReplies', 'digest', 'emailDigest', 'pushFamily', 'usageCaps', 'retentionJob', 'messengerFree', 'trailMap', 'planSheet', 'familyPhotos', 'cloudMemo', 'memoV2', 'memoWeather', 'memoDiary', 'memoFunLine', 'payments', 'ceoMorningPush', 'planNudges', 'absenceNudges', 'pendingLinkNudges'] as const
+export const PLAN_FLAGS = ['reactions', 'voiceReplies', 'digest', 'emailDigest', 'pushFamily', 'usageCaps', 'retentionJob', 'messengerFree', 'trailMap', 'planSheet', 'familyPhotos', 'cloudMemo', 'memoV2', 'memoWeather', 'memoDiary', 'memoFunLine', 'payments', 'ceoMorningPush', 'planNudges', 'absenceNudges', 'pendingLinkNudges', 'reviewPrompt'] as const
 export type PlanFlag = (typeof PLAN_FLAGS)[number]
+/** The exceptions: on until admin_config/plans says false. */
+export const DEFAULT_ON_FLAGS: readonly PlanFlag[] = ['reviewPrompt']
 
 export interface PlansDoc extends Partial<Record<PlanTier, PlanEntitlements>> {
   fairUse: { photosPerDay: number | null }

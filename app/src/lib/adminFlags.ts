@@ -11,6 +11,8 @@ export interface FlagInfo {
   name: string
   /** Shown under the name. */
   note?: string
+  /** On until admin_config/plans says false (worker DEFAULT_ON_FLAGS). */
+  defaultOn?: boolean
   /** Risky: the page asks first, saying what will happen. */
   confirm?: { on: string; off: string }
 }
@@ -41,6 +43,7 @@ export const FLAGS: FlagInfo[] = [
   { key: 'planNudges', name: '체험 알림 (체험 시작·종료 3일 전·종료)' },
   { key: 'absenceNudges', name: '부모님 24시간 미접속 알림', note: '부모님 휴대폰에 사진 한 장 부탁, 가족에게 안부 알림 (09–21시, 하루 한 번)' },
   { key: 'pendingLinkNudges', name: '12시간 미수락 연결·초대 알림', note: '연결 링크·가족 초대를 보낸 사람에게 한 번 (09–21시)' },
+  { key: 'reviewPrompt', name: '스토어 리뷰 요청', note: '가족 쪽에서만, 계정당 90일에 한 번', defaultOn: true },
   { key: 'ceoMorningPush', name: '아침 8시 요약 푸시', note: '매일 8시(서울)에 어제 요약을 운영자 휴대폰으로 보내요' },
 ]
 
