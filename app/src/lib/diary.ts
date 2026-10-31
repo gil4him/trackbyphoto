@@ -24,39 +24,41 @@ export function diaryEntries(own: Memo[], parents: ParentMemo[], sent: SentEntry
 }
 
 
-/** Two or more photos of one parent with nothing between them, as one row (A14.3). */
+/** Two or more photos of one parent that aren't new, as one row. */
 export interface ParentGroup { kind: 'parentGroup'; at: number; uid: string; items: ParentMemo[] }
 
-/** A diary line after collapsing: one of the entries above, or a parent's run of photos. */
+/** A diary line after collapsing: one of the entries above, or a parent's stack of photos. */
 export type DiaryRow<E extends { kind: string; at: number }> = E | ParentGroup
 
+/** A parent's photo that reached the family after they last looked at their day. */
+export function isNewParentPhoto(memo: Memo, seenAt: number): boolean {
+  return (memo.createdAt?.toMillis?.() ?? memo.takenAt.toDate().getTime()) > seenAt
+}
+
 /**
- * Collapse runs of the same parent's photos: 2+ `parent` entries of one parent
- * with no other row between them become one `parentGroup` (at = the first's
- * time). Anything else in between — one's own photo, a sent one, the other
- * parent — ends the run. Order is kept.
+ * Keeps a day quiet: each parent's photos that aren't new become one
+ * `parentGroup`, where the first of them was, even with other rows between
+ * them (at = the first's time). A new photo stays its own row, and so does a
+ * parent's only old one. Order is otherwise kept.
  */
-export function collapseParents<E extends { kind: string; at: number; item?: unknown }>(entries: E[]): DiaryRow<E>[] {
-  const out: DiaryRow<E>[] = []
-  let run: { uid: string; at: number; items: ParentMemo[]; first: E } | null = null
-  const flush = () => {
-    if (!run) return
-    out.push(run.items.length >= 2 ? { kind: 'parentGroup', at: run.at, uid: run.uid, items: run.items } : run.first)
-    run = null
-  }
+export function collapseParents<E extends { kind: string; at: number; item?: unknown }>(entries: E[], isNew: (item: ParentMemo) => boolean = () => false): DiaryRow<E>[] {
+  const stacks = new Map<string, ParentMemo[]>()
   for (const e of entries) {
-    if (e.kind === 'parent') {
-      const item = e.item as ParentMemo
-      const uid = item.memo.patientUid
-      if (run && run.uid === uid) { run.items.push(item); continue }
-      flush()
-      run = { uid, at: e.at, items: [item], first: e }
-      continue
-    }
-    flush()
-    out.push(e)
+    if (e.kind !== 'parent' || isNew(e.item as ParentMemo)) continue
+    const item = e.item as ParentMemo
+    stacks.set(item.memo.patientUid, [...(stacks.get(item.memo.patientUid) ?? []), item])
   }
-  flush()
+  const out: DiaryRow<E>[] = []
+  const placed = new Set<string>()
+  for (const e of entries) {
+    const item = e.item as ParentMemo
+    const stack = e.kind === 'parent' && !isNew(item) ? stacks.get(item.memo.patientUid) : undefined
+    if (!stack || stack.length < 2) { out.push(e); continue }
+    const uid = item.memo.patientUid
+    if (placed.has(uid)) continue
+    placed.add(uid)
+    out.push({ kind: 'parentGroup', at: e.at, uid, items: stack })
+  }
   return out
 }
 
