@@ -138,25 +138,25 @@ const PHASES = {
   // (UI_LANG=en DEMO_LANG=en), so every wait here is either a CSS selector
   // or t(Korean, English).
   STORE: {
-    // The parent's camera with a word from family floating over it.
+    // The parent's home screen with a word from family floating over it.
     '1-camera': {
       open: momPhone,
       prepare: async () => { remember(await seedTodayMemos({ momUid, kidUid: self, kidName: KID.name, count: 9 })) },
       go: async (p) => {
-        await viewfinder(p)
+        await parentHome(p)
         await p.waitForSelector('.elder-cam-bubble', { timeout: 30_000 })
         await waitText(p, t('글을 남겼어요', 'left a message'))
         await sleep(400)
       },
     },
-    // The same camera a moment after the shutter. The card goes after 1.5 s,
+    // The same screen a moment after a photo comes back from the phone's camera. The card goes after 1.5 s,
     // less than the picture takes to set up: keep that one timer.
     '2-sent': {
       open: momPhone,
       go: async (p) => {
-        await viewfinder(p)
+        await parentHome(p)
         await p.evaluate(() => { const st = window.setTimeout; window.setTimeout = (fn, ms, ...a) => st(fn, ms === 1500 ? 600_000 : ms, ...a) })
-        await p.click('.elder-cam-shutter')
+        await takePhoto(p)
         await p.waitForSelector('.elder-cam-overlay.ok', { timeout: 30_000 })
         await sleep(600)
       },
@@ -166,7 +166,7 @@ const PHASES = {
       open: momPhone,
       go: async (p) => {
         await unreadAgain()
-        await viewfinder(p)
+        await parentHome(p)
         await p.waitForSelector('.elder-cam-bubble', { timeout: 30_000 })
         await waitText(p, t('글을 남겼어요', 'left a message'))
         await p.click('.elder-cam-bubble')
@@ -185,8 +185,8 @@ const PHASES = {
       },
       go: async (p) => {
         await unreadAgain()
-        await viewfinder(p)
-        await p.click('.elder-cam-records')
+        await parentHome(p)
+        await p.click('.elder-launch-records')
         await p.waitForSelector('.elder-tile', { timeout: 30_000 })
         await p.waitForSelector('.elder-tile-new', { timeout: 30_000 })
         await sleep(600)
@@ -272,17 +272,17 @@ const PHASES = {
     'elder-records': {
       open: momPhone, rules: A14_PARENT,
       prepare: () => getFirestore().doc(`users/${momUid}`).set({ bigText: false }, { merge: true }),
-      go: async (p) => { await viewfinder(p); await p.click('.elder-cam-records'); await p.waitForSelector('.elder-tile'); await sleep(600) },
+      go: async (p) => { await parentHome(p); await p.click('.elder-launch-records'); await p.waitForSelector('.elder-tile'); await sleep(600) },
     },
     'elder-records-big': {
       open: momPhone, rules: A14_PARENT,
       prepare: () => getFirestore().doc(`users/${momUid}`).set({ bigText: true }, { merge: true }),
-      go: async (p) => { await viewfinder(p); await p.click('.elder-cam-records'); await p.waitForSelector('.elder-records.big .elder-tile'); await sleep(600) },
+      go: async (p) => { await parentHome(p); await p.click('.elder-launch-records'); await p.waitForSelector('.elder-records.big .elder-tile'); await sleep(600) },
     },
     'elder-records-bottom': {
       open: momPhone, rules: A14_PARENT,
       prepare: () => getFirestore().doc(`users/${momUid}`).set({ bigText: false }, { merge: true }),
-      go: async (p) => { await viewfinder(p); await p.click('.elder-cam-records'); await p.waitForSelector('.elder-tile'); await p.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight)); await sleep(600) },
+      go: async (p) => { await parentHome(p); await p.click('.elder-launch-records'); await p.waitForSelector('.elder-tile'); await p.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight)); await sleep(600) },
     },
   },
   // T1: the family's tabs by time. 오늘 (own page) is 내 하루: one's own
@@ -394,7 +394,7 @@ const PHASES = {
     'records-received': {
       prepare: () => seedTodayMemos({ momUid, kidUid: self, kidName: KID.name, count: 2 }),
       open: momPhone,
-      go: async (p) => { await viewfinder(p); await p.click('.elder-cam-records'); await waitText(p, '보냈어요'); await sleep(800) },
+      go: async (p) => { await parentHome(p); await p.click('.elder-launch-records'); await waitText(p, '보냈어요'); await sleep(800) },
     },
   },
   // A11: the parent's camera in the iPhone-camera layout. 엄마's phone has
@@ -404,30 +404,30 @@ const PHASES = {
     camera: {
       open: momPhone,
       // The seen family photos live in 내 사진 now; the camera has no quiet re-view bubble.
-      go: async (p) => { await viewfinder(p); await sleep(800) },
+      go: async (p) => { await parentHome(p); await sleep(800) },
     },
     'camera-news': {
       prepare: () => seedTodayMemos({ momUid, kidUid: self, kidName: KID.name, count: 1 }),
       open: momPhone,
-      go: async (p) => { await viewfinder(p); await waitText(p, '글을 남겼어요') },
+      go: async (p) => { await parentHome(p); await waitText(p, '글을 남겼어요') },
     },
     'camera-sent': {
       open: momPhone,
       go: async (p) => {
-        await viewfinder(p)
+        await parentHome(p)
         // The word from family, read; then the shutter. The sent card stays
         // 1.5 s, less than the picture takes to set up: keep that one timer.
         const bubble = await p.$('.elder-cam-bubble:not(.dim)')
         if (bubble) { await bubble.click(); await sleep(600) }
         await p.evaluate(() => { const st = window.setTimeout; window.setTimeout = (fn, ms, ...a) => st(fn, ms === 1500 ? 600_000 : ms, ...a) })
-        await p.click('.elder-cam-shutter')
+        await takePhoto(p)
         await p.waitForSelector('.elder-cam-overlay', { timeout: 30_000 })
       },
     },
     'camera-empty': {
       prepare: async () => { dad = await seedSecondParent({ kidUid: self, kidName: KID.name, yesterday: 0 }) },
       open: async (device) => { const k = await elderKit(); dadPhone ??= await k.phone(dad.uid); return openPage(k.camera, { device, session: dadPhone, extraStorage: LANG_STORAGE }) },
-      go: async (p) => { await viewfinder(p); await sleep(800) },
+      go: async (p) => { await parentHome(p); await sleep(800) },
     },
   },
   A10: {
@@ -503,21 +503,29 @@ async function elderKit() {
   return (elder = { link, phone, camera, stop })
 }
 
-/** The camera page on a parent's phone, up to a live shutter. Headless
- *  Chrome reports the camera as not asked yet even with the fake one: the
- *  plain sentence comes first — tap 카메라 켜기 to let it start. */
-async function viewfinder(p) {
+/** The home screen on a parent's phone, up to a live 사진 찍기 button. The
+ *  phone's questions are answered up front so no plain-sentence screen comes
+ *  first. The web's 아이콘 만들기 isn't in the phone app, so the store's
+ *  pictures leave it out. */
+async function parentHome(p) {
+  await p.browserContext().overridePermissions(SITE, ['camera', 'geolocation'])
   await p.goto(SITE, { waitUntil: 'load' })
-  await p.waitForSelector('.elder-cam, .signin', { timeout: 60_000 })
-  const next = await p.waitForSelector('.elder-ask-next', { timeout: 8_000 }).catch(() => null)
-  if (next) await next.click()
-  await p.waitForSelector('.elder-cam-shutter:not([disabled])', { timeout: 60_000 })
-  await sleep(1500) // the viewfinder's first frames
+  await p.waitForSelector('.elder-launch, .signin', { timeout: 60_000 })
+  if (STORE) await p.addStyleTag({ content: '.elder-launch-side { display: none !important; }' })
+  await p.waitForSelector('.elder-launch-shutter:not([disabled])', { timeout: 60_000 })
+  await sleep(800)
+}
+
+/** 사진 찍기: in a browser the phone's camera is a file picker; hand it a demo photo. */
+async function takePhoto(p) {
+  await p.waitForSelector('.elder-launch-shutter:not([disabled])', { timeout: 30_000 })
+  const [picker] = await Promise.all([p.waitForFileChooser({ timeout: 20_000 }), p.click('.elder-launch-shutter')])
+  await picker.accept([join(HERE, 'demo-photos', 'photo1.jpg')])
 }
 
 /** From the camera to the first photo of the run (the banner, lit or quiet). */
 async function openViewer(p) {
-  await viewfinder(p)
+  await parentHome(p)
   await p.waitForSelector('.elder-cam-bubble', { timeout: 30_000 })
   await p.click('.elder-cam-bubble')
   await waitText(p, '글로 답하기')
@@ -560,11 +568,11 @@ async function shootA6() {
       }
       await p.browserContext().close()
     }
-    // 3. A second phone, linked in-process (QR, no approval), with a fake camera: viewfinder, bubble, overlay.
+    // 3. A second phone, linked in-process (QR, no approval), with a fake camera: home, bubble, overlay.
     {
       const p = await openPage(camera, { device: DEVICE, session: await phone(), extraStorage: LANG_STORAGE })
       try {
-        await viewfinder(p)
+        await parentHome(p)
       } catch (err) {
         await p.screenshot({ path: shotFile('FAIL-camera') }).catch(() => {})
         throw err
@@ -591,8 +599,7 @@ async function shootA6() {
       await click(p, '돌아가기', '.fp-btn')
       await waitText(p, '다 보셨어요', 10_000)
       await snap(p, 'last-to-camera', { quick: true })
-      await p.waitForSelector('.elder-cam-shutter:not([disabled])', { timeout: 30_000 })
-      await p.click('.elder-cam-shutter')
+      await takePhoto(p)
       await p.waitForSelector('.elder-cam-overlay', { timeout: 30_000 })
       await snap(p, 'overlay', { quick: true })
       await p.browserContext().close()

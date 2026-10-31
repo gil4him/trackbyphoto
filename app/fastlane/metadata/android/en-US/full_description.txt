@@ -1,13 +1,13 @@
 Daylie lets parents share their day with the family, one photo at a time.
 
 ■ On your parent's phone: just a camera
-Opening the app opens the camera. No menus, no lists, no sign-in. One tap on the big round button sends the photo to the family with a friendly "Sent to your family." The photo also stays in the phone's own Photos app. "My photos" at the bottom-left shows everything they took, in a large grid.
+Opening the app shows one big "Take a photo" button. No menus, no lists, no sign-in. It opens the phone's own camera, and each photo goes to the family with a friendly "Sent" message. The photo also stays in the phone's own Photos app. "My photos" at the bottom-left shows everything they took, in a large grid.
 
 ■ The family sees the day, photo by photo
 On the family's phones, every photo lands in that day's timeline with the time and the name of the place. Daylie writes a short diary entry for each moment from what's in the photo, so you get a sense of the day even before you call. You can also see the places they went that day on a single map. "Today" shows your own photos and your parent's together, in the order of the day.
 
 ■ Leave a few words
-Write a short message under any photo and it pops up right on your parent's camera screen. One tap opens their reply screen, where they can answer with a ready-made phrase or write their own words.
+Write a short message under any photo and it pops up right on your parent's screen. One tap opens their reply screen, where they can answer with a ready-made phrase or write their own words.
 
 ■ Send photos to your parent
 Send one of your own photos with a line of your own, and it appears large on your parent's screen. They can answer with one "Thank you" or a short reply.

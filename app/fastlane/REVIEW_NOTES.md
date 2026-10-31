@@ -38,22 +38,22 @@ notes by `release_ios`).
    leaves a heart or a one-line comment, sends one of its own photos to the
    parent from that photo's ⋯ menu.
 2. **Parent's phone** — never creates an account. It is linked once (QR or a
-   tapped link) and from then on the app shows **only a camera viewfinder**.
+   tapped link) and from then on the app shows **one large 사진 찍기 button that opens the phone's own camera**.
 
-## 2. 카메라 화면만 보이는 것은 의도된 설계입니다 / Camera-only is intentional
+## 2. 큰 버튼 하나만 보이는 것은 의도된 설계입니다 / One big button is intentional
 
 **한국어** 부모님 휴대폰에는 메뉴, 목록, 설정, 로그아웃이 없습니다. 미완성
-화면이 아니라, 어르신이 큰 버튼 하나만 누르면 사진이 가족에게 가도록 일부러
-그렇게 만든 화면입니다. 버튼을 누르면 "가족에게 보냈어요"가 1.5초 보이고 다시
-사진 찍는 화면으로 돌아갑니다. 왼쪽 아래 **내 사진**으로 본인이 찍은 사진을
+화면이 아니라, 어르신이 큰 버튼을 눌러 휴대폰 카메라로 찍으면 사진이 가족에게 가도록 일부러
+그렇게 만든 화면입니다. 사진을 찍고 나면 "가족에게 보냈어요"가 1.5초 보이고 다시
+큰 버튼 화면으로 돌아갑니다. 왼쪽 아래 **내 사진**으로 본인이 찍은 사진을
 볼 수 있고(큰 사진 격자, 아래에 날짜로 찾기·카메라), 가족이 하트·한마디·사진을
 보내면 화면 위에 작은 알림이 떠오르며 눌러서 답장할 수 있습니다.
 
 **English** The parent's phone has no menus, no lists, no settings and no
 sign-out. This is not an unfinished screen — it is the product: an elderly
-parent presses one large button and the photo reaches the family. After a tap
-the screen says "가족에게 보냈어요" ("sent to your family") for 1.5 s and returns
-to the viewfinder. A small **내 사진** ("my photos") button at the bottom-left
+parent presses one large button, takes the photo with the phone's own camera,
+and it reaches the family. After the photo the screen says "가족에게 보냈어요" ("sent to your family") for 1.5 s and returns
+to the big button. A small **내 사진** ("my photos") button at the bottom-left
 shows their own photos (a large photo grid with 날짜로 찾기 / 카메라 buttons
 below), and a bubble appears at the top when the family sends a heart, a
 comment or a photo; tapping it opens the reply screen.
