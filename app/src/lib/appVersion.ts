@@ -56,6 +56,16 @@ export function appStatus(device: ElderDevice | undefined, latest: StoreVersions
   return isBehind(version, latest[platform]) ? { kind: 'behind', platform, version } : { kind: 'current', platform, version }
 }
 
+/** Whether a parent's linked phone can get alerts, for family. Older phones
+ *  say nothing, and neither does one still to be asked or one that will
+ *  retry its token: family can't help with those. */
+export function alertStatus(device: ElderDevice | undefined): 'on' | 'off' | 'web' | 'unknown' {
+  if (!device) return 'unknown'
+  if (device.platform !== 'ios' && device.platform !== 'android') return 'web'
+  const state = device.alerts?.state
+  return state === 'on' || state === 'off' ? state : 'unknown'
+}
+
 /** This phone's app version, or null on the website. */
 export async function nativeAppInfo(): Promise<NativeAppInfo | null> {
   const platform = Capacitor.getPlatform()
@@ -86,17 +96,17 @@ const REPORTED_KEY = 'tbp.device.reported'
  *  a day, which the worker allows for by version. */
 const REPORT_EVERY_MS = 60 * 60 * 1000
 
-/** Report again on a new version, or once an hour while the app is in use. */
-export function shouldReport(stored: string | null, version: string, now: number): boolean {
+/** Report again on a new version or alert state, or once an hour while the app is in use. */
+export function shouldReport(stored: string | null, version: string, now: number, alerts?: string): boolean {
   if (!stored) return true
-  const [v, at] = stored.split(':')
-  return v !== version || !(now - Number(at) < REPORT_EVERY_MS)
+  const [v, at, a] = stored.split(':')
+  return v !== version || !(now - Number(at) < REPORT_EVERY_MS) || (alerts !== undefined && alerts !== a)
 }
 
 export function lastReported(): string | null {
   try { return localStorage.getItem(REPORTED_KEY) } catch { return null }
 }
 
-export function rememberReported(version: string, now: number): void {
-  try { localStorage.setItem(REPORTED_KEY, `${version}:${now}`) } catch { /* private mode */ }
+export function rememberReported(version: string, now: number, alerts?: string): void {
+  try { localStorage.setItem(REPORTED_KEY, `${version}:${now}${alerts ? `:${alerts}` : ''}`) } catch { /* private mode */ }
 }

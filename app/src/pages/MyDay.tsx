@@ -14,7 +14,7 @@ import type { Memo } from '../types'
  * parents' photos of today (a run of one parent folds into one row) and what
  * they sent them woven in, indented. Sending lives in ⋯ on one's own photo.
  */
-export function MyDay({ memos, parents, sent, onOpen, onOpenParentMemo, onOpenSent, onYesterday, afterDay, now = new Date() }: {
+export function MyDay({ memos, parents, sent, onOpen, onOpenParentMemo, onOpenSent, onYesterday, topCard, afterDay, now = new Date() }: {
   /** One's own memos (any days; today's are picked here). */
   memos: Memo[]
   /** The parents' memos of today. */
@@ -26,6 +26,8 @@ export function MyDay({ memos, parents, sent, onOpen, onOpenParentMemo, onOpenSe
   onOpenSent: (id: string) => void
   /** 어제 보기 ›: 과거 at yesterday. */
   onYesterday: () => void
+  /** Above the day's rows (the 알림 켜기 card). */
+  topCard?: React.ReactNode
   /** Below the day's rows, above 어제 보기 (the one-time 가족·친구에게 알리기 card). */
   afterDay?: React.ReactNode
   now?: Date
@@ -41,6 +43,8 @@ export function MyDay({ memos, parents, sent, onOpen, onOpenParentMemo, onOpenSe
         <h1 className="day-title">{tr('내 하루', 'My day')}</h1>
         <div className="day-caption">{myDayCaption(mine.length, parents)}</div>
       </header>
+
+      {topCard}
 
       {rows.length === 0 ? (
         <div className="day-empty" role="status">

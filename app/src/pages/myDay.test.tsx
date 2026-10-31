@@ -70,4 +70,10 @@ describe('내 하루', () => {
   it('sending lives in ⋯ only: no 사진 보내기 link on the day', () => {
     expect(render({ memos: [memo('mine', at(9))] })).not.toContain('사진 보내기')
   })
+
+  it('puts the card it is given above the day, and the other below', () => {
+    const out = render({ topCard: <i>top</i>, afterDay: <i>after</i> })
+    expect(out.indexOf('top')).toBeLessThan(out.indexOf('오늘 아직 사진이 없어요'))
+    expect(out.indexOf('after')).toBeGreaterThan(out.indexOf('오늘 아직 사진이 없어요'))
+  })
 })

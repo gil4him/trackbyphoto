@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Capacitor } from '@capacitor/core'
 import { useToast } from './Toast'
 import { enablePush, pushState, type PushState } from '../lib/push'
 import { callWorker } from '../lib/worker'
@@ -8,8 +9,9 @@ import { NUDGE_DISMISS_KEY as DISMISS_KEY, nudgeDismissed, nudgeDismissValue } f
 /**
  * "새 사진이 오면 알려드릴까요?" for a family member whose device could get
  * pushes but hasn't been asked. The phone's own permission question appears
- * only after 알림 켜기 is tapped. Closing it (or answering) hides it for a
- * week. Never rendered on a parent's linked phone.
+ * only after 알림 켜기 is tapped. A device that refused gets the way to allow
+ * it instead. Closing it comes back after a day, a week once closed often
+ * (lib/nudge.ts). Never rendered on a parent's linked phone.
  */
 export function PushNudge({ state: forced }: { /** For tests; otherwise detected. */ state?: PushState }) {
   const toast = useToast()
@@ -22,11 +24,23 @@ export function PushNudge({ state: forced }: { /** For tests; otherwise detected
     if (forced === undefined) pushState().then(setState).catch(() => setState('unsupported'))
   }, [forced])
 
-  if (dismissed || state !== 'off') return null
+  if (dismissed || (state !== 'off' && state !== 'blocked')) return null
 
   const dismiss = () => {
-    try { localStorage.setItem(DISMISS_KEY, nudgeDismissValue()) } catch { /* private mode */ }
+    try { localStorage.setItem(DISMISS_KEY, nudgeDismissValue(Date.now(), localStorage.getItem(DISMISS_KEY))) } catch { /* private mode */ }
     setDismissed(true)
+  }
+  if (state === 'blocked') {
+    return (
+      <div className="install-hint" role="note">
+        <span className="install-msg">
+          {Capacitor.isNativePlatform()
+            ? tr('가족 소식 알림이 꺼져 있어요 · 휴대폰 설정 → Daylie → 알림에서 허용해 주세요', 'Family alerts are off · Allow them in Settings → Daylie → Notifications')
+            : tr('가족 소식 알림이 꺼져 있어요 · 브라우저 설정에서 허용해 주세요', 'Family alerts are off · Allow them in your browser settings')}
+        </span>
+        <button className="notice-x" onClick={dismiss} aria-label={tr('나중에', 'Later')}>✕</button>
+      </div>
+    )
   }
   const turnOn = async () => {
     setBusy(true)

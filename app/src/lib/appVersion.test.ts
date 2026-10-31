@@ -7,7 +7,7 @@ vi.mock('../firebase', () => ({ db: {} }))
 vi.mock('./storeLinks', () => ({ storeUrlFor: (kind: string) => (kind === 'ios' ? 'https://apps.apple.com/app/id6821605732' : 'https://play.google.com/store/apps/details?id=com.zymer.daylie') }))
 vi.mock('./worker', () => ({ callWorker: vi.fn(), isWorkerOffline: () => false, WorkerError: class extends Error {}, WORKER_OFFLINE_MESSAGE: '' }))
 
-import { appStatus, compareVersions, isBehind, nativeAppInfo, shouldReport, storeUrlForPlatform } from './appVersion'
+import { alertStatus, appStatus, compareVersions, isBehind, nativeAppInfo, shouldReport, storeUrlForPlatform } from './appVersion'
 import { buildStoreLinkMessage } from './share'
 import type { ElderDevice } from '../types'
 
@@ -36,6 +36,11 @@ describe('versions', () => {
     expect(shouldReport(`1.0.3:${DAY}`, '1.0.3', DAY + HOUR)).toBe(true)
     expect(shouldReport(`1.0.3:${DAY}`, '1.0.4', DAY + 1000)).toBe(true)
     expect(shouldReport('garbage', '1.0.3', DAY)).toBe(true)
+    // A change of alert state reports at once; a phone from before them doesn't count as one when nothing is said.
+    expect(shouldReport(`1.0.3:${DAY}:on`, '1.0.3', DAY + 1000, 'on')).toBe(false)
+    expect(shouldReport(`1.0.3:${DAY}:on`, '1.0.3', DAY + 1000, 'off')).toBe(true)
+    expect(shouldReport(`1.0.3:${DAY}`, '1.0.3', DAY + 1000, 'on')).toBe(true)
+    expect(shouldReport(`1.0.3:${DAY}:on`, '1.0.3', DAY + 1000)).toBe(false)
   })
 
   it('has no app version on the website', async () => {
@@ -73,5 +78,21 @@ describe('what family see', () => {
   it('the link message names the parent', () => {
     expect(buildStoreLinkMessage('엄마', 'https://apps.apple.com/app/id6821605732'))
       .toBe('[Daylie] 엄마 휴대폰의 Daylie 앱을 업데이트해 주세요.\nhttps://apps.apple.com/app/id6821605732')
+  })
+})
+
+describe('alertStatus', () => {
+  const phone = (platform: string, state?: 'on' | 'off' | 'not-asked' | 'no-token') =>
+    ({ id: 'd', name: 'p', platform, pairedAt: null, status: 'active' as const, ...(state ? { alerts: { state } } : {}) })
+  it('says only what family can act on', () => {
+    expect(alertStatus(phone('ios', 'on'))).toBe('on')
+    expect(alertStatus(phone('android', 'off'))).toBe('off')
+    expect(alertStatus(phone('ios', 'not-asked'))).toBe('unknown')
+    expect(alertStatus(phone('ios', 'no-token'))).toBe('unknown')
+  })
+  it('claims nothing about an old phone or no phone, and a website phone can only get alerts by installing', () => {
+    expect(alertStatus(phone('ios'))).toBe('unknown')
+    expect(alertStatus(undefined)).toBe('unknown')
+    expect(alertStatus(phone('web'))).toBe('web')
   })
 })

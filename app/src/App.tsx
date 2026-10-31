@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, lazy, Suspense, useCallback } from 'react'
 import { Capacitor } from '@capacitor/core'
+import { App as CapApp } from '@capacitor/app'
 import { doc, getDoc, onSnapshot, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from './firebase'
 import { appleSignInAvailable, useAuth } from './hooks/useAuth'
@@ -301,7 +302,11 @@ function App() {
   const [sendTarget, setSendTarget] = useState<{ uid: string; name: string } | null>(null)
   const sendTargetPhotos = useFamilyPhotos(sendTarget?.uid)
   useEffect(() => {
-    if (pushOn && familyUid) void refreshPush()
+    if (!pushOn || !familyUid) return
+    void refreshPush()
+    if (!Capacitor.isNativePlatform()) return
+    const handle = CapApp.addListener('appStateChange', ({ isActive }) => { if (isActive) void refreshPush() })
+    return () => { void handle.then((h) => h.remove()).catch(() => {}) }
   }, [pushOn, familyUid])
   // A push that was tapped in the installed app; opened once the family's
   // data has loaded (see PushOpener below).
@@ -1021,7 +1026,7 @@ function App() {
                   onDismissNotification={dismissNotification}
                   onOpenNotification={openNotice}
                   monthLine={monthLine}
-                  topCard={undefined}
+                  topCard={pushOn && patients.length > 0 ? <PushNudge /> : undefined}
                 />
               ) : isSimple() && isSelf && people.length > 0 ? (
                 <MyDay
@@ -1032,10 +1037,11 @@ function App() {
                   onOpenParentMemo={openParentMemo}
                   onOpenSent={setOpenSent}
                   onYesterday={openYesterday}
+                  topCard={pushOn && patients.length > 0 ? <PushNudge /> : undefined}
                   afterDay={lang !== 'en' && parentItems.length >= 3 ? <ShareAppCard uid={user.uid} parentsToday={parentItems.filter((p) => p.memo.takenAt.toDate().getTime() >= dayStart.getTime())} /> : undefined}
                 />
               ) : (
-                <Home uid={activePatientUid || user.uid} patientName={settings.patientName} greetingName={isSelf ? selfLabel : settings.patientName} memos={memos} onOpenAsk={openAsk} onOpen={setSelectedMemoId} canCapture={isSelf} notifications={bannerNotices} onDismissNotification={dismissNotification} onOpenNotification={openNotice} topCard={isSimple() && isSelf && !membershipsLoading && patients.length === 0 ? <ConnectParentCard onOpen={() => setConnectingParent(true)} onImParent={signOutToParent} /> : pushOn && patients.length > 0 && !isSimple() ? <PushNudge /> : undefined} canSendPhoto={!!sendToParent} sentPhotos={familyPhotosOn && !isSelf ? <SentFamilyPhotos photos={familyPhotos} myUid={user.uid} /> : undefined} connectOnly={isSimple() && isSelf && !membershipsLoading && patients.length === 0} simple={isSimple()} parents={dashOn ? people.map((p) => ({ uid: p.patientUid, name: p.name, color: people.length > 1 ? colorOf[p.patientUid] : undefined, memos: parentsMemos[p.patientUid] ?? [], unread: notifications.find((n) => n.patientUid === p.patientUid && isFamilyEvent(n.type)) })) : undefined} onOpenParent={(uid) => { onSwitchPatient(uid); setTab('home') }} />
+                <Home uid={activePatientUid || user.uid} patientName={settings.patientName} greetingName={isSelf ? selfLabel : settings.patientName} memos={memos} onOpenAsk={openAsk} onOpen={setSelectedMemoId} canCapture={isSelf} notifications={bannerNotices} onDismissNotification={dismissNotification} onOpenNotification={openNotice} topCard={isSimple() && isSelf && !membershipsLoading && patients.length === 0 ? <ConnectParentCard onOpen={() => setConnectingParent(true)} onImParent={signOutToParent} /> : pushOn && patients.length > 0 ? <PushNudge /> : undefined} canSendPhoto={!!sendToParent} sentPhotos={familyPhotosOn && !isSelf ? <SentFamilyPhotos photos={familyPhotos} myUid={user.uid} /> : undefined} connectOnly={isSimple() && isSelf && !membershipsLoading && patients.length === 0} simple={isSimple()} parents={dashOn ? people.map((p) => ({ uid: p.patientUid, name: p.name, color: people.length > 1 ? colorOf[p.patientUid] : undefined, memos: parentsMemos[p.patientUid] ?? [], unread: notifications.find((n) => n.patientUid === p.patientUid && isFamilyEvent(n.type)) })) : undefined} onOpenParent={(uid) => { onSwitchPatient(uid); setTab('home') }} />
               ))}
               {connectingParent && (
                 <RegisterElder

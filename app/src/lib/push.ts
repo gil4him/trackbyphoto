@@ -43,6 +43,17 @@ const IOS_APP_PUSH_READY = true
 const nativeReady = () => Capacitor.getPlatform() !== 'ios' || IOS_APP_PUSH_READY
 /** The phone can take a while to get a token on a weak connection; don't hang on it. */
 const TOKEN_TIMEOUT_MS = 20_000
+/** The worker may have lost a token we still remember, so tell it again daily. */
+const REGISTER_EVERY_MS = 24 * 3600 * 1000
+const REGISTERED_AT_KEY = 'tbp.push.registeredAt'
+const ELDER_REGISTERED_AT_KEY = 'tbp.push.elderRegisteredAt'
+
+const registeredLately = (key: string, now = Date.now()) => {
+  try { return now - Number(localStorage.getItem(key)) < REGISTER_EVERY_MS } catch { return false }
+}
+const stampRegistered = (key: string, now = Date.now()) => {
+  try { localStorage.setItem(key, String(now)) } catch { /* private mode */ }
+}
 
 const remembered = () => { try { return localStorage.getItem(TOKEN_KEY) } catch { return null } }
 const remember = (token: string | null) => {
@@ -95,18 +106,20 @@ export async function enablePush(): Promise<PushState> {
   const token = await currentToken()
   await callWorker('registerFcmToken', { token })
   remember(token)
+  stampRegistered(REGISTERED_AT_KEY)
   return 'on'
 }
 
-/** On app start: if this device has pushes on, make sure the worker has its
- *  current token (browsers rotate them). Never asks permission. */
+/** On app start and return: if this device has pushes on, make sure the worker
+ *  has its current token (browsers rotate them). Never asks permission. */
 export async function refreshPush(): Promise<void> {
   if ((await pushState()) !== 'on') return
   try {
     const token = await currentToken()
-    if (token !== remembered()) {
+    if (token !== remembered() || !registeredLately(REGISTERED_AT_KEY)) {
       await callWorker('registerFcmToken', { token })
       remember(token)
+      stampRegistered(REGISTERED_AT_KEY)
     }
   } catch (err) {
     console.warn('[push] token refresh failed', err)
@@ -114,8 +127,12 @@ export async function refreshPush(): Promise<void> {
 }
 
 const ELDER_TOKEN_KEY = 'tbp.push.elderToken'
+// With the device: a phone linked again keeps its token but is a new device.
 const rememberedElder = () => { try { return localStorage.getItem(ELDER_TOKEN_KEY) } catch { return null } }
-const rememberElder = (token: string) => { try { localStorage.setItem(ELDER_TOKEN_KEY, token) } catch { /* private mode */ } }
+const rememberElder = (deviceId: string, token: string) => {
+  try { localStorage.setItem(ELDER_TOKEN_KEY, `${deviceId}:${token}`) } catch { /* private mode */ }
+  stampRegistered(ELDER_REGISTERED_AT_KEY)
+}
 
 /** A parent's paired phone: the phone's own question, then the token to the
  *  worker with the device it belongs to. True once pushes are on. */
@@ -125,21 +142,23 @@ export async function enableElderPush(deviceId: string): Promise<boolean> {
   if (receive !== 'granted') return false
   const token = await nativeToken()
   await callWorker('registerFcmToken', { token, deviceId })
-  rememberElder(token)
+  rememberElder(deviceId, token)
   return true
 }
 
 /** A parent's phone that already allows notifications: keep the worker's
- *  copy of the token current. Never asks. */
-export async function refreshElderPush(deviceId: string): Promise<void> {
-  if (!isNative || !nativeReady()) return
+ *  copy of the token current. Never asks. Says whether the worker has it. */
+export async function refreshElderPush(deviceId: string): Promise<'on' | 'no-token'> {
+  if (!isNative || !nativeReady()) return 'no-token'
   try {
     const token = await nativeToken()
-    if (token === rememberedElder()) return
+    if (`${deviceId}:${token}` === rememberedElder() && registeredLately(ELDER_REGISTERED_AT_KEY)) return 'on'
     await callWorker('registerFcmToken', { token, deviceId })
-    rememberElder(token)
+    rememberElder(deviceId, token)
+    return 'on'
   } catch (err) {
     console.warn('[push] elder token refresh failed', err)
+    return 'no-token'
   }
 }
 
