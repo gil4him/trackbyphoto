@@ -22,9 +22,6 @@ Register your parent, then show the QR code on your phone and let their phone's 
 · Set your parent's home, so trips are written up as trips.
 · Get a notification for each new photo and reply, and an evening count of the day's photos.
 
-■ Plans
-The basics are free. To keep photos longer and let more family members see them, you can subscribe to the Plus or Family plan in the app. They are monthly auto-renewing subscriptions and can be cancelled at any time in your store's subscription settings.
-
 Location is used only to name the place a photo was taken. If it's not allowed, photos are still sent. Each photo's short note is written by Google's AI (Gemini). Photos are sent only to write the note and are not used for AI training.
 
 Privacy policy: https://dayliesimple.web.app/en/privacy

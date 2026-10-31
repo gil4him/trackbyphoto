@@ -80,22 +80,6 @@ To see the parent's side: sign-in screen → **"부모님 휴대폰이에요"** 
 parent's phone") → **"코드 입력"** ("enter code") → type the 8-character pairing
 code generated in the family account under *Settings → 부모님*.
 
-## 3b. 구독 / In-app subscriptions
-
-**한국어** 요금제는 가족 계정의 **설정 → 부모님께 드리는 선물**에서 엽니다.
-Free(무료) · Plus(월) · Family(월). Plus와 Family는 월 단위 자동 갱신 구독이며,
-요금제 화면에 가격·기간·자동 갱신 안내, 개인정보처리방침·이용약관 링크, 구독
-관리, 구매 복원이 있습니다. Sandbox(Apple) / 라이선스 테스터(Play) 계정으로
-"Plus 시작하기"를 누르면 구매 흐름을 볼 수 있습니다. 구독하면 그 부모님의
-사진 보관 기간과 함께 보는 가족 수가 늘어납니다.
-
-**English** The plan sheet opens from the family account's **Settings →
-부모님께 드리는 선물**. Free · Plus (monthly) · Family (monthly); Plus and Family
-are auto-renewing monthly subscriptions. The sheet shows price, period and
-auto-renewal wording, privacy/terms links, manage subscription and restore
-purchases. With a Sandbox (Apple) / license-tester (Play) account, tap "Plus
-시작하기" to run the purchase flow. A subscription extends how long that parent's
-photos are kept and how many family members can view them.
 
 ## 3c. AI 사진 메모 / AI photo memos
 
