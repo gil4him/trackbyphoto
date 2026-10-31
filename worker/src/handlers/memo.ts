@@ -659,6 +659,12 @@ export class MemoScheduler {
     this.timers.clear()
   }
 
+  /** After stop(): resolves once the memos being written are done, alerts sent.
+   *  Queued ones stay pending in Firestore for the next start. */
+  async settled(): Promise<void> {
+    while (this.running.size) await new Promise((r) => setTimeout(r, 50))
+  }
+
   /** Memos waiting for the model, including the ones being written. */
   get waiting(): number {
     return this.fresh.length + this.rewrites.length + this.timers.size + this.running.size

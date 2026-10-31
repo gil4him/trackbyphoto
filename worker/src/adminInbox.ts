@@ -12,7 +12,7 @@
 import { seoulDate } from './adminMetrics.js'
 
 export type When = 'now' | 'day' | 'wk'
-export type RuleId = 'quietParent' | 'workerDown' | 'memoSlow' | 'unpaired' | 'noGuardian' | 'familyLimit' | 'costOverBudget' | 'disabledAccount'
+export type RuleId = 'quietParent' | 'workerDown' | 'pushDown' | 'memoSlow' | 'unpaired' | 'noGuardian' | 'familyLimit' | 'costOverBudget' | 'disabledAccount'
 
 export interface InboxRow { name: string; fact: string; value: string }
 export interface InboxTarget { uid: string; kind: 'parent' | 'child' }
@@ -48,7 +48,7 @@ export interface InboxInput {
   accounts: InboxAccount[]
   /** Photos by when they were taken, at least the last 10 days. */
   memos: { patientUid: string; atMs: number }[]
-  worker: { lastSeenMs: number | null; modelUp: boolean | null }
+  worker: { lastSeenMs: number | null; modelUp: boolean | null; pushFailAtMs?: number | null; pushOkAtMs?: number | null; pushFailCode?: string | null }
   /** Median memo time over the last 15 minutes (D7); null until measured. */
   memoP50Ms: number | null
   /** Family members each plan allows (admin_config/plans). */
@@ -119,6 +119,19 @@ export function workerDown(i: InboxInput): InboxItem | null {
     why: '사진은 안전하게 쌓이지만, 서버가 돌아올 때까지 가족에게 메모가 가지 않아요. Mac mini가 켜져 있는지, 워커 로그를 확인해 주세요.',
     rows: [row('마지막 신호', '', ago), row('AI 모델', '', i.worker.modelUp === null ? '—' : i.worker.modelUp ? '응답 중' : '응답 없음')],
     targets: [],
+  }
+}
+
+/** The last push that went out failed, and none has got through since. */
+export function pushDown(i: InboxInput): InboxItem | null {
+  const { pushFailAtMs: failAt, pushOkAtMs: okAt, pushFailCode: code } = i.worker
+  if (!failAt || (okAt && okAt > failAt)) return null
+  return {
+    id: idOf('pushDown', [code ?? 'unknown']), rule: 'pushDown', when: 'now', category: '시스템',
+    title: '휴대폰 알림이 가지 않고 있어요',
+    sub: `마지막 실패 ${Math.round((i.now - failAt) / 60_000)}분 전`,
+    why: '알림이 잠금 화면에 뜨지 않으면 가족이 사진을 놓쳐요. third-party-auth-error이면 Firebase의 APNs 키를 확인해 주세요. 워커 로그의 [push] not delivered에 자세한 내용이 있어요.',
+    rows: [row('오류', '', code ?? '알 수 없음')], targets: [],
   }
 }
 
@@ -204,7 +217,7 @@ export function disabledAccount(i: InboxInput): InboxItem | null {
   }
 }
 
-export const RULES = [quietParent, workerDown, memoSlow, unpaired, noGuardian, familyLimit, costOverBudget, disabledAccount]
+export const RULES = [quietParent, workerDown, pushDown, memoSlow, unpaired, noGuardian, familyLimit, costOverBudget, disabledAccount]
 const ORDER: Record<When, number> = { now: 0, day: 1, wk: 2 }
 
 export function inboxItems(i: InboxInput): InboxItem[] {

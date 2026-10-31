@@ -26,8 +26,20 @@ export function recordMemoTime(createdAtMs: number | null | undefined, readyAt =
   if (memoTimes.length > MAX_MEMOS) memoTimes.splice(0, memoTimes.length - MAX_MEMOS)
 }
 
+/** When a push last got through and last did not; the heartbeat publishes it. */
+export interface PushHealth { okAt: number | null; failAt: number | null; failCode: string | null }
+let push: PushHealth = { okAt: null, failAt: null, failCode: null }
+
+export function recordPushOk(at = Date.now()): void { push = { ...push, okAt: at } }
+export function recordPushFailure(code: string, at = Date.now()): void { push = { ...push, failAt: at, failCode: code } }
+export function pushHealth(): PushHealth { return { ...push } }
+
 /** Tests start clean. */
-export function resetSystemHistory(): void { beats.length = 0; memoTimes.length = 0 }
+export function resetSystemHistory(): void {
+  beats.length = 0
+  memoTimes.length = 0
+  push = { okAt: null, failAt: null, failCode: null }
+}
 
 export function history(): { beats: Beat[]; memoTimes: MemoTime[]; startedAt: number } {
   return { beats: [...beats], memoTimes: [...memoTimes], startedAt }

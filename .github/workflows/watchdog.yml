@@ -1,0 +1,44 @@
+# Is the simple edition's worker alive, and are its pushes getting through?
+# From outside the Mac mini, because nothing on it can report it being down.
+# One issue stays open while there's a problem and closes itself after; GitHub
+# emails the repo's owner when it opens. The web key is the public one the app
+# ships with; see worker/scripts/watchdog.mjs.
+
+name: Worker watchdog
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check the heartbeat, keep the issue in step
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FIREBASE_PROJECT_ID: daylie-simple-4df13
+          TITLE: 'Worker watchdog: the Daylie worker needs a look'
+        run: |
+          export FIREBASE_API_KEY=$(sed -n 's/^VITE_FIREBASE_API_KEY=//p' simple/app/.env.simple)
+          out=$(node worker/scripts/watchdog.mjs)
+          echo "$out"
+          open=$(gh issue list --state open --search "\"$TITLE\" in:title" --json number --jq '.[0].number // empty')
+          case "$out" in
+            problem=*)
+              [ -n "$open" ] || gh issue create --title "$TITLE" --body "${out#problem=}"
+              ;;
+            *)
+              [ -z "$open" ] || gh issue close "$open" --comment "Healthy again."
+              ;;
+          esac
