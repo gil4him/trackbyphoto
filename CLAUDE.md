@@ -56,6 +56,11 @@
 ### 이번 달 기록 일수 (owner decision, 2026-10-30)
 - "이번 달 {n}일째 기록 중" / "{n} days of photos this month", from the second day: on the parent's home under 사진 찍기, and on the family's view of a parent's day. It counts days with a photo this month, so a missed day takes nothing away. Nothing anywhere mentions a broken run or warns about losing one; an unbroken run appears only as a celebration in the playful line. `hooks/useMonthDays.ts`.
 
+### 알림 안정성 (owner, 2026-10-30)
+- The lock screen alert is the retention loop. `handlers/push.ts` tries a brief FCM failure once more, and one person's failure never stops the others'. A deploy waits up to 15 seconds for memos in hand, so a restart doesn't cut off an alert. Each send FCM accepts stamps `fcmSeen`, so an active phone is not swept as stale.
+- The heartbeat publishes `system/worker.push` (`okAt`, `failAt`, `failCode`). 운영실 할 일 shows `pushDown`, and `.github/workflows/watchdog.yml` checks from outside the Mac mini every 30 minutes and keeps one GitHub issue open while the worker is silent over 10 minutes or the last push failed. That issue is public: time and FCM's code only, never a name or uid.
+- FCM accepting a push is not delivery, and Apple gives no receipt: `devices: 1` with no alert means the phone (Focus, settings) or Apple. Keep this in mind when an alert is reported missing.
+
 ### 날씨 (owner decision, 2026-10-30)
 - A photo without a location uses the location of that person's closest photo of the same local day to look up real weather for the memo; with none, no weather. Never home's weather by default, and the photo's own place and address stay empty. The memo prompt is unchanged.
 

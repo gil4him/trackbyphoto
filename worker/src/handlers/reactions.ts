@@ -223,6 +223,11 @@ export class ReactionScheduler {
     this.timers.clear()
   }
 
+  /** After stop(): resolves once the reaction in hand is done. */
+  async settled(): Promise<void> {
+    while (this.running) await new Promise((r) => setTimeout(r, 50))
+  }
+
   async idle(): Promise<void> {
     while (this.running || this.queue.length) await new Promise((r) => setTimeout(r, 50))
   }

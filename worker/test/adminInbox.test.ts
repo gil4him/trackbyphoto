@@ -6,7 +6,7 @@ import { getAuth } from 'firebase-admin/auth'
 import { Timestamp } from 'firebase-admin/firestore'
 import {
   applyStates, costOf, costOverBudget, disabledAccount, familyLimit, inboxItems, memoSlow, monthKey, noGuardian,
-  quietParent, shortHash, statesOf, unpaired, workerDown, type InboxInput, type InboxParent,
+  pushDown, quietParent, shortHash, statesOf, unpaired, workerDown, type InboxInput, type InboxParent,
 } from '../src/adminInbox'
 import { adminInbox, resetInboxCache } from '../src/handlers/adminInbox'
 import { db, clearFirestore } from './setup'
@@ -47,6 +47,18 @@ describe('workerDown (지금)', () => {
     expect(workerDown(input({ worker: { lastSeenMs: NOW - 5 * 60_000, modelUp: true } }))!.title).toBe('메모 서버(Mac mini)의 신호가 끊겼어요')
     expect(workerDown(input({ worker: { lastSeenMs: null, modelUp: null } }))!.rows[0]).toEqual({ name: '마지막 신호', fact: '', value: '신호 없음' })
     expect(workerDown(input({ worker: { lastSeenMs: NOW - 10_000, modelUp: false } }))!.title).toBe('AI 모델이 응답하지 않아요')
+  })
+})
+
+describe('pushDown (지금)', () => {
+  const w = (over: object) => input({ worker: { lastSeenMs: NOW, modelUp: true, ...over } })
+  it('speaks when the last failure is newer than the last push that got through', () => {
+    expect(pushDown(input())).toBeNull()
+    expect(pushDown(w({ pushOkAtMs: NOW - 1000 }))).toBeNull()
+    expect(pushDown(w({ pushFailAtMs: NOW - 5000, pushOkAtMs: NOW - 1000 }))).toBeNull()
+    const item = pushDown(w({ pushFailAtMs: NOW - 120_000, pushOkAtMs: NOW - H, pushFailCode: 'messaging/third-party-auth-error' }))!
+    expect(item.title).toBe('휴대폰 알림이 가지 않고 있어요')
+    expect(item.rows[0].value).toBe('messaging/third-party-auth-error')
   })
 })
 

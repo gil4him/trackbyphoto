@@ -62,6 +62,7 @@ Uses data that exists today.
   |---|---|---|
   | `quietParent` | now | parent sent photos on ≥5 of the previous 7 days, and 0 photos in the last 72h |
   | `workerDown` | now | `system/worker.lastSeen` older than 4 min, or `modelUp == false` |
+  | `pushDown` | now | `system/worker.push`: the last failed push is newer than the last one that got through | 시스템 |
   | `memoSlow` | now | worker in-memory p50 memo time > 30s for the last 15 min (see D7) |
   | `unpaired` | day | family signed up > 24h ago and the parent has no active device |
   | `noGuardian` | day | parent with no guardian membership (existing `personFlags`) |

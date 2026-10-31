@@ -20,12 +20,17 @@
  * nothing in the log shows that no phone got the push. Everything here is
  * best effort: a failed push must never fail a memo or a reply.
  *
+ * A brief failure at FCM is tried once more, and one person's failure never
+ * stops the others' pushes. What finally happened goes to systemHistory, for
+ * the heartbeat to publish: a push that can't be delivered is otherwise noticed
+ * only when someone complains.
+ *
  * Keeping a family member's tokens current: an app that got a new token
- * sends the one it `replaces`, which is dropped. Each register stamps
- * fcmSeen[token]; a token not registered again for STALE_TOKEN_DAYS (the app
- * re-registers at least daily while used) is dropped the next time another
- * device of that person registers. That clears the token a deleted app left
- * behind, which FCM may go on accepting.
+ * sends the one it `replaces`, which is dropped. Each register and each send
+ * FCM accepts stamps fcmSeen[token] (the app registers only when its token
+ * changes, so sends are what show a phone is still there); a token with
+ * neither for STALE_TOKEN_DAYS is dropped the next time another device of that
+ * person registers. FCM reports a deleted app's token as gone soon enough.
  */
 
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore'
@@ -35,6 +40,7 @@ import { WorkerError as HttpsError, type Caller } from '../context.js'
 import { flagOn } from '../plans.js'
 import { maskPhone, normalizePhone } from '../messenger/index.js'
 import { APP_URL } from '../config.js'
+import { recordPushFailure, recordPushOk } from '../systemHistory.js'
 
 /** One person's devices: phone, tablet, a couple of browsers. */
 const MAX_TOKENS = 10
@@ -45,6 +51,13 @@ const DEAD_TOKEN_CODES = new Set([
   'messaging/registration-token-not-registered',
   'messaging/invalid-registration-token',
 ])
+/** FCM's ways of saying "not right now". */
+const BRIEF_FAILURE_CODES = new Set([
+  'messaging/internal-error',
+  'messaging/server-unavailable',
+  'messaging/unknown-error',
+])
+const RETRY_MS = 2000
 
 export interface PushMessage {
   title: string
@@ -60,11 +73,15 @@ export interface PushMessage {
 export interface SendResult {
   dead: string[]
   failed?: Record<string, number>
+  /** Tokens that failed only for now: worth one more try. */
+  brief?: string[]
 }
 
 /** Injected so tests run without FCM. */
 export interface PushDeps {
   send: (tokens: string[], message: PushMessage) => Promise<SendResult>
+  /** How long before the second try (tests don't wait). */
+  retryMs?: number
 }
 
 /**
@@ -91,7 +108,12 @@ export function fcmMessage(tokens: string[], message: PushMessage): MulticastMes
 export const defaultPushDeps: PushDeps = {
   send: async (tokens, message) => {
     const res = await getMessaging().sendEachForMulticast(fcmMessage(tokens, message))
-    return { dead: deadTokens(tokens, res.responses), failed: otherFailures(res.responses) }
+    const isBrief = (r: { error?: { code: string } }) => BRIEF_FAILURE_CODES.has(r.error?.code ?? '')
+    return {
+      dead: deadTokens(tokens, res.responses),
+      failed: otherFailures(res.responses.filter((r) => !isBrief(r))),
+      brief: tokens.filter((_, i) => !res.responses[i]?.success && isBrief(res.responses[i])),
+    }
   },
 }
 
@@ -129,12 +151,43 @@ export function otherFailures(responses: Array<{ success: boolean; error?: { cod
   return failed
 }
 
+/** A batch that threw never went out, so a second try can't double it. */
+async function sendTwice(tokens: string[], message: PushMessage, deps: PushDeps): Promise<SendResult> {
+  const pause = () => new Promise((r) => setTimeout(r, deps.retryMs ?? RETRY_MS))
+  let first: SendResult
+  try {
+    first = await deps.send(tokens, message)
+  } catch (err) {
+    logger.warn('[push] send threw; trying once more', { err: String(err) })
+    await pause()
+    return leftOver(await deps.send(tokens, message))
+  }
+  if (!first.brief?.length) return first
+  await pause()
+  const second = leftOver(await deps.send(first.brief, message))
+  const failed = { ...first.failed }
+  for (const [code, n] of Object.entries(second.failed ?? {})) failed[code] = (failed[code] ?? 0) + n
+  return { dead: [...first.dead, ...second.dead], failed }
+}
+
+/** After the last try, a brief failure is a failure. */
+function leftOver(result: SendResult): SendResult {
+  const brief = result.brief?.length ?? 0
+  const failed = { ...result.failed, ...(brief ? { 'messaging/still-unavailable': brief } : {}) }
+  return { dead: result.dead, failed }
+}
+
 /** How many of `tokens` reached FCM's next hop, and a log line for the rest. */
 function delivered(tokens: string[], result: SendResult, context: Record<string, unknown>): number {
   const failed = result.failed ?? {}
   const failures = Object.values(failed).reduce((a, b) => a + b, 0)
-  if (failures > 0) logger.warn('[push] not delivered', { ...context, failed })
-  return Math.max(0, tokens.length - result.dead.length - failures)
+  if (failures > 0) {
+    logger.warn('[push] not delivered', { ...context, failed })
+    recordPushFailure(Object.keys(failed)[0])
+  }
+  const reached = Math.max(0, tokens.length - result.dead.length - failures)
+  if (reached > 0 && failures === 0) recordPushOk()
+  return reached
 }
 
 /** The last characters of each token: enough to tell devices apart in the log. */
@@ -150,28 +203,39 @@ export async function pushToUsers(uids: string[], message: PushMessage, deps: Pu
     if (uids.length === 0 || !(await flagOn('pushFamily'))) return 0
     const db = getFirestore()
     for (const uid of new Set(uids)) {
-      const tokens = ((await pushDoc(uid).get()).data()?.fcmTokens as string[] | undefined) ?? []
-      if (tokens.length === 0) continue
-      const channels = (await db.doc(`users/${uid}`).get()).data()?.channels as { push?: boolean } | undefined
-      if (channels?.push === false) continue
-      // The home-screen web app sets its icon badge from this, even while closed.
-      const badge = await unreadCount(uid).catch(() => null)
-      const own = badge == null ? message : { ...message, data: { ...message.data, badge: String(badge) } }
-      const result = await deps.send(tokens, own)
-      const { dead } = result
-      if (dead.length > 0) {
-        await pushDoc(uid).set({
-          fcmTokens: FieldValue.arrayRemove(...dead),
-          fcmSeen: Object.fromEntries(dead.map((t) => [t, FieldValue.delete()])),
-        }, { merge: true })
-        logger.info('[push] pruned dead tokens', { uid, pruned: dead.length })
+      try {
+        const tokens = ((await pushDoc(uid).get()).data()?.fcmTokens as string[] | undefined) ?? []
+        if (tokens.length === 0) continue
+        const channels = (await db.doc(`users/${uid}`).get()).data()?.channels as { push?: boolean } | undefined
+        if (channels?.push === false) continue
+        // The home-screen web app sets its icon badge from this, even while closed.
+        const badge = await unreadCount(uid).catch(() => null)
+        const own = badge == null ? message : { ...message, data: { ...message.data, badge: String(badge) } }
+        const result = await sendTwice(tokens, own, deps)
+        const { dead } = result
+        if (dead.length > 0) {
+          await pushDoc(uid).set({
+            fcmTokens: FieldValue.arrayRemove(...dead),
+            fcmSeen: Object.fromEntries(dead.map((t) => [t, FieldValue.delete()])),
+          }, { merge: true })
+          logger.info('[push] pruned dead tokens', { uid, pruned: dead.length })
+        }
+        const devices = delivered(tokens, result, { uid, type: message.data?.type })
+        logger.info('[push] sent', { uid, devices, tokens: tails(tokens), type: message.data?.type })
+        if (devices > 0) reached++
+        if (devices === tokens.length - dead.length && devices > 0) {
+          const alive = tokens.filter((t) => !dead.includes(t))
+          await pushDoc(uid).set({ fcmSeen: Object.fromEntries(alive.map((t) => [t, Timestamp.now()])) }, { merge: true })
+            .catch((err) => logger.warn('[push] token not stamped', { uid, err: String(err) }))
+        }
+      } catch (err) {
+        logger.warn('[push] failed', { uid, err: String(err) })
+        recordPushFailure('send-threw')
       }
-      const devices = delivered(tokens, result, { uid, type: message.data?.type })
-      logger.info('[push] sent', { uid, devices, tokens: tails(tokens), type: message.data?.type })
-      if (devices > 0) reached++
     }
   } catch (err) {
     logger.warn('[push] failed', { err: String(err) })
+    recordPushFailure('send-threw')
   }
   return reached
 }
@@ -205,7 +269,7 @@ export async function pushToElder(patientUid: string, message: PushMessage, deps
     if (tokens.length === 0) return 0
     const badge = await elderBadge(patientUid).catch(() => null)
     const own = badge == null ? message : { ...message, data: { ...message.data, badge: String(badge) } }
-    const result = await deps.send(tokens, own)
+    const result = await sendTwice(tokens, own, deps)
     const { dead } = result
     if (dead.length > 0) {
       const gone = Object.fromEntries(Object.entries(byDevice).filter(([, t]) => dead.includes(t)).map(([id]) => [id, FieldValue.delete()]))
@@ -217,6 +281,7 @@ export async function pushToElder(patientUid: string, message: PushMessage, deps
     return devices > 0 ? 1 : 0
   } catch (err) {
     logger.warn('[push] to parent failed', { patientUid, err: String(err) })
+    recordPushFailure('send-threw')
     return 0
   }
 }
