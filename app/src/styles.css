@@ -185,7 +185,7 @@ main { padding: 18px 22px calc(110px + var(--safe-bot)); }
   display: flex; flex-direction: column; align-items: center; gap: 16px;
 }
 .share-app-card {
-  margin: 0 0 14px; padding: 16px; background: var(--surface);
+  margin: 14px 0; padding: 16px; background: var(--surface);
   border: 1px solid var(--line); border-radius: var(--radius-card);
   display: flex; flex-direction: column; gap: 12px;
 }
