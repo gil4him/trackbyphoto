@@ -47,18 +47,23 @@ const STORE_URL: Record<Platform, string> = { ios: APP_STORE_URL, android: PLAY_
 
 const isPlatform = (p: unknown): p is Platform => PLATFORMS.includes(p as Platform)
 
+/** What a parent's phone says about its alerts: on, refused (off), not asked
+ *  yet, or allowed but with no token the worker could keep. */
+const ALERT_STATES = ['on', 'off', 'not-asked', 'no-token'] as const
+type AlertState = (typeof ALERT_STATES)[number]
+
 // ────────────────────────────────────────────────────────────────────────────
 // reportDevice
 // ────────────────────────────────────────────────────────────────────────────
 
 export async function reportDevice(
   caller: Caller,
-  data: { deviceId?: unknown; version?: unknown; build?: unknown; platform?: unknown },
+  data: { deviceId?: unknown; version?: unknown; build?: unknown; platform?: unknown; alerts?: unknown },
 ): Promise<{ ok: true }> {
   // Only the parent's own paired phone (no e-mail), for its own device record.
   if (caller.email) throw new HttpsError('permission-denied', 'only a linked phone reports its version')
   const uid = await requireElderDevice(caller, data?.deviceId)
-  const { version, build, platform } = data ?? {}
+  const { version, build, platform, alerts } = data ?? {}
   if (typeof version !== 'string' || version.length > 20 || !VERSION_RE.test(version)) {
     throw new HttpsError('invalid-argument', 'version required (x.y.z)')
   }
@@ -66,8 +71,11 @@ export async function reportDevice(
     throw new HttpsError('invalid-argument', 'build must be a short string')
   }
   if (!isPlatform(platform)) throw new HttpsError('invalid-argument', 'platform must be ios or android')
+  // Older phones say nothing here, so family see nothing about them.
+  if (alerts !== undefined && !ALERT_STATES.includes(alerts as AlertState)) throw new HttpsError('invalid-argument', 'unknown alert state')
   await getFirestore().doc(`users/${uid}/devices/${data.deviceId as string}`).update({
     app: { version, build: typeof build === 'string' ? build : null, platform, reportedAt: FieldValue.serverTimestamp() },
+    ...(alerts !== undefined ? { alerts: { state: alerts, at: FieldValue.serverTimestamp() } } : {}),
   })
   return { ok: true }
 }

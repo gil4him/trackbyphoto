@@ -1,11 +1,11 @@
-// A parent's phone and its app version: report it (on open and on every
-// return to the app), open the store when the family's update notice is
+// A parent's phone and its app version: report it and its alert state (on open
+// and on every return to the app), open the store when the family's update notice is
 // tapped, and say whether the store has a newer version (the banner).
 
 import { useEffect, useState } from 'react'
 import { App as CapApp } from '@capacitor/app'
 import { isBehind, nativeAppInfo, openStore, storeUrlForPlatform, type NativeAppInfo } from '../lib/appVersion'
-import { reportThisDevice } from '../lib/deviceReport'
+import { syncThisDevice } from '../lib/deviceReport'
 import { onPushOpened } from '../lib/push'
 import { useStoreVersion } from './useStoreVersion'
 
@@ -17,8 +17,8 @@ export function useElderAppUpdate(deviceId: string, active: boolean): string | n
 
   useEffect(() => {
     if (!active || !info || !deviceId) return
-    void reportThisDevice(deviceId)
-    const handle = CapApp.addListener('appStateChange', ({ isActive }) => { if (isActive) void reportThisDevice(deviceId) })
+    void syncThisDevice(deviceId)
+    const handle = CapApp.addListener('appStateChange', ({ isActive }) => { if (isActive) void syncThisDevice(deviceId) })
     return () => { void handle.then((h) => h.remove()).catch(() => {}) }
   }, [active, info, deviceId])
 

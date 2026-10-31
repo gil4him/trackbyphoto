@@ -3,7 +3,7 @@ import { collection, onSnapshot } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useToast } from './Toast'
 import { useStoreVersion } from '../hooks/useStoreVersion'
-import { appStatus, storeUrlForPlatform } from '../lib/appVersion'
+import { alertStatus, appStatus, storeUrlForPlatform } from '../lib/appVersion'
 import { callWorker, isWorkerOffline, WorkerError, WORKER_OFFLINE_MESSAGE } from '../lib/worker'
 import { shareStoreLink } from '../lib/share'
 import { honorific } from '../lib/people'
@@ -14,7 +14,8 @@ import type { ElderDevice } from '../types'
  * The parent's app version in family's Settings: "옛 버전이에요" with
  * 업데이트 알림 보내기 (a push to the parent's phone, managers only, once a
  * day; worker sendUpdateNudge) and 링크 보내기 (the store link through
- * KakaoTalk or the share sheet).
+ * KakaoTalk or the share sheet). Above it, whether that phone can get alerts;
+ * no push reaches a phone with alerts off, so family helps in person.
  */
 export function ParentAppStatus({ patientUid, patientName, canManage }: { patientUid: string; patientName: string; canManage: boolean }) {
   const toast = useToast()
@@ -31,11 +32,18 @@ export function ParentAppStatus({ patientUid, patientName, canManage }: { patien
   ), [patientUid])
 
   const status = appStatus(device, latest)
-  if (status.kind === 'none') return null
   const who = honorific(patientName)
+  const alerts = alertStatus(device)
+  const alertLine = alerts === 'off'
+    ? <div className="app-status-old">{tr(`${who} 휴대폰에 알림이 꺼져 있어요 · 휴대폰 설정 → Daylie → 알림에서 허용해 주세요`, `Alerts are off on ${who}'s phone · Allow them in Settings → Daylie → Notifications`)}</div>
+    : alerts === 'web'
+      ? <div className="app-status-old">{tr('웹으로 연결된 휴대폰이에요 · 알림을 받으려면 앱을 설치해 주세요', 'This phone is linked through the website · Install the app to get alerts')}</div>
+      : null
 
+  if (status.kind === 'none') return alertLine && <div className="app-status">{alertLine}</div>
   if (status.kind === 'current') {
-    return <div className="app-status"><span>{tr(`앱 ${status.version} · 최신 버전`, `App ${status.version} · up to date`)}</span></div>
+    const alertsOn = alerts === 'on' ? tr(' · 알림 켜짐', ' · alerts on') : ''
+    return <div className="app-status">{alertLine}<span>{tr(`앱 ${status.version} · 최신 버전`, `App ${status.version} · up to date`)}{alertsOn}</span></div>
   }
 
   const nudge = async () => {
@@ -69,6 +77,7 @@ export function ParentAppStatus({ patientUid, patientName, canManage }: { patien
 
   return (
     <div className="app-status">
+      {alertLine}
       <span className={status.kind === 'behind' ? 'app-status-old' : undefined}>
         {status.kind === 'behind'
           ? tr(`${who} 휴대폰 앱이 옛 버전이에요`, `${who}'s phone has an old version of the app`)

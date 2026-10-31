@@ -130,4 +130,24 @@ describe("a parent's paired phone", () => {
     expect(native.asked).toBe(1)
     expect(worker.calls.at(-1)).toEqual({ type: 'registerFcmToken', data: { token: 'fcm-token-2', deviceId: 'dev1' } })
   })
+
+  it('registers a phone linked again, though its token is the same', async () => {
+    await enableElderPush('dev1')
+    expect(await refreshElderPush('dev2')).toBe('on')
+    expect(worker.calls.at(-1)).toEqual({ type: 'registerFcmToken', data: { token: 'fcm-token-1', deviceId: 'dev2' } })
+  })
+
+  it('tells the worker again after a day, in case it lost the token', async () => {
+    await enableElderPush('dev1')
+    localStorage.setItem('tbp.push.elderRegisteredAt', String(Date.now() - 24 * 3600 * 1000))
+    await refreshElderPush('dev1')
+    expect(worker.calls).toHaveLength(2)
+    await refreshElderPush('dev1')
+    expect(worker.calls).toHaveLength(2)
+  })
+
+  it('says so when the worker could not be told', async () => {
+    native.token = ''
+    expect(await refreshElderPush('dev1')).toBe('no-token')
+  })
 })

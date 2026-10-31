@@ -35,6 +35,23 @@ beforeEach(async () => {
   await seedMembership('p1', 'cg2', { role: 'viewer' })
 })
 
+describe('reportDevice alert state', () => {
+  const report = { deviceId: 'd1', version: '1.0.6', platform: 'ios' }
+  const stored = async () => (await db.doc('users/p1/devices/d1').get()).data()
+
+  it('keeps the state beside the version, and a phone that says nothing leaves it alone', async () => {
+    await reportDevice(PHONE, { ...report, alerts: 'off' })
+    expect((await stored())?.alerts?.state).toBe('off')
+    await reportDevice(PHONE, report)
+    expect((await stored())?.alerts?.state).toBe('off')
+    expect((await stored())?.app?.version).toBe('1.0.6')
+  })
+
+  it('refuses a state it does not know', async () => {
+    await expect(reportDevice(PHONE, { ...report, alerts: 'maybe' })).rejects.toMatchObject({ code: 'invalid-argument' })
+  })
+})
+
 describe('reportDevice', () => {
   it('keeps the version on the phone\'s own active device record', async () => {
     expect(await reportDevice(PHONE, { deviceId: 'd1', version: '1.0.3', build: '30', platform: 'ios' })).toEqual({ ok: true })
