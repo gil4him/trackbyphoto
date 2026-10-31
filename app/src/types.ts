@@ -133,6 +133,8 @@ export interface ElderDevice {
   status: 'active' | 'revoked'
   /** The store app's version, reported by the phone (1.0.4 and later). */
   app?: { version: string; build?: string; platform: 'ios' | 'android'; reportedAt?: Timestamp | null }
+  /** Whether this phone can get alerts, reported by the phone (newer builds only). */
+  alerts?: { state: 'on' | 'off' | 'not-asked' | 'no-token'; at?: Timestamp | null }
 }
 
 /** pairings/{id} — one-time phone-linking code (only its hash is stored). */

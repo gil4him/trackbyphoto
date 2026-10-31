@@ -6,6 +6,7 @@ import { PARENT_CAMERA, captureNativePhoto, photoFromResult } from '../lib/phone
 import { restoredPhoto, takeAndSend, type Overlay } from '../lib/elderShot'
 import { askLocation, warmUpLocation } from '../lib/location'
 import { ASK_CAMERA, ASK_LOCATION, ASK_NOTIFY, cameraPermission, locationPermission, notificationPermission } from '../lib/permissions'
+import { syncThisDevice } from '../lib/deviceReport'
 import { enableElderPush, refreshElderPush } from '../lib/push'
 import { ElderAsk } from '../components/ElderAsk'
 import { ElderInstallButton } from '../components/ElderInstallButton'
@@ -240,10 +241,16 @@ export function ElderCamera({ uid, deviceId, reactions, photos = null, recent = 
   useEffect(() => {
     alive.current = true
     // The camera's plain sentence first if the phone hasn't asked yet.
-    void cameraPermission().then((s) => {
+    void cameraPermission().then(async (s) => {
       if (!alive.current) return
-      if (s === 'prompt') setAsk('camera')
-      else afterCamera()
+      if (s === 'prompt') { setAsk('camera'); return }
+      // From the second open on the camera is settled, so family news comes
+      // first: a first photo isn't needed before alerts can reach this phone.
+      if (s === 'granted' && deviceId && await notificationPermission() === 'prompt') {
+        if (alive.current) setAsk('notify')
+        return
+      }
+      if (alive.current) afterCamera()
     })
     // Android may kill the app behind its camera; the photo comes back here.
     const sub = CapApp.addListener('appRestoredResult', (ev) => {
@@ -254,7 +261,7 @@ export function ElderCamera({ uid, deviceId, reactions, photos = null, recent = 
       alive.current = false
       void sub.then((h) => h.remove())
     }
-  }, [afterCamera, setAsk, shoot])
+  }, [afterCamera, deviceId, setAsk, shoot])
 
   const onShutter = () => { void shoot(() => captureNativePhoto(PARENT_CAMERA)) }
 
@@ -270,7 +277,12 @@ export function ElderCamera({ uid, deviceId, reactions, photos = null, recent = 
     } else if (asking.current === 'notify' && deviceId) {
       setAsk(null)
       // Denial is fine too: the news still waits on this screen.
-      void enableElderPush(deviceId).catch((err) => console.warn('[ElderCamera] push not enabled', err))
+      void enableElderPush(deviceId)
+        .catch((err) => console.warn('[ElderCamera] push not enabled', err))
+        .finally(() => {
+          void syncThisDevice(deviceId)
+          if (alive.current) afterCamera()
+        })
     }
   }
 
