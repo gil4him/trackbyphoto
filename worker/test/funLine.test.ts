@@ -1,189 +1,140 @@
-// 재미있는 한 줄: the fact is counted in code, the model only words it, and the
-// memo is left alone. The model is an injected fake; Firestore is the emulator.
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+// 따뜻한 한 줄: every memo gets a line from the approved library, by category,
+// without repeating lately, and the memo is left alone. Firestore is the emulator.
+import { describe, it, expect, beforeEach } from 'vitest'
 import { Timestamp } from 'firebase-admin/firestore'
-import { addFunLine, chooseFact, jokeOk, resetFunLineCache, subjectOf, wordFunLine, type FunMemo } from '../src/handlers/funLine'
+import { addFunLine, chooseLine, resetFunLineCache, type FunMemo } from '../src/handlers/funLine'
+import { WARM_LINES, type LineGroup } from '../src/handlers/warmLines'
 import { resetPlansCache } from '../src/plans'
 import { db, clearFirestore } from './setup'
 
-const OFFSET = 0
-const at = (s: string) => new Date(`${s}:00Z`)
-const m = (when: string, over: Partial<FunMemo> = {}): FunMemo =>
-  ({ at: at(when), activity: '기타', memo: '사진을 찍으셨어요', scene: '', place: '', lat: null, lng: null, ...over })
-const fact = (history: FunMemo[], current: FunMemo, extra: { name?: string; home?: { lat: number; lng: number } | null } = {}) =>
-  chooseFact({ history, current, offsetMin: OFFSET, name: extra.name ?? '', home: extra.home ?? null })
-const daily = (days: number[], over: Partial<FunMemo> = {}) => days.map((d) => m(`2026-10-${String(d).padStart(2, '0')}T12:00`, over))
+const m = (over: Partial<FunMemo> = {}): FunMemo => ({ activity: '기타', memo: '사진을 찍으셨어요', scene: '', ...over })
+const choose = (current: FunMemo, extra: { memoId?: string; lang?: string; recent?: string[] } = {}) =>
+  chooseLine({ memoId: extra.memoId ?? 'a', current, lang: extra.lang, recent: extra.recent ?? [] })
+const ids = Array.from({ length: 60 }, (_, i) => `photo${i}`)
+const GROUPS = Object.keys(WARM_LINES.ko) as LineGroup[]
 
-describe('subjectOf', () => {
-  it('finds the food or the named place, not vague words', () => {
-    expect(subjectOf({ memo: '식당에서 일행과 함께 칼국수를 드셨어요', scene: '' })).toBe('칼국수')
-    expect(subjectOf({ memo: '칙필레 매장에 다녀오셨어요', scene: '' })).toBe('칙필레')
-    expect(subjectOf({ memo: '레이징 케인스에서 저녁을 드셨어요', scene: '' })).toBe('레이징 케인스')
-    expect(subjectOf({ memo: '리버사이드의 식당에서 저녁 식사를 하셨어요', scene: '일행과 함께 따뜻한 쌀국수를 드셨어요.' })).toBe('쌀국수')
-    expect(subjectOf({ memo: '가족과 함께 저녁 식사를 하셨어요', scene: '' })).toBe('')
-    expect(subjectOf({ memo: '식당에서 일행과 점심을 드셨어요', scene: '' })).toBe('')
+describe('the library', () => {
+  it('both languages have the same groups and sizes, about 100 lines each', () => {
+    for (const g of GROUPS) expect(WARM_LINES.en[g].length).toBe(WARM_LINES.ko[g].length)
+    const total = GROUPS.reduce((n, g) => n + WARM_LINES.ko[g].length, 0)
+    expect(total).toBeGreaterThanOrEqual(95)
+  })
+
+  it('short, no numbers, no repeats inside a group', () => {
+    for (const lang of ['ko', 'en'] as const) {
+      for (const g of GROUPS) {
+        const lines = WARM_LINES[lang][g]
+        expect(new Set(lines).size).toBe(lines.length)
+        for (const l of lines) {
+          expect([...l].length).toBeLessThanOrEqual(lang === 'ko' ? 26 : 60)
+          expect(l).not.toMatch(/[0-9]/)
+        }
+      }
+    }
+  })
+
+  it('no health, age or looks anywhere', () => {
+    const all = (['ko', 'en'] as const).flatMap((lang) => GROUPS.flatMap((g) => [...WARM_LINES[lang][g]]))
+    for (const l of all) expect(l).not.toMatch(/건강|회복|아프|나이|연세|외모|얼굴|예쁘|health|recover|illness|sick|\bage\b|pretty|handsome/i)
   })
 })
 
-describe('chooseFact', () => {
-  const meal = (when: string, memo: string, over: Partial<FunMemo> = {}) => m(when, { activity: '식사', memo, ...over })
+describe('chooseLine', () => {
+  it('every ordinary category gets a line from its group or the general ones', () => {
+    for (const [activity, group] of [['식사', 'meal'], ['카페', 'cafe'], ['산책', 'outdoors'], ['운동', 'outdoors'], ['자연', 'outdoors'], ['여행', 'going'], ['출장', 'going'], ['이동', 'going'], ['쇼핑', 'shopping'], ['휴식', 'rest'], ['모임', 'together']] as [string, LineGroup][]) {
+      const lines = ids.map((memoId) => choose(m({ activity }), { memoId }))
+      for (const l of lines) expect([...WARM_LINES.ko[group], ...WARM_LINES.ko.any]).toContain(l)
+      expect(lines.some((l) => WARM_LINES.ko[group].includes(l!))).toBe(true)
+    }
+  })
 
-  it('first photo, with the parent\'s name when there is one', () => {
-    expect(fact([], m('2026-10-01T12:00'), { name: '엄마' })).toBe('엄마의 첫 사진이에요.')
-    expect(fact([], m('2026-10-01T12:00'))).toBe('첫 사진이에요.')
+  it('기타 and an unknown old category use the general lines', () => {
+    for (const activity of ['기타', '가족', '']) expect(WARM_LINES.ko.any).toContain(choose(m({ activity })))
   })
-  it('compares with the last named meal, skipping vague ones', () => {
-    const history = [meal('2026-10-01T12:00', '칙필레 매장에 다녀오셨어요'), meal('2026-10-02T12:00', '가족과 함께 저녁 식사를 하셨어요')]
-    expect(fact(history, meal('2026-10-03T12:00', '식당에서 칼국수를 드셨어요'))).toBe('칙필레 다음은 칼국수.')
-  })
-  it('does not compare a thing with itself', () => {
-    expect(fact([m('2026-10-01T12:00'), meal('2026-10-02T12:00', '칙필레 매장에 다녀오셨어요')], meal('2026-10-05T12:00', '칙필레 매장에 다녀오셨어요'))).toBeNull()
-  })
-  it('a day\'s first photo with nothing worth saying gets no line', () => {
-    expect(fact(daily([1, 3]), m('2026-10-06T09:00'))).toBeNull()
-  })
-  it('counts an activity at round numbers, this month only', () => {
-    const rests = [m('2026-09-30T12:00', { activity: '휴식' }), m('2026-10-02T12:00', { activity: '휴식' }), m('2026-10-04T12:00', { activity: '휴식' })]
-    expect(fact(rests, m('2026-10-06T12:00', { activity: '휴식' }))).toBe('이번 달 휴식 기록 3번째예요.')
-  })
-  it('never on a hospital photo, nor comparing with one', () => {
-    expect(fact([], m('2026-10-01T12:00', { memo: '병원 접수처에 방문하셨어요' }))).toBeNull()
-    expect(fact([m('2026-10-01T12:00')], m('2026-10-02T12:00', { scene: '낮에 병원을 다녀오신 뒤 귀가하셨어요' }))).toBeNull()
-    expect(fact([meal('2026-10-01T12:00', '서울약국에서 쉬셨어요')], meal('2026-10-05T12:00', '식당에서 칼국수를 드셨어요'))).toBeNull()
-  })
-  it('streak milestones, on the first photo of the day only', () => {
-    expect(fact(daily([1, 2]), m('2026-10-03T09:00'))).toBe('3일 연속으로 사진을 남기셨어요.')
-    expect(fact(daily([1, 2, 3]), m('2026-10-04T09:00'))).toBeNull()
-    expect(fact(daily([1, 3]), m('2026-10-04T09:00'))).toBeNull()
-    expect(fact([...daily([1, 2]), m('2026-10-03T08:00')], m('2026-10-03T09:00'))).toBeNull()
-  })
-  it('uses the person\'s local day', () => {
-    const late = [m('2026-10-01T12:00'), m('2026-10-02T12:00')]
-    // 02:00 UTC on the 3rd is still the 2nd eight hours behind.
-    expect(chooseFact({ history: late, current: m('2026-10-03T02:00'), offsetMin: -480, name: '', home: null })).toBeNull()
-  })
-  it('first shop or café of the month', () => {
-    const old = [m('2026-09-01T12:00', { activity: '쇼핑' }), m('2026-10-09T12:00')]
-    expect(fact(old, m('2026-10-20T12:00', { activity: '쇼핑' }))).toBe('이번 달 첫 쇼핑 기록이에요.')
-  })
-  it('earliest and latest only with some history, and only at real extremes', () => {
-    const five = daily([1, 3, 5, 7, 9])
-    expect(fact(five, m('2026-10-12T05:13'))).toBe('지금까지 중 가장 이른 시각의 사진이에요.')
-    expect(fact(five, m('2026-10-12T22:26'))).toBe('지금까지 중 가장 늦은 시각의 사진이에요.')
-    expect(fact(five, m('2026-10-12T08:00'))).toBeNull()
-    expect(fact(daily([1, 3]), m('2026-10-12T05:13'))).toBeNull()
-  })
-  it('the busiest day needs real history', () => {
-    const big = [...daily([1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21]), m('2026-10-23T09:00'), m('2026-10-23T10:00'), m('2026-10-23T11:00')]
-    const today = ['08:00', '09:00', '10:00'].map((t) => m(`2026-10-25T${t}`))
-    // A comparison or an earlier line would take the slot; none here.
-    expect(fact([...big, ...today], m('2026-10-25T13:00'))).toBe('지금까지 사진이 가장 많은 날이에요. 오늘 4장째!')
-    expect(fact([...big, ...today.slice(0, 2)], m('2026-10-25T13:00'))).toBeNull()
-  })
-  it('place counts: third visit on, a saved home, and never at home', () => {
-    const lib = { place: '도서관 · 웨스트코비나', lat: 34, lng: -118, memo: '웨스트코비나 도서관에서 시간을 보내셨어요' }
-    const history = [m('2026-10-01T12:00', lib), m('2026-10-03T12:00', lib), m('2026-10-04T12:00')]
-    const home = { lat: 33.9, lng: -117.9 }
-    expect(fact(history, m('2026-10-06T12:00', lib), { home })).toBe('이곳에서 남긴 사진이 3번째예요.')
-    expect(fact(history, m('2026-10-06T12:00', lib))).toBeNull() // no saved home
-    expect(fact(history, m('2026-10-06T12:00', lib), { home: { lat: 34, lng: -118 } })).toBeNull() // that is home
-    expect(fact(history.slice(0, 1).concat(history[2]), m('2026-10-06T12:00', lib), { home })).toBeNull() // second visit
-  })
-  it('one line a day; a comparison may be the second, never the third', () => {
-    const line = { funLine: '먼저 한 줄' }
-    expect(fact([m('2026-10-01T08:00'), m('2026-10-02T08:00', line)], m('2026-10-02T09:00', { activity: '쇼핑' }))).toBeNull()
-    const chick = meal('2026-10-01T12:00', '칙필레 매장에 다녀오셨어요')
-    expect(fact([chick, m('2026-10-02T08:00', line)], meal('2026-10-02T12:00', '식당에서 칼국수를 드셨어요'))).toContain('칙필레')
-    expect(fact([chick, m('2026-10-02T08:00', line), m('2026-10-02T09:00', line)], meal('2026-10-02T12:00', '식당에서 칼국수를 드셨어요'))).toBeNull()
-  })
-})
 
-describe('jokeOk', () => {
-  it('rejects long jokes and made-up feelings', () => {
-    expect(jokeOk('식단에 국경이 없어요.', '칙필레 다음은 칼국수.', [])).toBe(true)
-    expect(jokeOk('가'.repeat(46), 'f', [])).toBe(true)
-    expect(jokeOk('가'.repeat(47), 'f', [])).toBe(false)
-    expect(jokeOk('시작이 아주 맛있네요!', 'f', [])).toBe(false)
-    expect(jokeOk('새벽 공기가 차갑겠어요', 'f', [])).toBe(false)
-    expect(jokeOk('한식에서 노선 변경인가요?', 'f', [])).toBe(false)
-    expect(jokeOk('', 'f', [])).toBe(false)
+  it('hospital and pharmacy photos get only quiet lines, even when only the scene says so', () => {
+    for (const memoId of ids) {
+      expect(WARM_LINES.ko.quiet).toContain(choose(m({ activity: '병원' }), { memoId }))
+      expect(WARM_LINES.ko.quiet).toContain(choose(m({ activity: '이동', scene: '병원에 다녀오신 뒤 귀가하셨어요.' }), { memoId }))
+      expect(WARM_LINES.en.quiet).toContain(choose(m({ activity: '기타', memo: 'At the pharmacy counter' }), { memoId, lang: 'en' }))
+    }
   })
-  it('rejects a joke that counts again or says the subject keeps happening', () => {
-    const f = '3일 연속으로 사진을 남기셨어요.'
-    expect(jokeOk('벌써 세 번이나 모이셨네요!', f, [])).toBe(false)
-    expect(jokeOk('3일 연속 양치네요.', f, [])).toBe(false)
-    expect(jokeOk('오늘도 양치 인증이에요.', f, [])).toBe(false)
-    expect(jokeOk('매일 양치를 챙기시네요.', f, [])).toBe(false)
-    expect(jokeOk('차 안이 전용 포토존이에요.', f, [])).toBe(false)
-    expect(jokeOk('실내 체질인가 봐요.', f, [])).toBe(false)
-    expect(jokeOk('이 정도면 개근상이에요.', f, [])).toBe(true)
-    expect(jokeOk('이쯤 되면 단골이에요.', f, [])).toBe(false)
-    expect(jokeOk('이쯤 되면 단골이에요.', '이곳에서 남긴 사진이 3번째예요.', [])).toBe(true)
-  })
-  it('rejects a joke about looks', () => {
-    expect(jokeOk('미모가 더 선명해 보여요.', '재성이의 첫 사진이에요.', [])).toBe(false)
-    expect(jokeOk('조명이 사진발을 잘 받았네요.', '엄마의 첫 사진이에요.', [])).toBe(false)
-  })
-  it('one sentence only', () => {
-    expect(jokeOk('개근상이에요. 축하드려요.', 'f', [])).toBe(false)
-  })
-  it('rejects a joke told lately, whatever its particle', () => {
-    const recent = ['칙필레 다음은 칼국수. 식단에 국경이 없어요.']
-    expect(jokeOk('메뉴판의 국경을 넘으셨네요.', 'f', recent)).toBe(false)
-    expect(jokeOk('메뉴판이 넓어졌어요.', 'f', recent)).toBe(true)
-  })
-  it('the fact\'s own words may repeat', () => {
-    expect(jokeOk('도서관 사랑이에요.', '도서관 기록이에요.', ['첫날. 도서관 이야기.'])).toBe(true)
-  })
-})
 
-describe('wordFunLine', () => {
-  it('shows the fact word for word and adds the joke', async () => {
-    expect(await wordFunLine('양치하셨어요', '3일 연속으로 사진을 남기셨어요.', [], async () => '이 정도면 개근상이에요.')).toBe('3일 연속으로 사진을 남기셨어요. 이 정도면 개근상이에요.')
+  it('funeral photos get no line, in either language', () => {
+    expect(choose(m({ memo: '장례식장에 다녀오셨어요' }))).toBeNull()
+    expect(choose(m({ scene: '빈소에 국화가 놓여 있어요.' }))).toBeNull()
+    expect(choose(m({ memo: 'At a funeral service' }), { lang: 'en' })).toBeNull()
   })
-  it('tries again, then gives up with no line', async () => {
-    const ask = vi.fn().mockResolvedValueOnce('맛있는 하루예요').mockResolvedValueOnce('좋은 기록이에요')
-    expect(await wordFunLine('메모', '사실.', [], ask)).toBe('사실. 좋은 기록이에요')
-    const bad = vi.fn().mockResolvedValue('맛있는 하루예요')
-    expect(await wordFunLine('메모', '사실.', [], bad)).toBe('')
-    expect(bad).toHaveBeenCalledTimes(3)
+
+  it('English accounts get English lines', () => {
+    for (const memoId of ids) expect([...WARM_LINES.en.meal, ...WARM_LINES.en.any]).toContain(choose(m({ activity: '식사' }), { memoId, lang: 'en' }))
+  })
+
+  it('a line seen lately is not picked again while others are left', () => {
+    const recent = WARM_LINES.ko.any.slice(0, -1)
+    for (const memoId of ids) expect(choose(m(), { memoId, recent })).toBe(WARM_LINES.ko.any.at(-1))
+  })
+
+  it('still gives a line when every line has been seen', () => {
+    expect(WARM_LINES.ko.quiet).toContain(choose(m({ activity: '병원' }), { recent: [...WARM_LINES.ko.quiet] }))
+    expect(WARM_LINES.ko.any).toContain(choose(m(), { recent: [...WARM_LINES.ko.any] }))
   })
 })
 
 describe('addFunLine', () => {
-  const flag = (on: boolean) => db.doc('admin_config/plans').set({ fairUse: { photosPerDay: null }, flags: { memoFunLine: on } })
-  const args = (over = {}) => ({ memoId: 'm1', patientUid: 'p1', offsetMin: 0, lang: 'ko', current: m('2026-10-01T12:00', { memo: '공원 산책' }), ...over })
-  const seed = () => db.doc('memos/m1').set({ patientUid: 'p1', takenAt: Timestamp.fromDate(at('2026-10-01T12:00')), memo: '공원 산책', scene: '장면', status: 'ready' })
-  const ask = async () => '첫 페이지를 여셨어요'
-
-  beforeEach(async () => { await clearFirestore(); resetPlansCache(); resetFunLineCache(); await seed() })
-
-  it('off: nothing happens', async () => {
-    await flag(false)
-    await addFunLine(args(), ask)
-    expect((await db.doc('memos/m1').get()).get('funLine')).toBeUndefined()
+  const shoot = (id: string, minute: number, extra: Record<string, unknown> = {}) => db.doc(`memos/${id}`).set({
+    patientUid: 'p1', takenAt: Timestamp.fromDate(new Date(2026, 9, 20, 12, minute)), memo: '메모', ...extra,
   })
-  it('on: only its own fields change', async () => {
-    await flag(true)
-    await addFunLine(args(), ask)
-    const d = (await db.doc('memos/m1').get()).data()!
-    expect(d.funLine).toBe('첫 사진이에요. 첫 페이지를 여셨어요')
-    expect(d).toMatchObject({ memo: '공원 산책', scene: '장면', status: 'ready' })
-  })
-  it('the allowlist lets one family in while the flag is off', async () => {
-    await flag(false)
+  const args = (memoId = 'a', over: Partial<FunMemo> = {}, lang?: string) => ({ memoId, patientUid: 'p1', current: m(over), lang })
+  const line = async (id: string) => (await db.doc(`memos/${id}`).get()).data()?.funLine
+
+  beforeEach(async () => {
+    await clearFirestore(); resetPlansCache(); resetFunLineCache()
     await db.doc('admin_config/funLine').set({ allow: ['p1'] })
-    await addFunLine(args(), ask)
-    expect((await db.doc('memos/m1').get()).get('funLine')).toBe('첫 사진이에요. 첫 페이지를 여셨어요')
   })
-  it('skips English accounts, which have no approved wording', async () => {
-    await flag(true)
-    await addFunLine(args({ lang: 'en' }), ask)
-    expect((await db.doc('memos/m1').get()).get('funLine')).toBeUndefined()
+
+  it('writes a line on every photo, not once a day', async () => {
+    for (const [i, id] of ['a', 'b', 'c', 'd', 'e'].entries()) {
+      await shoot(id, i)
+      await addFunLine(args(id))
+      expect(WARM_LINES.ko.any).toContain(await line(id))
+    }
   })
-  it('no line passing means no field', async () => {
-    await flag(true)
-    await addFunLine(args(), async () => '맛있는 하루예요')
-    expect((await db.doc('memos/m1').get()).get('funLine')).toBeUndefined()
+
+  it('does not repeat among an account\'s last photos', async () => {
+    const seen: string[] = []
+    for (let i = 0; i < 20; i++) {
+      await shoot(`p${i}`, i)
+      await addFunLine(args(`p${i}`))
+      seen.push(await line(`p${i}`))
+    }
+    expect(new Set(seen).size).toBe(seen.length)
+  })
+
+  it('leaves the memo text alone', async () => {
+    await shoot('a', 0)
+    await addFunLine(args())
+    expect((await db.doc('memos/a').get()).data()?.memo).toBe('메모')
+  })
+
+  it('a funeral photo stays without a line', async () => {
+    await shoot('a', 0)
+    await addFunLine(args('a', { memo: '장례식장에 다녀오셨어요' }))
+    expect(await line('a')).toBeUndefined()
+  })
+
+  it('off the list and with the flag off, nothing is written', async () => {
+    await db.doc('admin_config/funLine').set({ allow: ['someone-else'] }); resetFunLineCache()
+    await shoot('a', 0)
+    await addFunLine(args())
+    expect(await line('a')).toBeUndefined()
+  })
+
+  it('with the flag on, everyone gets it', async () => {
+    await db.doc('admin_config/funLine').set({ allow: [] }); resetFunLineCache()
+    await db.doc('admin_config/plans').set({ flags: { memoFunLine: true } }); resetPlansCache()
+    await shoot('a', 0)
+    await addFunLine(args())
+    expect(WARM_LINES.ko.any).toContain(await line('a'))
   })
 })
