@@ -19,17 +19,15 @@ const CELL_KO = { ok: '정상', slow: '느림', miss: '신호 없음', none: '�
 export function SystemView({ worker, people, peopleFailed = false, refreshKey }: { worker: WorkerBeatView; people: AdminPerson[]; peopleFailed?: boolean; refreshKey: number }) {
   const [m, setM] = useState<AdminMetrics | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [tick, setTick] = useState(0)
   const [retention, setRetention] = useState<boolean | null>(null)
   const [now, setNow] = useState(() => Date.now())
 
-  // The strip and memo times come from the worker's memory: ask again a
-  // minute after each answer (or error) — never while one is still on its
-  // way, or a slow worker's timeout would keep being cancelled.
+  // The strip and memo times come from the worker's memory. Asked once on
+  // opening and on 새로고침, not on a timer: every ask is billed writes plus a
+  // read of each of the day's memos (owner, 2026-10-31).
   useEffect(() => {
     let cancelled = false
-    let timer: number | undefined
-    adminMetrics(refreshKey > 0 && tick === 0).then(
+    adminMetrics(refreshKey > 0).then(
       (x) => { if (!cancelled) { setM(x); setError(null); setNow(Date.now()) } },
       (err) => {
         if (cancelled) return
@@ -38,9 +36,9 @@ export function SystemView({ worker, people, peopleFailed = false, refreshKey }:
           ? '서버(Mac mini)가 응답하지 않아요. 아래 기록은 서버가 돌아오면 다시 채워져요.'
           : `불러오지 못했어요: ${(err as Error).message}`)
       },
-    ).finally(() => { if (!cancelled) timer = window.setTimeout(() => setTick((t) => t + 1), 60_000) })
-    return () => { cancelled = true; window.clearTimeout(timer) }
-  }, [refreshKey, tick])
+    )
+    return () => { cancelled = true }
+  }, [refreshKey])
   useEffect(() => {
     let cancelled = false
     loadPlans().then((p) => { if (!cancelled) setRetention(p?.flags?.retentionJob === true) })
