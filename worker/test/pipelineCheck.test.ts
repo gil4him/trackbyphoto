@@ -1,5 +1,5 @@
 // The whole path of a photo with this week's additions together: memo, weather,
-// notices, the playful line, rotation, the evening notice. One family's days,
+// notices, the warm line, rotation, the evening notice. One family's days,
 // run in order. Storage, the models and pushes are fakes; Firestore is the
 // emulator, so nothing here can reach production.
 import { describe, it, expect, beforeEach, vi } from 'vitest'
@@ -7,7 +7,8 @@ import { Timestamp } from 'firebase-admin/firestore'
 const weatherAt = vi.hoisted(() => vi.fn(async (_lat: number, _lng: number, _at: Date) => ({ code: 'clear', label: '맑음', tempC: 20 })))
 vi.mock('../src/weather', async (orig) => ({ ...(await orig<object>()), weatherAt }))
 import { processMemo, type MemoDeps } from '../src/handlers/memo'
-import { addFunLine, resetFunLineCache } from '../src/handlers/funLine'
+import { resetFunLineCache } from '../src/handlers/funLine'
+import { WARM_LINES } from '../src/handlers/warmLines'
 import { rotateMemo } from '../src/handlers/rotate'
 import { runDailyNotices } from '../src/handlers/dailyNotice'
 import { LlmGenerationError } from '../src/llm/ollama'
@@ -23,7 +24,6 @@ const HOME = { lat: 33.87, lng: -117.87 }
 
 interface Written { activity: string; memo: string; scene: string }
 function family() {
-  const asks: string[] = []
   const pushes: Array<{ uids: string[]; message: PushMessage }> = []
   const queue: Written[] = []
   const deps: MemoDeps = {
@@ -34,9 +34,8 @@ function family() {
       return { ...w, model: 'fake', cost: { promptTokens: 1, outputTokens: 1, totalUSD: 0 } }
     },
     push: async (uids, message) => { pushes.push({ uids, message }); return uids.length },
-    funLine: (args) => addFunLine(args, async (prompt) => { asks.push(prompt); return `농담${'가나다라'[asks.length - 1]}호` }),
   }
-  return { asks, pushes, queue, deps }
+  return { pushes, queue, deps }
 }
 const shoot = (id: string, when: string, extra: Record<string, unknown> = {}) => db.doc(`memos/${id}`).set({
   patientUid: 'p1', photoPath: `photos/p1/${id}.jpg`, photoUrl: '', takenAt: Timestamp.fromDate(at(when)), tzOffsetMin: 0,
@@ -46,6 +45,7 @@ const noGps = { lat: null, lng: null }
 const memo = async (id: string) => (await db.doc(`memos/${id}`).get()).data()!
 const list = (on: string[] = ['p1']) => db.doc('admin_config/funLine').set({ allow: on })
 const CHICK = { activity: '식사', memo: '칙필레 매장에 다녀오셨어요', scene: '맑은 화요일 오후예요.' }
+const MEAL_LINES = [...WARM_LINES.ko.meal, ...WARM_LINES.ko.any]
 const NOODLE = { activity: '식사', memo: '식당에서 일행과 함께 칼국수를 드셨어요', scene: '맑은 수요일 점심이에요.' }
 
 beforeEach(async () => {
@@ -62,12 +62,12 @@ describe('a photo through the whole path', () => {
     await shoot('a', '2026-10-20T15:00')
     expect(await processMemo('a', 1, f.deps)).toBe('done')
     const m = await memo('a')
-    expect(m).toMatchObject({ status: 'ready', ...CHICK, place: 'La Habra, 미국', weather: { label: '맑음' }, funLine: '엄마의 첫 사진이에요. 농담가호' })
-    expect(f.asks[0]).toContain('엄마의 첫 사진')
+    expect(m).toMatchObject({ status: 'ready', ...CHICK, place: 'La Habra, 미국', weather: { label: '맑음' } })
+    expect(MEAL_LINES).toContain(m.funLine)
     expect(f.pushes.filter((p) => p.message.data?.type === 'photo.new')).toHaveLength(1)
   })
 
-  it('a photo without a location: that day\'s weather and a comparison, no place written', async () => {
+  it('a photo without a location: that day\'s weather and a line, no place written', async () => {
     const f = family(); f.queue.push(CHICK, NOODLE)
     await shoot('a', '2026-10-20T15:00')
     await processMemo('a', 1, f.deps)
@@ -75,10 +75,10 @@ describe('a photo through the whole path', () => {
     await processMemo('b', 1, f.deps)
     expect(weatherAt).toHaveBeenLastCalledWith(LA_HABRA.lat, LA_HABRA.lng, at('2026-10-20T18:00'))
     const b = await memo('b')
-    expect(b).toMatchObject({ weather: { label: '맑음' }, place: '', funLine: '칙필레 다음은 칼국수. 농담나호' })
+    expect(b).toMatchObject({ weather: { label: '맑음' }, place: '' })
+    expect(MEAL_LINES).toContain(b.funLine)
     expect(b.lat).toBeNull()
     expect(b.address ?? '').toBe('')
-    expect(f.asks[1]).toContain('칙필레 다음은 칼국수.')
   })
 
   it('the first photo of a day without a location has no weather yet, and still finishes', async () => {
@@ -91,28 +91,27 @@ describe('a photo through the whole path', () => {
     expect(weatherAt).not.toHaveBeenCalled()
   })
 
-  it('hospital photo: memo as usual, no line, and no joke about it later', async () => {
+  it('hospital photo: memo as usual, and only a quiet line, also on the way home', async () => {
     const f = family(); f.queue.push({ activity: '병원', memo: '병원 접수처에 방문하셨어요', scene: '맑은 오후예요.' }, { activity: '이동', memo: '차로 이동하셨어요', scene: '병원에 다녀오신 뒤 귀가하셨어요.' })
     await shoot('h', '2026-10-20T13:00')
     await processMemo('h', 1, f.deps)
     await shoot('i', '2026-10-20T20:00')
     await processMemo('i', 1, f.deps)
     expect((await memo('h')).memo).toBe('병원 접수처에 방문하셨어요')
-    expect((await memo('h')).funLine).toBeUndefined()
-    expect((await memo('i')).funLine).toBeUndefined()
-    expect(f.asks).toHaveLength(0)
+    expect(WARM_LINES.ko.quiet).toContain((await memo('h')).funLine)
+    expect(WARM_LINES.ko.quiet).toContain((await memo('i')).funLine)
   })
 
-  it('a rewrite keeps the line and asks for no new one', async () => {
+  it('a rewrite keeps the line', async () => {
     const f = family(); f.queue.push(CHICK)
     await shoot('a', '2026-10-20T15:00')
     await processMemo('a', 1, f.deps)
+    const first = (await memo('a')).funLine
     await db.doc('memos/a').update({ status: 'pending' })
     f.queue.push({ activity: '식사', memo: '다시 쓴 메모', scene: '다시 쓴 장면.' })
     expect(await processMemo('a', 1, f.deps)).toBe('done')
     const a = await memo('a')
-    expect(a).toMatchObject({ memo: '다시 쓴 메모', funLine: '엄마의 첫 사진이에요. 농담가호' })
-    expect(f.asks).toHaveLength(1)
+    expect(a).toMatchObject({ memo: '다시 쓴 메모', funLine: first })
   })
 
   it('a family member\'s own wording is respected: no line on it', async () => {
@@ -125,7 +124,7 @@ describe('a photo through the whole path', () => {
 
   it('a line that fails never touches the memo or its notice', async () => {
     const f = family(); f.queue.push(CHICK)
-    const deps: MemoDeps = { ...f.deps, funLine: async () => { throw new Error('gemini down') } }
+    const deps: MemoDeps = { ...f.deps, funLine: async () => { throw new Error('line failed') } }
     await shoot('a', '2026-10-20T15:00')
     expect(await processMemo('a', 1, deps)).toBe('done')
     expect(await memo('a')).toMatchObject({ status: 'ready', ...CHICK })
@@ -138,7 +137,6 @@ describe('a photo through the whole path', () => {
     await shoot('a', '2026-10-20T15:00')
     await processMemo('a', 99, deps)
     expect((await memo('a')).funLine).toBeUndefined()
-    expect(f.asks).toHaveLength(0)
   })
 
   it('accounts off the list see no change', async () => {
@@ -150,13 +148,14 @@ describe('a photo through the whole path', () => {
     expect((await memo('a')).funLine).toBeUndefined()
   })
 
-  it('no second ordinary line in a day, however many photos', async () => {
+  it('every photo of a day gets its own line', async () => {
     const f = family()
     await shoot('a', '2026-10-20T08:00'); await processMemo('a', 1, f.deps)
     await shoot('b', '2026-10-20T09:00', { }); await processMemo('b', 1, f.deps)
     await shoot('c', '2026-10-20T10:00', { }); await processMemo('c', 1, f.deps)
     const lines = (await Promise.all(['a', 'b', 'c'].map(memo))).filter((m) => m.funLine)
-    expect(lines).toHaveLength(1)
+    expect(lines).toHaveLength(3)
+    expect(new Set(lines.map((m) => m.funLine)).size).toBe(3)
   })
 })
 
@@ -172,9 +171,10 @@ describe('with rotation', () => {
     const f = family(); f.queue.push(CHICK)
     await shoot('a', '2026-10-20T15:00')
     await processMemo('a', 1, f.deps)
+    const line = (await memo('a')).funLine
     await db.doc('memos/a').update({ rotation: 90, turned: 90 })
     expect(await rotateMemo('a', rotateDeps)).toBe('done')
-    expect(await memo('a')).toMatchObject({ ...CHICK, funLine: '엄마의 첫 사진이에요. 농담가호', turned: 90, photoUrl: 'https://example.test/photo.jpg?token=new' })
+    expect(await memo('a')).toMatchObject({ ...CHICK, funLine: line, turned: 90, photoUrl: 'https://example.test/photo.jpg?token=new' })
     expect((await memo('a')).rotation).toBeUndefined()
   })
 

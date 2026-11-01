@@ -37,7 +37,7 @@ export interface Memo {
   photoUrl: string         // public download URL
   /** The ~480px copy for lists (worker thumbs.ts); missing on photos it hasn't reached. */
   thumbUrl?: string
-  /** One playful line under the memo, from counted facts (worker handlers/funLine.ts); on few photos. */
+  /** One warm line under the memo, from the approved library (worker handlers/funLine.ts). */
   funLine?: string
   /** 사진 돌리기: clockwise degrees asked for but not yet baked into the
    *  stored photo (a pending request; the worker's handlers/rotate.ts clears

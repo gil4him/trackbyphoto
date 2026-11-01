@@ -90,7 +90,7 @@ export interface MemoDeps {
   generate: (args: MemoArgs) => Promise<V2Result>
   /** Push the new-photo notice to family devices (default: handlers/push). */
   push?: (uids: string[], message: PushMessage) => Promise<unknown>
-  /** The playful line after the memo (handlers/funLine.ts). */
+  /** The warm line after the memo (handlers/funLine.ts). */
   funLine?: (args: FunLineArgs) => Promise<void>
 }
 
@@ -558,16 +558,14 @@ export async function processMemo(memoId: string, attempt: number, deps: MemoDep
     }
   }
 
-  // 재미있는 한 줄: an addition after the memo is done, once per photo. It reads
+  // 따뜻한 한 줄: an addition after the memo is done, once per photo. It reads
   // the finished memo and writes only its own field; failing changes nothing.
-  const shotAt = data.takenAt?.toDate?.() as Date | undefined
-  if (firstCompletion && !humanEdited && shotAt && !STUB_MEMOS.has(memo)) {
+  if (firstCompletion && !humanEdited && !STUB_MEMOS.has(memo)) {
     try {
       await (deps.funLine ?? addFunLine)({
         memoId,
         patientUid,
-        current: { at: shotAt, activity, memo, scene, place: located ? place : '', lat, lng },
-        offsetMin: await localOffsetMin(patientUid, lat, lng, data.tzOffsetMin as number | undefined),
+        current: { activity, memo, scene },
         lang: await resolveGeoLang(patientUid),
       })
     } catch (err) {
