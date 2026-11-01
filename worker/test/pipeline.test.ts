@@ -4,7 +4,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { Timestamp } from 'firebase-admin/firestore'
 import { MAX_ATTEMPTS, MemoScheduler, memoConcurrency, prepareMemo, processMemo, type MemoDeps } from '../src/handlers/memo'
-import { beat } from '../src/heartbeat'
+import { beat, publishDue, PUBLISH_EVERY_MS } from '../src/heartbeat'
 import { locateMemo } from '../src/handlers/place'
 import { processRequest } from '../src/handlers/requests'
 import { LlmGenerationError, LlmUnavailableError } from '../src/llm/ollama'
@@ -532,6 +532,35 @@ describe('heartbeat', () => {
     const hb = (await db.doc('system/worker').get()).data()!
     expect(hb).toMatchObject({ modelUp: false, waiting: 3 })
     expect(hb.lastSeen.toMillis()).toBeGreaterThan(Date.now() - 60_000)
+  })
+
+  it('stamps Firestore only when a stamp is due', () => {
+    const last = { at: 1_000_000, modelUp: true }
+    expect(publishDue(null, true, last.at)).toBe(true)
+    expect(publishDue(last, true, last.at + 60_000)).toBe(false)
+    expect(publishDue(last, true, last.at + 120_000)).toBe(false)
+    // The third one-minute tick, even if its timer fires a moment early.
+    expect(publishDue(last, true, last.at + PUBLISH_EVERY_MS - 1_000)).toBe(true)
+    expect(publishDue(last, false, last.at + 60_000)).toBe(true)
+  })
+
+  it('stays well inside what installed phones call a stopped server', () => {
+    expect(PUBLISH_EVERY_MS).toBeLessThan(4 * 60_000)
+  })
+
+  it('writes nothing for a beat with no stamp due, and keeps the stamp it has', async () => {
+    const first = await beat({ modelUp: async () => true, waiting: () => 1 })
+    const before = (await db.doc('system/worker').get()).data()!
+    const next = await beat({ modelUp: async () => true, waiting: () => 9 }, first)
+    expect(next).toEqual(first)
+    expect((await db.doc('system/worker').get()).data()).toEqual(before)
+  })
+
+  it('writes at once when the model stops answering', async () => {
+    const first = await beat({ modelUp: async () => true, waiting: () => 0 })
+    const next = await beat({ modelUp: async () => false, waiting: () => 0 }, first)
+    expect(next?.modelUp).toBe(false)
+    expect((await db.doc('system/worker').get()).get('modelUp')).toBe(false)
   })
 })
 

@@ -1,6 +1,6 @@
 // Is the memo server (the Mac mini worker) able to write memos right now?
 //
-// The worker stamps system/worker once a minute. A stamp older than a few
+// The worker stamps system/worker every 3 minutes. A stamp older than a few
 // minutes, or one saying the model isn't answering, means a waiting memo will
 // keep waiting, and the app should say so rather than "메모 작성 중…".
 
@@ -11,7 +11,8 @@ export interface WorkerBeat {
   modelUp: boolean
 }
 
-/** Three missed beats, with room for a phone clock that runs a little fast. */
+/** A missed stamp, with room for a phone clock that runs a little fast. Installed
+ *  phones keep this number: the worker's PUBLISH_EVERY_MS must stay under it. */
 export const STALE_MS = 4 * 60_000
 
 export function workerStatus(beat: WorkerBeat | null, nowMs: number): WorkerStatus {
