@@ -100,7 +100,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: "21"
 
       # The android/ project isn't committed, so generate it here (matching the
       # installed Capacitor version). If you later commit android/, this is a no-op.
