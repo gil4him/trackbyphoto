@@ -15,6 +15,7 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore'
 import { logger } from '../log.js'
 import { reverseGeocode, type GeoLang, type GeoResult } from '../geocode.js'
 import { homeHintFor, resolveGeoLang } from '../travel.js'
+import { lendPlace } from './borrowPlace.js'
 
 const RETRY_DELAYS_MS = [30_000, 2 * 60_000, 10 * 60_000, 30 * 60_000, 60 * 60_000]
 
@@ -38,13 +39,14 @@ export async function locateMemo(
   const { place, address } = await geocode(lat, lng, await resolveGeoLang(data.patientUid as string))
   if (!place && !address) return 'retry'
 
-  const update: Record<string, unknown> = { place, address, needsGeocode: FieldValue.delete() }
+  const update: Record<string, unknown> = { place, address, placeFrom: FieldValue.delete(), needsGeocode: FieldValue.delete() }
   // The memo was written without knowing where the photo was taken. If that
   // turns out to be far from home, have it written again with the place.
-  const writtenBlind = data.status === 'ready' && !data.place && ['local-llm', 'cloud-llm'].includes(data.memoSource) && data.humanEdited !== true
+  const writtenBlind = data.status === 'ready' && (!data.place || !!data.placeFrom) && ['local-llm', 'cloud-llm'].includes(data.memoSource) && data.humanEdited !== true
   if (writtenBlind && (await homeHintFor(data.patientUid as string, lat, lng))?.away) update.status = 'pending'
   await ref.update(update)
   logger.info('[place] located', { memoId, place, rewrite: update.status === 'pending' })
+  await lendPlace(memoId)
   return 'done'
 }
 

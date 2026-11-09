@@ -67,7 +67,7 @@ export async function regenerateMemo(caller: Caller, data: { memoId?: string }) 
       ...(await momentHintsFor({ memoId, patientUid, takenAt: memo.takenAt?.toDate?.(), lat, lng, tzOffsetMin })),
       imageBase64: buffer.toString('base64'),
       timeHint: await localTimeHint(patientUid, memo.takenAt?.toDate?.(), lat, lng, tzOffsetMin),
-      placeHint: areaOf((memo.place as string | undefined) || '') || undefined,
+      placeHint: memo.placeFrom ? undefined : areaOf((memo.place as string | undefined) || '') || undefined,
       homeHint: await homeHintFor(patientUid, lat, lng),
       textHint: readableText((memo.tags as { text?: string[] } | undefined)?.text),
     })
