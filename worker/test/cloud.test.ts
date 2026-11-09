@@ -322,7 +322,8 @@ describe('memos written through the router', () => {
     expect(d.last?.placeHint).toBe('니시신주쿠, 신주쿠구, 일본')
   })
 
-  it('borrows the place of a photo taken minutes apart as a hint, writing none of it down', async () => {
+  // Owner, 2026-11-09: the name (only) is shown too, through borrowPlace.ts.
+  it('borrows the place of a photo taken minutes apart as a hint, and shows only its name', async () => {
     await seed('near', { status: 'ready', place: 'FamilyMart · 도코나메시, 일본', lat: 34.86, lng: 136.82, takenAt: Timestamp.fromDate(new Date('2026-10-06T11:30:00Z')) })
     await seed('far', { status: 'ready', place: '먼 곳, 일본', lat: 35, lng: 135, takenAt: Timestamp.fromDate(new Date('2026-10-06T10:00:00Z')) })
     await seed('m1', { lat: null, lng: null })
@@ -333,6 +334,8 @@ describe('memos written through the router', () => {
     expect(d.last?.coords).toBeUndefined()
     const m = (await db.doc('memos/m1').get()).data()!
     expect(m.lat).toBeNull()
-    expect(m.place).toBe('')
+    expect(m.place).toBe('FamilyMart · 도코나메시, 일본')
+    expect(m.placeFrom).toBe('near')
+    expect(m.address).toBeUndefined()
   })
 })

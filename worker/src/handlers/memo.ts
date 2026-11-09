@@ -22,6 +22,10 @@
  *      photo, and invented things.
  *   4. marks the memo ready, notifies caregivers once, bumps dashboard counters.
  *
+ * A photo with no location shows the place of the same person's photo
+ * closest in time within an hour (handlers/borrowPlace.ts); the memo itself
+ * is written as if the place were unknown.
+ *
  * Steps 1 and 2 need no model, so prepareMemo also runs them the moment a
  * memo arrives: the photo and its place show at once, however long the line
  * for the model is. New photos go ahead of memos that are being re-written.
@@ -52,6 +56,7 @@ import { KOREAN_DAYS } from '../llm/context.js'
 import { sunTimes } from '../llm/moment.js'
 import { weatherAt } from '../weather.js'
 import { addFunLine, type FunLineArgs } from './funLine.js'
+import { borrowPlaceSafely, lendPlace } from './borrowPlace.js'
 import type { PromptHints } from '../llm/prompt.js'
 import { openPath, pushToUsers, type PushMessage } from './push.js'
 import { accountPhotoSafely } from './usage.js'
@@ -141,10 +146,15 @@ export async function prepareMemo(memoId: string, deps: MemoDeps = defaultMemoDe
     if (place || address) {
       update.place = place
       update.address = address
+      update.placeFrom = FieldValue.delete()
       update.needsGeocode = FieldValue.delete()
     }
   }
   if (Object.keys(update).length) await memoRef.update(update)
+  // No location of its own: show a nearby photo's place (borrowPlace.ts);
+  // a real place found just now may fill neighbours that have none.
+  if (lat == null || lng == null) await borrowPlaceSafely(memoId)
+  else if (update.place !== undefined) await lendPlace(memoId)
 }
 
 /** How far apart in time a photo may be and still lend its place. */
@@ -352,7 +362,8 @@ export function mimeFromPath(path: string): string {
 
 /** The memo already carries the place for its coordinates. */
 function placeKnown(data: FirebaseFirestore.DocumentData): boolean {
-  return !!(data.place || data.address) && data.needsGeocode !== true
+  // A place borrowed from a nearby photo (borrowPlace.ts) is not this photo's own.
+  return !!(data.place || data.address) && data.needsGeocode !== true && !data.placeFrom
 }
 
 /**
@@ -488,6 +499,7 @@ export async function processMemo(memoId: string, attempt: number, deps: MemoDep
   if (located) {
     update.place = place
     update.address = address
+    update.placeFrom = FieldValue.delete()
     update.needsGeocode = FieldValue.delete()
   } else if (hasCoords) {
     update.needsGeocode = true // picked up by handlers/place.ts
@@ -509,6 +521,8 @@ export async function processMemo(memoId: string, attempt: number, deps: MemoDep
     }
   }
   await memoRef.update(update)
+  if (located) await lendPlace(memoId)
+  else if (!hasCoords) await borrowPlaceSafely(memoId)
   // How long the family waited for this memo (운영실 시스템; memory only).
   if (firstCompletion) recordMemoTime((data.createdAt as { toMillis?: () => number } | undefined)?.toMillis?.())
 

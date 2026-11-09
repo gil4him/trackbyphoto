@@ -17,6 +17,7 @@
     "memo-compare": "npm run build && node dist/scripts/memo-compare.js",
     "memo-diary-compare": "npm run build && node dist/scripts/memo-diary-compare.js",
     "memo-yesterday": "npm run build && node dist/scripts/memo-yesterday.js",
+    "backfill-places": "npm run build && node dist/scripts/backfill-places.js",
     "weather-check": "npm run build && node dist/scripts/weather-check.js",
     "traffic-probe": "npm run build && node dist/scripts/traffic-probe.js",
     "reviews-probe": "npm run build && node dist/scripts/reviews-probe.js",
