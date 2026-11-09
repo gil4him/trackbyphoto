@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { renderToString } from 'react-dom/server'
 vi.mock('../lib/capture', () => ({ savePhoto: vi.fn(), captureNativePhoto: vi.fn(), isNativeApp: false }))
-vi.mock('../lib/location', () => ({ warmUpLocation: vi.fn() }))
+vi.mock('../lib/location', () => ({ warmUpLocation: vi.fn(), keepLocationFresh: vi.fn(() => () => {}) }))
 vi.mock('../hooks/useAppUpdate', () => ({ noteCaptureStarted: vi.fn() }))
 
 import { CameraFab, FamilyCamera } from './CameraFab'

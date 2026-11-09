@@ -1,16 +1,20 @@
 // Where the phone is, for stamping photos.
 //
 // One precise GPS attempt fails too often (indoors, abroad, on a train), so:
-//   - warmUpLocation() starts locating as soon as the capture screen is open,
+//   - keepLocationFresh() keeps a fix fresh while a capture screen is open and
+//     the app is in front (locationWatch.ts), and warmUpLocation() makes one
+//     more attempt at the shutter,
 //   - findFix() asks for a precise and an approximate (Wi-Fi/cell) fix at the
 //     same time and takes the precise one if it arrives in time,
 //   - it keeps trying for a couple of minutes, and as a last resort uses the
 //     last position the phone knew a few minutes ago.
-// The caller attaches whatever comes back to the photo, even after upload.
+// The caller attaches whatever comes back to the photo, even after upload,
+// and resumes the search when the app is opened again (geoRetry.ts).
 
 import { Capacitor } from '@capacitor/core'
 import { Geolocation } from '@capacitor/geolocation'
 import { callWorker } from './worker'
+import { freshWhileVisible } from './locationWatch'
 
 export interface Geo { lat: number; lng: number }
 interface Fix extends Geo { at: number }
@@ -91,6 +95,37 @@ async function alreadyAllowed(): Promise<boolean> {
  */
 export function warmUpLocation(): void {
   void alreadyAllowed().then((ok) => { if (ok) void preciseOrApproximate() })
+}
+
+/** Balanced accuracy (Wi-Fi/cell, works indoors); a fix up to a minute old is fine. */
+const WATCH_OPTIONS = { enableHighAccuracy: false, maximumAge: 60_000, timeout: 30_000 }
+
+async function startWatch(): Promise<() => void> {
+  const onFix = (lat: number, lng: number) => { remember({ lat, lng }) }
+  if (isNative) {
+    const id = await Geolocation.watchPosition(WATCH_OPTIONS, (pos) => { if (pos) onFix(pos.coords.latitude, pos.coords.longitude) })
+    return () => { void Geolocation.clearWatch({ id }).catch(() => {}) }
+  }
+  if (!('geolocation' in navigator)) return () => {}
+  const id = navigator.geolocation.watchPosition((pos) => onFix(pos.coords.latitude, pos.coords.longitude), () => {}, WATCH_OPTIONS)
+  return () => navigator.geolocation.clearWatch(id)
+}
+
+/**
+ * While a capture screen is open: keep a fix fresh so the photo has one at
+ * the shutter. Only when location is already allowed, only in the
+ * foreground. Returns a function that stops it.
+ */
+export function keepLocationFresh(): () => void {
+  return freshWhileVisible({
+    allowed: alreadyAllowed,
+    start: startWatch,
+    visible: () => document.visibilityState === 'visible',
+    onVisibility: (cb) => {
+      document.addEventListener('visibilitychange', cb)
+      return () => document.removeEventListener('visibilitychange', cb)
+    },
+  })
 }
 
 /**

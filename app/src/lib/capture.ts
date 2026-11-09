@@ -4,6 +4,7 @@ import { Capacitor } from '@capacitor/core'
 import { OnDeviceVision, type VisionTags } from 'on-device-vision'
 import { db, storage } from '../firebase'
 import { findFix, recentFix } from './location'
+import { clearNeedsGeo, noteNeedsGeo } from './geoRetry'
 import { shrinkPhoto } from './image'
 import { outbox } from './outboxBackend'
 
@@ -62,8 +63,10 @@ export async function savePhoto(opts: { uid: string; file: File; nativePath?: st
     tags,
   })
   if (!here) {
+    // Remembered so the search resumes if the app is closed meanwhile (useOutboxSync).
+    noteNeedsGeo(photoId, takenAt.getTime())
     void findFix()
-      .then((geo) => (geo ? outbox.attachGeo(photoId, geo) : undefined))
+      .then(async (geo) => { if (geo) { await outbox.attachGeo(photoId, geo); clearNeedsGeo(photoId) } })
       .catch((err) => console.warn('[capture] could not attach location', err))
   }
   return { photoId }

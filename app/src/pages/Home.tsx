@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useToast } from '../components/Toast'
-import { warmUpLocation } from '../lib/location'
+import { keepLocationFresh } from '../lib/location'
 import { useOutbox } from '../hooks/useOutbox'
 import { useCapture } from '../hooks/useCapture'
 import { fmtDate, fmtTime } from '../util'
@@ -192,7 +192,8 @@ export function Home({ uid, patientName, greetingName, memos, onOpenAsk, onOpen,
 
   // Start finding the phone's location while the screen is open, so it is
   // ready by the time a photo is taken.
-  useEffect(() => { if (canCapture) warmUpLocation() }, [canCapture])
+  // A fix kept fresh while this screen is open, so a photo has one at the shutter.
+  useEffect(() => (canCapture ? keepLocationFresh() : undefined), [canCapture])
 
   // Photos still on the phone, waiting to be sent.
   const waiting = useOutbox(canCapture ? uid : undefined)

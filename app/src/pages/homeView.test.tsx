@@ -5,7 +5,7 @@ import { renderToString } from 'react-dom/server'
 
 vi.mock('../firebase', () => ({ db: {}, auth: {}, storage: {} }))
 vi.mock('../lib/capture', () => ({ savePhoto: vi.fn(), captureNativePhoto: vi.fn(), isNativeApp: false }))
-vi.mock('../lib/location', () => ({ warmUpLocation: vi.fn() }))
+vi.mock('../lib/location', () => ({ warmUpLocation: vi.fn(), keepLocationFresh: vi.fn(() => () => {}) }))
 vi.mock('../hooks/useOutbox', () => ({ useOutbox: () => [] }))
 vi.mock('../hooks/useAppUpdate', () => ({ noteCaptureStarted: vi.fn() }))
 vi.mock('../components/MemoThumb', () => ({ MemoThumb: () => <span className="tl-thumb" /> }))
