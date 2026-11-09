@@ -4,7 +4,7 @@ import { Haptics, ImpactStyle } from '@capacitor/haptics'
 import { savePhoto } from '../lib/capture'
 import { PARENT_CAMERA, captureNativePhoto, photoFromResult } from '../lib/phoneCamera'
 import { restoredPhoto, takeAndSend, type Overlay } from '../lib/elderShot'
-import { askLocation, warmUpLocation } from '../lib/location'
+import { askLocation, keepLocationFresh, warmUpLocation } from '../lib/location'
 import { ASK_CAMERA, ASK_LOCATION, ASK_NOTIFY, cameraPermission, locationPermission, notificationPermission } from '../lib/permissions'
 import { syncThisDevice } from '../lib/deviceReport'
 import { enableElderPush, refreshElderPush } from '../lib/push'
@@ -238,6 +238,8 @@ export function ElderCamera({ uid, deviceId, reactions, photos = null, recent = 
     }, OVERLAY_MS)
   }, [uid, toName, afterCamera])
 
+  // A fix kept fresh while the camera screen is open, so a photo has one at the shutter.
+  useEffect(() => keepLocationFresh(), [])
   useEffect(() => {
     alive.current = true
     // The camera's plain sentence first if the phone hasn't asked yet.

@@ -6,7 +6,7 @@ import { renderToString } from 'react-dom/server'
 
 vi.mock('../firebase', () => ({ db: {}, auth: {}, storage: {} }))
 vi.mock('../lib/capture', () => ({ savePhoto: vi.fn() }))
-vi.mock('../lib/location', () => ({ warmUpLocation: vi.fn(), askLocation: vi.fn() }))
+vi.mock('../lib/location', () => ({ warmUpLocation: vi.fn(), askLocation: vi.fn(), keepLocationFresh: vi.fn(() => () => {}) }))
 vi.mock('../lib/reactions', () => ({ markRead: vi.fn() }))
 vi.mock('@capacitor/app', () => ({ App: { addListener: vi.fn(async () => ({ remove: vi.fn() })) } }))
 vi.mock('@capacitor/haptics', () => ({ Haptics: { impact: vi.fn(async () => {}) }, ImpactStyle: { Medium: 'MEDIUM' } }))

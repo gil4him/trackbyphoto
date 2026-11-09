@@ -11,7 +11,7 @@ vi.mock('../lib/lang', async (importOriginal) => ({
 vi.mock('../firebase', () => ({ db: {}, auth: {}, storage: {} }))
 vi.mock('../lib/cameraPreview', () => ({ startPreview: vi.fn(), stopPreview: vi.fn() }))
 vi.mock('../lib/capture', () => ({ savePhoto: vi.fn() }))
-vi.mock('../lib/location', () => ({ warmUpLocation: vi.fn(), askLocation: vi.fn() }))
+vi.mock('../lib/location', () => ({ warmUpLocation: vi.fn(), askLocation: vi.fn(), keepLocationFresh: vi.fn(() => () => {}) }))
 vi.mock('../lib/reactions', () => ({ markRead: vi.fn(), COMMENT_MAX: 60 }))
 vi.mock('@capacitor/app', () => ({ App: { addListener: vi.fn(async () => ({ remove: vi.fn() })) } }))
 vi.mock('@capacitor/haptics', () => ({ Haptics: { impact: vi.fn(async () => {}) }, ImpactStyle: { Medium: 'MEDIUM' } }))
