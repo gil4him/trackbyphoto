@@ -4,6 +4,7 @@ import { db } from '../firebase'
 import { useToast } from '../components/Toast'
 import { deleteMemo } from '../lib/capture'
 import { fmtDate, fmtTime } from '../util'
+import { lateArrivalLine } from '../lib/lateArrival'
 import { categoryLabel, categoryThumbClass } from '../lib/categoryStyle'
 import { useWorkerStatus } from '../hooks/useWorkerStatus'
 import { Reactions, type ReactionsContext } from '../components/Reactions'
@@ -267,6 +268,9 @@ export function MemoDetail({ memo, onBack, readOnly = false, canRotate = false, 
     else void rewrite()
   }
 
+  // A photo that waited on the parent's phone and came days later (it is filed under the day it was taken).
+  const late = lateArrivalLine(takenAt.getTime(), memo.createdAt?.toMillis?.())
+
   return (
     <section className="page detail">
       <div className="detail-head">
@@ -279,6 +283,7 @@ export function MemoDetail({ memo, onBack, readOnly = false, canRotate = false, 
           <button type="button" className="menu-hint" onClick={dismissHint}>{tr('여기서 부모님께 보낼 수 있어요', 'You can send this to your parent from here')}</button>
         )}
       </div>
+      {late && <p className="detail-late">{late}</p>}
 
       {sheet === 'menu' && (
         <BottomSheet onClose={closeSheet}>

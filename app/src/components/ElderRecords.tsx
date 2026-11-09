@@ -1,3 +1,4 @@
+import { useEffect, useMemo } from 'react'
 import { MemoThumb } from './MemoThumb'
 import { DateJumpInput } from './CalendarFab'
 import { CameraGlyph } from './CameraFab'
@@ -7,8 +8,21 @@ import { tr } from '../lib/lang'
 import { hasUnseen, receivedLine, recordDays, tileAria, tileChip, tileTime, type RecordItem } from '../lib/elderRecords'
 import { dayHeading, landingDay } from '../util'
 import type { FamilyPhoto, Memo, Reaction } from '../types'
+import type { OutboxItem } from '../lib/outbox'
 
 const dayKey = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
+
+/** A photo still on this phone, not yet sent: its picture with 보내는 중 under it (owner, 2026-11-09). */
+function WaitingTile({ item }: { item: OutboxItem }) {
+  const url = useMemo(() => URL.createObjectURL(item.blob), [item.blob])
+  useEffect(() => () => URL.revokeObjectURL(url), [url])
+  return (
+    <div className="elder-tile waiting" role="listitem" aria-label={tr('보내는 중인 사진', 'Photo still sending')}>
+      <span className="elder-tile-photo"><span className="tl-thumb"><img src={url} alt="" /></span></span>
+      <span className="elder-tile-time">{tr('보내는 중', 'Sending')}</span>
+    </div>
+  )
+}
 
 /**
  * One of the parent's photos as a square tile (A14.7): the photo, a white
@@ -63,9 +77,11 @@ function runsOf(items: RecordItem[]): (RecordItem[] | RecordItem)[] {
  * order, a 새 소식 n › line on days with something unread, and a fixed
  * bottom bar with 날짜로 찾기 and 카메라 (OWNER DECISION A14.7: BOTTOM BAR).
  */
-export function ElderRecords({ memos, received, byMemo, patientUid, bigText = false, onOpen, onOpenReceived, onCamera }: {
+export function ElderRecords({ memos, received, waiting = [], byMemo, patientUid, bigText = false, onOpen, onOpenReceived, onCamera }: {
   memos: Memo[]
   received: FamilyPhoto[]
+  /** Photos still on this phone (the outbox), shown first with 보내는 중. */
+  waiting?: OutboxItem[]
   byMemo?: Map<string, Reaction[]>
   patientUid: string
   /** 설정 › 큰 글자: two columns instead of three. */
@@ -84,9 +100,15 @@ export function ElderRecords({ memos, received, byMemo, patientUid, bigText = fa
   return (
     <>
       <section className={`page elder-records${bigText ? ' big' : ''}`} aria-label={tr('내 사진', 'My photos')}>
-        {days.length === 0 ? (
+        {waiting.length > 0 && (
+          <div className="elder-day elder-waiting">
+            <div className="elder-day-row"><h2 className="elder-day-head">{tr('보내는 중', 'Sending')}</h2></div>
+            <div className="elder-grid" role="list">{waiting.map((it) => <WaitingTile key={it.photoId} item={it} />)}</div>
+          </div>
+        )}
+        {days.length === 0 ? (waiting.length > 0 ? null : (
           <div className="elder-records-empty" role="status">{tr('아직 사진이 없어요.', 'No photos yet.')}<br />{tr('카메라로 한 장 찍어 보세요.', 'Take one with the camera.')}</div>
-        ) : days.map((g) => {
+        )) : days.map((g) => {
           const key = dayKey(g.day)
           const photos = g.items.filter((it) => it.kind === 'memo').length
           const unseen = unseenOf(g.items)

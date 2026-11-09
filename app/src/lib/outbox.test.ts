@@ -159,6 +159,26 @@ describe('outbox', () => {
   })
 })
 
+describe('knowing a photo has gone (보냈어요 on the parent\'s screen)', () => {
+  it('says yes once the photo has left the phone', async () => {
+    server.online = false
+    await outbox.enqueue(photo('a'))
+    await outbox.flush('u1')
+    const sent = outbox.whenSent('a', 5_000)
+    server.online = true
+    await outbox.retryNow('u1')
+    expect(await sent).toBe(true)
+  })
+
+  it('says no while it is still waiting', async () => {
+    server.online = false
+    await outbox.enqueue(photo('a'))
+    await outbox.flush('u1')
+    expect(await outbox.whenSent('a', 20)).toBe(false)
+    expect((await store.all()).map((i) => i.photoId)).toEqual(['a'])
+  })
+})
+
 describe('an upload that stops moving', () => {
   const tick = (ms: number) => new Promise((r) => setTimeout(r, ms))
   const quick = () => new Outbox(store, server.backend, { now: () => clock, sleep: async (ms) => { clock += ms }, stallMs: 30 })
