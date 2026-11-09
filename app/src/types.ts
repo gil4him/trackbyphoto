@@ -53,6 +53,9 @@ export interface Memo {
   lng: number | null
   /** Short label for lists: "Tiger Sugar · 반포4동, 서초구". */
   place: string
+  /** Set when `place` was borrowed from this memo id (worker borrowPlace.ts): a
+   *  photo without a location shows a nearby photo's place. */
+  placeFrom?: string
   /** Full street address from the phone's GPS fix, shown on the detail page. */
   address?: string
   /** One-word activity category, surfaced as a chip in the UI and as the

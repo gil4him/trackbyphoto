@@ -44,6 +44,7 @@ export const FLAGS: FlagInfo[] = [
   { key: 'absenceNudges', name: '부모님 24시간 미접속 알림', note: '부모님 휴대폰에 사진 한 장 부탁, 가족에게 안부 알림 (09–21시, 하루 한 번)' },
   { key: 'pendingLinkNudges', name: '12시간 미수락 연결·초대 알림', note: '연결 링크·가족 초대를 보낸 사람에게 한 번 (09–21시)' },
   { key: 'reviewPrompt', name: '스토어 리뷰 요청', note: '가족 쪽에서만, 계정당 90일에 한 번', defaultOn: true },
+  { key: 'borrowPlace', name: '위치 없는 사진에 가까운 사진의 장소', note: '앞뒤 1시간 안에 찍은 사진의 장소 이름만 보여 줘요', defaultOn: true },
   { key: 'ceoMorningPush', name: '아침 8시 요약 푸시', note: '매일 8시(서울)에 어제 요약을 운영자 휴대폰으로 보내요' },
 ]
 
