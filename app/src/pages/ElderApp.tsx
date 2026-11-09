@@ -4,6 +4,7 @@ import { db } from '../firebase'
 import { Home } from './Home'
 import { ElderCamera } from './ElderCamera'
 import { ElderRecords } from '../components/ElderRecords'
+import { useOutbox } from '../hooks/useOutbox'
 import { MemoDetail } from './MemoDetail'
 import { FamilyNews } from './FamilyNews'
 import { FamilyNewsCard } from '../components/FamilyNewsCard'
@@ -134,6 +135,9 @@ export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn
   }, [updateUrl])
 
   const open = openId ? memos.find((m) => m.id === openId) ?? null : null
+  // Photos still on this phone (not sent yet), until their memo shows up from the server.
+  const memoIds = useMemo(() => new Set(memos.map((m) => m.id)), [memos])
+  const waiting = useOutbox(uid).filter((i) => !memoIds.has(i.photoId))
 
   if (revoked) {
     return (
@@ -191,6 +195,7 @@ export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn
             </header>
             <ElderRecords
               memos={memos}
+              waiting={waiting}
               received={familyPhotosOn ? familyPhotos : []}
               byMemo={rx?.byMemo}
               patientUid={uid}

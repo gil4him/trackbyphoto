@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { App as CapApp } from '@capacitor/app'
 import { Haptics, ImpactStyle } from '@capacitor/haptics'
 import { savePhoto } from '../lib/capture'
+import { outbox } from '../lib/outboxBackend'
 import { PARENT_CAMERA, captureNativePhoto, photoFromResult } from '../lib/phoneCamera'
 import { restoredPhoto, takeAndSend, type Overlay } from '../lib/elderShot'
 import { askLocation, keepLocationFresh, warmUpLocation } from '../lib/location'
@@ -35,6 +36,7 @@ export type { Overlay }
  */
 
 const OVERLAY_MS = 1500
+const OVERLAY_LATER_MS = 4000
 
 /** The plain-sentence screens, in the order the phone's questions come. */
 type Ask = 'camera' | 'location' | 'notify'
@@ -123,7 +125,7 @@ export function ElderCameraView({ busy, denied = false, overlay, news, photos = 
           {overlay.ok && overlay.text.endsWith('♥')
             ? <span>{overlay.text.slice(0, -1).trimEnd()}{' '}<span className="elder-cam-heart" aria-hidden="true">♥</span></span>
             : <span>{overlay.text}</span>}
-          {!overlay.ok && <span className="elder-cam-overlay-sub">{overlay.sub}</span>}
+          {overlay.sub && <span className="elder-cam-overlay-sub">{overlay.sub}</span>}
         </div>
       )}
 
@@ -218,7 +220,11 @@ export function ElderCamera({ uid, deviceId, reactions, photos = null, recent = 
     void Haptics.impact({ style: ImpactStyle.Medium }).catch(() => {})
     // A fix ready for the photo, when the phone already allows location.
     void locationPermission().then((s) => { if (s === 'granted') warmUpLocation() })
-    const result = await takeAndSend({ uid, toName, take, save: savePhoto })
+    const result = await takeAndSend({
+      uid, toName, take, save: savePhoto,
+      sent: (id, ms) => outbox.whenSent(id, ms),
+      onSending: (o) => { if (alive.current) setOverlay(o) },
+    })
     if (!alive.current) return
     if (result === 'cancelled' || result === 'denied') {
       if (result === 'denied') setDenied(true)
@@ -229,13 +235,14 @@ export function ElderCamera({ uid, deviceId, reactions, photos = null, recent = 
     }
     setDenied(false)
     setOverlay(result)
+    // "저장했어요" has a second line to read: it stays a little longer.
     setTimeout(() => {
       if (!alive.current) return
       setOverlay(null)
       busyRef.current = false
       setBusy(false)
       afterCamera()
-    }, OVERLAY_MS)
+    }, result.ok && result.sub ? OVERLAY_LATER_MS : OVERLAY_MS)
   }, [uid, toName, afterCamera])
 
   // A fix kept fresh while the camera screen is open, so a photo has one at the shutter.

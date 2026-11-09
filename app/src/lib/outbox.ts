@@ -160,6 +160,25 @@ export class Outbox {
     void this.flush(item.uid)
   }
 
+  /** True once this photo has left the phone (its memo is on the server);
+   *  false if it is still waiting after `timeoutMs`. */
+  whenSent(photoId: string, timeoutMs: number): Promise<boolean> {
+    return new Promise((resolve) => {
+      let done = false
+      let unsubscribe: () => void = () => {}
+      const finish = (sent: boolean) => {
+        if (done) return
+        done = true
+        clearTimeout(timer)
+        unsubscribe()
+        resolve(sent)
+      }
+      const timer = setTimeout(() => finish(false), timeoutMs)
+      unsubscribe = this.subscribe((items) => { if (!items.some((i) => i.photoId === photoId)) finish(true) })
+      if (done) unsubscribe()
+    })
+  }
+
   /** The phone found where the photo was taken. */
   async attachGeo(photoId: string, geo: Geo): Promise<void> {
     const stillQueued = await this.withLock(async () => {
