@@ -52,13 +52,28 @@ describe('FamilyPhotoViewer', () => {
     expect(out).not.toContain('tl-item')
   })
 
+  it('from 내 사진\'s 가족이 보낸 사진 card: every photo, the new one first, then the seen ones to walk through', () => {
+    const fresh = photo('1', { createdAtMs: Date.UTC(2026, 9, 5) })
+    const seen = photo('2', { createdAtMs: Date.UTC(2026, 9, 6), seenAtMs: 1 })
+    const out = renderToString(<FamilyPhotoViewer photos={[seen, fresh]} all onDone={() => {}} />).replace(/<!-- -->/g, '')
+    expect(out).toContain('src="https://x/1.jpg"')
+    expect(out).toContain('aria-label="1 / 2"')
+    expect(text(out)).toContain('다음 사진 ›')
+  })
+
+  it('a photo from today shows only the time', () => {
+    const out = renderToString(<FamilyPhotoViewer photos={[photo('1', { createdAtMs: Date.now() })]} onDone={() => {}} />).replace(/<!-- -->/g, '')
+    expect(out).toMatch(/class="fp-caption">오[전후] \d{1,2}:\d{2}</)
+  })
+
   it('shows where we are in the run: one dot a photo, the current one lit, and `n / N` under the photo (A12)', () => {
     const three = [photo('1'), photo('2', { createdAtMs: Date.UTC(2026, 9, 4) }), photo('3', { createdAtMs: Date.UTC(2026, 9, 3) })]
     const out = renderToString(<FamilyPhotoViewer photos={three} onDone={() => {}} />).replace(/<!-- -->/g, '')
     expect(out.match(/class="fp-dot( on)?"/g)).toHaveLength(3)
     expect(out.match(/class="fp-dot on"/g)).toHaveLength(1)
     expect(out).toContain('aria-label="1 / 3"')
-    expect(out).toMatch(/class="fp-caption">오[전후] \d{1,2}:\d{2} · 1 \/ 3</)
+    // An earlier day's photo carries its date before the time.
+    expect(out).toMatch(/class="fp-caption">10월 \d{1,2}일 \(.\) 오[전후] \d{1,2}:\d{2} · 1 \/ 3</)
     expect(out).not.toContain('fp-count')
     // The top row names the sender; the two outline buttons share one row.
     expect(out).toContain('<div class="fp-from">민수가 보냈어요</div>')

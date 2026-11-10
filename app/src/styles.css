@@ -2096,6 +2096,7 @@ html[lang="en"] .day-time { width: 60px; font-size: 13px; } /* 12:40 PM */
 .elder-received-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; padding: 10px 0; }
 .elder-received-title { font-size: 1.375rem; font-weight: 800; display: flex; align-items: center; flex-wrap: wrap; }
 .elder-received-line { font-size: 1.125rem; font-weight: 700; color: var(--ink); word-break: keep-all; overflow-wrap: anywhere; }
+.elder-received.elder-album { width: 100%; margin: 4px 0 18px; }
 .elder-records-empty { padding: 48px 8px; text-align: center; font-size: 1.625rem; font-weight: 700; color: var(--muted); line-height: 1.5; }
 .elder-bar {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 55; max-width: 480px; margin: 0 auto;

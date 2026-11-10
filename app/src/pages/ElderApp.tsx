@@ -21,9 +21,6 @@ import { resetIfAccountGone } from '../hooks/useAuth'
 import { isSimple } from '../lib/edition'
 import type { Memo, Reaction, TextReplies } from '../types'
 import { cardLine, unseen } from '../lib/familyPhotosModel'
-
-/** The camera's photo bubble: only while a photo from family is new. */
-const newPhotosLine = (photos: Parameters<typeof cardLine>[0]) => { const line = cardLine(photos); return line?.lit ? line : null }
 import { CameraFab } from '../components/CameraFab'
 import { useToast } from '../components/Toast'
 import { useIdleReturn } from '../hooks/useIdleReturn'
@@ -80,7 +77,7 @@ export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn
   } : undefined, [reactions, uid, patientName, voiceOn])
   const familyPhotos = useFamilyPhotos(familyPhotosOn ? uid : undefined)
   // The family-photo viewer: open from the camera's bubble (true), or on one photo tapped in 내 사진 (its id).
-  const [photosOpen, setPhotosOpen] = useState<boolean | string>(false)
+  const [photosOpen, setPhotosOpen] = useState<false | { start?: string; all?: boolean }>(false)
 
   // The number on the phone's icon: photos from family not looked at, and
   // hearts and words not read. Pushes set it while the app is closed
@@ -178,7 +175,8 @@ export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn
           <FamilyPhotoViewer
             photos={familyPhotos}
             textMode={textMode}
-            startId={typeof photosOpen === 'string' ? photosOpen : undefined}
+            startId={photosOpen.start}
+            all={photosOpen.all}
             onDone={(allSeen) => { setPhotosOpen(false); if (allSeen) toast.show(S.familyPhotoAllSeen, '') }}
           />
         ) : open ? (
@@ -201,7 +199,8 @@ export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn
               patientUid={uid}
               bigText={bigText}
               onOpen={setOpenId}
-              onOpenReceived={setPhotosOpen}
+              onOpenReceived={(id) => setPhotosOpen({ start: id })}
+              onOpenAlbum={() => setPhotosOpen({ all: true })}
               onCamera={backToCamera}
             />
           </div>
@@ -210,11 +209,11 @@ export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn
             uid={uid}
             deviceId={deviceId}
             reactions={reactions}
-            // Only a new photo is announced on the camera; the ones already seen live in 내 사진.
-            photos={familyPhotosOn ? newPhotosLine(familyPhotos) : null}
+            // A new photo is announced; once all are seen, the quiet 가족 사진 다시 보기 stays (owner, 2026-11-09).
+            photos={familyPhotosOn ? cardLine(familyPhotos) : null}
             recent={memos[0] ?? null}
             onOpenRecords={() => setView('records')}
-            onOpenPhotos={() => setPhotosOpen(true)}
+            onOpenPhotos={() => setPhotosOpen({})}
             onOpenNews={setOpenNews}
           />
         ) : (
@@ -230,7 +229,7 @@ export function ElderApp({ uid, deviceId, patientName, memos, reactions, voiceOn
             newsCard={(
               <>
                 {news && <FamilyNewsCard news={news} onOpen={() => { if (news.state !== 'none') setOpenNews(news) }} />}
-                {familyPhotosOn && <FamilyPhotosCard photos={familyPhotos} onOpen={() => setPhotosOpen(true)} />}
+                {familyPhotosOn && <FamilyPhotosCard photos={familyPhotos} onOpen={() => setPhotosOpen({})} />}
                 <ElderInstallButton />
               </>
             )}

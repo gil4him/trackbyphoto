@@ -6,6 +6,7 @@ import { listPhoto } from '../lib/listPhoto'
 import { subject } from '../lib/strings'
 import { tr } from '../lib/lang'
 import { hasUnseen, receivedLine, recordDays, tileAria, tileChip, tileTime, type RecordItem } from '../lib/elderRecords'
+import { showable } from '../lib/familyPhotosModel'
 import { dayHeading, landingDay } from '../util'
 import type { FamilyPhoto, Memo, Reaction } from '../types'
 import type { OutboxItem } from '../lib/outbox'
@@ -59,6 +60,26 @@ export function ElderReceivedCard({ photo, onOpen }: { photo: FamilyPhoto; onOpe
   )
 }
 
+/**
+ * Every photo the family sent, in one place at the top of 내 사진 (owner,
+ * 2026-11-09): the cards by day sink a week down among the parent's own
+ * photos, so a photo already seen was hard to find again. Opens them all.
+ */
+export function ElderAlbumCard({ photos, onOpen }: { photos: FamilyPhoto[]; onOpen: () => void }) {
+  const all = showable(photos)
+  if (all.length === 0) return null
+  const fresh = all.filter((p) => !p.seenAtMs).length
+  const label = tr(`가족이 보낸 사진 ${all.length}장`, `Photos from family · ${all.length}`)
+  return (
+    <button type="button" className="elder-received elder-album" onClick={onOpen} aria-label={`${label}${fresh ? tr(', 새 소식', ', new') : ''}`}>
+      <span className="elder-received-photo"><span className="tl-thumb">{all[0].photoUrl && <img src={listPhoto(all[0])} alt="" loading="lazy" />}</span></span>
+      <span className="elder-received-body">
+        <span className="elder-received-title">{fresh > 0 && <span className="elder-tile-new static">{tr('새 소식', 'New')}</span>}{label}</span>
+      </span>
+    </button>
+  )
+}
+
 /** Runs of tiles between received cards, in the day's order. */
 function runsOf(items: RecordItem[]): (RecordItem[] | RecordItem)[] {
   const out: (RecordItem[] | RecordItem)[] = []
@@ -74,10 +95,10 @@ function runsOf(items: RecordItem[]): (RecordItem[] | RecordItem)[] {
 /**
  * The parent's 내 사진: a 3-column photo grid by day (2 columns with 큰 글자,
  * one more on a tablet), received photos as cards between the tiles in time
- * order, a 새 소식 n › line on days with something unread, and a fixed
+ * order (and all of them behind one 가족이 보낸 사진 card on top), a 새 소식 n › line on days with something unread, and a fixed
  * bottom bar with 날짜로 찾기 and 카메라 (OWNER DECISION A14.7: BOTTOM BAR).
  */
-export function ElderRecords({ memos, received, waiting = [], byMemo, patientUid, bigText = false, onOpen, onOpenReceived, onCamera }: {
+export function ElderRecords({ memos, received, waiting = [], byMemo, patientUid, bigText = false, onOpen, onOpenReceived, onOpenAlbum, onCamera }: {
   memos: Memo[]
   received: FamilyPhoto[]
   /** Photos still on this phone (the outbox), shown first with 보내는 중. */
@@ -88,6 +109,8 @@ export function ElderRecords({ memos, received, waiting = [], byMemo, patientUid
   bigText?: boolean
   onOpen: (id: string) => void
   onOpenReceived: (id: string) => void
+  /** The 가족이 보낸 사진 card on top: all of them, in the viewer. */
+  onOpenAlbum?: () => void
   onCamera: () => void
 }) {
   const days = recordDays(memos, received)
@@ -100,6 +123,7 @@ export function ElderRecords({ memos, received, waiting = [], byMemo, patientUid
   return (
     <>
       <section className={`page elder-records${bigText ? ' big' : ''}`} aria-label={tr('내 사진', 'My photos')}>
+        {onOpenAlbum && <ElderAlbumCard photos={received} onOpen={onOpenAlbum} />}
         {waiting.length > 0 && (
           <div className="elder-day elder-waiting">
             <div className="elder-day-row"><h2 className="elder-day-head">{tr('보내는 중', 'Sending')}</h2></div>
