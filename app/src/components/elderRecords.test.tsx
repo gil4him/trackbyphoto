@@ -67,6 +67,15 @@ describe('ElderRecords', () => {
     expect(b).toBeLessThan(f); expect(f).toBeLessThan(a)
     expect(render({ received: [sent('g', at(1, 20, 40), { seenAtMs: 1, reply: { kind: 'heart', atMs: 2 } })] })).toContain('오후 8:40 · ❤️ 고마워요 보냄')
   })
+  it('가족이 보낸 사진 n장 on top opens them all, with 새 소식 while one is unread; absent with none or without the handler', () => {
+    const photos = [sent('f', at(5, 10), { seenAtMs: 1 }), sent('g', at(0, 9))]
+    const out = render({ memos: [memo('a', at(0, 11))], received: photos, onOpenAlbum: () => {} })
+    expect(out).toContain('aria-label="가족이 보낸 사진 2장, 새 소식"')
+    expect(out.indexOf('elder-album')).toBeLessThan(out.indexOf('elder-day'))
+    expect(render({ received: [sent('f', at(5, 10), { seenAtMs: 1 })], onOpenAlbum: () => {} })).toContain('aria-label="가족이 보낸 사진 1장"')
+    expect(render({ memos: [memo('a', at(0, 11))], onOpenAlbum: () => {} })).not.toContain('elder-album')
+    expect(render({ received: photos })).not.toContain('elder-album')
+  })
   it('the bottom bar: 날짜로 찾기 (the date picker, bounded by the days that have photos) and 카메라; no floating icons', () => {
     const out = render({ memos: [memo('a', at(0, 9)), memo('b', at(3, 9))] })
     expect(out).toContain('class="elder-bar"')

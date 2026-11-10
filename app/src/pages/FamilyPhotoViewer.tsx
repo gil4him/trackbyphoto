@@ -5,7 +5,7 @@ import { markFamilyPhotoSeen, replyToFamilyPhoto } from '../lib/familyPhotos'
 import { keepFamilyPhotoOnDevice } from '../lib/familyPhotoKeep'
 import { unseen, viewerOrder } from '../lib/familyPhotosModel'
 import { S } from '../lib/strings'
-import { fmtTime } from '../util'
+import { fmtDate, fmtTime } from '../util'
 import type { FamilyPhoto, TextReplies } from '../types'
 import { tr } from '../lib/lang'
 
@@ -13,13 +13,19 @@ import { tr } from '../lib/lang'
 const DOTS_MAX = 9
 /** `다음 사진 ›` on a narrow button: the chevron stays with the last word. */
 const tail = (s: string) => s.replace(/ ›$/, '\u00a0›')
+/** When it arrived: the time today, with the date on an earlier day. */
+const when = (ms: number, now = new Date()) => {
+  const d = new Date(ms)
+  return d.toDateString() === now.toDateString() ? fmtTime(d) : `${fmtDate(d)} ${fmtTime(d)}`
+}
 
 /**
  * The photos the family sent, on the parent's phone, one at a time and
  * nothing else: the photo, a line from the sender, 글로 답하기, and the way
  * on (다음 사진 while more new ones wait, else 돌아가기). From the camera's
- * bubble it walks the new photos, newest first; from 내 사진 it shows the one
- * photo tapped. The order is fixed when the screen opens, so a photo doesn't
+ * bubble it walks the new photos, newest first (all of them when nothing is
+ * new); from 내 사진 it shows the one photo tapped, and from 내 사진's
+ * 가족이 보낸 사진 card (`all`) every photo, new ones first. The order is fixed when the screen opens, so a photo doesn't
  * jump away as it is marked seen. After the last photo the caller's screen
  * comes back (`onDone(true)` — the caller says 다 보셨어요).
  * A written reply is one tap on a phrase, never the keyboard. Each photo
@@ -28,11 +34,13 @@ const tail = (s: string) => s.replace(/ ›$/, '\u00a0›')
  * its own shape, the message and the time under it, and the actions pinned
  * above the safe area: 글로 답하기 · 다음 사진 (or 돌아가기) side by side.
  */
-export function FamilyPhotoViewer({ photos, textMode = 'full', onDone, startId, mark = markFamilyPhotoSeen, reply = replyToFamilyPhoto, keep = keepFamilyPhotoOnDevice }: {
+export function FamilyPhotoViewer({ photos, textMode = 'full', onDone, startId, all = false, mark = markFamilyPhotoSeen, reply = replyToFamilyPhoto, keep = keepFamilyPhotoOnDevice }: {
   photos: FamilyPhoto[]
   textMode?: TextReplies
   /** Open on this photo (tapped in 내 사진); the rest follow in the usual order. */
   startId?: string
+  /** Every photo the family sent, new ones first (내 사진's 가족이 보낸 사진 card). */
+  all?: boolean
   /** `allSeen`: the parent went through to the last photo (true), or there was nothing to show. */
   onDone: (allSeen: boolean) => void
   /** Injected for tests. */
@@ -44,6 +52,7 @@ export function FamilyPhotoViewer({ photos, textMode = 'full', onDone, startId, 
   // From 내 사진: just that photo. From the camera's bubble: the new ones.
   const [order] = useState(() => {
     if (startId) return viewerOrder(photos, startId).filter((p) => p.id === startId)
+    if (all) return viewerOrder(photos)
     const fresh = unseen(photos)
     return fresh.length > 0 ? fresh : viewerOrder(photos)
   })
@@ -138,7 +147,7 @@ export function FamilyPhotoViewer({ photos, textMode = 'full', onDone, startId, 
             />}
       </div>
       {current.caption && <div className="fp-message">{current.caption}</div>}
-      <div className="fp-caption">{fmtTime(new Date(current.createdAtMs))}{order.length > 1 ? ` · ${place}` : ''}</div>
+      <div className="fp-caption">{when(current.createdAtMs)}{order.length > 1 ? ` · ${place}` : ''}</div>
       {/* Answered already: say so, and offer only the way on — one reply per photo. */}
       {current.reply && (
         <div className="fp-replied" role="status">
