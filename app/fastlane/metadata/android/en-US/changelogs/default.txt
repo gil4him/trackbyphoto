@@ -2,3 +2,4 @@
 · "Sent" now appears only once the photo has reached your family.
 · Photos still sending show in My photos.
 · A photo that arrives late shows when it was taken.
+· Photos from family are always in My photos.
