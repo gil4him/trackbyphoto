@@ -93,6 +93,14 @@
 - Copy: button `aria-label` "사진 돌리기" / "Rotate photo"; failure toast "사진을 돌리지 못했어요 · 잠시 후 다시 시도해 주세요" / "Couldn't rotate the photo · Please try again in a moment"; no success toast. Changing these needs the owner's approval.
 - firestore.rules and the privacy text are unchanged.
 
+### 휴대폰 카메라 사진 자동 보내기 (owner decisions, 2026-11-16; in design, not built)
+- Why: opening Daylie to take a photo is a bother for parents. Photos the parent takes with the phone's own camera app go through the same flow as in-app photos (upload → memo → family).
+- Sent **automatically**, with no confirm step.
+- **Camera photos only.** Screenshots, images saved from KakaoTalk or other apps, and downloads are never sent.
+- **Android and iPhone both.** On iPhone, photos go when Daylie is opened or when iOS briefly wakes it, which can be hours later; the owner accepts that.
+- The in-app Daylie camera stays.
+- Built only on branch `camera-roll-pickup` behind a flag that is off by default. It is not merged to main until the owner approves, the Google Play photo-permission declaration is filed, and the privacy/consent text is approved.
+
 ### 1.0.5 리뷰 요청·알리기 (owner decision, 2026-10-30, simple edition)
 - Review prompt (`lib/reviewPrompt.ts`, plugin `@capacitor-community/in-app-review`): family side only, native API directly with no pre-screen, when a family member opens a parent's 5th photo or the parent first replies, on accounts at least 3 days old, at most once in 90 days (`users/{uid}.lastReviewAskAt`, stamped by the worker). Flag `reviewPrompt` in `admin_config/plans`, default on (the one exception to flags shipping off: only an explicit false turns it off).
 - Pairing message for the store app, word for word: "{name}, 이 링크 한 번만 눌러 주세요 😊 / 사진 찍으면 제가 바로 볼 수 있어요. / 설치가 끝나면 이 링크를 한 번 더 눌러 주세요. / {link}", where {name} is the name the family registered, addressed as the app does (엄마, 아빠, 영희님), not always 엄마 (owner, 2026-10-30). The English message is unchanged.
