@@ -99,6 +99,12 @@
 - **Camera photos only.** Screenshots, images saved from KakaoTalk or other apps, and downloads are never sent.
 - **Android and iPhone both.** On iPhone, photos go when Daylie is opened or when iOS briefly wakes it, which can be hours later; the owner accepts that.
 - The in-app Daylie camera stays.
+- Android waits about 1 minute before sending, so a photo the parent deletes right away is never sent.
+- Daily limit 30 gallery photos per parent; photos past 30 are still sent, without a push alert.
+- When several gallery photos arrive together, the family gets one combined alert (e.g. 사진 10장), not one per photo.
+- Every plan gets it, free included.
+- Location comes only from the photo's own GPS tag; no tag → the existing 위치 없는 사진 rules. A photo deleted from the gallery after sending stays in Daylie.
+- Copy, privacy text and consent text need the owner's approval before shipping.
 - Built only on branch `camera-roll-pickup` behind a flag that is off by default. It is not merged to main until the owner approves, the Google Play photo-permission declaration is filed, and the privacy/consent text is approved.
 
 ### 1.0.5 리뷰 요청·알리기 (owner decision, 2026-10-30, simple edition)
