@@ -1,13 +1,1 @@
-[
-  {
-    "relation": ["delegate_permission/common.handle_all_urls"],
-    "target": {
-      "namespace": "android_app",
-      "package_name": "com.zymer.daylie",
-      "sha256_cert_fingerprints": [
-        "7A:23:E4:25:1D:25:6D:44:BF:B5:43:0B:D4:6E:A1:81:A4:6C:1D:51:15:EA:26:25:60:39:73:68:C4:69:F6:9E",
-        "9C:56:B3:4E:11:E6:0B:CC:C7:DE:E3:89:38:01:56:20:0B:0B:1D:BC:27:D6:9B:07:4C:6B:06:E4:C4:64:5B:1B"
-      ]
-    }
-  }
-]
+[{"relation":["delegate_permission/common.handle_all_urls"],"target":{"namespace":"android_app","package_name":"com.zymer.daylie","sha256_cert_fingerprints":["7A:23:E4:25:1D:25:6D:44:BF:B5:43:0B:D4:6E:A1:81:A4:6C:1D:51:15:EA:26:25:60:39:73:68:C4:69:F6:9E","9C:56:B3:4E:11:E6:0B:CC:C7:DE:E3:89:38:01:56:20:0B:0B:1D:BC:27:D6:9B:07:4C:6B:06:E4:C4:64:5B:1B","7B:15:04:10:06:15:13:33:F6:6C:41:E3:26:FD:72:D9:D7:B6:36:5B:76:15:A7:EA:1E:DF:AA:B2:6A:2C:C9:DA","5E:CF:0C:BA:AF:25:75:F0:EE:AE:46:5D:ED:54:7B:08:8A:4A:C3:45:7C:4F:EA:82:62:DB:9A:F3:76:88:21:69","24:AD:49:42:40:F8:EF:B2:38:5F:36:95:1B:B2:E2:B5:58:A5:37:4F:35:B6:DF:2A:3B:10:1C:00:4D:A9:96:3E"]}}]
